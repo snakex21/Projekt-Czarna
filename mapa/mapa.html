@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <!-- Podstawowe metadane dokumentu -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interaktywna Mapa Katastralna - Gmina Czarna</title>
+    
+    <!-- Biblioteki zewnętrzne - Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+    
+    <!-- Biblioteki zewnętrzne - Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Czcionki Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Dedykowany arkusz stylów dla mapy -->
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <!-- Tło gradientowe aplikacji -->
+    <div class="background-gradient"></div>
+    
+    <!-- Główny kontener aplikacji -->
+    <div id="app-wrapper">
+        
+        <!-- Górny pasek narzędzi z tytułem i wyszukiwarką -->
+        <div class="top-toolbar">
+            <div class="toolbar-left">
+                <h1 class="app-title">
+                    <i class="fas fa-map-marked-alt"></i>
+                    Mapa Katastralna Czarna z XIX w.
+                </h1>
+                <div class="toolbar-stats">
+                    <span class="stat-badge">
+                        <i class="fas fa-users"></i>
+                        <span id="total-owners">0</span> właścicieli
+                    </span>
+                    <span class="stat-badge">
+                        <i class="fas fa-layer-group"></i>
+                        <span id="total-parcels">0</span> działek
+                    </span>
+                </div>
+            </div>
+            
+            <div class="toolbar-right">
+                <!-- Uniwersalna wyszukiwarka -->
+                <div class="search-universal">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Szybkie wyszukiwanie..." id="universal-search">
+                    <div class="search-results-dropdown" id="universal-search-results"></div>
+                </div>
+                
+                <!-- Przyciski akcji w toolbarze -->
+                <div class="toolbar-actions">
+                    <button class="toolbar-btn" id="fullscreen-btn" title="Pełny ekran">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <button class="toolbar-btn" id="settings-btn" title="Ustawienia">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="toolbar-btn" id="help-btn" title="Pomoc">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Główny kontener z mapą i panelami bocznymi -->
+        <div id="main-container">
+            
+            <!-- Panel lewy - lista właścicieli -->
+            <div class="side-panel left-panel" id="owners-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-users"></i> Właściciele</h2>
+                    <button class="panel-toggle" data-panel="owners">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- Sekcja kontrolek dla panelu właścicieli -->
+                    <div class="owners-controls">
+                        <!-- Pole wyszukiwania -->
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="ownerSearch" placeholder="Szukaj właściciela...">
+                            <button class="clear-search" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Przyciski filtrowania i sortowania -->
+                        <div class="filter-buttons">
+                            <button class="filter-btn" data-sort="name">
+                                <i class="fas fa-sort-alpha-down"></i> Nazwisko
+                            </button>
+                            <button class="filter-btn active" data-sort="number">
+                                <i class="fas fa-sort-numeric-down"></i> Nr protokołu
+                            </button>
+                            <button class="filter-btn" data-sort="parcels">
+                                <i class="fas fa-chart-bar"></i> Ilość działek
+                            </button>
+                        </div>
+                        
+                        <!-- Sekcja porównywania protokołów -->
+                        <div class="compare-section">
+                            <button id="compareModeBtn" class="compare-btn">
+                                <i class="fas fa-balance-scale"></i>
+                                Porównaj protokoły
+                            </button>
+                            <div class="compare-info" style="display: none;">
+                                Wybierz 2 właścicieli do porównania
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Lista właścicieli generowana dynamicznie -->
+                    <div id="ownersList" class="owners-list">
+                        <!-- Karty właścicieli będą tutaj dodawane przez JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Uchwyt do rozwijania lewego panelu -->
+            <div class="panel-expand-handle left-handle" data-panel="owners">
+                <div class="handle-tab">
+                    <i class="fas fa-chevron-right"></i>
+                    <span>Właściciele</span>
+                </div>
+            </div>
+            
+            <!-- Kontener główny mapy -->
+            <div id="map-wrapper">
+                <!-- Element mapy Leaflet -->
+                <div id="map"></div>
+
+                <!-- Nakładki na mapie -->
+                
+                <!-- Kontrolki podświetlania -->
+                <div id="highlight-controls" class="hidden">
+                    <button id="clearHighlightBtn" class="clear-highlight-btn">
+                        <i class="fas fa-times"></i> Wyczyść zaznaczenie
+                    </button>
+                </div>
+                
+                <!-- Legenda dla wyróżnionych właścicieli -->
+                <div id="owner-highlight-legend" class="map-overlay bottom-right hidden">
+                    <div class="legend-header">
+                        <h3><i class="fas fa-users"></i> Wyróżnieni właściciele</h3>
+                    </div>
+                    <ul class="legend-list">
+                        <!-- Lista generowana dynamicznie przez JavaScript -->
+                    </ul>
+                </div>
+                
+                <!-- Wyświetlanie współrzędnych kursora -->
+                <div class="coordinates-display map-overlay top-right">
+                    <i class="fas fa-crosshairs"></i>
+                    <span id="mouse-coordinates">—</span>
+                </div>
+                
+                <!-- Główna legenda warstw mapy -->
+                <div class="map-legend map-overlay bottom-left" id="legend">
+                    <div class="legend-header">
+                        <h3><i class="fas fa-list"></i> Warstwy</h3>
+                        <button class="legend-toggle">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="legend-content">
+                        <ul class="legend-list">
+                            <!-- Elementy legendy generowane przez JavaScript -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Uchwyt do rozwijania prawego panelu -->
+            <div class="panel-expand-handle right-handle" data-panel="parcels">
+                <div class="handle-tab">
+                    <i class="fas fa-chevron-left"></i>
+                    <span>Działki</span>
+                </div>
+            </div>
+            
+            <!-- Panel prawy - lista działek i obiektów -->
+            <div class="side-panel right-panel" id="parcels-panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-map"></i> Działki i obiekty</h2>
+                    <button class="panel-toggle" data-panel="parcels">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- Zakładki do przełączania widoków -->
+                    <div class="tabs-container">
+                        <button class="tab-btn active" data-tab="parcels">
+                            <i class="fas fa-home"></i> Działki
+                        </button>
+                        <button class="tab-btn" data-tab="objects">
+                            <i class="fas fa-road"></i> Infrastruktura
+                        </button>
+                        <button class="tab-btn" data-tab="special">
+                            <i class="fas fa-star"></i> Specjalne
+                        </button>
+                    </div>
+                    
+                    <!-- Wyszukiwarka działek -->
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="parcelSearch" placeholder="Szukaj działki...">
+                    </div>
+                    
+                    <!-- Filtry kategorii działek -->
+                    <div class="category-filters" id="parcel-category-filters">
+                        <label class="category-filter">
+                            <input type="checkbox" checked data-category="budowlana">
+                            <span class="filter-badge budowlana">Budowlane</span>
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" checked data-category="rolna">
+                            <span class="filter-badge rolna">Rolne</span>
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" checked data-category="las">
+                            <span class="filter-badge las">Lasy</span>
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" checked data-category="pastwisko">
+                            <span class="filter-badge pastwisko">Pastwiska</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Zawartość zakładek -->
+                    <div class="tab-content active" id="parcels-tab">
+                        <div id="dzialki_panel" class="parcels-list">
+                            <!-- Lista działek generowana przez JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="objects-tab">
+                        <div id="obiekty_panel" class="parcels-list">
+                            <!-- Lista obiektów generowana przez JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content" id="special-tab">
+                        <div class="special-objects-list">
+                            <!-- Obiekty specjalne generowane przez JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dolny pasek nawigacyjny z linkami do innych sekcji -->
+        <div class="bottom-navigation">
+            <div class="nav-links">
+                <a href="../strona_glowna/index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>Strona główna</span>
+                </a>
+                <a href="../wlasciciele/stats.html" class="nav-link">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Statystyki</span>
+                </a>
+                <a href="../graf/graf.html" class="nav-link">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>Graf powiązań</span>
+                </a>
+                <a href="../genealogia/genealogia.html" class="nav-link">
+                    <i class="fas fa-sitemap"></i>
+                    <span>Genealogia</span>
+                </a>
+            </div>
+            
+            <!-- Liczniki informacyjne -->
+            <div class="nav-info">
+                <span class="info-badge">
+                    <i class="fas fa-mouse-pointer"></i>
+                    Zaznaczonych: <span id="selected-count">0</span>
+                </span>
+                <span class="info-badge">
+                    <i class="fas fa-eye"></i>
+                    Widocznych: <span id="visible-count">0</span>
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nakładka ładowania wyświetlana podczas inicjalizacji -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Ładowanie mapy katastralnej...</h2>
+            <div class="loading-progress">
+                <div class="progress-bar"></div>
+            </div>
+            <p class="loading-status">Pobieranie danych...</p>
+        </div>
+    </div>
+    
+    <!-- Okno modalne z pomocą -->
+    <div class="modal" id="help-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> Pomoc</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Skróty klawiszowe</h3>
+                <ul class="shortcuts-list">
+                    <li><kbd>Ctrl</kbd> + <kbd>F</kbd> - Wyszukiwanie</li>
+                    <li><kbd>Ctrl</kbd> + <kbd>Z</kbd> - Cofnij</li>
+                    <li><kbd>+</kbd> / <kbd>-</kbd> - Zoom</li>
+                    <li><kbd>Esc</kbd> - Anuluj zaznaczenie</li>
+                </ul>
+                
+                <h3>Wskazówki</h3>
+                <ul>
+                    <li>Kliknij dwukrotnie na właściciela aby zobaczyć protokół</li>
+                    <li>Najedź na działkę aby podświetlić właściciela</li>
+                    <li>Użyj trybu porównywania do analizy protokołów</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Okno modalne z ustawieniami -->
+    <div class="modal" id="settings-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Ustawienia</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>Wygląd</h3>
+                <div class="setting-item">
+                    <span>Tryb Ciemny</span>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="theme-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                
+                <h3>Aplikacja</h3>
+                <div class="setting-item">
+                    <span>Zresetuj widok</span>
+                    <button class="setting-btn" id="reset-view-btn">
+                        <i class="fas fa-sync-alt"></i> Resetuj
+                    </button>
+                </div>
+                <p class="setting-note">
+                    Resetuj widok, aby wyczyścić wszystkie zaznaczenia, zamknąć panele i wyśrodkować mapę.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dołączenie skryptów JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Biblioteka Leaflet do obsługi mapy -->
+    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+    <!-- Rozszerzenie Leaflet do rysowania na mapie -->
+    <script src="map-script.js"></script>
+    <!-- Główny skrypt obsługujący logikę mapy i interfejsu -->
+</body>
+</html>
