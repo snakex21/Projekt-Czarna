@@ -612,12 +612,7 @@ erDiagram
                         działkę z wieloma właścicielami wyświetla okno wyboru.
                       </li>
                     </ul>
-                    <div class="screenshot-placeholder">
-                      <p>
-                        [ Zrzut ekranu: Główny widok mapy interaktywnej z
-                        otwartymi panelami bocznymi. ]
-                      </p>
-                    </div>
+                    <img src="assets/screenshot_mapa.png" alt="Główny widok mapy interaktywnej z panelami bocznymi i legendą" class="screenshot">
                   </li>
                   <li>
                     <p>
@@ -652,12 +647,9 @@ erDiagram
                         oryginalnego, XIX-wiecznego dokumentu.
                       </li>
                     </ul>
-                    <div class="screenshot-placeholder">
-                      <p>
-                        [ Zrzut ekranu: Strona szczegółowego protokołu z
-                        widocznymi sekcjami analitycznymi i listą działek. ]
-                      </p>
-                    </div>
+                    <img src="assets/protokol_szczegolowy_1.PNG" alt="Szczegółowy widok protokołu z danymi właściciela, listą działek i analizami" class="screenshot">
+                    <img src="assets/protokol_szczegolowy_2.PNG" alt="Szczegółowy widok protokołu z danymi właściciela, listą działek i analizami" class="screenshot">
+                    <img src="assets/protokol_szczegolowy_3.PNG" alt="Szczegółowy widok protokołu z danymi właściciela, listą działek i analizami" class="screenshot">
                   </li>
                   <li>
                     <p>
@@ -688,12 +680,7 @@ erDiagram
                         dniach.
                       </li>
                     </ul>
-                    <div class="screenshot-placeholder">
-                      <p>
-                        [ Zrzut ekranu: Dashboard Centrum Analitycznego z
-                        widocznymi wykresami i rankingami. ]
-                      </p>
-                    </div>
+                  <img src="assets/centrum_analityczne.PNG" alt="Dashboard analityczny z wykresami struktury własności i rankingami" class="screenshot">
                   </li>
                   <li>
                     <p>
@@ -719,12 +706,7 @@ erDiagram
                           PDF</strong>.
                       </li>
                     </ul>
-                    <div class="screenshot-placeholder">
-                      <p>
-                        [ Zrzut ekranu: Widok Porównywarki z dwoma protokołami
-                        wyświetlonymi obok siebie. ]
-                      </p>
-                    </div>
+                  <img src="assets/porownanie_protokolow.PNG" alt="Widok porównywarki zestawiającej dwa protokoły obok siebie" class="screenshot">
                   </li>
                 </ul>
               </li>
@@ -775,18 +757,8 @@ erDiagram
                     łatwe przenoszenie danych między środowiskami.
                   </li>
                 </ul>
-                <div class="screenshot-placeholder">
-                  <p>
-                    [ Zrzut ekranu: Dashboard Panelu Administracyjnego,
-                    pokazujący statystyki i menu boczne ]
-                  </p>
-                </div>
-                <div class="screenshot-placeholder">
-                  <p>
-                    [ Zrzut ekranu: Widok edycji właściciela w panelu admina, z
-                    widoczną listą rozwijaną do wyboru działek ]
-                  </p>
-                </div>
+                <img src="assets/panel_admina.PNG" alt="Pulpit główny panelu administracyjnego z kluczowymi statystykami" class="screenshot">
+                <img src="assets/widok_edycji_wlasciciela_admin.PNG" alt="Edycja właściciela w panelu admina z możliwością przypisywania działek" class="screenshot">
               </li>
             </ul>
             <div class="subsection">
@@ -1668,13 +1640,7 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
                     logowania (użytkownik, hasło), które ustawiłeś podczas
                     instalacji PostgreSQL. Po zapisaniu zmian zamknij edytor.
                 </li>
-                <div class="screenshot-placeholder">
-                    <p>
-                    [ Zrzut ekranu: Okno Launchera z zaznaczonym przyciskiem
-                    "Konfiguracja Bazy Danych" oraz otwarte okno edytora pliku
-                    .env ]
-                    </p>
-                </div>
+                <img src="assets/launcher_konfiguracja.png" alt="Launcher z otwartym oknem edycji pliku konfiguracyjnego bazy danych" class="screenshot">
                 <li>
                     <strong>Migracja danych:</strong> Kliknij przycisk
                     <strong>"Migruj Dane do Bazy"</strong>. W konsoli na
@@ -1776,7 +1742,7 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
           </div>
         </section>
 
-        <section>
+<section>
           <h2 id="galeria-aplikacji">Galeria Aplikacji i Ekosystemu Narzędziowego</h2>
           <p>
             Poniżej zaprezentowano unikalne funkcjonalności aplikacji oraz dedykowane narzędzia 
@@ -1789,10 +1755,6 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
               <figure>
                 <img src="assets/screenshot_strona_glowna.png" alt="Strona główna projektu" />
                 <figcaption>Strona powitalna wprowadzająca w historyczny kontekst projektu.</figcaption>
-              </figure>
-              <figure>
-                <img src="assets/screenshot_porownywarka.png" alt="Porównywarka protokołów z wizualizacją na mapie" />
-                <figcaption>Narzędzie do porównywania dwóch protokołów obok siebie z dynamiczną mapą.</figcaption>
               </figure>
               
               <!-- Wizualizacje analityczne -->
@@ -1813,15 +1775,18 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
                 <figcaption>Graf powiązań społecznych, wizualizujący relacje między protokołami.</figcaption>
               </figure>
 
-              <!-- Narzędzia i administracja -->
               <figure>
-                <img src="assets/screenshot_launcher.png" alt="Launcher - centrum dowodzenia projektem" />
-                <figcaption>Launcher - graficzne centrum dowodzenia do zarządzania całym projektem.</figcaption>
+                <img src="assets/screenshot_owner_editor_gui2.png" alt="Edytor właścicieli (GUI w Python/Tkinter)" />
+                <figcaption>Strona Edycji Właściciela w edytorze danych właścicieli 2.</figcaption>
               </figure>
               <figure>
-                <img src="assets/screenshot_owner_editor_gui.png" alt="Edytor właścicieli (GUI w Python/Tkinter)" />
-                <figcaption>Desktopowe narzędzie (GUI) do edycji danych właścicieli i demografii.</figcaption>
+                <img src="assets/screenshot_owner_editor_gui3.png" alt="Edytor właścicieli (GUI w Python/Tkinter)" />
+                <figcaption>Strona Edycji Właściciela w edytorze danych właścicieli 3.</figcaption>
               </figure>
+              <figure>
+                <img src="assets/screenshot_owner_editor_gui4.png" alt="Edytor właścicieli (GUI w Python/Tkinter)" />
+                <figcaption>Desktopowe narzędzie (GUI) do edycji demografii.</figcaption>
+              </figure>                                          
               <figure>
                 <img src="assets/screenshot_parcel_editor.png" alt="Edytor działek w trakcie pracy" />
                 <figcaption>Wizualne rysowanie obiektów na mapie w dedykowanym edytorze działek.</figcaption>
@@ -1833,6 +1798,10 @@ CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
                <figure>
                 <img src="assets/screenshot_launcher_backup_manager.png" alt="Menedżer kopii zapasowych w Launcherze" />
                 <figcaption>Zaawansowany menedżer kopii zapasowych z opcjami importu i eksportu.</figcaption>
+              </figure>
+                             <figure>
+                <img src="assets/screenshot_launcher_backup_manager2.png" alt="Menedżer kopii zapasowych w Launcherze" />
+                <figcaption>Zaawansowany menedżer kopii zapasowych z opcjami importu i eksportu, tworzenie kopi zapasowej.</figcaption>
               </figure>
               <figure>
                 <img src="assets/screenshot_launcher_security.png" alt="Menedżer Bezpieczeństwa w Launcherze" />
