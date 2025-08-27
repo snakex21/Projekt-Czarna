@@ -5998,33 +5998,6 @@
         "powiazania_i_transakcje": "Nabył posiadłość od Henryki hr. Kuczkowskiej (kontrakt z 02.12.1878), jednak jej wpis do księgi wieczystej został zablokowany przez kuratora dóbr dworskich, Franciszka Jakubowskiego.",
         "interpretacja_i_wnioski": "Protokół ten powiela schemat problemów z gruntami tabularnymi, powszechny dla nabywców ziemi od dworu, również z sąsiednich miejscowości. Marcin Nosal, podobnie jak inni, nabywa grunt od Henryki hr. Kuczkowskiej, lecz jego prawo własności nie może zostać formalnie uregulowane w księdze wieczystej z powodu sprzeciwu kuratora. Powtarzalność tego zjawiska w wielu protokołach wskazuje, że był to problem systemowy, dotykający szerokiego grona włościan, którzy kupowali ziemię dworską."
     },
-    "Agata_Labudka": {
-        "orderNumber": "126",
-        "ownerName": "Agata Łabudzka (żona Piotra Łabudzkiego z Machowej)",
-        "protocolDate": "27 luty 1882 rok",
-        "houseNumber": "",
-        "protocolLocation": "Pilzno",
-        "buildingPlots": [],
-        "agriculturalPlots": [
-            {
-                "numerator": "800",
-                "denominator": "14"
-            }
-        ],
-        "realbuildingPlots": [],
-        "realagriculturalPlots": [
-            {
-                "numerator": "800",
-                "denominator": "14"
-            }
-        ],
-        "genealogy": "Mąż: Piotr Łabudzki (zmarły)",
-        "ownershipHistory": "Powyższą parcelę w katastrze na mego męża Piotra Łabudzkiego zapisaną, nabył tenże z kompleksu tabularnego dóbr Czarna od byłej właścicielki tychże dóbr Henryki hr. Kuczkowskiej kontraktem kupna sprzedaży przed 5-ma laty (ustnie?) zawartym. Upraszam, ażeby z powyższej posiadłości utworzone zostało jedno ciało hipoteczne oraz by prawo własności takowego dla nieobjętej masy spadkowej Piotra Łabudzkiego zostało zaintabulowane; tenże bowiem zmarł, a pertraktacja spadku po nim przeprowadzona nie jest.\nAgata Łabudzka",
-        "remarks": "Staje kurator masy spadkowej Henryki hr. Kuczkowskiej, Franciszek Jakubowski, i oświadcza:\nPonieważ parcela grunt. 800/14 w katastrze na Piotra Łabudzkiego zapisana jest częścią kompleksu tabularnego dóbr Czarna, a z takowego dotychczas wyłączona nie została, dlatego nie zgadzam się, na utworzenie z tej parceli osobnego ciała hipotecznego i zaintabulowanie takowego dla masy spadkowej Piotra Łabudzkiego. Lecz upraszam, aby parcela powyższa do karty stanu posiadania majętności tabularnej została zapisana.\nFranciszek Jakubowski",
-        "wspolwlasnosc": "Cała posiadłość stanowi nieuregulowaną masę spadkową po zmarłym Piotrze Łabudzkim.",
-        "powiazania_i_transakcje": "Mąż Agaty, Piotr Łabudzki, nabył posiadłość od Henryki hr. Kuczkowskiej (kontrakt ustny sprzed 5 laty), jednak jej wpis do księgi wieczystej został zablokowany przez kuratora dóbr dworskich, Franciszka Jakubowskiego.",
-        "interpretacja_i_wnioski": "Protokół ten jest przykładem problemu z gruntami tabularnymi w kontekście spadku. Wdowa, Agata Łabudzka, występuje w imieniu nieuregulowanej masy spadkowej po zmarłym mężu. Majątek ten, nabyty od dworu na podstawie ustnej umowy, nadal nie mógł zostać wpisany do księgi wieczystej z powodu sprzeciwu kuratora. To pokazuje, że problemy prawne z ziemią dworską były dziedziczone i wymagały formalnego uregulowania w trakcie dochodzeń katastralnych, aby zapewnić rodzinie pełne prawa do ziemi."
-    },
     "Jan_Barnas": {
         "orderNumber": "127",
         "ownerName": "Jan Barnaś (ze Żdżar)",
@@ -12379,5 +12352,32 @@
         "wspolwlasnosc": "Tak, majątek po matce (Zofii) jest współwłasnością dzieci w następujących udziałach:\n- Regina z Augustynów Plucina: 2/4 (połowa)\n- Wojciech Augustyn: 1/4\n- Tomasz Augustyn (małoletni): 1/4\nMajątek po ojcu (Macieju) stanowi osobną, niepodzieloną masę spadkową.",
         "powiazania_i_transakcje": "Protokół dokumentuje podział spadku po Macieju i Zofii Augustynach między ich czworo dzieci.\nJan Augustyn odstępuje swoją część siostrze Reginie.\nKorygowany jest stan posiadania z:\n- [[Jan Socha (spadk.)|Jan_Socha_spadkobiercy]] (oddanie działek 1073 i 1074).\n- Józefem Plutą i [[Jakub Sak (z Borowy)|Jakub_Sak]] (przejęcie licznych, błędnie zapisanych działek).",
         "interpretacja_i_wnioski": "Ten niezwykle złożony protokół jest przykładem mistrzowskiej regulacji dwóch mas spadkowych (po ojcu i matce), które były obarczone licznymi błędami. Rodzeństwo Augustynów aktywnie zarządza tu swoim dziedzictwem, dokonując wewnątrzrodzinnych cesji (Jan na rzecz Reginy) i wspólnie korygując błędy katastralne. Ustanowienie precyzyjnych udziałów w spadku po matce (2/4, 1/4, 1/4) świadczy o zaawansowaniu ówczesnego prawa spadkowego. Protokół ten jest kwintesencją pracy komisji katastralnej, która na podstawie zeznań i dokumentów rozplątuje wieloletnie, skomplikowane historie rodzinno-majątkowe, tworząc nowy, klarowny porządek prawny."
+    },
+    "Agata_Labudzka": {
+        "orderNumber": "126",
+        "ownerName": "Agata Łabudzka (żona Piotra Łabudzkiego z Machowej)",
+        "protocolDate": "27 luty 1882 rok",
+        "houseNumber": "",
+        "protocolLocation": "Pilzno",
+        "buildingPlots": [],
+        "agriculturalPlots": [
+            {
+                "numerator": "800",
+                "denominator": "14"
+            }
+        ],
+        "realbuildingPlots": [],
+        "realagriculturalPlots": [
+            {
+                "numerator": "800",
+                "denominator": "14"
+            }
+        ],
+        "genealogy": "Mąż: Piotr Łabudzki (zmarły)",
+        "ownershipHistory": "Powyższą parcelę w katastrze na mego męża Piotra Łabudzkiego zapisaną, nabył tenże z kompleksu tabularnego dóbr Czarna od byłej właścicielki tychże dóbr Henryki hr. Kuczkowskiej kontraktem kupna sprzedaży przed 5-ma laty (ustnie?) zawartym. Upraszam, ażeby z powyższej posiadłości utworzone zostało jedno ciało hipoteczne oraz by prawo własności takowego dla nieobjętej masy spadkowej Piotra Łabudzkiego zostało zaintabulowane; tenże bowiem zmarł, a pertraktacja spadku po nim przeprowadzona nie jest.\nAgata Łabudzka",
+        "remarks": "Staje kurator masy spadkowej Henryki hr. Kuczkowskiej, Franciszek Jakubowski, i oświadcza:\nPonieważ parcela grunt. 800/14 w katastrze na Piotra Łabudzkiego zapisana jest częścią kompleksu tabularnego dóbr Czarna, a z takowego dotychczas wyłączona nie została, dlatego nie zgadzam się, na utworzenie z tej parceli osobnego ciała hipotecznego i zaintabulowanie takowego dla masy spadkowej Piotra Łabudzkiego. Lecz upraszam, aby parcela powyższa do karty stanu posiadania majętności tabularnej została zapisana.\nFranciszek Jakubowski",
+        "wspolwlasnosc": "Cała posiadłość stanowi nieuregulowaną masę spadkową po zmarłym Piotrze Łabudzkim.",
+        "powiazania_i_transakcje": "Mąż Agaty, Piotr Łabudzki, nabył posiadłość od Henryki hr. Kuczkowskiej (kontrakt ustny sprzed 5 laty), jednak jej wpis do księgi wieczystej został zablokowany przez kuratora dóbr dworskich, Franciszka Jakubowskiego.",
+        "interpretacja_i_wnioski": "Protokół ten jest przykładem problemu z gruntami tabularnymi w kontekście spadku. Wdowa, Agata Łabudzka, występuje w imieniu nieuregulowanej masy spadkowej po zmarłym mężu. Majątek ten, nabyty od dworu na podstawie ustnej umowy, nadal nie mógł zostać wpisany do księgi wieczystej z powodu sprzeciwu kuratora. To pokazuje, że problemy prawne z ziemią dworską były dziedziczone i wymagały formalnego uregulowania w trakcie dochodzeń katastralnych, aby zapewnić rodzinie pełne prawa do ziemi."
     }
 }
