@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <!-- Podstawowe metadane dokumentu -->
+    <meta charset="UTF-8" />
+    <title>Edytor Genealogii</title>
+    
+    <!-- Główny arkusz stylów edytora genealogicznego -->
+    <!-- Zawiera style dla tabeli, modali, formularzy i efektów wizualnych -->
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='editor_style.css') }}"
+    />
+  </head>
+  <body>
+    <!-- Główny kontener aplikacji edytora -->
+    <div class="container">
+      <!-- Nagłówek aplikacji z tytułem i głównymi przyciskami akcji -->
+      <header>
+        <h1>Edytor Genealogii</h1>
+        <div>
+          <!-- Przycisk otwierający formularz dodawania nowej osoby -->
+          <button id="showAddFormBtn" class="btn add-btn">
+            Dodaj Nową Osobę
+          </button>
+          
+          <!-- Przycisk dostępu do menedżera kopii zapasowych -->
+          <button
+            id="showBackupManagerBtn"
+            class="btn action-btn"
+            style="margin-left: 10px"
+          >
+            Zarządzaj Zapisami
+          </button>
+          
+          <!-- Przycisk zapisujący wszystkie zmiany i zamykający edytor -->
+          <button
+            id="saveAndCloseBtn"
+            class="btn save-btn"
+            style="margin-left: 10px"
+          >
+            Zapisz i Zamknij
+          </button>
+          
+          <!-- Przycisk awaryjnego wyjścia bez zapisywania zmian -->
+          <button id="exit-no-save" class="btn btn-danger">
+            Wyjdź bez zapisu
+          </button>
+        </div>
+      </header>
+
+      <!-- Sekcja narzędzi filtrowania i wyszukiwania -->
+      <div class="search-bar-container">
+        <!-- Pole tekstowe do szybkiego wyszukiwania osób -->
+        <input
+          type="text"
+          id="searchGenealogyInput"
+          placeholder="Filtruj osoby po imieniu, nazwisku lub ID."
+        />
+        
+        <!-- Lista rozwijana do filtrowania według rodzin -->
+        <!-- Opcje są generowane dynamicznie przez JavaScript -->
+        <select id="familyFilter">
+          <option value="">— Wszystkie rodziny —</option>
+        </select>
+      </div>
+
+      <!-- Kontener z przewijalną tabelą danych genealogicznych -->
+      <div class="table-responsive-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Imię i Nazwisko</th>
+              <th>Lata życia</th>
+              <th>Rodzice</th>
+              <th>Małżonek</th>
+              <th>Protokół</th>
+              <th>Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="genealogyTableBody">
+            <!-- Wiersze tabeli są generowane dynamicznie przez editor_script.js -->
+            <!-- Każdy wiersz reprezentuje jedną osobę z drzewa genealogicznego -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal edycji i dodawania osób - domyślnie ukryty -->
+    <div id="editGenealogyModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <!-- Nagłówek modala z tytułem i przyciskiem zamykania -->
+        <header class="modal-header">
+          <h2 id="modalTitle">Edytuj Osobę</h2>
+          <button class="close-button" id="closeModalBtn">×</button>
+        </header>
+        
+        <!-- Formularz edycji danych osoby -->
+        <form id="editGenealogyForm">
+          <!-- Ukryte pole przechowujące oryginalne ID edytowanej osoby -->
+          <input type="hidden" id="edit-person-id" />
+
+          <!-- Sekcja identyfikatora osoby - pole krytyczne dla spójności danych -->
+          <div class="form-group">
+            <label for="edit-id-osoby">Unikalne ID Osoby:</label>
+            <input
+              type="text"
+              id="edit-id-osoby"
+              required
+              placeholder="np. 1"
+              style="background-color: #fffbeb; font-weight: bold"
+            />
+            <small style="display: block; margin-top: 4px; color: #555"
+              >To jest kluczowy identyfikator. Musi być unikalny dla każdej
+              osoby!</small
+            >
+          </div>
+          
+          <!-- Sekcja podstawowych danych osobowych w układzie siatki -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-imie">Imię:</label>
+              <input type="text" id="edit-imie" required />
+            </div>
+            <div class="form-group">
+              <label for="edit-nazwisko">Nazwisko:</label>
+              <input type="text" id="edit-nazwisko" />
+            </div>
+            <div class="form-group">
+              <label for="edit-rok_urodzenia">Rok urodzenia:</label>
+              <input type="number" id="edit-rok_urodzenia" />
+            </div>
+            <div class="form-group">
+              <label for="edit-rok_smierci">Rok śmierci:</label>
+              <input type="number" id="edit-rok_smierci" />
+            </div>
+          </div>
+
+          <!-- Dodatkowe informacje o osobie -->
+          <div class="form-group">
+            <label for="edit-plec">Płeć:</label>
+            <select id="edit-plec">
+              <option value="M">Mężczyzna</option>
+              <option value="F">Kobieta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-numer_domu">Numer domu:</label>
+            <input type="text" id="edit-numer_domu" />
+          </div>
+
+          <!-- Pole na dodatkowe uwagi i notatki -->
+          <div class="form-group" style="margin-top: 15px">
+            <label for="edit-uwagi">Uwagi:</label>
+            <textarea id="edit-uwagi" rows="3"></textarea>
+          </div>
+
+          <!-- Sekcja relacji rodzinnych -->
+          <h3 class="relations-header">
+            Relacje Rodzinne (wpisz klucz, imię lub nazwisko)
+          </h3>
+          
+          <!-- Pola wyboru rodziców z autouzupełnianiem -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-ojciec-id">Ojciec:</label>
+              <input type="text" id="edit-ojciec-id" list="people-list" />
+            </div>
+            <div class="form-group">
+              <label for="edit-matka-id">Matka:</label>
+              <input type="text" id="edit-matka-id" list="people-list" />
+            </div>
+          </div>
+          
+          <!-- Pole wyboru małżonka z autouzupełnianiem -->
+          <div class="form-group" style="margin-top: 15px">
+            <label for="edit-malzonek-id">Małżonek:</label>
+            <input type="text" id="edit-malzonek-id" list="people-list" />
+          </div>
+          
+          <!-- Lista datalist dla autouzupełniania osób - wypełniana przez JavaScript -->
+          <datalist id="people-list"></datalist>
+
+          <!-- Pole powiązania z protokołem właściciela -->
+          <div class="form-group" style="margin-top: 15px">
+            <label for="edit-wlasciciel-id">Powiązany protokół:</label>
+            <input type="text" id="edit-wlasciciel-id" list="protocols-list" />
+            <!-- Lista datalist dla protokołów - wypełniana przez JavaScript -->
+            <datalist id="protocols-list"></datalist>
+          </div>
+
+          <!-- Stopka formularza z przyciskami akcji -->
+          <footer class="modal-footer">
+            <button type="submit" class="save-btn">Zapisz</button>
+            <button type="button" id="cancelEditBtn" class="cancel-btn">
+              Anuluj
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal wizualizacji drzewa genealogicznego z biblioteką D3.js -->
+    <div id="genealogyModal" class="modal">
+      <div class="modal-content">
+        <!-- Przycisk zamykania widoku drzewa -->
+        <button id="closeGenealogyModalBtn" class="close">&times;</button>
+        <!-- Kontener na renderowane drzewo genealogiczne -->
+        <div
+          id="genealogy-chart"
+          style="width: 100%; height: 80vh; overflow: auto"
+        ></div>
+      </div>
+    </div>
+
+    <!-- Modal menedżera kopii zapasowych - domyślnie ukryty -->
+    <div id="backupManagerModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <!-- Nagłówek menedżera kopii zapasowych -->
+        <header class="modal-header">
+          <h2>Menedżer Kopii Zapasowych - Genealogia</h2>
+          <button class="close-button" id="closeBackupModalBtn">×</button>
+        </header>
+
+        <!-- Pasek narzędzi z przyciskiem tworzenia nowej kopii -->
+        <div class="backup-toolbar" style="margin-bottom: 20px">
+          <button id="createBackupBtn" class="btn save-btn">
+            Stwórz nową kopię zapasową
+          </button>
+        </div>
+
+        <!-- Tabela z listą dostępnych kopii zapasowych -->
+        <div class="table-responsive-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nazwa Pliku Kopii Zapasowej (od najnowszej)</th>
+                <th style="width: 220px; text-align: right">Akcje</th>
+              </tr>
+            </thead>
+            <tbody id="backupListBody">
+              <!-- Wiersze z kopiami zapasowymi są generowane dynamicznie przez JavaScript -->
+              <!-- Każdy wiersz zawiera nazwę pliku oraz przyciski przywróć/usuń -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Skrypty JavaScript aplikacji -->
+    <!-- Moduł wizualizacji drzewa genealogicznego z D3.js -->
+    <script src="{{ url_for('static', filename='genealogia_d3_fixed.js') }}"></script>
+    <!-- Główny skrypt obsługujący logikę edytora -->
+    <script src="{{ url_for('static', filename='editor_script.js') }}"></script>
+  </body>
+</html>

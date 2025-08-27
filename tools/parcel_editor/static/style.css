@@ -1,0 +1,447 @@
+/* ==========================================================================
+   Plik: style.css
+   Opis: Arkusz stylów dla aplikacji edytora działek z interaktywną mapą.
+        Zawiera style dla mapy Leaflet, panelu bocznego oraz modali.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Reset podstawowy i style globalne
+   -------------------------------------------------------------------------- */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f0ebe5;  /* Kremowe tło aplikacji */
+  color: #333;
+}
+
+/* Główny kontener aplikacji - układ pełnoekranowy */
+.container {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Kontener dla mapy i panelu bocznego */
+.content {
+  display: flex;
+  gap: 20px;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. Komponent: Mapa Leaflet
+   -------------------------------------------------------------------------- */
+#map {
+  height: 100%;
+  flex-grow: 1;
+  border: 1px solid #ccc;
+}
+
+/* Niestandardowa kontrolka wyświetlania współrzędnych */
+.leaflet-control-coordinates {
+  background: rgba(255, 255, 255, 0.8);
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  font-family: monospace;  /* Czcionka o stałej szerokości dla liczb */
+}
+
+/* --------------------------------------------------------------------------
+   3. Komponent: Pasek narzędzi górny (toolbar)
+   -------------------------------------------------------------------------- */
+
+/* Etykieta informacyjna w pasku narzędzi */
+.toolbar-label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+/* Podstawowe style przycisków w pasku narzędzi */
+#top-toolbar button {
+  background-color: #fdfdfd;
+  color: #333;
+  border: 1px solid #bbb;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  /* Dodatkowe style dla lepszej widoczności */
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Cień dla czytelności */
+  font-weight: bold;
+  border-width: 2px;
+  transition: transform 0.1s ease-in-out;
+}
+
+#top-toolbar button:hover {
+  transform: scale(1.05); /* Efekt powiększenia przy najechaniu */
+}
+
+/* --- Kolory kategorii działek --- */
+/* Każda kategoria ma przypisany unikalny kolor dla łatwej identyfikacji */
+#top-toolbar button[data-category="budowlana"] {
+  background-color: #e67e22;  /* Pomarańczowy */
+  border-color: #c0392b;
+}
+
+#top-toolbar button[data-category="rolna"] {
+  background-color: #2ecc71;  /* Zielony */
+  border-color: #27ae60;
+}
+
+#top-toolbar button[data-category="droga"] {
+  background-color: #88540b;  /* Brązowy */
+  border-color: #603a08;
+}
+
+#top-toolbar button[data-category="rzeka"] {
+  background-color: #3498db;  /* Niebieski */
+  border-color: #2980b9;
+}
+
+#top-toolbar button[data-category="las"] {
+  background-color: #1abc9c;  /* Turkusowy */
+  border-color: #16a085;
+}
+
+#top-toolbar button[data-category="pastwisko"] {
+  background-color: #f1c40f;  /* Żółty */
+  border-color: #f39c12;
+}
+
+#top-toolbar button[data-category="budynek"] {
+  background-color: #9b59b6;  /* Fioletowy */
+  border-color: #8e44ad;
+}
+
+#top-toolbar button[data-category="kapliczka"] {
+  background-color: #e74c3c;  /* Czerwony */
+  border-color: #c0392b;
+}
+
+/* --- Przyciski dynamiczne (pokazywane podczas rysowania/edycji) --- */
+#dynamic-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#dynamic-actions button {
+  font-weight: bold;
+}
+
+/* Przyciski anulowania i zakończenia edycji */
+#dynamic-actions button.action-cancel,
+#dynamic-actions button.action-finish-edit {
+  background-color: #f8d7da;  /* Jasny czerwony */
+  border-color: #dc3545;
+}
+
+/* Przyciski zapisywania i zakończenia rysowania */
+#dynamic-actions button.action-finish,
+#dynamic-actions button.action-save-changes {
+  background-color: #d4edda;  /* Jasny zielony */
+  border-color: #28a745;
+}
+
+/* --------------------------------------------------------------------------
+   4. Komponent: Panel boczny z listą działek
+   -------------------------------------------------------------------------- */
+#parcel-panel {
+  width: 320px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+/* --- Zakładki w panelu bocznym --- */
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid #ccc;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: #f0f0f0;
+  border: none;
+  border-right: 1px solid #ccc;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 700;
+  color: #555;
+}
+
+.tab-btn:last-child {
+  border-right: none;
+}
+
+/* Aktywna zakładka */
+.tab-btn.active {
+  background: #fff;
+  color: #007bff;
+  border-bottom: 2px solid #007bff;
+  margin-bottom: -1px;  /* Nakładanie na dolną krawędź */
+}
+
+/* --- Pole wyszukiwania --- */
+.search-container {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+#search-filter {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+/* --- Lista działek --- */
+.list-container {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+#parcel-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Informacje o działce */
+.parcel-info {
+  cursor: pointer;
+  flex-grow: 1;
+}
+
+.parcel-info:hover {
+  color: #007bff;  /* Podświetlenie przy najechaniu */
+}
+
+.parcel-id {
+  font-weight: 700;
+  margin-right: 10px;
+}
+
+.parcel-category {
+  color: #666;
+  font-style: italic;
+}
+
+/* Przyciski akcji dla każdej działki */
+.parcel-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.btn-action {
+  padding: 4px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.btn-action:hover {
+  background-color: #e2e2e2;
+  border-color: #999;
+}
+
+/* --- Kontrolki główne na dole panelu --- */
+.main-controls {
+  padding: 12px;
+  border-top: 1px solid #ccc;
+  display: flex;
+  gap: 10px;
+  background-color: #f0f0f0;
+}
+
+/* Wspólna baza stylów dla przycisków głównych */
+.main-controls button {
+  color: white;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  width: 100%;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+  border: 1px solid #333;
+}
+
+/* Przycisk "Zarządzaj Zapisami" - kolor neutralny */
+#open-backup-manager {
+  background-color: #3498db;  /* Błękit */
+  border-color: #2980b9;
+}
+
+#open-backup-manager:hover {
+  background-color: #5dade2;  /* Jaśniejszy błękit */
+}
+
+/* Przycisk "Wyjdź z aplikacji" - kolor ostrzegawczy */
+.main-controls button.danger {
+  background-color: #e74c3c;  /* Czerwień */
+  border-color: #c0392b;
+}
+
+.main-controls button.danger:hover {
+  background-color: #ec7063;  /* Jaśniejsza czerwień */
+}
+
+/* --------------------------------------------------------------------------
+   5. Komponent: Modal (okno dialogowe)
+   -------------------------------------------------------------------------- */
+
+/* Nakładka przyciemniająca tło */
+.modal {
+  display: none;  /* Domyślnie ukryty */
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);  /* Półprzezroczyste tło */
+}
+
+/* Zawartość modala */
+.modal-content {
+  background-color: #fefefe;
+  margin: 10% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 600px;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 8px 0 rgba(0, 0, 0, 0.2),
+    0 6px 20px 0 rgba(0, 0, 0, 0.19);
+  position: relative;
+}
+
+/* Przycisk zamykania modala */
+.close-button {
+  color: #aaa;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.close-button:hover,
+.close-button:focus {
+  color: #000;
+  text-decoration: none;
+}
+
+/* Sekcje wewnątrz modala */
+.modal-section {
+  margin-top: 20px;
+}
+
+/* --------------------------------------------------------------------------
+   6. Komponent: Menedżer kopii zapasowych
+   -------------------------------------------------------------------------- */
+
+/* Przycisk tworzenia nowej kopii */
+#create-backup-btn {
+  background-color: #27ae60;  /* Zielony - akcja pozytywna */
+  color: white;
+  border: 2px solid black;
+  font-weight: bold;
+}
+
+#create-backup-btn:hover {
+  background-color: #2ecc71;  /* Jaśniejszy zielony */
+}
+
+/* Kontener listy kopii zapasowych */
+#backup-list-container {
+  border: 1px solid #ddd;
+  margin-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Ukrycie domyślnego nagłówka listy */
+.list-header {
+  display: none;
+}
+
+/* Style pojedynczego elementu na liście kopii */
+#backup-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  margin-top: 8px;
+  background-color: #f9f9f9;
+}
+
+#backup-list li:first-child {
+  margin-top: 0;
+}
+
+/* Specjalny styl dla komunikatu "Ładowanie..." */
+#backup-list li:only-child {
+  background-color: transparent;
+  border: none;
+  font-style: italic;
+  color: #888;
+}
+
+/* Przyciski akcji w liście kopii */
+.backup-actions button {
+  margin-left: 5px;
+  padding: 5px 10px;
+  font-size: 14px;
+  color: white;
+  font-weight: bold;
+  border: 2px solid black;
+  border-radius: 4px;
+}
+
+/* Przycisk przywracania kopii */
+.backup-actions .btn-restore {
+  background-color: #3498db;  /* Niebieski - akcja neutralna */
+}
+
+.backup-actions .btn-restore:hover {
+  background-color: #5dade2;
+}
+
+/* Przycisk usuwania kopii */
+.backup-actions .btn-delete {
+  background-color: #e74c3c;  /* Czerwony - akcja destrukcyjna */
+}
+
+.backup-actions .btn-delete:hover {
+  background-color: #ec7063;
+}

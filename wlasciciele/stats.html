@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Centrum Analityczne - Gmina Czarna</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js dla wykresów -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Arkusz stylów -->
+    <link rel="stylesheet" href="stats-style.css" />
+</head>
+<body>
+    <!-- Animowane tło -->
+    <div class="animated-bg">
+        <div class="gradient-sphere sphere-1"></div>
+        <div class="gradient-sphere sphere-2"></div>
+        <div class="gradient-sphere sphere-3"></div>
+    </div>
+    
+    <!-- Główny kontener -->
+    <div class="app-container">
+        
+        <!-- Nowoczesny nagłówek -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="brand">
+                    <div class="logo-animated">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="brand-text">
+                        <h1>Centrum Analityczne</h1>
+                        <p>Gmina Czarna - Dane Katastralne XIX w.</p>
+                    </div>
+                </div>
+                
+                <nav class="header-nav">
+                    <a href="../mapa/mapa.html" class="nav-pill">
+                        <i class="fas fa-map"></i>
+                        <span>Mapa</span>
+                    </a>
+                    <a href="../strona_glowna/index.html" class="nav-pill">
+                        <i class="fas fa-home"></i>
+                        <span>Start</span>
+                    </a>
+                    <a href="../genealogia/genealogia.html" class="nav-pill">
+                        <i class="fas fa-sitemap"></i>
+                        <span>Graf Społeczności</span>
+                    </a>
+                    <a href="../genealogia/genealogia.html" class="nav-pill">
+                        <i class="fas fa-sitemap"></i>
+                        <span>Genealogia</span>
+                    </a>
+                    
+                    <div class="header-actions">
+                        <button class="icon-btn" id="search-toggle" title="Szukaj">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <button class="icon-btn" id="theme-toggle" title="Zmień motyw">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                        <button class="icon-btn" id="fullscreen-toggle" title="Pełny ekran">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </nav>
+            </div>
+            
+            <!-- Ukryte pole wyszukiwania -->
+            <div class="search-bar" id="search-bar">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Szukaj właściciela, działki lub daty..." id="global-search">
+                    <button class="search-close" id="search-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sekcja Hero ze statystykami -->
+        <section class="hero-section">
+            <div class="hero-grid">
+                <div class="hero-card primary">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="card-data">
+                            <h3>Właściciele</h3>
+                            <div class="card-value" id="total-owners">
+                                <span class="counter" data-target="0">0</span>
+                            </div>
+                            <div class="card-change positive">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>100% kompletności danych</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="hero-card secondary">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </div>
+                        <div class="card-data">
+                            <h3>Działki</h3>
+                            <div class="card-value" id="total-plots">
+                                <span class="counter" data-target="0">0</span>
+                            </div>
+                            <div class="card-change">
+                                <i class="fas fa-layer-group"></i>
+                                <span>Wszystkie kategorie</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="hero-card accent">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="card-data">
+                            <h3>Okres</h3>
+                            <div class="card-value">XIX w.</div>
+                            <div class="card-change">
+                                <i class="fas fa-history"></i>
+                                <span>Dane historyczne</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Zakładki z zawartością -->
+        <div class="tabs-container">
+            <div class="tabs-header">
+                <button class="tab-button active" data-tab="overview">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Przegląd</span>
+                </button>
+                <button class="tab-button" data-tab="rankings">
+                    <i class="fas fa-trophy"></i>
+                    <span>Rankingi</span>
+                </button>
+                <button class="tab-button" data-tab="timeline">
+                    <i class="fas fa-clock"></i>
+                    <span>Oś czasu</span>
+                </button>
+                <button class="tab-button" data-tab="demographics">
+                    <i class="fas fa-users-cog"></i>
+                    <span>Demografia</span>
+                </button>
+                <button class="tab-button" data-tab="genealogy"> <!-- NOWY PRZYCISK -->
+                    <i class="fas fa-sitemap"></i>
+                    <span>Genealogia</span>
+                </button>
+                <button class="tab-button" data-tab="analysis">
+                    <i class="fas fa-microscope"></i>
+                    <span>Analiza</span>
+                </button>
+            </div>
+
+            <!-- Zawartość zakładek -->
+            <div class="tabs-content">
+                
+                <!-- Zakładka: Przegląd -->
+                <div class="tab-panel active" id="overview">
+                    <div class="dashboard-grid">
+                        
+                        <!-- Wykres kołowy kategorii -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-pie"></i> Struktura własności</h3>
+                                <button class="btn-icon" id="export-chart1">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Wykres słupkowy top właścicieli -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> Top 10 właścicieli</h3>
+                                <button class="btn-icon" id="export-chart2">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Mini statystyki -->
+                        <div class="dashboard-card stats-grid">
+                            <div class="mini-stat">
+                                <div class="mini-icon green">
+                                    <i class="fas fa-tree"></i>
+                                </div>
+                                <div class="mini-data">
+                                    <span class="mini-label">Lasy</span>
+                                    <span class="mini-value" id="stat-forests">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-stat">
+                                <div class="mini-icon blue">
+                                    <i class="fas fa-water"></i>
+                                </div>
+                                <div class="mini-data">
+                                    <span class="mini-label">Rzeki</span>
+                                    <span class="mini-value" id="stat-rivers">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-stat">
+                                <div class="mini-icon orange">
+                                    <i class="fas fa-home"></i>
+                                </div>
+                                <div class="mini-data">
+                                    <span class="mini-label">Budynki</span>
+                                    <span class="mini-value" id="stat-buildings">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-stat">
+                                <div class="mini-icon purple">
+                                    <i class="fas fa-church"></i>
+                                </div>
+                                <div class="mini-data">
+                                    <span class="mini-label">Kapliczki</span>
+                                    <span class="mini-value" id="stat-chapels">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Aktywność - protokoły dzienne -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-calendar-day"></i> Kalendarz aktywności spisowej</h3>
+                            </div>
+                            <div class="card-body" id="activity-calendar-container">
+                                <!-- Kalendarz i legenda będą generowane tutaj przez JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Zakładka: Rankingi -->
+                <div class="tab-panel" id="rankings">
+                    <div class="rankings-container">
+                        
+                        <!-- Filtry rankingów -->
+                        <div class="rankings-filters">
+                            <div class="filter-group">
+                                <label>Typ własności:</label>
+                                <div class="radio-group">
+                                    <input type="radio" name="ownership" id="own-real" value="real" checked>
+                                    <label for="own-real">Rzeczywista</label>
+                                    <input type="radio" name="ownership" id="own-protocol" value="protocol">
+                                    <label for="own-protocol">Protokół</label>
+                                </div>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label>Kategoria:</label>
+                                <select id="category-filter">
+                                    <option value="all">Wszystkie</option>
+                                    <option value="rolna">Rolne</option>
+                                    <option value="budowlana">Budowlane</option>
+                                    <option value="las">Lasy</option>
+                                    <option value="pastwisko">Pastwiska</option>
+                                </select>
+                            </div>
+                            
+                            <button class="btn-primary" id="show-on-map">
+                                <i class="fas fa-map-marked-alt"></i>
+                                Pokaż TOP 10 na mapie
+                            </button>
+                        </div>
+                        
+                        <!-- Lista rankingowa -->
+                        <div class="ranking-list" id="ranking-list">
+                            <!-- Generowane przez JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Zakładka: Oś czasu -->
+                <div class="tab-panel" id="timeline">
+                    <div class="timeline-container">
+                        <div class="timeline-header">
+                            <h3><i class="fas fa-history"></i> Chronologia protokołów</h3>
+                        </div>
+                        <div class="timeline" id="timeline-content">
+                            <!-- Generowane przez JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Zakładka: Demografia -->
+                <div class="tab-panel" id="demographics">
+                    <div class="demographics-container">
+                        
+                        <!-- Nagłówek z podsumowaniem -->
+                        <div class="demo-header">
+                            <div class="demo-summary">
+                                <h3><i class="fas fa-chart-line"></i> Rozwój demograficzny Gminy Czarna</h3>
+                                <p class="demo-subtitle">Analiza zmian populacji od XIX wieku</p>
+                            </div>
+                            <div class="demo-quick-stats">
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="demo-growth">+25%</span>
+                                    <span class="quick-stat-label">Wzrost populacji</span>
+                                </div>
+                                <div class="quick-stat">
+                                    <span class="quick-stat-value" id="demo-years">27 lat</span>
+                                    <span class="quick-stat-label">Okres obserwacji</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Główny wykres liniowy -->
+                        <div class="demo-main-chart">
+                            <canvas id="demographicsChart"></canvas>
+                        </div>
+                        
+                        <!-- Timeline z wydarzeniami -->
+                        <div class="demo-timeline">
+                            <h4><i class="fas fa-history"></i> Kluczowe wydarzenia</h4>
+                            <div class="timeline-track" id="demo-timeline-track">
+                                <!-- Generowane przez JS -->
+                            </div>
+                        </div>
+                        
+                        <!-- Karty szczegółowe dla każdego roku -->
+                        <div class="demo-cards-grid" id="demo-cards">
+                            <!-- Generowane przez JS -->
+                        </div>
+                        
+                        <!-- Analiza porównawcza -->
+                        <div class="demo-comparison" id="demo-comparison">
+                            <h4><i class="fas fa-balance-scale"></i> Analiza porównawcza</h4>
+                            <div class="comparison-cards">
+                                <!-- Generowane przez JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NOWA ZAKŁADKA: GENEALOGIA -->
+                <div class="tab-panel" id="genealogy">
+                    <div class="dashboard-grid">
+                        <!-- Karta z kluczowymi wskaźnikami -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
+                            </div>
+                            <div class="stats-grid">
+                                <div class="mini-stat">
+                                    <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Wszystkie osoby</span>
+                                        <span class="mini-value" id="stat-total-people">0</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Mężczyźni / Kobiety</span>
+                                        <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Karta z najpopularniejszymi nazwiskami -->
+                        <div class="dashboard-card">
+                             <div class="card-header">
+                                <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
+                            </div>
+                            <div class="ranking-list" id="top-surnames-list">
+                                <!-- Lista generowana przez JS -->
+                            </div>
+                        </div>
+
+                        <!-- Karta z wykresem urodzeń -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-birthday-cake"></i> Urodzenia wg dekad</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="genealogy-births-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Zakładka: Analiza -->
+                <div class="tab-panel" id="analysis">
+                    <div class="analysis-container">
+                        <div class="analysis-tools">
+                            <button class="tool-btn" id="compare-btn">
+                                <i class="fas fa-balance-scale"></i>
+                                <span>Porównaj okresy</span>
+                            </button>
+                            <button class="tool-btn" id="export-btn">
+                                <i class="fas fa-file-excel"></i>
+                                <span>Eksport do Excel</span>
+                            </button>
+                            <button class="tool-btn" id="print-btn">
+                                <i class="fas fa-print"></i>
+                                <span>Drukuj raport</span>
+                            </button>
+                            <button class="tool-btn" id="share-btn">
+                                <i class="fas fa-share-alt"></i>
+                                <span>Udostępnij</span>
+                            </button>
+                        </div>
+                        
+                        <div class="insights-grid">
+                            <!-- Karty z wnioskami -->
+                            <div class="insight-card">
+                                <div class="insight-icon">
+                                    <i class="fas fa-lightbulb"></i>
+                                </div>
+                                <h4>Największy właściciel</h4>
+                                <p id="biggest-owner">Analizowanie...</p>
+                            </div>
+                            
+                            <div class="insight-card">
+                                <div class="insight-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h4>Trend własności</h4>
+                                <p id="ownership-trend">Analizowanie...</p>
+                            </div>
+                            
+                            <div class="insight-card">
+                                <div class="insight-icon">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <h4>Koncentracja</h4>
+                                <p id="concentration">Analizowanie...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stopka -->
+        <footer class="main-footer">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Dane pochodzą z XIX-wiecznych ksiąg katastralnych</span>
+                </div>
+                <div class="footer-actions">
+                    <button class="footer-btn" id="help-btn">
+                    <i class="fas fa-question-circle"></i>
+                      Pomoc
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Modal pomocy -->
+    <div class="modal" id="help-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> Centrum Pomocy</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="help-section">
+                    <h3>Jak korzystać z Centrum Analitycznego?</h3>
+                    <ul>
+                        <li><strong>Przegląd:</strong> Ogólne statystyki i wykresy</li>
+                        <li><strong>Rankingi:</strong> Zobacz największych właścicieli</li>
+                        <li><strong>Oś czasu:</strong> Chronologia protokołów</li>
+                        <li><strong>Demografia:</strong> Dane o populacji</li>
+                        <li><strong>Analiza:</strong> Zaawansowane narzędzia</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>Skróty klawiszowe</h3>
+                    <div class="shortcuts">
+                        <div><kbd>Ctrl</kbd> + <kbd>K</kbd> - Szybkie wyszukiwanie</div>
+                        <div><kbd>D</kbd> - Przełącz tryb ciemny</div>
+                        <div><kbd>F11</kbd> - Pełny ekran</div>
+                        <div><kbd>Esc</kbd> - Zamknij okno</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Biblioteka SheetJS (xlsx) do generowania plików Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="stats-script.js"></script>
+</body>
+</html>

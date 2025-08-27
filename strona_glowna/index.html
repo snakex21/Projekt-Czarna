@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktywna Mapa Katastralna Gminy Czarna z XIX wieku</title>
+    
+    <!-- Font Awesome dla ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+    
+    <!-- Arkusz stylów -->
+    <link rel="stylesheet" href="assets_index/style_index.css">
+</head>
+<body>
+    <!-- Tło z mapą -->
+    <div class="map-background"></div>
+    <div class="overlay-gradient"></div>
+    
+    <!-- Główny kontener -->
+    <div class="page-wrapper">
+        
+        <!-- Nagłówek -->
+        <header class="top-header">
+            <div class="header-container">
+                <div class="header-badge">
+                    <i class="fas fa-university"></i>
+                    <span>Akademia Tarnowska</span>
+                </div>
+                <div class="header-info">
+                    <span>Projekt Inżynierski 2025</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Główna sekcja -->
+        <main class="hero-section">
+            <div class="hero-container">
+                
+                <!-- Tytuł główny -->
+                <div class="title-wrapper">
+                    <h1 class="main-title">
+                        Interaktywna Mapa Katastralna
+                        <span class="subtitle">Gminy Czarna z XIX wieku</span>
+                    </h1>
+                </div>
+                
+                <!-- Opis -->
+                <div class="description-wrapper">
+                    <p class="main-description">
+                        Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne,
+                        poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.
+                    </p>
+                </div>
+                
+                <!-- Główne przyciski -->
+                <div class="action-container">
+                    <a href="../mapa/mapa.html" class="primary-button">
+                        <span class="button-icon"><i class="fas fa-map-marked-alt"></i></span>
+                        <span class="button-text">Otwórz Mapę</span>
+                        <span class="button-arrow"><i class="fas fa-arrow-right"></i></span>
+                    </a>
+                </div>
+                
+                <!-- Karty funkcjonalności -->
+                <div class="features-container">
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h3>Wyszukiwanie</h3>
+                            <p>Znajdź działki i właścicieli</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h3>Protokoły</h3>
+                            <p>Oryginalne dokumenty</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-sitemap"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h3>Genealogia</h3>
+                            <p>Drzewa rodzinne</p>
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="feature-content">
+                            <h3>Historia</h3>
+                            <p>Dzieje gminy</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Sekcja dokumentów -->
+        <section class="documents-section">
+            <div class="section-container">
+                <h2 class="section-title">Materiały i Dokumentacja</h2>
+                
+                <div class="documents-grid">
+                    <a href="../mapa/mapa.html" class="doc-card main-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-map"></i>
+                        </div>
+                        <h3>Mapa Interaktywna</h3>
+                        <p>Główna aplikacja z mapą katastralną</p>
+                        <span class="doc-arrow"><i class="fas fa-arrow-right"></i></span>
+                    </a>
+                    
+                    <a href="historia.html" class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-landmark"></i>
+                        </div>
+                        <h3>Historia Czarnej</h3>
+                        <p>Krótki rys historyczny Czarnej</p>
+                    </a>
+                    
+                    <a href="../docs/index.html" class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <h3>Dokumentacja</h3>
+                        <p>Przewodnik techniczny</p>
+                    </a>
+                    
+                    <a href="../graf/graf.html" class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <h3>Graf Powiązań</h3>
+                        <p>Wizualizacja relacji</p>
+                    </a>
+                    
+                    <a href="../genealogia/genealogia.html" class="doc-card">
+                        <div class="doc-icon">
+                            <i class="fas fa-tree"></i>
+                        </div>
+                        <h3>Drzewo Genealogiczne</h3>
+                        <p>Powiązania rodzinne</p>
+                    </a>
+                    
+                    <a href="/Zgloszenie_i_Karta_Projektu/Karta Projektu Pracy Inżynierskiej.docx" 
+                       class="doc-card" download>
+                        <div class="doc-icon">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <h3>Karta Projektu</h3>
+                        <p>Pobierz dokumentację</p>
+                    </a>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Stopka -->
+        <footer class="page-footer">
+            <div class="footer-container">
+                <div class="footer-credits">
+                    <div class="credit-item">
+                        <span class="credit-label">Autor projektu:</span>
+                        <span class="credit-name">Maksymilian Augustyn</span>
+                    </div>
+                    <div class="credit-divider">•</div>
+                    <div class="credit-item">
+                        <span class="credit-label">Opiekun naukowy:</span>
+                        <span class="credit-name">dr inż. Adam Pieprzycki</span>
+                    </div>
+                </div>
+                <div class="footer-copyright">
+                    © 2025 Akademia Tarnowska. Wszelkie prawa zastrzeżone.
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Minimalistyczny skrypt -->
+    <script>
+        // Płynne pojawianie się elementów
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.feature-item, .doc-card');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        setTimeout(() => {
+                            entry.target.classList.add('visible');
+                        }, index * 100);
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            elements.forEach(el => observer.observe(el));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+{
+    "persons": [
+        {
+            "id": 1,
+            "name": "Adam Sak",
+            "gender": "M",
+            "houseNumber": "17",
+            "birthDate": {
+                "year": 1845
+            },
+            "deathDate": {
+                "year": 1913
+            },
+            "protocolKey": "Adam_Sak",
+            "fatherId": 2,
+            "motherId": 3,
+            "spouseIds": [
+                4
+            ],
+            "notes": "Główny bohater protokołu nr 1."
+        },
+        {
+            "id": 2,
+            "name": "Mikołaj Sak",
+            "gender": "M",
+            "houseNumber": null,
+            "birthDate": {
+                "year": 1810
+            },
+            "deathDate": {
+                "year": 1874
+            },
+            "protocolKey": null,
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                3
+            ],
+            "notes": "Ojciec Adama, wspomniany w protokole."
+        },
+        {
+            "id": 3,
+            "name": "Katarzyna z Kowalskich Sakowa",
+            "gender": "F",
+            "houseNumber": null,
+            "birthDate": {
+                "year": 1815
+            },
+            "deathDate": {
+                "year": 1880
+            },
+            "protocolKey": null,
+            "fatherId": 5,
+            "motherId": 6,
+            "spouseIds": [
+                2
+            ],
+            "notes": "Matka Adama, pochodząca z innej rodziny."
+        },
+        {
+            "id": 4,
+            "name": "Ewa z Nowaków Sakowa",
+            "gender": "F",
+            "houseNumber": null,
+            "birthDate": {
+                "year": 1850
+            },
+            "deathDate": {
+                "year": 1920
+            },
+            "protocolKey": null,
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                1
+            ],
+            "notes": "Żona Adama Saka."
+        },
+        {
+            "id": 5,
+            "name": "Jan Kowalski",
+            "gender": "M",
+            "houseNumber": null,
+            "birthDate": {
+                "year": 1790
+            },
+            "deathDate": {
+                "year": 1850
+            },
+            "protocolKey": null,
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                6
+            ],
+            "notes": "Ojciec Katarzyny, dziadek Adama."
+        },
+        {
+            "id": 6,
+            "name": "Marianna Kowalska",
+            "gender": "F",
+            "houseNumber": null,
+            "birthDate": {
+                "year": 1795
+            },
+            "deathDate": {
+                "year": 1860
+            },
+            "protocolKey": null,
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                5
+            ],
+            "notes": "Matka Katarzyny, babcia Adama."
+        },
+        {
+            "id": 7,
+            "name": "Anna Micek",
+            "gender": "F",
+            "houseNumber": "71",
+            "birthDate": {
+                "year": 1820
+            },
+            "deathDate": null,
+            "protocolKey": "Anna_Micek",
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                8
+            ],
+            "notes": "Protokół nr 3."
+        },
+        {
+            "id": 8,
+            "name": "Jakub Micek",
+            "gender": "M",
+            "houseNumber": null,
+            "birthDate": null,
+            "deathDate": {
+                "year": 1857
+            },
+            "protocolKey": null,
+            "fatherId": null,
+            "motherId": null,
+            "spouseIds": [
+                7
+            ],
+            "notes": "Zmarły mąż Anny."
+        }
+    ]
+}

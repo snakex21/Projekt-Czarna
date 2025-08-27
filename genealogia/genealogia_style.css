@@ -1,0 +1,375 @@
+/* ==========================================================================
+   Plik: genealogia_style.css
+   Ulepszona wersja z lepszą organizacją kontrolek
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Style globalne i tło
+   -------------------------------------------------------------------------- */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f3f0;
+  color: #333;
+}
+
+#genealogy-network {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f5f3f0 0%, #e8e4de 100%);
+}
+
+/* --------------------------------------------------------------------------
+   2. Panel kontrolny - rozbudowany
+   -------------------------------------------------------------------------- */
+.panel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  width: 350px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.panel h1 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.4em;
+  color: #792626;
+  border-bottom: 2px solid #d3a87c;
+  padding-bottom: 10px;
+}
+
+.panel p {
+  font-size: 0.9em;
+  line-height: 1.5;
+  color: #555;
+}
+
+/* --------------------------------------------------------------------------
+   3. Kontrolki układu
+   -------------------------------------------------------------------------- */
+.controls-section {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f9f7f4;
+  border-radius: 8px;
+  border: 1px solid #e0dcd6;
+}
+
+.controls-section h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1.1em;
+  color: #792626;
+}
+
+.control-group {
+  margin-bottom: 15px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #666;
+}
+
+select, input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.9em;
+  background-color: white;
+  transition: border-color 0.3s;
+}
+
+select:focus, input[type="text"]:focus {
+  outline: none;
+  border-color: #a52a2a;
+  box-shadow: 0 0 0 2px rgba(165, 42, 42, 0.1);
+}
+
+/* --------------------------------------------------------------------------
+   4. Przyciski akcji
+   -------------------------------------------------------------------------- */
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+button {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #a52a2a;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+button:hover {
+  background-color: #8b2424;
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.secondary {
+  background-color: #7a7a7a;
+}
+
+button.secondary:hover {
+  background-color: #5a5a5a;
+}
+
+/* --------------------------------------------------------------------------
+   5. Wyszukiwarka
+   -------------------------------------------------------------------------- */
+#search-input {
+  width: 100%;
+  padding: 10px;
+  padding-left: 35px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>');
+  background-repeat: no-repeat;
+  background-position: 10px center;
+  background-size: 18px;
+}
+
+#search-results {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e0dcd6;
+  border-radius: 5px;
+  background-color: white;
+}
+
+#search-results:empty {
+  display: none;
+}
+
+#search-results li {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+  font-size: 0.9em;
+}
+
+#search-results li:last-child {
+  border-bottom: none;
+}
+
+#search-results li:hover {
+  background-color: #f5ede5;
+}
+
+/* --------------------------------------------------------------------------
+   6. Legenda ulepszona
+   -------------------------------------------------------------------------- */
+#legend {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #faf8f5;
+  border-radius: 8px;
+  border: 1px solid #e0dcd6;
+}
+
+#legend h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1em;
+  color: #792626;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+}
+
+.legend-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  margin-right: 10px;
+  font-size: 1.2em;
+}
+
+.legend-symbol.male {
+  color: #3498db;
+}
+
+.legend-symbol.female {
+  color: #e91e63;
+}
+
+.legend-symbol.marriage {
+  color: #9b59b6;
+}
+
+/* --------------------------------------------------------------------------
+   7. Nawigacja
+   -------------------------------------------------------------------------- */
+.navigation-links {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e0dcd6;
+  text-align: center;
+}
+
+.navigation-links a {
+  color: #a52a2a;
+  text-decoration: none;
+  font-weight: 500;
+  margin: 0 10px;
+  transition: color 0.3s;
+}
+
+.navigation-links a:hover {
+  color: #792626;
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   8. Stan ładowania
+   -------------------------------------------------------------------------- */
+.loading-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.1em;
+  color: #666;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #a52a2a;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-error {
+  color: #d32f2f;
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   9. Responsywność
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .panel {
+    width: 300px;
+    padding: 15px;
+  }
+  
+  .panel h1 {
+    font-size: 1.2em;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. Scrollbar styling
+   -------------------------------------------------------------------------- */
+.panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: #a52a2a;
+  border-radius: 4px;
+}
+
+.panel::-webkit-scrollbar-thumb:hover {
+  background: #792626;
+}
+
+/* Sekcja wskazówek */
+.tips-section {
+  margin-top: 15px;
+  padding: 12px;
+  background-color: #fff9e6;
+  border-radius: 6px;
+  border: 1px solid #ffd666;
+  font-size: 0.85em;
+}
+
+.tips-section ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.tips-section li {
+  margin: 4px 0;
+}
+
+/* Przyciski */
+button#reset-view {
+  background-color: #dc3545;
+}
+
+button#reset-view:hover {
+  background-color: #c82333;
+}
+
+/* Style dla węzłów SVG */
+.person-node {
+  transition: opacity 0.3s;
+}
+
+.parent-child-line,
+.marriage-line,
+.marriage-symbol {
+  transition: opacity 0.3s;
+}
+
+/* Podświetlenie przy hover */
+.person-node:hover rect {
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)) !important;
+}
