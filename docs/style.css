@@ -1438,13 +1438,20 @@ pre > code,
   outline: none !important;
 }
 
-/* Upewnij się, że obramowanie dotyczy tylko inline code (poza <pre>) */
+/* Domyślny styl (dla motywu ciemnego) */
 :not(pre) > code {
-  background: #ffffff;            /* w light-mode masz już białe, zostawiamy */
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: rgba(129, 140, 248, 0.1); /* Ciemne, subtelne tło */
+  color: #c7d2fe; /* Jaśniejszy, czytelny tekst */
+  border: 1px solid rgba(129, 140, 248, 0.2);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--font-code);
   font-weight: 500;
+}
+
+/* Nadpisanie stylu tylko dla motywu jasnego */
+body.light-mode :not(pre) > code {
+  background: #ffffff; /* Białe tło */
+  color: #0f172a; /* Ciemny tekst */
+  border: 1px solid #e2e8f0; /* Jasna ramka */
 }
