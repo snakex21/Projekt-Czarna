@@ -1,0 +1,1315 @@
+/* ==========================================================================
+   Plik: style.css
+   Opis: Główny arkusz stylów dla aplikacji interaktywnej mapy katastralnej.
+   ========================================================================== */
+
+/* ==========================================================================
+   1. Reset i style podstawowe
+   ========================================================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* Kolory podstawowe zdefiniowane są w zmiennych CSS w sekcji 18 */
+}
+
+/* ==========================================================================
+   2. Główny layout aplikacji
+   ========================================================================== */
+
+/* Dekoracyjne tło z gradientem, widoczne za głównym kontenerem */
+.background-gradient {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: -1; /* Tło zawsze jest z tyłu */
+}
+
+/* Główny "szkielet" aplikacji, który wypełnia całe okno */
+#app-wrapper {
+    display: flex;
+    flex-direction: column; /* Układ: góra (toolbar), środek (mapa), dół (nawigacja) */
+    height: 100vh;
+    background: var(--bg-main); /* Użycie zmiennej dla tła */
+    color: var(--text-primary); /* Użycie zmiennej dla tekstu */
+    transition: background-color 0.3s, color 0.3s; /* Płynne przejście dla trybu ciemnego */
+}
+/* ==========================================================================
+   3. Górny pasek narzędzi (Toolbar)
+   ========================================================================== */
+.top-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    height: 60px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px var(--shadow-color);
+    z-index: 1010; /* Zwiększony z-index, aby pasek był nad nakładkami mapy <-- ZMIANA */
+    flex-shrink: 0; /* Zapobiega kurczeniu się paska */
+}
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.app-title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* --- Statystyki (właściciele, działki) --- */
+.toolbar-stats {
+    display: flex;
+    gap: 15px;
+}
+
+.stat-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #667eea;
+}
+
+/* --- Przyciski akcji (pełny ekran, ustawienia) --- */
+.toolbar-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.toolbar-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+    background: var(--accent-color);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+
+/* ==========================================================================
+   4. Główny kontener i panele boczne
+   ========================================================================== */
+#main-container {
+    display: flex;
+    flex: 1; /* Kontener rozciąga się, aby wypełnić dostępną przestrzeń */
+    position: relative;
+    overflow: hidden; /* Zapobiega pojawianiu się suwaków */
+}
+
+.side-panel {
+    width: 350px;
+    background: var(--bg-panel);
+    box-shadow: 0 0 20px var(--shadow-color);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 102; /* Panele są nad uchwytami */
+    flex-shrink: 0; /* Panele nie kurczą się */
+}
+
+/* Stan zwinięty paneli */
+.side-panel.collapsed {
+    transform: translateX(-100%); /* Lewy panel chowa się w lewo */
+    pointer-events: none; /* Wyłącz interakcje ze zwiniętym panelem */
+}
+
+.right-panel.collapsed {
+    transform: translateX(100%); /* Prawy panel chowa się w prawo */
+}
+
+/* --- Nagłówek panelu --- */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: var(--bg-panel-header);
+    color: var(--text-on-accent);
+}
+
+.panel-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-on-accent); /* Jawne ustawienie koloru dla trybu ciemnego */
+}
+
+/* Przycisk do zwijania panelu */
+.panel-toggle {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.panel-toggle:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* --- Zawartość panelu (przewijalna) --- */
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+/* ==========================================================================
+   5. Uchwyty do rozwijania paneli
+   ========================================================================== */
+.panel-expand-handle {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    /* Zwiększamy z-index, aby uchwyty były widoczne NAD warstwami kafelkowymi mapy (np. satelita), które mają z-index ~200. */
+    z-index: 450; 
+    cursor: pointer;
+    display: none; /* Domyślnie ukryte, pokazywane przez JS */
+    align-items: center;
+    transition: all 0.3s ease;
+}
+
+.panel-expand-handle.left-handle {
+    left: 0;
+}
+
+.panel-expand-handle.right-handle {
+    right: 0;
+}
+
+.panel-expand-handle .handle-tab {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 10px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    writing-mode: vertical-lr; /* Tekst pionowy */
+    text-orientation: mixed;
+    transition: all 0.3s ease;
+}
+
+.left-handle .handle-tab {
+    border-radius: 0 10px 10px 0;
+}
+
+.right-handle .handle-tab {
+    border-radius: 10px 0 0 10px;
+}
+
+.panel-expand-handle:hover .handle-tab {
+    padding-left: 15px;
+    padding-right: 15px;
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+}
+
+/* ==========================================================================
+   6. Panel Właścicieli (lewy)
+   ========================================================================== */
+
+/* --- Kontrolki (wyszukiwarka, filtry, porównanie) --- */
+.owners-controls {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Odstępy między grupami kontrolek */
+}
+
+/* Wyszukiwarka w panelu */
+.search-box {
+    position: relative;
+    margin-bottom: 15px; 
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 35px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+    background-color: var(--bg-panel);
+    color: var(--text-primary);
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.search-box i.fa-search {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+}
+
+.clear-search {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+}
+
+/* Przyciski filtrów */
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.filter-btn {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.filter-btn:hover {
+    background: var(--bg-hover);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: var(--text-on-accent);
+    border-color: transparent;
+}
+
+/* Sekcja porównywania */
+.compare-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.compare-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(253, 160, 133, 0.4);
+}
+
+.compare-btn.active {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+/* --- Lista właścicieli --- */
+.owners-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.owner-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+}
+
+.owner-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px var(--shadow-color);
+    border-color: var(--accent-color);
+}
+
+.owner-card.selected-for-compare {
+    background: linear-gradient(135deg, rgba(246,211,101,0.1) 0%, rgba(253,160,133,0.1) 100%);
+    border-color: #fda085;
+}
+
+.owner-card.highlighted-by-map {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.4);
+    transform: scale(1.02);
+}
+
+.owner-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.owner-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.owner-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.owner-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--accent-color);
+    color: white;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   7. Panel Działek (prawy)
+   ========================================================================== */
+
+/* --- Kontener zakładek (Działki, Obiekty, Specjalne) --- */
+.tabs-container {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+    background: var(--bg-hover);
+    padding: 5px;
+    border-radius: 10px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: var(--text-secondary);
+}
+
+.tab-btn:hover {
+    background: var(--bg-panel);
+}
+
+.tab-btn.active {
+    background: var(--bg-panel);
+    color: var(--accent-color);
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+/* --- Filtry kategorii działek --- */
+.category-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.category-filter {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.filter-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+/* Kolory dla badge'ów */
+.filter-badge.budowlana { background: rgba(230, 126, 34, 0.1); color: #e67e22; }
+.filter-badge.rolna { background: rgba(39, 174, 96, 0.1); color: #27ae60; }
+.filter-badge.las { background: rgba(22, 160, 133, 0.1); color: #16a085; }
+.filter-badge.pastwisko { background: rgba(241, 196, 15, 0.1); color: #f1c40f; }
+
+/* --- Listy obiektów --- */
+.parcels-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.parcel-item {
+    padding: 10px 15px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.parcel-item:hover {
+    background: var(--bg-hover);
+    transform: translateX(5px);
+    border-color: var(--accent-color);
+}
+
+.parcel-item.highlighted-by-map {
+    background: var(--bg-active);
+    border-color: var(--accent-color);
+    font-weight: 600;
+}
+
+/* --- Style dla zakładki "Specjalne" --- */
+.special-category-section {
+  margin-bottom: 20px;
+}
+
+.special-category-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.special-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 10px; /* Lekkie wcięcie listy względem nagłówka */
+}
+
+.special-item {
+  padding: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.special-item:hover {
+  transform: translateX(5px);
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.special-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-weight: 500; /* Zmniejszona waga czcionki dla nazwy obiektu */
+}
+
+.special-item-icon {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+.special-item-number {
+  color: var(--text-primary);
+}
+
+.special-item-owners {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding-left: 27px; /* Wyrównanie tekstu pod nazwą obiektu, a nie pod ikoną */
+}
+
+/* ==========================================================================
+   8. Layout Mapy
+   ========================================================================== */
+#map-wrapper {
+    flex: 1;
+    position: relative;
+    background: #f8f9fa; /* Kolor tła widoczny podczas ładowania kafelków */
+    transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Płynna zmiana marginesu przy zwijaniu paneli */
+}
+
+/* Dostosowanie marginesów mapy, gdy panele są zwinięte */
+#map-wrapper.expanded-left {
+    margin-left: -350px;
+}
+#map-wrapper.expanded-right {
+    margin-right: -350px;
+}
+#map-wrapper.full-width {
+    margin-left: -350px;
+    margin-right: -350px;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Tło dla kafelków mapy, szczególnie ważne w trybie ciemnym */
+.leaflet-container {
+    background-color: #92b0c9;
+}
+
+/* ==========================================================================
+   9. Nakładki Interfejsu na Mapie
+   ========================================================================== */
+
+/* --- Klasa ogólna dla wszystkich nakładek --- */
+.map-overlay {
+    position: absolute;
+    z-index: 1000; /* Wysoki priorytet, aby były nad kontrolkami Leaflet */
+    pointer-events: auto; /* Elementy są interaktywne */
+    background: var(--bg-panel);
+    border-radius: 12px;
+    box-shadow: 0 5px 20px var(--shadow-color);
+    max-width: 280px;
+}
+
+/* --- Pozycjonowanie nakładek w rogach --- */
+.map-overlay.top-right {
+    top: 20px;
+    right: 20px;
+}
+.map-overlay.bottom-left {
+    bottom: 20px;
+    left: 20px;
+}
+.map-overlay.bottom-right {
+    bottom: 20px;
+    right: 20px;
+}
+
+/* --- Przycisk "Wyczyść zaznaczenie" (na środku u góry) --- */
+#highlight-controls {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: auto;
+}
+#highlight-controls.hidden {
+    display: none !important;
+}
+.clear-highlight-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.clear-highlight-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+}
+
+/* --- Wyświetlacz współrzędnych --- */
+.coordinates-display {
+    padding: 10px 15px;
+    font-family: 'Monaco', monospace;
+    font-size: 0.9rem;
+}
+
+/* --- Główna legenda warstw --- */
+.map-legend {
+    min-width: 200px;
+}
+.legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    user-select: none; /* Zapobiega zaznaczaniu tekstu przy klikaniu */
+}
+.legend-header:hover {
+    background: var(--bg-hover);
+}
+.legend-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.legend-toggle {
+    background: transparent;
+    border: none;
+    color: var(--accent-color);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.3s ease;
+}
+.legend-content {
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+    transition: all 0.3s ease;
+}
+.legend-list {
+    list-style: none;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+}
+.legend-item.inactive {
+    opacity: 0.5;
+}
+.legend-checkbox {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color); /* Stylowanie checkboxa */
+}
+.legend-color-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+.legend-label {
+    cursor: pointer;
+    flex: 1;
+    font-size: 0.9rem;
+}
+
+/* --- Legenda wyróżnionych właścicieli --- */
+#owner-highlight-legend {
+    padding: 15px;
+    min-width: 250px;
+}
+#owner-highlight-legend.hidden {
+    display: none !important;
+}
+#owner-highlight-legend ul {
+    list-style: none;
+}
+#owner-highlight-legend li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+}
+
+/* ==========================================================================
+   10. Dolny Pasek Nawigacyjny
+   ========================================================================== */
+.bottom-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    height: 60px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -2px 10px var(--shadow-color);
+    flex-shrink: 0; /* Zapobiega kurczeniu się paska */
+}
+
+.nav-links {
+    display: flex;
+    gap: 5px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.nav-link:hover {
+    background: var(--bg-active);
+    color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.nav-info {
+    display: flex;
+    gap: 20px;
+}
+
+.info-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: var(--bg-hover);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   11. Okna modalne (Pomoc, Ustawienia)
+   ========================================================================== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none; /* Domyślnie ukryty, pokazywany przez JS (zmiana na display: flex) */
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: var(--bg-panel);
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px var(--shadow-color);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: var(--bg-panel-header);
+    color: var(--text-on-accent);
+}
+
+.modal-header h2 {
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+    padding: 30px;
+    overflow-y: auto;
+}
+
+.modal-body h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 20px 0 10px 0;
+    color: var(--text-primary);
+}
+
+/* --- Elementy specyficzne dla okna Pomocy --- */
+.shortcuts-list {
+    list-style: none;
+    padding: 0;
+}
+
+.shortcuts-list li {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    margin-bottom: 8px;
+}
+
+kbd {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Monaco', monospace;
+    font-size: 0.85rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   12. Ekran Ładowania (Loading Overlay)
+   ========================================================================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.98);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 20px;
+    border: 4px solid rgba(102, 126, 234, 0.2);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-content h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 20px;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 3px;
+    width: 0;
+    transition: width 0.3s ease;
+}
+
+.loading-status {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   13. Style dla Trybu Ciemnego
+   ========================================================================== */
+
+/* --- Definicja zmiennych kolorystycznych (Motyw Jasny - domyślny) --- */
+:root {
+    --bg-main: #f4f7f6;
+    --bg-panel: white;
+    --bg-panel-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bg-hover: #f7fafc;
+    --bg-active: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    --text-on-accent: white;
+    --border-color: #e2e8f0;
+    --accent-color: #667eea;
+    --shadow-color: rgba(0,0,0,0.1);
+}
+
+/* --- Zmienne dla Trybu Ciemnego --- */
+.dark-mode {
+    --bg-main: #1a202c;
+    --bg-panel: #2d3748;
+    --bg-panel-header: linear-gradient(135deg, #2c3e50 0%, #4c5a77 100%);
+    --bg-hover: #4a5568;
+    --bg-active: linear-gradient(135deg, rgba(144, 158, 226, 0.1) 0%, rgba(138, 108, 172, 0.1) 100%);
+    --text-primary: #e2e8f0;
+    --text-secondary: #a0aec0;
+    --border-color: #4a5568;
+    --accent-color: #909ee2;
+    --shadow-color: rgba(0,0,0,0.4);
+}
+
+/* --- Dodatkowe nadpisania dla Trybu Ciemnego --- */
+.dark-mode .leaflet-tile {
+    filter: brightness(0.8) contrast(1.1); /* Delikatne przyciemnienie kafelków mapy */
+}
+.dark-mode .search-universal input,
+.dark-mode .info-badge,
+.dark-mode .shortcuts-list li {
+    background: var(--bg-hover);
+}
+.dark-mode kbd {
+    background: var(--bg-panel);
+    border-color: var(--border-color);
+}
+
+.dark-mode .setting-item span {
+    color: var(--text-primary);
+}
+
+.dark-mode .search-universal input::placeholder {
+    color: var(--text-secondary);
+}
+
+/* --- Przełącznik motywu w Ustawieniach --- */
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.setting-note {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-top: 10px;
+}
+.setting-btn {
+    padding: 8px 15px;
+    background: var(--accent-color);
+    color: var(--text-on-accent);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.setting-btn:hover { opacity: 0.8; }
+
+.theme-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+.theme-switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; }
+input:checked + .slider { background-color: var(--accent-color); }
+input:checked + .slider:before { transform: translateX(22px); }
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }
+
+
+
+/* ==========================================================================
+   14. Uniwersalna Wyszukiwarka
+   ========================================================================== */
+.search-universal {
+    position: relative;
+    width: 300px;
+}
+.search-universal i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+}
+.search-universal input {
+    width: 100%;
+    padding: 8px 35px;
+    border: 1px solid var(--border-color);
+    border-radius: 25px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+.search-universal input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    background: var(--bg-panel);
+}
+
+/* --- Rozwijane wyniki wyszukiwania --- */
+#universal-search-results {
+    display: none;
+    position: absolute;
+    width: 100%;
+    top: 110%;
+    left: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    z-index: 2001; /* Wyżej niż inne elementy interfejsu */
+    max-height: 400px;
+    overflow-y: auto;
+}
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-bottom: 1px solid var(--border-color);
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background-color: var(--bg-hover); }
+.result-icon { font-size: 1.2rem; color: var(--accent-color); width: 25px; text-align: center; }
+.result-text { font-weight: 500; }
+.result-meta { margin-left: auto; font-size: 0.8rem; color: var(--text-secondary); background-color: var(--bg-hover); padding: 3px 8px; border-radius: 10px; }
+
+
+/* ==========================================================================
+   15. Pozostałe (Scrollbar, Animacje, Media Queries)
+   ========================================================================== */
+
+/* --- Stylizacja paska przewijania --- */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--bg-hover);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b4b8e 100%);
+}
+
+/* --- Animacje --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.owner-card, .parcel-item {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* --- Dostępność (Focus states) --- */
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* --- Responsywność --- */
+@media (max-width: 1200px) {
+    .side-panel { width: 300px; }
+    .search-universal { width: 250px; }
+    #map-wrapper.expanded-left, #map-wrapper.full-width { margin-left: -300px; }
+    #map-wrapper.expanded-right, #map-wrapper.full-width { margin-right: -300px; }
+}
+
+@media (max-width: 768px) {
+    .toolbar-left { gap: 15px; }
+    .app-title { font-size: 1.1rem; }
+    .toolbar-stats, .nav-info span { display: none; } /* Ukryj mniej ważne elementy */
+    .search-universal { width: 180px; }
+    .nav-link span { display: none; } /* Pokaż tylko ikony w dolnej nawigacji */
+    .map-overlay.bottom-left, .map-overlay.bottom-right { bottom: 70px; } /* Podnieś legendy nad dolny pasek */
+}
+
+/* ==========================================================================
+   16. Etykiety z numerami działek na mapie
+   ========================================================================== */
+
+.parcel-label {
+    /* Resetujemy domyślny wygląd dymka tooltipa */
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+
+    /* Ustawiamy styl czcionki, aby była czytelna */
+    color: white;
+    font-size: 14px;
+    font-weight: 700; /* Pogrubienie dla lepszej widoczności */
+    line-height: 1;
+
+    /* Kluczowy element: dodajemy "obrys" do tekstu za pomocą cienia,
+       co sprawia, że biały tekst jest czytelny na każdym tle. */
+    text-shadow: 
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+
+    /* Ważne: dzięki temu etykieta nie przechwytuje kliknięć myszy.
+       Można klikać "przez" etykietę na działkę pod spodem. */
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   17. Przełącznik Warstw (Leaflet Control)
+   ========================================================================== */
+
+/* Stylizacja ogólna kontenera przełącznika */
+.leaflet-control-layers {
+    background: var(--bg-panel);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Przesunięcie przełącznika warstw, aby nie nachodził na inne elementy */
+.leaflet-top.leaflet-right .leaflet-control-layers {
+    margin-top: 70px; 
+}
+
+/* Stylizacja ikony przełącznika */
+.leaflet-control-layers-toggle {
+    background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers.png);
+    background-size: 26px 26px;
+    width: 36px;
+    height: 36px;
+}
+.dark-mode .leaflet-control-layers-toggle {
+    /* W trybie ciemnym domyślna ikona jest słabo widoczna, więc ją odwracamy */
+    filter: invert(1);
+}
+
+/* Stylizacja rozwiniętego menu */
+.leaflet-control-layers-list {
+    padding: 10px;
+}
+.leaflet-control-layers-selector {
+    margin-right: 8px;
+}
+
+/* ==========================================================================
+   18. Poprawki dla rozwijanych paneli
+   ========================================================================== */
+
+/* Uchwyty stają się widoczne po dodaniu klasy .handle-visible przez JS */
+.panel-expand-handle.handle-visible {
+    display: flex;
+}
