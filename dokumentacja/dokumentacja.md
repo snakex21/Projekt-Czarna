@@ -56,6 +56,28 @@ Głównym **ograniczeniem projektu** jest jakość materiałów źródłowych. N
 *   **Obiekty Specjalne:** Kategoria obiektów punktowych o szczególnym znaczeniu dla społeczności, np. dworzec kolejowy, młyn, kościół.
 *   **Infrastruktura:** Kategoria obiektów liniowych, które nie stanowiły własności prywatnej, takich jak drogi publiczne i rzeki.
 
+## 1.4. Struktura Projektu
+
+Zrozumienie organizacji folderów jest kluczowe do nawigacji po kodzie źródłowym i zasobach. Poniżej przedstawiono wizualną reprezentację oraz opis najważniejszych katalogów w projekcie:
+
+```
+Projekt Mapa Czarna/
+├── admin/             # Panel administracyjny (SPA)
+├── assets/            # Zasoby (skany protokołów, obrazy)
+├── backend/           # Serwer Flask, migracje, testy
+├── backup/            # Kopie danych wejściowych (JSON)
+├── docs/              # Dokumentacja techniczna (strona WWW)
+├── dokumentacja/      # Pliki źródłowe pracy inżynierskiej (ten plik)
+├── genealogia/        # Wizualizacja drzewa genealogicznego (frontend)
+├── graf/              # Wizualizacja grafu powiązań (frontend)
+├── launcher/          # Aplikacja desktopowa (Tkinter) – centrum dowodzenia
+├── mapa/              # Aplikacja mapowa (HTML/CSS/JS)
+├── strona_glowna/     # Strona powitalna projektu (landing page)
+├── tools/             # Edytory i narzędzia pomocnicze
+└── wlasciciele/       # Statystyki, porównywarka, protokół (frontend)
+```
+*Tabela 1: Uproszczony schemat struktury folderów projektu.*
+
 ---
 
 # Rozdział 2. Analiza Materiałów Źródłowych
@@ -94,7 +116,7 @@ System został zaprojektowany w oparciu o sprawdzoną, **trójwarstwową archite
 
 **Diagram Architektury Systemu:**
 
-**[WSTAW TUTAJ DIAGRAM/SCHEMAT ARCHITEKTURY - jeśli go masz, jeśli nie, tabela powyżej jest wystarczająca]**
+![Schemat Architektury Projektu](images/project_architecture_schema.png)
 
 ## 3.2. Uzasadnienie Wyborów Technologicznych
 
@@ -118,54 +140,7 @@ Sercem systemu jest relacyjna baza danych PostgreSQL, rozszerzona o PostGIS, kt�
 
 Poniższy diagram przedstawia kluczowe tabele w bazie danych oraz relacje (klucze obce) między nimi. Wizualizuje on, w jaki sposób dane o właścicielach, obiektach, demografii i genealogii są ze sobą połączone.
 
-```mermaid
-erDiagram
-    wlasciciele {
-        int id PK
-        varchar unikalny_klucz UK
-        varchar nazwa_wlasciciela
-        int numer_protokolu
-    }
-
-    obiekty_geograficzne {
-        int id PK
-        varchar nazwa_lub_numer
-        varchar kategoria
-        GEOMETRY geometria
-    }
-
-    dzialki_wlasciciele {
-        int wlasciciel_id FK
-        int obiekt_id FK
-        varchar typ_posiadania
-    }
-
-    osoby_genealogia {
-        int id PK
-        varchar imie_nazwisko
-        int id_ojca FK
-        int id_matki FK
-        int id_protokolu FK
-    }
-
-    malzenstwa {
-        int malzonek1_id FK
-        int malzonek2_id FK
-    }
-
-    demografia {
-        int id PK
-        int rok UK
-        int populacja_ogolem
-    }
-
-    wlasciciele ||--o{ dzialki_wlasciciele : "posiada"
-    obiekty_geograficzne ||--o{ dzialki_wlasciciele : "jest posiadany przez"
-    wlasciciele ||--o{ osoby_genealogia : "jest głównym protokołem dla"
-    osoby_genealogia }o--|| osoby_genealogia : "jest rodzicem dla"
-    osoby_genealogia }o--o{ malzenstwa : "zawiera związek"
-```
-*Diagram 1: Uproszczony schemat relacji w bazie danych.*
+![Schemat Architektury Bazy Danych](images/project_database_schema.png)
 
 ## 4.2. Szczegółowy Opis Kluczowych Tabel
 
@@ -240,7 +215,7 @@ Launcher to centralna aplikacja desktopowa (GUI) napisana w Pythonie z użyciem 
     *   **Zarządzanie Procesami:** Wyświetla listę wszystkich aktywnych procesów potomnych (serwer, edytory) wraz z ich identyfikatorami (PID) i pozwala na ich awaryjne zatrzymanie.
     *   **Wielozakładkowa Konsola:** Każdy uruchomiony proces otrzymuje własną zakładkę z konsolą, w której na żywo wyświetlane są jego logi, co ułatwia diagnostykę i monitoring.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Główne okno Launchera z widoczną konsolą i kilkoma uruchomionymi procesami w zakładkach]**
+![Główne okno Launchera z widoczną konsolą i kilkoma uruchomionymi procesami w zakładkach](images/launcher_main_window.png)
 
 ### 5.2. Edytor Właścicieli (`tools/owner_editor.py`)
 
@@ -273,9 +248,13 @@ Edytor Właścicieli to samodzielna, w pełni funkcjonalna aplikacja desktopowa 
 
 *   **Centralny Eksport Danych:** Wszystkie dane (właściciele i demografia) są eksportowane do czystych plików `.json` w folderze `backup/`, gotowych do użycia przez skrypt migracyjny.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami]**
+![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui.png)
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Osobne okno Edytora Demografii, pokazujące tabelę z danymi]**
+![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui2.png)
+
+![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui3.png)
+
+![Osobne okno Edytora Demografii, pokazujące tabelę z danymi](images/screenshot_owner_editor_gui4.png)
 
 ### 5.3. Edytor Działek (`tools/parcel_editor/parcel_editor_app.py`)
 
@@ -305,7 +284,7 @@ Edytor Działek to zaawansowane narzędzie zaprojektowane specjalnie do procesu 
 
 *   **Eksport w Standardzie GeoJSON:** Cała sesja rysowania jest na bieżąco zapisywana, a finalny wynik pracy jest przechowywany w pliku `backup/parcels_data.json`. Dane są zapisywane w formacie **GeoJSON**, który jest otwartym standardem w świecie systemów informacji geograficznej (GIS). Zapewnia to pełną interoperacyjność i gotowość danych do użycia przez skrypt migracyjny, który przetwarza je i importuje do bazy PostGIS.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Główne okno Edytora Działek z widoczną mapą, narysowanymi obiektami, panelem bocznym i otwartym modalem menedżera kopii zapasowych]**
+![Główne okno Edytora Działek z widoczną mapą, narysowanymi obiektami, panelem bocznym i otwartym modalem menedżera kopii zapasowych](images/screenshot_parcel_editor.png)
 
 ### 5.4. Edytor Genealogii (`tools/genealogy_editor/editor_app.py`)
 
@@ -333,7 +312,7 @@ Edytor Genealogii to wyspecjalizowane narzędzie webowe, zaprojektowane do zarz�
 
 *   **Eksport do Pliku JSON:** Całość danych genealogicznych jest zapisywana w ustrukturyzowanym pliku `backup/genealogia.json`, który następnie służy jako źródło dla głównego skryptu migracyjnego.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Główne okno Edytora Genealogii, pokazujące tabelę z pogrupowanymi rodzinami i otwarty formularz edycji osoby z widocznym autouzupełnianiem]**
+![Główne okno Edytora Genealogii, pokazujące tabelę z pogrupowanymi rodzinami i otwarty formularz edycji osoby z widocznym autouzupełnianiem](images/genealogy_editor_main_view.png)
 
 ---
 
@@ -467,7 +446,7 @@ Ten panel służy do eksploracji obiektów geograficznych. Został podzielony na
     *   **Ustawienia:** Otwiera okno modalne, w którym użytkownik może zresetować widok do stanu początkowego lub przełączyć **motyw kolorystyczny na ciemny**. Wybrany motyw jest zapamiętywany i automatycznie stosowany we wszystkich modułach aplikacji (mapa, protokół, statystyki), zapewniając spójne doświadczenie wizualne.
     *   **Pomoc:** Wyświetla okno z informacjami o skrótach klawiszowych i wskazówkami dotyczącymi użytkowania.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Główny widok mapy z otwartymi oboma panelami bocznymi i widocznym przełącznikiem warstw]**
+![Główny widok mapy z otwartymi oboma panelami bocznymi i widocznym przełącznikiem warstw](images/screenshot_mapa.png)
 
 ### 7.2. Panel Administracyjny (`admin/`)
 
@@ -491,18 +470,10 @@ Panel stanowi centralny punkt zarządzania danymi bezpośrednio w bazie PostgreS
     *   **Estetyczny Interfejs:** Panel został zaprojektowany z dbałością o detale wizualne, aby praca z danymi była nie tylko efektywna, ale i przyjemna.
     *   **Dynamiczne Elementy:** Interfejs zawiera "smaczki", takie jak dynamicznie aktualizowana data i zegar w czasie rzeczywistym, co dodaje mu profesjonalizmu.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Dashboard Panelu Administracyjnego, pokazujący statystyki i menu boczne]**
+![Dashboard Panelu Administracyjnego, pokazujący statystyki i menu boczne](images/panel_admina.PNG)
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok edycji właściciela w panelu admina, z widoczną listą rozwijaną do wyboru działek]**
+![Widok edycji właściciela w panelu admina, z widoczną listą rozwijaną do wyboru działek](images/widok_edycji_wlasciciela_admin.PNG)
 
-### 7.3. Moduły Analityczne (`wlasciciele/`, `graf/`)
-
-Projekt został wzbogacony o dodatkowe moduły do analizy danych:
-*   **Statystyki i Rankingi:** Strona prezentująca dynamicznie generowane rankingi największych właścicieli gruntów oraz statystyki dotyczące struktury własności.
-*   **Porównywarka Protokołów:** Narzędzie pozwalające na wyświetlenie dwóch protokołów obok siebie w celu łatwego porównania.
-*   **Graf Powiązań:** Wizualizacja relacji między protokołami, oparta na zdefiniowanych w danych linkach.
-
-**[WSTAW TUTAJ ZRZUT EKRANU: Strona ze statystykami lub porównywarką]**
 
 #### 7.3.1. Centrum Analityczne - Statystyki i Rankingi (`wlasciciele/stats.html`)
 
@@ -526,7 +497,7 @@ Strona statystyk została zaprojektowana jako nowoczesne **Centrum Analityczne (
 
 *   **Uniwersalna Wyszukiwarka:** Strona jest wyposażona w globalną wyszukiwarkę, która w czasie rzeczywistym filtruje wszystkie widoczne komponenty (rankingi, osie czasu) i podświetla znalezione frazy.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Strona Centrum Analitycznego z widocznymi wykresami i rankingami]**
+![Strona Centrum Analitycznego z widocznymi wykresami i rankingami](images/centrum_analityczne.PNG)
 
 #### 7.3.2. Porównywarka Protokołów (`wlasciciele/compare.html`)
 
@@ -536,7 +507,7 @@ Narzędzie to zostało stworzone w celu ułatwienia szczegółowej analizy poró
 *   **Wspólna Nawigacja do Mapy:** Przyciski na górnym pasku pozwalają na jednoczesną wizualizację na mapie działek obu porównywanych właścicieli, z rozróżnieniem na stan rzeczywisty i z protokołu.
 *   **Eksport do PDF:** Każdy z protokołów może być indywidualnie wyeksportowany do pliku PDF, co jest przydatne do archiwizacji lub dalszej analizy offline.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok Porównywarki z dwoma protokołami obok siebie]**
+![Widok Porównywarki z dwoma protokołami obok siebie](images/porownanie_protokolow.PNG)
 
 #### 7.3.3. Widok Szczegółowy Protokołu (`wlasciciele/protokol.html`)
 
@@ -567,7 +538,9 @@ Widok protokołu jest w pełni interaktywny i zintegrowany z resztą ekosystemu:
 *   **Drzewo Genealogiczne:** Przycisk **"Pokaż drzewo genealogiczne"** dynamicznie generuje i wyświetla w oknie modalnym pełną, interaktywną wizualizację sieci rodzinnej powiązanej z daną osobą.
 *   **Narzędzia Dodatkowe:** Górny pasek nawigacyjny oferuje narzędzia takie jak przełączenie widoku w **tryb pełnoekranowy** dla wygodniejszej analizy, **eksport całego protokołu do pliku PDF** oraz bezpośredni dostęp do zdigitalizowanych **skanów oryginalnego dokumentu**.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje]**
+![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_1.PNG)
+![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_2.PNG)
+![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_3.PNG)
 
 ### 7.4. Moduł Genealogiczny (`genealogia/` i `graf/`) - Wizualizacja Sieci Społecznych
 
@@ -594,7 +567,7 @@ Widok Grafu Powiązań stanowi makroskopowe narzędzie analityczne, którego cel
         *   **Szczegółowe Informacje (Tooltip):** Po najechaniu na węzeł wyświetlana jest etykieta z dodatkowymi informacjami.
         *   **Nawigacja do Protokołu:** **Podwójne kliknięcie** na dowolny węzeł natychmiast przenosi użytkownika do szczegółowego widoku protokołu danej osoby, co pozwala na płynne przejście od analizy makro (cała sieć) do analizy mikro (pojedynczy dokument).
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok Grafu Powiązań z widocznym panelem kontrolnym i podświetlonym klastrem węzłów]**
+![Strona ze statystykami lub porównywarką](images/screenshot_graf_powiazan.png)
 
 #### 7.4.2. Drzewo Genealogiczne (`genealogia.html` oraz logika w `protokol.js`)
 
@@ -611,7 +584,7 @@ Drzewo Genealogiczne to bardziej szczegółowa i ustrukturyzowana wizualizacja, 
     *   **Czytelna Prezentacja:** Każdy węzeł w drzewie zawiera kluczowe informacje: imię i nazwisko, lata życia oraz symbol płci. Węzły są pokolorowane w zależności od pokolenia, a osoba stanowiąca punkt wyjścia dla generowania drzewa jest specjalnie wyróżniona.
     *   **Pełna Interaktywność:** Użytkownik może przesuwać (pan) i powiększać (zoom) widok drzewa, co jest niezbędne przy analizie dużych, wielopokoleniowych rodzin. Podwójne kliknięcie na dowolną osobę w drzewie powoduje dynamiczne przerysowanie całej wizualizacji, ustawiając tę osobę jako nowy punkt centralny.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok wygenerowanego Drzewa Genealogicznego w oknie modalnym]**
+![Widok wygenerowanego Drzewa Genealogicznego w oknie modalnym](images/screenshot_genealogia_drzewo.png)
 
 ### 7.5. Strona Wprowadzająca i Materiały Uzupełniające
 
@@ -633,7 +606,7 @@ Strona główna pełni rolę profesjonalnej wizytówki i centralnego punktu wej�
 
 *   **Struktura i Treść:** Strona w zwięzły i przystępny sposób komunikuje cel i zakres projektu, prezentuje jego najważniejsze funkcjonalności w formie estetycznych kart, a także zawiera formalne informacje o autorze i opiekunie naukowym pracy, co podkreśla jej akademicki charakter.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Główny widok strony startowej (`index.html`), pokazujący tytuł, przyciski i karty funkcjonalności]**
+![Główny widok strony startowej (index.html), pokazujący tytuł, przyciski i karty funkcjonalności](images/screenshot_strona_glowna.png)
 
 #### 7.5.2. Rys Historyczny Gminy Czarna (`strona_glowna/historia.html`)
 
@@ -643,7 +616,7 @@ Aby dostarczyć użytkownikom niezbędnego kontekstu merytorycznego, stworzono d
 *   **Integracja z Materiałem Źródłowym:** Tekst jest ilustrowany **zdigitalizowanymi materiałami archiwalnymi**, takimi jak historyczne zdjęcia (np. dworca kolejowego) oraz fragmenty oryginalnych protokołów. Pozwala to na bezpośrednie zapoznanie się z charakterem źródeł, na których opiera się cały projekt.
 *   **Spójność Wizualna:** Podstrona historyczna utrzymuje spójność wizualną ze stroną główną, wykorzystując ten sam motyw graficzny z mapą w tle, co zapewnia płynne i jednolite doświadczenie użytkownika podczas nawigacji po całym serwisie.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok podstrony z rysem historycznym, pokazujący tekst i galerię zdjęć]**
+![Widok podstrony z rysem historycznym, pokazujący tekst i galerię zdjęć](images/history_page_view.png)
 
 #### 7.5.3. Dokumentacja Techniczna (`docs/`)
 
@@ -654,7 +627,7 @@ W celu zapewnienia łatwości wdrożenia i dalszego rozwoju projektu, stworzono 
 *   **Przewodnik Wdrożeniowy:** Kluczowym elementem dokumentacji jest szczegółowy przewodnik "krok po kroku", który prowadzi nowego użytkownika przez cały proces – od instalacji wymaganego oprogramowania (Python, PostgreSQL), przez konfigurację bazy danych, aż po finalne uruchomienie aplikacji za pomocą Launchera.
 *   **Galeria Aplikacji:** W dokumentacji zintegrowano również galerię zrzutów ekranu, prezentującą wszystkie kluczowe widoki i narzędzia, co pozwala na szybkie zapoznanie się z możliwościami systemu.
 
-**[WSTAW TUTAJ ZRZUT EKRANU: Widok strony dokumentacji technicznej z widoczną nawigacją i blokiem kodu]**
+![Widok strony dokumentacji technicznej z widoczną nawigacją i blokiem kodu](images/docs_page_view.png)
 
 ---
 
@@ -727,12 +700,11 @@ Realizacja projektu potwierdziła, że zastosowanie nowoczesnych technologii web
 
 Największym wyzwaniem technicznym okazała się integracja różnorodnych danych – opisowych, przestrzennych i genealogicznych – w jednym, spójnym modelu. Udało się to osiągnąć dzięki starannemu projektowi bazy danych oraz implementacji dedykowanych narzędzi, które zapewniły integralność danych na każdym etapie ich przetwarzania.
 
-[... **Twoje osobiste wnioski - uzupełnij ten fragment.** Napisz tu kilka zdań od siebie. Na przykład:
-*   "Realizacja tego projektu była dla mnie niezwykle cennym doświadczeniem, które pozwoliło mi..."
-*   "Największą satysfakcję dało mi stworzenie..."
-*   "Projekt utwierdził mnie w przekonaniu, że..."
-*   "Nauczyłem się, jak ważne jest..."
-To jest miejsce, gdzie możesz pokazać swoją pasję i to, co wyniosłeś z tej pracy.]
+Realizacja tego projektu była dla mnie niezwykle cennym doświadczeniem, które pozwoliło mi zmierzyć się z szerokim spektrum wyzwań, zarówno na płaszczyźnie technicznej, jak i merytorycznej. Największą satysfakcję, ale i techniczną trudność, stanowiło dla mnie stworzenie interaktywnego drzewa genealogicznego. Zaprojektowanie algorytmu, który poprawnie modeluje i wizualizuje złożone, wielopokoleniowe relacje rodzinne, było zadaniem wymagającym, lecz jego pomyślne ukończenie przyniosło mi ogromną dumę.
+
+Projekt nauczył mnie również pokory wobec danych historycznych. Żmudny proces przepisywania protokołów z papieru, odcyfrowywanie trudnej do odczytania kaligrafii i domyślanie się znaczenia łacińskich zapisów były momentami frustrujące, ale uświadomiły mi, jak ważna jest precyzja i cierpliwość w pracy z materiałem archiwalnym. Równie ważną lekcją była dbałość o jakość kodu. Proces jego porządkowania i szczegółowego komentowania, choć początkowo wydawał się dodatkowym obowiązkiem, ostatecznie okazał się kluczowy dla zrozumienia własnej pracy i zapewnienia, że system będzie możliwy do utrzymania w przyszłości.
+
+Projekt utwierdził mnie w przekonaniu, że najtrudniejsze decyzje, takie jak wybór odpowiedniej architektury i technologii na samym początku, mają największy wpływ na sukces całego przedsięwzięcia. Patrząc wstecz, mimo licznych trudności, stworzenie działającego narzędzia, które może służyć lokalnej społeczności, przyniosło mi ogromną satysfakcję. To doświadczenie ugruntowało moją pasję do tworzenia oprogramowania, które rozwiązuje realne problemy.
 
 Ostatecznie, projekt dowodzi, że nawet z pozoru "suche" dane katastralne mogą stać się podstawą do zbudowania fascynującej, interaktywnej opowieści o historii lokalnej społeczności.
 
@@ -964,20 +936,4 @@ Aplikacja będzie dostępna pod adresem `http://127.0.0.1:5000`.
 5.  Materiały archiwalne z Archiwum Diecezjalnego w Tarnowie.
 
 ---
-
-# Załącznik A: Struktura Projektu (skrót)
-
-```
-Projekt Mapa Czarna/
-├── backend/           # Serwer Flask, migracje, testy
-├── mapa/              # Aplikacja mapowa (HTML/CSS/JS)
-├── wlasciciele/       # Statystyki, porównywarka, protokół (frontend)
-├── graf/              # Wizualizacja grafu powiązań
-├── genealogia/        # Wizualizacja drzewa genealogicznego
-├── admin/             # Panel administracyjny (SPA)
-├── launcher/          # Aplikacja desktopowa (Tkinter) – centrum dowodzenia
-├── tools/             # Edytory i narzędzia pomocnicze
-├── backup/            # Kopie danych wejściowych (JSON)
-└── dokumentacja/      # Niniejszy dokument
-```
 
