@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <!-- Podstawowe metadane -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa Działek - Czarna</title>
+
+    <!-- Zewnętrzne arkusze stylów dla biblioteki Leaflet (mapy) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    
+    <!-- Arkusz stylów dla biblioteki Leaflet.PM (Geoman) do rysowania i edycji geometrii -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.css"
+    />
+
+    <!-- Własny arkusz stylów aplikacji -->
+    <link rel="stylesheet" href="../static/style.css" />
+  </head>
+  <body>
+    <!-- Główny kontener aplikacji edytora działek -->
+    <div class="container">
+      
+      <!-- Górny pasek narzędzi z przyciskami do tworzenia obiektów -->
+      <div id="top-toolbar">
+        <!-- Kontener na przyciski tworzenia nowych obiektów (domyślnie widoczny) -->
+        <div id="create-actions">
+          <span class="toolbar-label">Nowy obiekt:</span>
+          <!-- Przyciski dla różnych kategorii obiektów geograficznych -->
+          <button data-category="budowlana">Działka Budowlana</button>
+          <button data-category="rolna">Działka Rolna</button>
+          <button data-category="droga">Droga</button>
+          <button data-category="rzeka">Rzeka</button>
+          <button data-category="las">Las</button>
+          <button data-category="pastwisko">Pastwisko</button>
+          <button data-category="budynek">Budynek</button>
+          <button data-category="kapliczka">Kapliczka</button>
+        </div>
+        
+        <!-- Kontener na przyciski dynamiczne (pokazywane podczas rysowania/edycji) -->
+        <div id="dynamic-actions" style="display: none">
+          <!-- Zawartość generowana dynamicznie przez JavaScript -->
+          <!-- Tu pojawiają się przyciski: Cofnij Punkt, Zakończ, Anuluj itp. -->
+        </div>
+      </div>
+
+      <!-- Główna zawartość aplikacji (mapa + panel boczny) -->
+      <div class="content">
+        <!-- Element główny, w którym renderowana jest mapa Leaflet -->
+        <div id="map"></div>
+        
+        <!-- Panel boczny z listą działek i kontrolkami -->
+        <aside id="parcel-panel">
+          <!-- Zakładki do przełączania między typami obiektów -->
+          <div class="sidebar-tabs">
+            <button class="tab-btn active" data-tab="parcels">Działki</button>
+            <button class="tab-btn" data-tab="others">Inne Obiekty</button>
+          </div>
+          
+          <!-- Pole wyszukiwania/filtrowania obiektów -->
+          <div class="search-container">
+            <input
+              type="search"
+              id="search-filter"
+              placeholder="Wyszukaj po nazwie/numerze..."
+            />
+          </div>
+
+          <!-- Kontener z przewijalną listą działek -->
+          <div class="list-container">
+            <ul id="parcel-list">
+              <!-- Lista działek generowana dynamicznie przez JavaScript -->
+              <!-- Każdy element zawiera nazwę, kategorię i przyciski akcji -->
+            </ul>
+          </div>
+
+          <!-- Główne przyciski kontrolne na dole panelu -->
+          <div class="main-controls">
+            <!-- Przycisk otwierający menedżer kopii zapasowych -->
+            <button id="open-backup-manager">Zarządzaj Zapisami</button>
+            <!-- Przycisk zamykający aplikację i serwer -->
+            <button id="shutdown-app-btn" class="danger">
+              Wyjdź z aplikacji
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Miejsce na komunikaty statusu (obecnie nieużywane) -->
+      <div id="status-message"></div>
+    </div>
+
+    <!-- Modal (okno dialogowe) menedżera kopii zapasowych -->
+    <div id="backupModal" class="modal">
+      <div class="modal-content">
+        <!-- Przycisk zamykania modala -->
+        <span class="close-button">×</span>
+        <h2>Menedżer Kopii Zapasowych</h2>
+        
+        <!-- Sekcja tworzenia nowej kopii -->
+        <div class="modal-section">
+          <button id="create-backup-btn">Stwórz nową kopię zapasową</button>
+        </div>
+        
+        <!-- Sekcja z listą istniejących kopii -->
+        <div class="modal-section">
+          <h4>Dostępne kopie zapasowe (od najnowszej)</h4>
+          <div id="backup-list-container">
+            <ul id="backup-list">
+              <!-- Lista kopii zapasowych ładowana dynamicznie -->
+              <!-- Domyślnie wyświetla komunikat "Ładowanie..." -->
+              <li>Ładowanie...</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zewnętrzne skrypty JavaScript -->
+    
+    <!-- Główna biblioteka Leaflet do obsługi map -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    
+    <!-- Biblioteka Leaflet.PM (Geoman) do rysowania i edycji geometrii na mapie -->
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script>
+    
+    <!-- Główny skrypt aplikacji edytora działek -->
+    <script src="../static/editor.js"></script>
+  </body>
+</html>

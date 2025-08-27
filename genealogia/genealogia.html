@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drzewo Genealogiczne Społeczności - Mapa Katastralna Gminy Czarna</title>
+  
+  <!-- Arkusz stylów -->
+  <link rel="stylesheet" href="genealogia_style.css" />
+</head>
+<body>
+  <!-- Główny kontener dla drzewa -->
+  <div id="genealogy-network"></div>
+
+  <!-- Panel kontrolny -->
+  <div class="panel">
+    <h1>🌳 Drzewo Genealogiczne</h1>
+    <p>
+      Hierarchiczna wizualizacja powiązań rodzinnych społeczności.
+      Rodzice znajdują się wyżej, dzieci niżej.
+    </p>
+
+    <!-- Kontrolki -->
+    <div class="controls-section">
+      <h3>⚙️ Opcje wyświetlania</h3>
+      
+      <div class="control-group">
+        <label for="family-select">Filtruj rodzinę:</label>
+        <select id="family-select">
+          <option value="all">Wszystkie rodziny</option>
+        </select>
+      </div>
+
+      <div class="button-group">
+        <button id="show-all">Pokaż wszystko</button>
+        <button id="center-view" class="secondary">Wycentruj</button>
+        <button id="reset-view" class="secondary">Resetuj</button>
+      </div>
+    </div>
+
+    <!-- Wyszukiwarka -->
+    <div class="control-group">
+      <label for="search-input">🔍 Wyszukaj osobę:</label>
+      <input 
+        type="text" 
+        id="search-input" 
+        placeholder="Wpisz imię lub nazwisko..."
+      />
+      <ul id="search-results"></ul>
+    </div>
+
+    <!-- Legenda -->
+    <div id="legend">
+      <h3>📖 Legenda</h3>
+      <div class="legend-item">
+        <span class="legend-symbol male">♂</span>
+        <span>Mężczyzna (niebieski)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-symbol female">♀</span>
+        <span>Kobieta (różowy)</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-symbol">💕</span>
+        <span>Małżeństwo</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-symbol">- - -</span>
+        <span>Relacja rodzic-dziecko</span>
+      </div>
+      <div class="legend-item">
+        <span style="background: #ffeb3b; padding: 2px 8px; border-radius: 3px;">Żółty</span>
+        <span>Osoba główna</span>
+      </div>
+    </div>
+
+    <!-- Wskazówki -->
+    <div class="tips-section">
+      <strong>💡 Wskazówki:</strong>
+      <ul>
+        <li>Przewijaj kółkiem myszy aby powiększać</li>
+        <li>Przeciągaj aby przesuwać widok</li>
+        <li>Kliknij dwukrotnie na osobę z protokołem</li>
+        <li>Kliknij na osobę aby ją podświetlić</li>
+      </ul>
+    </div>
+
+    <!-- Nawigacja -->
+    <p class="navigation-links">
+      <a href="../strona_glowna/index.html">🏠 Strona Główna</a>
+      <a href="../mapa/mapa.html">🗺️ Mapa</a>
+    </p>
+  </div>
+
+  <!-- Skrypt JavaScript -->
+  <script src="genealogia-script.js"></script>
+</body>
+</html>

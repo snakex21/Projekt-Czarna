@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graf Powiązań - Protokoły Katastralne</title>
+    
+    <!-- Vis.js Network -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <!-- Font Awesome dla ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Arkusz stylów -->
+    <link rel="stylesheet" href="graf_style.css" />
+</head>
+<body>
+    <!-- Kontener grafu -->
+    <div id="mynetwork"></div>
+    
+    <!-- Gradient overlay dla efektu głębi -->
+    <div class="gradient-overlay"></div>
+    
+    <!-- Panel kontrolny -->
+    <div class="control-panel">
+        <div class="panel-header">
+            <h1><i class="fas fa-project-diagram"></i> Graf Protokołów Katastralnych</h1>
+            <button class="panel-toggle" aria-label="Zwiń panel">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+        
+        <div class="panel-content">
+            <!-- Sekcja wyszukiwania -->
+            <div class="search-section">
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Szukaj protokołu..."
+                        autocomplete="off"
+                    />
+                    <button id="clear-search" class="clear-btn" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <ul id="search-results"></ul>
+            </div>
+            
+            <!-- Statystyki -->
+            <div class="stats-section">
+                <h3><i class="fas fa-chart-bar"></i> Statystyki</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-nodes">0</span>
+                        <span class="stat-label">Protokołów</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-edges">0</span>
+                        <span class="stat-label">Powiązań</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="selected-node">-</span>
+                        <span class="stat-label">Wybrany</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kontrolki widoku -->
+            <div class="controls-section">
+                <h3><i class="fas fa-sliders-h"></i> Kontrolki</h3>
+                <div class="control-buttons">
+                    <button id="reset-view-btn" class="control-btn">
+                        <i class="fas fa-compress-arrows-alt"></i> Resetuj widok
+                    </button>
+                    <button id="toggle-physics-btn" class="control-btn">
+                        <i class="fas fa-atom"></i> Fizyka: <span id="physics-status">ON</span>
+                    </button>
+                    <button id="layout-btn" class="control-btn">
+                        <i class="fas fa-sitemap"></i> Zmień układ
+                    </button>
+                    <button id="fullscreen-btn" class="control-btn">
+                        <i class="fas fa-expand"></i> Pełny ekran
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filtry -->
+            <div class="filters-section">
+                <h3><i class="fas fa-filter"></i> Filtry</h3>
+                <div class="filter-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="filter-isolated" />
+                        <span>Ukryj pojedyncze węzły</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="highlight-clusters" />
+                        <span>Podświetl klastry</span>
+                    </label>
+                </div>
+                <div class="connections-filter">
+                    <label for="min-connections">Min. powiązań: <span id="connections-value">0</span></label>
+                    <input 
+                        type="range" 
+                        id="min-connections" 
+                        min="0" 
+                        max="10" 
+                        value="0"
+                    />
+                </div>
+            </div>
+            
+            <!-- Legenda -->
+            <div class="legend-section">
+                <h3><i class="fas fa-info-circle"></i> Legenda</h3>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="node-sample normal"></span>
+                        <span>Protokół standardowy</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="node-sample hub"></span>
+                        <span>Węzeł centralny (>5 połączeń)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="node-sample selected"></span>
+                        <span>Wybrany protokół</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Nawigacja -->
+            <div class="navigation-section">
+                <a href="../strona_glowna/index.html" class="nav-link">
+                    <i class="fas fa-home"></i> Strona główna
+                </a>
+                <a href="../mapa/mapa.html" class="nav-link">
+                    <i class="fas fa-map"></i> Mapa
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uchwyt do rozwijania panelu -->
+    <div class="panel-expand-handle" style="display: none;">
+        <i class="fas fa-chevron-right"></i>
+    </div>
+    
+    <!-- Tooltip dla szczegółów -->
+    <div id="node-tooltip" class="tooltip"></div>
+    
+    <!-- Mini-mapa -->
+    <div id="minimap" class="minimap"></div>
+    
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Ładowanie grafu powiązań...</p>
+            <div class="loading-progress">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="graf-script.js"></script>
+</body>
+</html>

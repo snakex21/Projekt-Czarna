@@ -1,0 +1,2201 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Dokumentacja i Przewodnik Wdrożeniowy - Mapa Katastralna Gminy Czarna
+    </title>
+    <!-- Dodajemy Font Awesome dla ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div class="container">
+      <header>
+        <h1>Interaktywna Mapa Katastralna Gminy Czarna z XIX wieku</h1>
+        <p class="subtitle">Przewodnik Wdrożeniowy i Dokumentacja Techniczna</p>
+      </header>
+
+      <nav id="navbar">
+        <div class="nav-links">
+            <a href="#struktura-projektu"><span>Struktura</span></a>
+            <a href="#opis-techniczny"><span>Opis Techniczny</span></a>
+            <a href="#launcher"><span>Launcher</span></a>
+            <a href="#instalacja"><span>Instalacja</span></a>
+            <a href="#narzedzia"><span>Narzędzia</span></a>
+            <a href="#galeria-aplikacji"><span>Galeria</span></a>
+            <a href="#podsumowanie"><span>Podsumowanie i Bibliografia</span></a>
+        </div>
+        <div class="nav-actions">
+            <button class="icon-btn" id="theme-toggle" title="Zmień motyw">
+                <i class="fas fa-sun"></i>
+            </button>
+            <button class="icon-btn" id="fullscreen-toggle" title="Pełny ekran">
+                <i class="fas fa-expand"></i>
+            </button>
+        </div>
+      </nav>
+
+<main>
+        <section>
+          <div class="author-info">
+            <p><strong>Praca Inżynierska</strong></p>
+            <p><strong>Autor:</strong> Maksymilian Augustyn</p>
+            <p><strong>Opiekun pracy:</strong> dr inż. Adam Pieprzycki</p>
+          </div>
+          <div class="chapter-intro">
+            <p>
+              Niniejsza praca inżynierska opisuje kompleksowy proces
+              projektowania, implementacji oraz wdrożenia zintegrowanego systemu
+              informatycznego służącego do wizualizacji i analizy historycznych
+              danych katastralnych. <strong>Problem badawczy</strong>, który
+              stanowił punkt wyjścia dla projektu, dotyczy wyzwań związanych z
+              digitalizacją, ustrukturyzowaniem i udostępnianiem danych
+              archiwalnych. Materiały te, w swojej pierwotnej, papierowej
+              formie, są nie tylko trudno dostępne, ale również podatne na
+              degradację.
+            </p>
+            <p>
+              Celem pracy jest zaprezentowanie kompletnego rozwiązania, które
+              transformuje statyczne, analogowe zapisy w dynamiczną,
+              interaktywną bazę wiedzy, dostępną poprzez nowoczesną aplikację
+              webową.
+            </p>
+          </div>
+        </section> <!-- WAŻNE: Poprawne zamknięcie pierwszej sekcji -->
+        
+        <section> <!-- Rozpoczęcie nowej, oddzielnej sekcji -->
+          <h2 id="struktura-projektu">Struktura Projektu</h2>
+          <p>
+            Zrozumienie organizacji folderów jest kluczowe do nawigacji po
+            kodzie źródłowym i zasobach. Poniżej przedstawiono opis
+            najważniejszych katalogów w projekcie:
+          </p>
+          <div class="folder-structure">
+            <ul>
+              <li>
+                <code><b>admin/</b></code> - Kompletna aplikacja panelu
+                administracyjnego (SPA) do zarządzania danymi w bazie.
+              </li>
+              <li>
+                <code><b>assets/</b></code> - Przechowuje kluczowe zasoby
+                cyfrowe, przede wszystkim zeskanowane oryginały protokołów
+                katastralnych.
+              </li>
+              <li>
+                <code><b>backend/</b></code> - Serce aplikacji. Zawiera serwer
+                API (Flask), skrypt migracyjny oraz testy jednostkowe.
+              </li>
+              <li>
+                <code><b>backup/</b></code> - Przechowuje "surowe" dane źródłowe
+                w formacie <code>.json</code>, generowane przez narzędzia
+                deweloperskie.
+              </li>
+              <li>
+                <code><b>docs/</b></code> - Zawiera interaktywną dokumentację
+                techniczną i wdrożeniową (plik, który właśnie czytasz).
+              </li>
+              <li>
+                <code><b>dokumentacja/</b></code> - Materiały źródłowe do
+                pracy inżynierskiej (pliki Markdown, bibliografia).
+              </li>
+              <li>
+                <code><b>genealogia/</b></code> - Komponenty frontendowe
+                odpowiedzialne za wizualizację interaktywnych drzew
+                genealogicznych.
+              </li>
+              <li>
+                <code><b>graf/</b></code> - Pliki frontendowe dla modułu
+                wizualizacji grafu powiązań między właścicielami.
+              </li>
+              <li>
+                <code><b>launcher/</b></code> - Aplikacja desktopowa (GUI)
+                będąca centrum dowodzenia projektem.
+              </li>
+              <li>
+                <code><b>mapa/</b></code> - Pliki frontendowe (HTML, CSS, JS)
+                dla głównej, interaktywnej mapy katastralnej.
+              </li>
+              <li>
+                <code><b>strona_glowna/</b></code> - Zasoby dla strony
+                powitalnej (landing page) projektu.
+              </li>
+              <li>
+                <code><b>tools/</b></code> - Zbiór niezależnych narzędzi
+                deweloperskich (edytory danych).
+              </li>
+              <li>
+                <code><b>wlasciciele/</b></code> - Komponenty frontendowe do
+                wyświetlania szczegółów protokołu, statystyk i porównywarki.
+              </li>
+              <li>
+                <code><b>Zgloszenie_i_Karta_Projektu/</b></code> - Oficjalne
+                dokumenty związane z projektem inżynierskim.
+              </li>
+            </ul>
+          </div>
+          <br />
+          <p>
+            Poniżej znajduje się wizualna reprezentacja struktury folderów w
+            projekcie:
+          </p>
+          <div class="code-block">
+            <pre><code>.
+├── admin/
+├── assets/
+├── backend/
+├── backup/
+├── docs/
+├── dokumentacja/
+├── genealogia/
+├── graf/
+├── launcher/
+├── mapa/
+├── strona_glowna/
+├── tools/
+├── wlasciciele/
+└── Zgloszenie_i_Karta_Projektu/
+</code></pre>
+          </div>
+        </section>
+        <section>
+          <h2 id="opis-techniczny">Opis Techniczny i Architektura Systemu</h2>
+          <p>
+            Ta sekcja stanowi teoretyczne omówienie projektu, wyjaśniając jego
+            cele, architekturę, zastosowane technologie oraz kluczowe mechanizmy
+            działania. Stanowi ona kontekst dla poniższego przewodnika
+            wdrożeniowego.
+          </p>
+
+          <div class="tech-subsection">
+            <h3>1. Cele i Założenia Projektu</h3>
+            <p>
+              Praca z archiwaliami, takimi jak XIX-wieczne protokoły
+              katastralne, to praca z materiałem kruchym, nieusystematyzowanym i
+              często trudnym do interpretacji. Ręczne przeglądanie setek stron
+              dokumentów w poszukiwaniu powiązań między osobami a działkami jest
+              czasochłonne i nieefektywne. Projekt narodził się z potrzeby
+              stworzenia narzędzia, które nie tylko
+              <b>zabezpieczy te cenne dane</b> przed zniszczeniem, ale przede
+              wszystkim <b>"ożywi" je</b>, przekształcając statyczne zapisy w
+              dynamiczną, interaktywną bazę wiedzy.
+            </p>
+            <p>
+              Głównym celem projektu było zaprojektowanie, implementacja i
+              wdrożenie kompletnej aplikacji webowej full-stack, służącej do
+              interaktywnej wizualizacji i analizy historycznych danych
+              katastralnych Gminy Czarna z XIX wieku. Projekt realizuje
+              następujące cele szczegółowe:
+            </p>
+            <ul>
+              <li>
+                <b>Digitalizacja i Integracja:</b> Zeskanowanie i przepisanie
+                danych z protokołów oraz ich połączenie z danymi przestrzennymi
+                z mapy katastralnej w jednej, spójnej bazie danych.
+              </li>
+              <li>
+                <b>Wizualizacja Interaktywna:</b> Stworzenie interaktywnej mapy,
+                która pozwoli na wizualne eksplorowanie struktury własnościowej,
+                lokalizowanie działek i identyfikowanie ich właścicieli w czasie
+                rzeczywistym.
+              </li>
+              <li>
+                <b>Dostępność i Demokratyzacja Wiedzy:</b> Udostępnienie danych
+                szerokiemu gronu odbiorców – od profesjonalnych historyków i
+                genealogów, po lokalnych pasjonatów i potomków dawnych
+                mieszkańców – poprzez prosty w obsłudze interfejs webowy.
+              </li>
+              <li>
+                <b>Cel Naukowo-Historyczny:</b> Cyfrowe zabezpieczenie i
+                udostępnienie cennych danych historycznych, które w formie
+                papierowej są trudno dostępne i narażone na zniszczenie,
+                umożliwiając badaczom analizę struktury własnościowej i
+                demografii gminy w przeszłości.
+              </li>
+              <li>
+                <b>Cel Technologiczny:</b> Stworzenie w pełni funkcjonalnego,
+                samowystarczalnego ekosystemu, demonstrującego umiejętność
+                integracji różnych technologii w spójne rozwiązanie.
+              </li>
+            </ul>
+            <h4>Kluczowe Założenia Projektowe:</h4>
+            <ul>
+              <li>
+                <b>Wierność Źródłom:</b> System musi jak najwierniej
+                odwzorowywać dane zawarte w oryginalnych protokołach, z
+                uwzględnieniem historycznej terminologii i sposobu zapisu.
+              </li>
+              <li>
+                <b>Otwartość Technologiczna:</b> Wykorzystanie otwartych i
+                darmowych technologii (Python, Flask, PostgreSQL, Leaflet.js) w
+                celu minimalizacji kosztów i zapewnienia możliwości dalszego
+                rozwoju projektu przez społeczność.
+              </li>
+              <li>
+                <b>Modularność Architektury:</b> Architektura systemu powinna
+                być modularna, aby umożliwić łatwą rozbudowę o nowe
+                funkcjonalności (np. zaawansowane analizy genealogiczne,
+                porównywanie map z różnych okresów).
+              </li>
+            </ul>
+            <div class="important-note">
+              <strong>Ograniczenia:</strong> Głównym ograniczeniem projektu jest
+              jakość materiałów źródłowych. Nieczytelność niektórych
+              fragmentów mapy oraz ręcznie pisanych protokołów uniemożliwiła
+              pełną digitalizację 100% obiektów i danych.
+            </div>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>1.5. Analiza Materiałów Źródłowych</h3>
+            <p>
+              Podstawą merytoryczną projektu są zdigitalizowane i
+              zinterpretowane materiały archiwalne pochodzące z dwóch
+              niezależnych, kluczowych instytucji:
+            </p>
+            <ul>
+              <li>
+                <strong>Archiwum Państwowe w Tarnowie:</strong> Stąd pochodzą
+                główne źródła danych o strukturze własnościowej –
+                <strong>protokoły dochodzeń miejscowych celem założenia księgi
+                  hipotecznej dla gminy katastralnej Czarna</strong> (datowane
+                na 1882 rok) oraz oryginalna, XIX-wieczna mapa katastralna.
+                Protokoły zawierają dane osobowe, numery parceli oraz cenne
+                opisy dotyczące historii własności i relacji rodzinnych.
+              </li>
+              <li>
+                <strong>Archiwum Diecezjalne w Tarnowie:</strong> Stąd
+                pozyskano <strong>księgi metrykalne</strong> (akty urodzeń,
+                małżeństw i zgonów) z XIX wieku. Pozwoliły one na
+                odtworzenie powiązań rodzinnych, co stało się fundamentem dla
+                modułu genealogicznego.
+              </li>
+            </ul>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>
+              2. Architektura Systemu i Uzasadnienie Wyborów Technologicznych
+            </h3>
+            <p>
+              System opiera się na klasycznej, trójwarstwowej architekturze
+              full-stack, która zapewnia wyraźny podział odpowiedzialności,
+              elastyczność i skalowalność.
+            </p>
+
+            <div class="architecture-diagram">
+              <div class="component frontend">
+                <strong>Frontend</strong>
+                <span>HTML, CSS, Czysty JS<br />(Leaflet.js)</span>
+                <small
+                  >Interfejs użytkownika, interaktywna mapa, panel
+                  admina.</small
+                >
+              </div>
+              <div class="arrow">↔</div>
+              <div class="component backend">
+                <strong>Backend (API)</strong>
+                <span>Python (Flask)</span>
+                <small>Logika biznesowa, serwowanie API, autoryzacja.</small>
+              </div>
+              <div class="arrow">↔</div>
+              <div class="component database">
+                <strong>Baza Danych</strong>
+                <span>PostgreSQL + PostGIS</span>
+                <small>Przechowywanie danych opisowych i przestrzennych.</small>
+              </div>
+            </div>
+
+            <ul>
+              <li>
+                <b>Backend (Python + Flask):</b> Wybór frameworka Flask
+                podyktowany był jego lekkością, minimalizmem i elastycznością,
+                co czyni go idealnym dla projektów średniej wielkości, gdzie
+                szybkość prototypowania i kontrola nad komponentami są kluczowe.
+                Idealnie nadaje się do tworzenia REST API oraz serwowania plików
+                statycznych, co pozwoliło na zbudowanie aplikacji jako jednej,
+                spójnej całości bez potrzeby korzystania z zewnętrznych serwerów
+                (np. Apache, Nginx) w środowisku deweloperskim.
+              </li>
+              <li>
+                <b>Frontend (Czysty JavaScript + Leaflet.js):</b> Rezygnacja z
+                ciężkich frameworków (jak React czy Angular) na rzecz czystego
+                JavaScriptu (ES6+) była świadomą decyzją, aby skupić się na
+                fundamentalnych technologiach webowych i zminimalizować
+                zależności. Pozwoliło to na lepsze zrozumienie działania
+                aplikacji na najniższym poziomie. Biblioteka
+                <b>Leaflet.js</b> została wybrana jako lekki i potężny standard
+                do tworzenia interaktywnych map, oferujący bogaty zestaw funkcji
+                przy zachowaniu wysokiej wydajności.
+              </li>
+              <li>
+                <b>Baza Danych (PostgreSQL + PostGIS):</b> PostgreSQL to
+                potężny, otwarty system zarządzania relacyjnymi bazami danych,
+                znany ze swojej niezawodności, rozszerzalności i zgodności ze
+                standardami SQL. Kluczowe było jednak rozszerzenie
+                <b>PostGIS</b>, które dodaje obsługę typów i funkcji
+                geograficznych, stając się de facto standardem branżowym do
+                przechowywania i analizy danych przestrzennych (punkty, linie,
+                poligony). PostGIS umożliwia wykonywanie złożonych zapytań
+                przestrzennych bezpośrednio w bazie danych, co jest nieocenione
+                przy pracy z danymi katastralnymi.
+              </li>
+            </ul>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>3. Przepływ i Cykl Życia Danych</h3>
+            <p>
+              Dane w projekcie przechodzą przez precyzyjnie zdefiniowany,
+              kontrolowany cykl życia, co zapewnia ich spójność i integralność
+              na każdym etapie. Ten proces minimalizuje ryzyko błędów i ułatwia
+              zarządzanie danymi historycznymi:
+            </p>
+            <ol>
+              <li>
+                <b>Tworzenie Danych Źródłowych:</b> Dane opisowe (właściciele,
+                demografia) są wprowadzane za pomocą dedykowanego edytora GUI
+                <code>tools/owner_editor.py</code>. Dane przestrzenne (działki,
+                drogi) są rysowane w wizualnym edytorze
+                <code>tools/parcel_editor/</code>. Narzędzia te zostały
+                zaprojektowane z myślą o niezawodności i odporności na błędy
+                użytkownika, minimalizując ryzyko błędów formalnych i wymuszając
+                poprawny format danych już na etapie wprowadzania, co jest
+                kluczowe dla integralności historycznych danych.
+              </li>
+              <li>
+                <b>Zapis do Plików Wsadowych:</b> Edytory zapisują wyniki swojej
+                pracy w postaci ustrukturyzowanych plików <code>.json</code> w
+                folderze <code>backup/</code>. Pliki te stanowią "surowe", łatwe
+                do edycji i przenoszenia źródło prawdy, które może być również
+                wykorzystane do archiwizacji oraz jako punkt wyjścia do dalszych
+                analiz poza systemem.
+              </li>
+              <li>
+                <b>Migracja do Bazy Danych:</b> Skrypt
+                <code>backend/migrate_data.py</code> odczytuje pliki JSON i w
+                sposób zautomatyzowany wypełnia tabelami bazy danych PostgreSQL.
+                Skrypt dba o poprawne typy danych, ustanawia relacje (klucze
+                obce) oraz wykonuje niezbędną konwersję współrzędnych
+                geograficznych do formatu WKT (Well-Known Text) wymaganego przez
+                PostGIS, zapewniając gotowość danych do analiz przestrzennych i
+                spójność z modelem danych.
+              </li>
+              <li>
+                <b>Udostępnienie przez API:</b> Działający serwer Flask
+                (<code>backend/app.py</code>) udostępnia dane z bazy poprzez
+                REST API (endpointy pod ścieżką <code>/api/...</code>) do
+                aplikacji front-endowej. API jest zaprojektowane tak, aby
+                dostarczać dane w formacie zoptymalizowanym pod kątem
+                wyświetlania na mapie i w panelach informacyjnych, minimalizując
+                obciążenie sieci i czas ładowania.
+              </li>
+              <li>
+                <b>Zarządzanie i Edycja:</b> Panel Admina (<code>admin/</code>)
+                pozwala na modyfikację danych bezpośrednio w bazie, z
+                pominięciem plików JSON. Jest to narzędzie dla administratorów
+                do bieżącej korekty i aktualizacji danych, oferujące interfejs
+                CRUD (Create, Read, Update, Delete) dla kluczowych tabel.
+              </li>
+              <li>
+                <b>Backup:</b> Funkcja eksportu w panelu admina odwraca proces
+                migracji, pobierając aktualny stan bazy i generując z niego
+                pliki <code>.json</code>, zamykając tym samym cykl życia danych
+                i umożliwiając tworzenie kopii zapasowych lub przenoszenie
+                danych między środowiskami. Zapewnia to możliwość odtworzenia
+                stanu bazy z plików źródłowych.
+              </li>
+            </ol>
+          </div>
+
+        <div class="tech-subsection">
+            <h3>4. Struktura Bazy Danych</h3>
+            <p>
+              Sercem systemu jest relacyjna baza danych PostgreSQL, rozszerzona
+              o PostGIS. Model danych został zaprojektowany z naciskiem na
+              integralność, normalizację i wydajność zapytań. Poniższy diagram
+              związków encji (ERD) wizualizuje, w jaki sposób dane o
+              właścicielach, obiektach, demografii i genealogii są ze sobą
+              połączone.
+            </p>
+
+<div class="mermaid-diagram">
+              <pre class="mermaid">
+erDiagram
+    wlasciciele {
+        int id PK
+        varchar unikalny_klucz UK
+        varchar nazwa_wlasciciela
+        int numer_protokolu
+    }
+
+    obiekty_geograficzne {
+        int id PK
+        varchar nazwa_lub_numer
+        varchar kategoria
+        GEOMETRY geometria
+    }
+
+    dzialki_wlasciciele {
+        int wlasciciel_id FK
+        int obiekt_id FK
+        varchar typ_posiadania
+    }
+
+    osoby_genealogia {
+        int id PK
+        varchar imie_nazwisko
+        int id_ojca FK
+        int id_matki FK
+        int id_protokolu FK
+    }
+
+    malzenstwa {
+        int malzonek1_id FK
+        int malzonek2_id FK
+    }
+
+    demografia {
+        int id PK
+        int rok UK
+        int populacja_ogolem
+    }
+
+    login_attempts {
+        int id PK
+        varchar ip_address
+        timestamp timestamp
+        boolean successful
+    }
+
+    blocked_ips {
+        int id PK
+        varchar ip_address UK
+        timestamp timestamp
+    }
+
+    wlasciciele ||--o{ dzialki_wlasciciele : "posiada"
+    obiekty_geograficzne ||--o{ dzialki_wlasciciele : "jest posiadany przez"
+    wlasciciele ||--o{ osoby_genealogia : "jest głównym protokołem dla"
+    osoby_genealogia }o--|| osoby_genealogia : "jest rodzicem dla"
+    osoby_genealogia }o--o{ malzenstwa : "zawiera związek"
+              </pre>
+            </div>
+<h4>Opis Kluczowych Tabel:</h4>
+            <table>
+              <thead>
+                <tr>
+                  <th>Tabela</th>
+                  <th>Opis</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>wlasciciele</code></td>
+                  <td>
+                    Przechowuje dane opisowe z protokołów katastralnych. Każdy
+                    rekord to jeden protokół.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>obiekty_geograficzne</code></td>
+                  <td>
+                    Uniwersalna tabela na wszystkie obiekty przestrzenne z
+                    mapy (działki, drogi, budynki) z kluczową kolumną
+                    <code>geometria</code> typu PostGIS.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>dzialki_wlasciciele</code></td>
+                  <td>
+                    Tabela łącząca, realizująca relację wiele-do-wielu między
+                    właścicielami a obiektami, z rozróżnieniem na własność
+                    "rzeczywistą" i "z protokołu".
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>osoby_genealogia</code></td>
+                  <td>
+                    Centralna tabela modułu genealogicznego. Przechowuje osoby
+                    i ich powiązania rodzinne (<code>id_ojca</code>,
+                    <code>id_matki</code>), tworząc sieć genealogiczną.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>malzenstwa</code></td>
+                  <td>
+                    Tabela łącząca dla relacji małżeńskich (wiele-do-wielu
+                    między osobami).
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>demografia</code></td>
+                  <td>
+                    Przechowuje historyczne dane demograficzne dla gminy w
+                    poszczególnych latach.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>login_attempts</code></td>
+                  <td>
+                    Zapisuje każdą próbę logowania do panelu admina w celu
+                    monitorowania bezpieczeństwa i wykrywania prób ataku.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>blocked_ips</code></td>
+                  <td>
+                    Przechowuje adresy IP, które zostały automatycznie
+                    zablokowane po przekroczeniu limitu nieudanych prób
+                    logowania.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p>
+              Integralność danych jest zapewniona przez użycie kluczy obcych z
+              regułą <code>ON DELETE CASCADE</code>, co gwarantuje, że usunięcie
+              rekordu nadrzędnego (np. właściciela) automatycznie usuwa
+              wszystkie powiązane z nim rekordy podrzędne.
+            </p>
+          </div>
+
+<div class="tech-subsection">
+            <h3>5. Opis Kluczowych Komponentów Aplikacji</h3>
+            <p>
+              Cały ekosystem projektu składa się z kilku niezależnych, ale
+              ściśle współpracujących ze sobą części, z których każda pełni
+              określoną rolę:
+            </p>
+            <ul>
+              <li>
+                <b>Aplikacja Główna (Interfejs Użytkownika):</b> Zestaw
+                dynamicznych stron internetowych, które umożliwiają eksplorację
+                i analizę danych historycznych.
+                <ul>
+                  <li>
+                    <p>
+                      <strong
+                        >Interaktywna Mapa (<code>mapa.html</code>):</strong
+                      >
+                      Centralny punkt aplikacji, służący do wizualnej
+                      eksploracji danych przestrzennych. Umożliwia:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Przeglądanie i nawigację</strong> po
+                        historycznej mapie katastralnej z nałożonymi,
+                        interaktywnymi warstwami działek, dróg i budynków.
+                      </li>
+                      <li>
+                        <strong>Filtrowanie i wyszukiwanie</strong> właścicieli
+                        oraz obiektów w panelach bocznych.
+                      </li>
+                      <li>
+                        <strong>Podświetlanie działek</strong> na mapie poprzez
+                        najechanie kursorem na wpis na liście.
+                      </li>
+                      <li>
+                        <strong>Przełączanie podkładów mapowych</strong> między
+                        mapą historyczną a współczesnymi widokami (mapa drogowa,
+                        zdjęcia satelitarne).
+                      </li>
+                      <li>
+                        <strong>Dynamiczne włączanie/wyłączanie</strong>
+                        widoczności poszczególnych kategorii obiektów (np. tylko
+                        lasy) za pomocą interaktywnej legendy.
+                      </li>
+                      <li>
+                        <strong>Obsługę współwłasności</strong> – kliknięcie na
+                        działkę z wieloma właścicielami wyświetla okno wyboru.
+                      </li>
+                    </ul>
+                    <div class="screenshot-placeholder">
+                      <p>
+                        [ Zrzut ekranu: Główny widok mapy interaktywnej z
+                        otwartymi panelami bocznymi. ]
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <p>
+                      <strong
+                        >Widok Protokołu (<code>protokol.html</code>):</strong
+                      >
+                      Szczegółowa strona prezentująca wszystkie informacje o
+                      jednym właścicielu. Umożliwia:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Dogłębną analizę</strong> danych z oryginalnego
+                        dokumentu, w tym autorskich sekcji analitycznych
+                        (genealogia, transakcje, wnioski).
+                      </li>
+                      <li>
+                        <strong>Wizualizację na mapie</strong> wszystkich
+                        działek powiązanych z danym protokołem oraz lokalizacji
+                        domu właściciela.
+                      </li>
+                      <li>
+                        <strong>Wygenerowanie interaktywnego drzewa
+                          genealogicznego</strong> dla całej sieci rodzinnej
+                        powiązanej z daną osobą.
+                      </li>
+                      <li>
+                        <strong>Eksport całego protokołu do pliku PDF</strong> w
+                        celu archiwizacji lub wydruku.
+                      </li>
+                      <li>
+                        <strong>Przeglądanie cyfrowych skanów</strong>
+                        oryginalnego, XIX-wiecznego dokumentu.
+                      </li>
+                    </ul>
+                    <div class="screenshot-placeholder">
+                      <p>
+                        [ Zrzut ekranu: Strona szczegółowego protokołu z
+                        widocznymi sekcjami analitycznymi i listą działek. ]
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <p>
+                      <strong
+                        >Centrum Analityczne (<code>stats.html</code>):</strong
+                      >
+                      Nowoczesny dashboard do analizy zagregowanych danych.
+                      Umożliwia:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Przeglądanie interaktywnych wykresów</strong>
+                        (kołowych, słupkowych, liniowych) przedstawiających
+                        strukturę własności, rankingi i trendy demograficzne.
+                      </li>
+                      <li>
+                        <strong>Analizę rankingów</strong> największych
+                        posiadaczy gruntów, z możliwością dynamicznego
+                        filtrowania (np. ranking tylko właścicieli lasów).
+                      </li>
+                      <li>
+                        <strong>Wizualizację na mapie</strong> posiadłości 10
+                        największych właścicieli z aktualnie wybranego rankingu.
+                      </li>
+                      <li>
+                        <strong>Analizę "mapy ciepła"</strong>, która pokazuje
+                        intensywność spisywania protokołów w poszczególnych
+                        dniach.
+                      </li>
+                    </ul>
+                    <div class="screenshot-placeholder">
+                      <p>
+                        [ Zrzut ekranu: Dashboard Centrum Analitycznego z
+                        widocznymi wykresami i rankingami. ]
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <p>
+                      <strong
+                        >Porównywarka Protokołów
+                        (<code>compare.html</code>):</strong
+                      >
+                      Specjalistyczne narzędzie do analizy porównawczej.
+                      Umożliwia:
+                    </p>
+                    <ul>
+                      <li>
+                        <strong>Wyświetlenie dwóch protokołów obok siebie</strong>
+                        w przejrzystym, dwukolumnowym układzie.
+                      </li>
+                      <li>
+                        <strong>Wspólną wizualizację na mapie</strong> działek
+                        obu porównywanych właścicieli, co ułatwia dostrzeganie
+                        różnic i podobieństw.
+                      </li>
+                      <li>
+                        <strong>Indywidualny eksport każdego z protokołów do
+                          PDF</strong>.
+                      </li>
+                    </ul>
+                    <div class="screenshot-placeholder">
+                      <p>
+                        [ Zrzut ekranu: Widok Porównywarki z dwoma protokołami
+                        wyświetlonymi obok siebie. ]
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <b>Panel Administracyjny (<code>admin/</code>):</b>
+                Zaawansowana aplikacja webowa typu
+                <strong>Single Page Application (SPA)</strong>, stanowiąca
+                centrum zarządzania danymi projektu. Zapewnia administratorom
+                bezpośredni i bezpieczny dostęp do bazy danych, umożliwiając
+                pełen zakres operacji CRUD (Create, Read, Update, Delete). Panel
+                został zaprojektowany z myślą o intuicyjnej obsłudze i
+                efektywnym zarządzaniu informacjami historycznymi. Kluczowe
+                funkcjonalności to:
+                <ul>
+                  <li>
+                    <b>Pulpit Nawigacyjny (Dashboard):</b> Główny ekran panelu
+                    prezentujący kluczowe wskaźniki w czasie rzeczywistym (np.
+                    liczba właścicieli, obiektów) i służący jako punkt startowy
+                    do dalszych działań.
+                  </li>
+                  <li>
+                    <b>Zarządzanie Właścicielami:</b> Moduł do kompleksowego
+                    zarządzania protokołami. Umożliwia dodawanie, edycję i
+                    usuwanie wpisów. Szczególnie użyteczną funkcją jest
+                    <strong>możliwość przypisywania działek z interaktywnej listy
+                      rozwijanej z wyszukiwarką</strong>, co eliminuje ryzyko
+                    pomyłek.
+                  </li>
+                  <li>
+                    <b>Zarządzanie Demografią:</b> Przejrzysty interfejs
+                    tabelaryczny do łatwego dodawania i edytowania historycznych
+                    danych demograficznych dla poszczególnych lat.
+                  </li>
+                  <li>
+                    <b>Zaawansowany Moduł Genealogiczny:</b> Pozwala na
+                    zarządzanie osobami i relacjami rodzinnymi. Tabela z listą
+                    osób <strong>automatycznie grupuje je według rodów</strong>, a wbudowany
+                    algorytm potrafi renderować
+                    <strong>interaktywne drzewa genealogiczne</strong>,
+                    poprawnie wizualizując nawet złożone relacje (np.
+                    przynależność córki do drzewa jej rodziców i rodziny męża).
+                  </li>
+                  <li>
+                    <b>Dynamiczny Backup Danych:</b> Niezwykle istotne narzędzie
+                    pozwalające jednym kliknięciem wyeksportować
+                    <strong>aktualny stan całej bazy danych do archiwum
+                      <code>.zip</code></strong>. Umożliwia to tworzenie kopii zapasowych i
+                    łatwe przenoszenie danych między środowiskami.
+                  </li>
+                </ul>
+                <div class="screenshot-placeholder">
+                  <p>
+                    [ Zrzut ekranu: Dashboard Panelu Administracyjnego,
+                    pokazujący statystyki i menu boczne ]
+                  </p>
+                </div>
+                <div class="screenshot-placeholder">
+                  <p>
+                    [ Zrzut ekranu: Widok edycji właściciela w panelu admina, z
+                    widoczną listą rozwijaną do wyboru działek ]
+                  </p>
+                </div>
+              </li>
+            </ul>
+            <div class="subsection">
+              <h4>Materiały Uzupełniające</h4>
+              <p>
+                W celu zapewnienia kompletności projektu oraz dostarczenia
+                użytkownikowi pełnego kontekstu merytorycznego, stworzono
+                dodatkowe komponenty webowe:
+              </p>
+              <ul>
+                <li>
+                  <strong>Strona Główna (<code>/index.html</code>):</strong>
+                  Profesjonalna wizytówka i centralny punkt wejścia do całego
+                  ekosystemu aplikacji. Została zaprojektowana jako nowoczesny
+                  "landing page", którego celem jest budowanie atmosfery i
+                  zanurzenie użytkownika w historycznym kontekście projektu od
+                  pierwszej chwili. Stanowi funkcjonalne centrum nawigacyjne, z
+                  którego można przejść do wszystkich kluczowych modułów.
+                </li>
+                <li>
+                  <strong>Rys Historyczny (<code>/historia.html</code>):</strong>
+                  Dedykowana podstrona zawierająca kluczowe informacje
+                  historyczne dotyczące powstania i rozwoju miejscowości, co
+                  pozwala lepiej zrozumieć tło społeczne i ekonomiczne, które
+                  ukształtowało strukturę własnościową widoczną na mapie.
+                  Tekst jest ilustrowany zdigitalizowanymi materiałami
+                  archiwalnymi.
+</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>6. API i Mechanizmy Bezpieczeństwa</h3>
+            <p>
+              Backend aplikacji udostępnia REST API, które serwuje dane do
+              frontendu. Zaimplementowano również mechanizmy chroniące panel
+              administracyjny.
+            </p>
+            <ul>
+              <li>
+                <strong>Kluczowe Endpointy API:</strong> Aplikacja korzysta z
+                dedykowanych endpointów, takich jak <code>/api/wlasciciele</code>,
+                <code>/api/dzialki</code> (w formacie GeoJSON),
+                <code>/api/stats</code> czy <code>/api/genealogia/&lt;klucz&gt;</code>, aby
+                dynamicznie pobierać dane. Panel administracyjny używa osobnego
+                zestawu endpointów CRUD (np.
+                <code>/api/admin/wlasciciele</code>).
+              </li>
+              <li>
+                <strong>Haszowanie Haseł:</strong> Hasła administratorów nie są
+                przechowywane w formie czystego tekstu. Używana jest biblioteka
+                <code>werkzeug.security</code> do generowania i weryfikacji
+                bezpiecznych haszy.
+              </li>
+              <li>
+                <strong>Ochrona przed atakami Brute-Force:</strong> System
+                monitoruje próby logowania. Po przekroczeniu progu pięciu
+                nieudanych prób z tego samego adresu IP w ciągu 15 minut,
+                adres ten jest automatycznie blokowany i zapisywany w tabeli
+                <code>blocked_ips</code>.
+              </li>
+            </ul>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>7. Testowanie i Zapewnienie Jakości</h3>
+            <p>
+              W celu zapewnienia stabilności i poprawności działania logiki
+              biznesowej, projekt został wyposażony w zestaw
+              <strong>zautomatyzowanych testów jednostkowych i
+                integracyjnych</strong>, napisanych przy użyciu frameworka
+              <code>pytest</code>. Testy są uruchamiane w izolowanym
+              środowisku, które symuluje bazę danych w pamięci, aby nie
+              naruszać danych produkcyjnych.
+            </p>
+            <p>Zakres testów obejmuje:</p>
+            <ul>
+              <li>
+                Weryfikację poprawności działania kluczowych endpointów API.
+              </li>
+              <li>
+                Testowanie pełnego cyklu życia danych (CRUD) dla modułów
+                panelu admina.
+              </li>
+              <li>
+                Sprawdzanie mechanizmów bezpieczeństwa i autoryzacji.
+              </li>
+            </ul>
+            <p>
+              Testy można uruchomić za pomocą dedykowanego przycisku w
+              Launcherze.
+            </p>
+          </div>
+        </section>
+
+
+        <section>
+          <h2 id="launcher">Launcher i Proces Migracji Danych</h2>
+          <p>
+            Zrozumienie, jak dane trafiają do systemu i jak uruchomić
+            poszczególne komponenty, jest kluczowe dla efektywnej pracy z
+            projektem. Poniżej opisano centralny punkt zarządzania aplikacją -
+            Launcher - oraz proces migracji danych.
+          </p>
+
+          <div class="tech-subsection">
+            <h3>
+              1. Launcher (<code>launcher/launcher_app.py</code>) - Centrum
+              Dowodzenia
+            </h3>
+            <p>
+              Launcher to prosta aplikacja desktopowa stworzona przy użyciu
+              biblioteki Tkinter w Pythonie. Jego głównym zadaniem jest
+              uproszczenie i zautomatyzowanie kluczowych operacji deweloperskich
+              i administracyjnych. Zamiast ręcznego wpisywania komend w
+              terminalu, użytkownik otrzymuje graficzny interfejs z przyciskami,
+              które pozwalają na:
+            </p>
+            <ul>
+              <li>
+                <b>Uruchomienie i zatrzymanie serwera backendowego:</b> Jedno
+                kliknięcie uruchamia aplikację Flask, która serwuje API i całą
+                stronę.
+              </li>
+              <li>
+                <b>Przeprowadzenie migracji danych:</b> Uruchomienie skryptu
+                <code>migrate_data.py</code>, który przenosi dane z plików JSON
+                do bazy danych.
+              </li>
+              <li>
+                <b>Szybki dostęp do narzędzi:</b> Bezpośrednie uruchamianie
+                edytora właścicieli i edytora działek.
+              </li>
+            </ul>
+            <p>
+              Wszystkie operacje są logowane w czasie rzeczywistym w oknie
+              konsoli wbudowanym w launcher, co daje pełen wgląd w przebieg
+              procesów. To narzędzie znacząco przyspiesza codzienną pracę i
+              minimalizuje ryzyko pomyłek.
+            </p>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>
+              2. Migracja Danych (<code>backend/migrate_data.py</code>) - Od
+              Pliku do Bazy
+            </h3>
+            <p>
+              <b>Cel:</b> Skrypt ten jest sercem procesu inicjalizacji danych w
+              systemie. Jego zadaniem jest jednorazowe (lub powtarzalne w razie
+              potrzeby) przeniesienie danych źródłowych z ustrukturyzowanych
+              plików JSON do relacyjnej bazy danych PostgreSQL. Proces ten jest
+              kluczowy, ponieważ surowe pliki tekstowe, choć łatwe w edycji, nie
+              nadają się do wydajnego wykonywania złożonych zapytań, zwłaszcza
+              przestrzennych.
+            </p>
+            <p><b>Proces działania:</b></p>
+            <ol>
+              <li>
+                <b>Odczyt plików:</b> Skrypt wczytuje dwa główne pliki:
+                <code>backup/owner_data_to_import.json</code> (z danymi
+                właścicieli) oraz <code>backup/parcels_data.json</code> (z
+                danymi przestrzennymi działek).
+              </li>
+              <li>
+                <b>Czyszczenie bazy:</b> Przed importem skrypt usuwa wszystkie
+                istniejące dane z docelowych tabel, aby zapewnić "czysty start"
+                i uniknąć duplikatów.
+              </li>
+              <li>
+                <b>Import danych:</b> Rekord po rekordzie, dane są wstawiane do
+                odpowiednich tabel (<code>wlasciciele</code>,
+                <code>obiekty_geograficzne</code>,
+                <code>dzialki_wlasciciele</code>), z zachowaniem odpowiednich
+                typów danych i relacji.
+              </li>
+              <li>
+                <b>Transformacja geometrii:</b> Kluczowym krokiem jest konwersja
+                współrzędnych geograficznych z formatu JSON do formatu WKT
+                (Well-Known Text), który jest zrozumiały dla rozszerzenia
+                PostGIS. To umożliwia późniejsze wykonywanie zapytań
+                przestrzennych.
+              </li>
+            </ol>
+
+            <h4>Uzasadnienie wyboru formatu JSON</h4>
+            <p>
+              Format JSON został wybrany jako pośredni format przechowywania
+              danych źródłowych z kilku powodów:
+            </p>
+            <ul>
+              <li>
+                <b>Uniwersalność i czytelność:</b> Jest to format czytelny dla
+                człowieka, co ułatwia ręczną inspekcję i ewentualne poprawki.
+              </li>
+              <li>
+                <b>Niezależność od platformy:</b> Pliki JSON mogą być łatwo
+                przetwarzane przez praktycznie każdy język programowania i
+                system.
+              </li>
+              <li>
+                <b>Struktura:</b> Pozwala na naturalne odwzorowanie
+                zagnieżdżonych struktur danych, co jest przydatne przy
+                opisywaniu złożonych obiektów.
+              </li>
+              <li>
+                <b>Backup i archiwizacja:</b> Pliki te stanowią doskonałą,
+                niezależną od bazy danych kopię zapasową danych źródłowych.
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="instalacja">
+          <h2 id="instalacja">Krok 1: Przygotowanie Środowiska (Instalacja)</h2>
+          <p>
+            Poniższa sekcja przeprowadzi Cię przez cały proces instalacji
+            wymaganego oprogramowania. Postępuj zgodnie z krokami i zrzutami
+            ekranu, aby poprawnie skonfigurować środowisko pracy.
+          </p>
+
+          <!-- === INSTALACJA VISUAL STUDIO CODE === -->
+          <div class="subsection">
+            <h3>1.1. Instalacja Edytora Kodu: Visual Studio Code</h3>
+            <p>
+              Zalecany edytor kodu do pracy z plikami projektu. Przejdź na
+              <a href="https://code.visualstudio.com/download" target="_blank"
+                >oficjalną stronę</a
+              >
+              i pobierz instalator.
+            </p>
+            <a
+              href="https://code.visualstudio.com/download"
+              target="_blank"
+              class="btn"
+              >Pobierz VS Code</a
+            >
+            <ol>
+              <li>Zrzut ekranu strony pobierania:</li>
+              <li>
+                <img
+                  src="assets/1.png"
+                  alt="Pobieranie Visual Studio Code"
+                  class="screenshot"
+                />
+              </li>
+              <li>
+                Przejdź przez proces instalacyjny, akceptując domyślne
+                ustawienia. Poniższe zrzuty ekranu pokazują typową konfigurację.
+              </li>
+            </ol>
+            <div class="gallery">
+              <figure>
+                <img src="assets/2.png" alt="Instalator VS Code - Język" />
+                <figcaption>Wybór języka.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/3.png" alt="Instalator VS Code - Licencja" />
+                <figcaption>Akceptacja licencji.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/4.png" alt="Instalator VS Code - Ścieżka" />
+                <figcaption>Domyślna ścieżka instalacji.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/5.png" alt="Instalator VS Code - Menu Start" />
+                <figcaption>Nazwa w menu Start.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/6.png"
+                  alt="Instalator VS Code - Dodatkowe zadania"
+                />
+                <figcaption>Zalecane opcje dodatkowe.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/7.png" alt="Instalator VS Code - Gotowość" />
+                <figcaption>Podsumowanie i instalacja.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/8.png"
+                  alt="Instalator VS Code - Zakończenie"
+                />
+                <figcaption>Zakończenie instalacji.</figcaption>
+              </figure>
+            </div>
+          </div>
+
+          <!-- === INSTALACJA PYTHON === -->
+          <div class="subsection">
+            <h3 id="instalacja">1.2. Instalacja środowiska Python</h3>
+            <p>
+              Python (wersja <strong>3.9</strong> lub nowsza) jest językiem, w
+              którym działa serwer aplikacji. Pobierz go z
+              <a href="https://www.python.org/downloads/" target="_blank"
+                >oficjalnej strony</a
+              >.
+            </p>
+            <a
+              href="https://www.python.org/downloads/"
+              target="_blank"
+              class="btn"
+              >Pobierz Python</a
+            >
+            <ol>
+              <li>Zrzut ekranu strony pobierania:</li>
+              <li>
+                <img
+                  src="assets/9.png"
+                  alt="Pobieranie Pythona"
+                  class="screenshot"
+                />
+              </li>
+              <li>
+                Uruchom instalator. W oknie instalatora wykonaj poniższe kroki.
+              </li>
+              <li>
+                <img
+                  src="assets/10.png"
+                  alt="Instalacja Pythona z opcją Add to PATH"
+                  class="screenshot"
+                />
+              </li>
+              <div class="important-note">
+                <strong>Ważne:</strong> Upewnij się, że na dole okna zaznaczyłeś
+                opcję <strong>"Add python.exe to PATH"</strong>, a następnie
+                kliknij "Install Now".
+              </div>
+              <li>Po zakończeniu instalacji zobaczysz ekran potwierdzenia.</li>
+              <li>
+                <img
+                  src="assets/11.png"
+                  alt="Zakończenie instalacji Pythona"
+                  class="screenshot"
+                />
+              </li>
+            </ol>
+          </div>
+
+          <!-- === INSTALACJA POSTGRESQL + POSTGIS === -->
+          <div class="subsection">
+            <h3 id="instalacja">1.3. Instalacja Bazy Danych (PostgreSQL z PostGIS)</h3>
+            <p>
+              Użyjemy jednego instalatora, który dostarczy nam serwer bazy
+              danych, narzędzie do zarządzania (pgAdmin 4) oraz mechanizm do
+              instalacji rozszerzenia PostGIS. Pobierz go ze
+              <a
+                href="https://www.enterprisedb.com/downloads/postgres-postgresql-downloads"
+                target="_blank"
+                >strony EDB</a
+              >.
+            </p>
+            <a
+              href="https://www.enterprisedb.com/downloads/postgres-postgresql-downloads"
+              target="_blank"
+              class="btn"
+              >Pobierz PostgreSQL</a
+            >
+            <ol>
+              <li>Zrzut ekranu strony pobierania:</li>
+              <li>
+                <img
+                  src="assets/14.png"
+                  alt="Pobieranie PostgreSQL"
+                  class="screenshot"
+                />
+              </li>
+              <li>
+                Uruchom instalator i przejdź przez kolejne kroki, zwracając
+                uwagę na wybór komponentów (zaznacz wszystkie) i ustawienie
+                hasła dla superużytkownika <code>postgres</code>. W tym
+                poradniku używamy hasła <code>1234</code>.
+              </li>
+            </ol>
+            <div class="gallery">
+              <figure>
+                <img src="assets/15.png" alt="Instalator PostgreSQL - Start" />
+                <figcaption>Ekran powitalny.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/16.png"
+                  alt="Instalator PostgreSQL - Ścieżka"
+                />
+                <figcaption>Katalog instalacyjny.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/17.png"
+                  alt="Instalator PostgreSQL - Komponenty"
+                />
+                <figcaption>Wybór komponentów.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/18.png" alt="Instalator PostgreSQL - Dane" />
+                <figcaption>Katalog na dane.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/19.png" alt="Instalator PostgreSQL - Hasło" />
+                <figcaption>Ustawienie hasła (np. 1234).</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/20.png" alt="Instalator PostgreSQL - Port" />
+                <figcaption>Domyślny port (5432).</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/21.png" alt="Instalator PostgreSQL - Locale" />
+                <figcaption>Ustawienia regionalne.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/22.png"
+                  alt="Instalator PostgreSQL - Podsumowanie"
+                />
+                <figcaption>Podsumowanie instalacji.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/23.png"
+                  alt="Instalator PostgreSQL - Gotowość"
+                />
+                <figcaption>Gotowy do instalacji.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/24.png" alt="Instalator PostgreSQL - Koniec" />
+                <figcaption>Koniec instalacji.</figcaption>
+              </figure>
+            </div>
+            <ol start="4">
+              <li>
+                Po zakończeniu instalacji PostgreSQL,
+                <strong>nie odznaczaj</strong> opcji "Launch Stack Builder at
+                exit" i kliknij "Finish".
+              </li>
+              <li>
+                W oknie Stack Builder wybierz z listy swój nowo zainstalowany
+                serwer PostgreSQL.
+              </li>
+              <li>
+                <img
+                  src="assets/25.png"
+                  alt="Stack Builder - Wybór serwera"
+                  class="screenshot"
+                />
+              </li>
+              <li>Rozwiń kategorię "Spatial Extensions"...</li>
+              <li>
+                <img
+                  src="assets/26.png"
+                  alt="Stack Builder - Rozwijanie kategorii"
+                  class="screenshot"
+                />
+              </li>
+              <li>...i zaznacz najnowszą wersję <strong>PostGIS</strong>.</li>
+              <li>
+                <img
+                  src="assets/27.png"
+                  alt="Stack Builder - Wybór PostGIS"
+                  class="screenshot"
+                />
+              </li>
+              <li>
+                Przejdź przez proces instalacji PostGIS, akceptując domyślne
+                ustawienia.
+              </li>
+            </ol>
+            <div class="gallery">
+              <figure>
+                <img
+                  src="assets/28.png"
+                  alt="Stack Builder - Podsumowanie pobierania PostGIS"
+                />
+                <figcaption>Podsumowanie pobierania PostGIS.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/29.png" alt="Instalator PostGIS - Licencja" />
+                <figcaption>Akceptacja licencji.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/30.png"
+                  alt="Instalator PostGIS - Wybór komponentów"
+                />
+                <figcaption>Wybór komponentów.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/31.png"
+                  alt="Instalator PostGIS - Wybór katalogu instalacji"
+                />
+                <figcaption>Wybór katalogu instalacji.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/32.png"
+                  alt="Instalator PostGIS - Ukończenie instalacji"
+                />
+                <figcaption>Ukończenie instalacji PostGIS.</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="assets/33.png"
+                  alt="Stack Builder - Zakończenie instalatora"
+                />
+                <figcaption>
+                  Potwierdzenie zakończenia instalatora Stack Builder.
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="instalacja">Krok 2: Konfiguracja Bazy Danych</h2>
+          <p>
+            Po zainstalowaniu oprogramowania, należy przygotować bazę danych do
+            przyjęcia danych z projektu. Poniższe kroki pokazują, jak to zrobić
+            przy użyciu narzędzia <strong>pgAdmin 4</strong>.
+          </p>
+          <ol>
+            <li>Uruchom pgAdmin 4 (możesz go znaleźć w menu Start).</li>
+            <li>
+              <img
+                src="assets/34.png"
+                alt="Uruchamianie pgAdmin 4"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              W panelu po lewej stronie rozwiń drzewo "Servers" (klikając małą
+              strzałkę).
+            </li>
+            <li>
+              <img
+                src="assets/35.png"
+                alt="Rozwinięcie drzewa serwerów"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Zostaniesz poproszony o hasło, które ustawiłeś podczas instalacji
+              PostgreSQL. Wpisz je i (opcjonalnie) zaznacz "Save Password".
+              Kliknij "OK".
+            </li>
+            <li>
+              <img
+                src="assets/36.png"
+                alt="Okno logowania do serwera"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Po pomyślnym zalogowaniu, kliknij prawym przyciskiem myszy na
+              "Databases" i wybierz <strong>Create -> Database...</strong>
+            </li>
+            <li>
+              <img
+                src="assets/37.png"
+                alt="Okno tworzenia nowej bazy danych"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              W oknie, które się pojawi, w zakładce "General" wpisz nazwę bazy:
+              <code>mapa_czarna_db</code>.
+            </li>
+            <li>
+              <img
+                src="assets/38.png"
+                alt="Wprowadzanie nazwy bazy (mapa_czarna_db)"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Następnie przejdź do zakładki "Definition". Upewnij się, że w polu
+              "Template" wybrane jest <code>template1</code>, a w polu
+              "Encoding" wybierz z listy <strong>UTF8</strong>. Kliknij "Save",
+              aby utworzyć bazę.
+            </li>
+            <li>
+              <img
+                src="assets/39.png"
+                alt="Ustawianie kodowania UTF8 w zakładce Definition"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              W drzewie po lewej stronie, pod Twoją nową bazą
+              <code>mapa_czarna_db</code>, rozwiń "Extensions". Kliknij prawym
+              przyciskiem myszy na "Extensions" i wybierz
+              <strong>Create -> Extension...</strong>
+            </li>
+            <li>
+              <img
+                src="assets/40.png"
+                alt="Rozwinięcie gałęzi Extensions w drzewie bazy. Opcja Create Extension... po kliknięciu prawym przyciskiem myszy na Extensions."
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              W nowym oknie, w polu "Name", zacznij wpisywać
+              <code>postgis</code> lub wybierz je z rozwijanej listy. Następnie
+              kliknij "Save".
+            </li>
+            <li>
+              <img
+                src="assets/41.png"
+                alt="Wybór rozszerzenia postgis"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Po chwili rozszerzenie PostGIS zostanie dodane do Twojej bazy
+              danych.
+            </li>
+            <li>
+              <img
+                src="assets/42.png"
+                alt="Potwierdzenie dodania PostGIS"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Teraz musimy stworzyć strukturę tabel. Kliknij prawym przyciskiem
+              myszy na bazę <code>mapa_czarna_db</code> i wybierz
+              <strong>Query Tool</strong>.
+            </li>
+            <li>
+              <img
+                src="assets/43.png"
+                alt="Opcja Query Tool po kliknięciu prawym przyciskiem myszy na bazie"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              W oknie edytora zapytań, które się pojawi, wklej
+              <strong>cały poniższy skrypt SQL</strong>.
+            </li>
+            <div class="code-block">
+              <pre><code class="language-sql">-- Ten skrypt tworzy całą strukturę bazy danych dla projektu.
+
+-- Usunięcie starych tabel, jeśli istnieją, dla czystej instalacji
+DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele, wlasciciele, obiekty_geograficzne, demografia, login_attempts, blocked_ips CASCADE;
+
+-- Tabela na obiekty geograficzne (działki, drogi, budynki, etc.)
+CREATE TABLE obiekty_geograficzne (
+    id SERIAL PRIMARY KEY,
+    nazwa_lub_numer VARCHAR(50) NOT NULL,
+    kategoria       VARCHAR(50) NOT NULL,
+    geometria GEOMETRY(GEOMETRY, 4326),
+    UNIQUE (nazwa_lub_numer, kategoria)
+);
+
+-- Tabela na właścicieli (protokoły)
+CREATE TABLE wlasciciele (
+    id SERIAL PRIMARY KEY,
+    unikalny_klucz VARCHAR(100) NOT NULL UNIQUE,
+    nazwa_wlasciciela VARCHAR(255) NOT NULL,
+    numer_protokolu INTEGER,
+    numer_domu VARCHAR(50),
+    data_protokolu DATE,
+    miejsce_protokolu VARCHAR(100),
+    genealogia TEXT,
+    historia_wlasnosci TEXT,
+    uwagi TEXT,
+    wspolwlasnosc TEXT,
+    powiazania_i_transakcje TEXT,
+    interpretacja_i_wnioski TEXT
+);
+
+-- Tabela na osoby i relacje genealogiczne
+CREATE TABLE osoby_genealogia (
+    id SERIAL PRIMARY KEY,
+    json_id INTEGER UNIQUE NOT NULL, -- Oryginalne ID z pliku JSON
+    imie_nazwisko VARCHAR(255) NOT NULL,
+    plec VARCHAR(1),
+    numer_domu VARCHAR(50),
+    rok_urodzenia INTEGER,
+    rok_smierci INTEGER,
+    id_ojca INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
+    id_matki INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
+    id_protokolu INTEGER REFERENCES wlasciciele(id) ON DELETE SET NULL, -- Link do głównego protokołu
+    uwagi TEXT
+);
+
+-- Tabela łącząca dla małżeństw (relacja wiele-do-wielu)
+CREATE TABLE malzenstwa (
+    malzonek1_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
+    malzonek2_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
+    PRIMARY KEY (malzonek1_id, malzonek2_id),
+    CONSTRAINT rozne_osoby CHECK (malzonek1_id <> malzonek2_id)
+);
+
+
+-- Tabela łącząca właścicieli i obiekty (relacja wiele-do-wielu)
+CREATE TABLE dzialki_wlasciciele (
+    id SERIAL PRIMARY KEY,
+    wlasciciel_id INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    obiekt_id INTEGER NOT NULL REFERENCES obiekty_geograficzne(id) ON DELETE CASCADE,
+    typ_posiadania VARCHAR(50),
+    opis_udzialu TEXT,
+    UNIQUE (wlasciciel_id, obiekt_id, typ_posiadania)
+);
+
+-- Tabela na dane demograficzne 
+CREATE TABLE demografia (
+    id SERIAL PRIMARY KEY,
+    rok INTEGER NOT NULL UNIQUE,
+    populacja_ogolem INTEGER,
+    katolicy INTEGER,
+    zydzi INTEGER,
+    inni INTEGER,
+    opis TEXT
+);
+
+-- Tabela na powiązania między protokołami (dla przyszłej rozbudowy)
+CREATE TABLE powiazania_protokolow (
+    id SERIAL PRIMARY KEY,
+    wlasciciel_id_1 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    wlasciciel_id_2 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    typ_relacji VARCHAR(50),
+    opis_relacji TEXT
+);
+
+-- Logi prób logowania
+CREATE TABLE login_attempts (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
+    username_attempt VARCHAR(255),
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    successful BOOLEAN NOT NULL
+);
+
+-- Zablokowane adresy IP
+CREATE TABLE blocked_ips (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL UNIQUE,
+    reason TEXT,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indeksy dla przyspieszenia zapytań
+CREATE INDEX idx_obiekty_geometria ON obiekty_geograficzne USING GIST (geometria);
+CREATE INDEX idx_wlasciciele_nazwa ON wlasciciele (nazwa_wlasciciela);
+CREATE INDEX idx_osoby_genealogia_protokol ON osoby_genealogia (id_protokolu);
+CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
+
+-- Komentarz końcowy
+-- Struktura bazy danych jest gotowa. Następnym krokiem jest uruchomienie skryptu migrate_data.py.
+</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+            <li>
+              Następnie kliknij ikonę
+              <strong>"Execute/Refresh" (trójkąt Play)</strong> lub wciśnij
+              klawisz F5, aby wykonać skrypt.
+            </li>
+            <li>
+              <img
+                src="assets/44.png"
+                alt="Wykonywanie skryptu SQL - ikona Play"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Po pomyślnym wykonaniu skryptu, w panelu "Messages" na dole pojawi
+              się komunikat "Query returned successfully".
+            </li>
+            <li>
+              <img
+                src="assets/45.png"
+                alt="Potwierdzenie pomyślnego wykonania skryptu SQL"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Aby zobaczyć nowo utworzone tabele, kliknij prawym przyciskiem
+              myszy na "Tables" (znajdujące się pod bazą danych
+              <code>mapa_czarna_db</code>) i wybierz "Refresh...".
+            </li>
+            <li>
+              <img
+                src="assets/46.png"
+                alt="Odświeżanie widoku Tables"
+                class="screenshot"
+              />
+            </li>
+
+            <li>
+              Po odświeżeniu, pod gałęzią "Tables" zobaczysz wszystkie nowo
+              utworzone tabele, w tym: <code>wlasciciele</code>,
+              <code>obiekty_geograficzne</code>, <code>osoby_genealogia</code>,
+              <code>malzenstwa</code>, <code>demografia</code> i inne.
+            </li>
+            <li>
+              <img
+                src="assets/47.png"
+                alt="Widok nowo utworzonych tabel"
+                class="screenshot"
+              />
+            </li>
+          </ol>
+          <div class="important-note">
+            <strong>Gratulacje!</strong> Twoja baza danych jest teraz w pełni
+            skonfigurowana i gotowa na przyjęcie danych z projektu.
+          </div>
+        </section>
+
+        <section>
+            <h2 id="instalacja">Krok 3: Uruchomienie Aplikacji</h2>
+            <p>
+            Gdy środowisko i baza danych są gotowe, możemy uruchomić projekt.
+            Zalecaną i jedyną opisaną metodą jest użycie
+            <strong>Launchera</strong> – graficznego centrum zarządzania, które
+            automatyzuje i upraszcza cały proces.
+            </p>
+
+            <ol>
+            <li>
+                Otwórz terminal (np. PowerShell) w głównym folderze projektu
+                <code>Projekt Mapa Czarna</code>.
+            </li>
+            <li>
+                Najpierw zainstaluj wszystkie wymagane biblioteki Pythona,
+                wykonując jedną komendę:
+                <div class="code-block">
+                <pre><code>pip install -r requirements.txt</code></pre>
+                <button class="copy-btn" onclick="copyCode(this)">
+                    Kopiuj
+                </button>
+                </div>
+                <img
+                src="assets/13.png"
+                alt="Zakończona instalacja zależności"
+                class="screenshot"
+                />
+            </li>
+            <li>
+                Teraz uruchom Launcher, który znajduje się w folderze
+                <code>launcher/</code>:
+                <div class="code-block">
+                <pre><code>python launcher/launcher_app.py</code></pre>
+                <button class="copy-btn" onclick="copyCode(this)">
+                    Kopiuj
+                </button>
+                </div>
+                <img
+                src="assets/49.png"
+                alt="Główne okno launchera"
+                class="screenshot"
+                />
+            </li>
+            <li>
+                <p>
+                W oknie Launchera wykonaj następujące kroki w podanej
+                kolejności:
+                </p>
+                <ol type="a">
+                <li>
+                    <strong>Konfiguracja połączenia z bazą danych (Kluczowy
+                    krok!):</strong> Przed pierwszą migracją danych należy
+                    powiedzieć aplikacji, jak połączyć się z bazą. Kliknij
+                    przycisk <strong>"Konfiguracja Bazy Danych"</strong>.
+                    Otworzy się edytor, w którym należy uzupełnić dane
+                    logowania (użytkownik, hasło), które ustawiłeś podczas
+                    instalacji PostgreSQL. Po zapisaniu zmian zamknij edytor.
+                </li>
+                <div class="screenshot-placeholder">
+                    <p>
+                    [ Zrzut ekranu: Okno Launchera z zaznaczonym przyciskiem
+                    "Konfiguracja Bazy Danych" oraz otwarte okno edytora pliku
+                    .env ]
+                    </p>
+                </div>
+                <li>
+                    <strong>Migracja danych:</strong> Kliknij przycisk
+                    <strong>"Migruj Dane do Bazy"</strong>. W konsoli na
+                    dole okna zobaczysz postęp importowania danych z plików
+                    źródłowych do bazy PostgreSQL.
+                </li>
+                <img
+                    src="assets/50.png"
+                    alt="Logi z migracji danych"
+                    class="screenshot"
+                />
+                <li>
+                    <strong>Uruchomienie serwera:</strong> Gdy migracja się
+                    zakończy, kliknij <strong>"Uruchom Serwer Backend"</strong>.
+                    Przycisk zmieni kolor na czerwony, a w konsoli pojawią się
+                    logi startowe serwera. Aplikacja jest teraz w pełni
+                    działająca.
+                </li>
+                <img
+                    src="assets/51.png"
+                    alt="Logi uruchomionego serwera"
+                    class="screenshot"
+                />
+                <li>
+                    <strong>Dostęp do aplikacji:</strong> Użyj linków w sekcji
+                    "Szybki Dostęp", aby otworzyć stronę główną, mapę lub panel
+                    administracyjny bezpośrednio w przeglądarce.
+                </li>
+                </ol>
+            </li>
+            </ol>
+        </section>
+
+        <section>
+          <h2 id="narzedzia">Narzędzia Deweloperskie</h2>
+          <p>
+            Projekt zawiera trzy dedykowane, niezależne narzędzia do
+            zarządzania danymi źródłowymi, znajdujące się w folderze
+            <code>tools/</code>. Zostały stworzone w celu niezawodnego i
+            intuicyjnego wprowadzania oraz edycji danych, zapewniając ich
+            spójność i poprawny format jeszcze przed etapem migracji do bazy
+            danych.
+          </p>
+          <div class="tool-description">
+            <h3>
+              1. Edytor Właścicieli (<code>tools/owner_editor.py</code>)
+            </h3>
+            <p>
+              Samodzielna aplikacja desktopowa (GUI) napisana w Pythonie z
+              użyciem biblioteki Tkinter. Stanowi "idiotoodporne" narzędzie dla
+              historyków do zarządzania danymi tekstowymi. Umożliwia edycję
+              protokołów w formularzu, zarządzanie skanami, a także posiada
+              wbudowany edytor danych demograficznych. Wynikiem pracy jest
+              pojedynczy plik <code>backup/owner_data_to_import.json</code>.
+            </p>
+            <strong>Uruchomienie:</strong>
+            <div class="code-block">
+              <pre><code>python tools/owner_editor.py</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+          </div>
+          <div class="tool-description">
+            <h3>
+              2. Edytor Działek (<code>tools/parcel_editor/</code>)
+            </h3>
+            <p>
+              Narzędzie składające się z lekkiego backendu w Pythonie (Flask) i
+              interfejsu w przeglądarce (Leaflet.js). Umożliwia wizualne
+              rysowanie poligonów (działki), linii (drogi) i punktów (budynki)
+              na podkładzie historycznej mapy. To intuicyjne rozwiązanie
+              zastępuje ręczne wpisywanie współrzędnych i zapewnia wysoką
+              dokładność. Wszystkie narysowane obiekty są zapisywane do pliku
+              <code>backup/parcels_data.json</code> w standardzie GeoJSON.
+            </p>
+            <strong>Uruchomienie:</strong>
+            <div class="code-block">
+              <pre><code>python tools/parcel_editor/parcel_editor_app.py</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+          </div>
+          <div class="tool-description">
+            <h3>
+              3. Edytor Genealogii (<code>tools/genealogy_editor/</code>)
+            </h3>
+            <p>
+              Wyspecjalizowane narzędzie webowe do zarządzania złożonymi
+              powiązaniami rodzinnymi. Prezentuje wszystkie osoby w
+              interaktywnej tabeli, automatycznie grupując je według rodów
+              (nazwisk). Pola do definiowania relacji (ojciec, matka, małżonek)
+              posiadają <strong>dynamiczne autouzupełnianie</strong>, które
+              sugeruje pasujące osoby z bazy, eliminując błędy. Wynik pracy jest
+              zapisywany do pliku <code>backup/genealogia.json</code>.
+            </p>
+            <strong>Uruchomienie:</strong>
+            <div class="code-block">
+              <pre><code>python tools/genealogy_editor/editor_app.py</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 id="galeria-aplikacji">Galeria Aplikacji i Ekosystemu Narzędziowego</h2>
+          <p>
+            Poniżej zaprezentowano unikalne funkcjonalności aplikacji oraz dedykowane narzędzia 
+            deweloperskie, które razem tworzą kompletny i profesjonalny ekosystem do zarządzania
+            danymi historycznymi.
+          </p>
+          
+          <div class="gallery">
+              <!-- Główne komponenty aplikacji -->
+              <figure>
+                <img src="assets/screenshot_strona_glowna.png" alt="Strona główna projektu" />
+                <figcaption>Strona powitalna wprowadzająca w historyczny kontekst projektu.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_porownywarka.png" alt="Porównywarka protokołów z wizualizacją na mapie" />
+                <figcaption>Narzędzie do porównywania dwóch protokołów obok siebie z dynamiczną mapą.</figcaption>
+              </figure>
+              
+              <!-- Wizualizacje analityczne -->
+              <figure>
+                <img src="assets/screenshot_stats_ranking.png" alt="Rankingi największych właścicieli w centrum analitycznym" />
+                <figcaption>Dynamiczne rankingi posiadaczy gruntów w Centrum Analitycznym.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_genealogia_drzewo.png" alt="Interaktywne drzewo genealogiczne w protokole" />
+                <figcaption>Wizualizacja drzewa genealogicznego dla konkretnej rodziny w widoku protokołu.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_genealogia_spolecznosc.png" alt="Widok genealogiczny całej społeczności" />
+                <figcaption>Wizualizacja całej społeczności, pokazująca wszystkie połączone rody.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_graf_powiazan.png" alt="Graf powiązań społecznych między protokołami" />
+                <figcaption>Graf powiązań społecznych, wizualizujący relacje między protokołami.</figcaption>
+              </figure>
+
+              <!-- Narzędzia i administracja -->
+              <figure>
+                <img src="assets/screenshot_launcher.png" alt="Launcher - centrum dowodzenia projektem" />
+                <figcaption>Launcher - graficzne centrum dowodzenia do zarządzania całym projektem.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_owner_editor_gui.png" alt="Edytor właścicieli (GUI w Python/Tkinter)" />
+                <figcaption>Desktopowe narzędzie (GUI) do edycji danych właścicieli i demografii.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_parcel_editor.png" alt="Edytor działek w trakcie pracy" />
+                <figcaption>Wizualne rysowanie obiektów na mapie w dedykowanym edytorze działek.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_admin_relacje.png" alt="Panel admina - zarządzanie relacjami genealogicznymi" />
+                <figcaption>Zaawansowane zarządzanie relacjami w panelu administracyjnym.</figcaption>
+              </figure>
+               <figure>
+                <img src="assets/screenshot_launcher_backup_manager.png" alt="Menedżer kopii zapasowych w Launcherze" />
+                <figcaption>Zaawansowany menedżer kopii zapasowych z opcjami importu i eksportu.</figcaption>
+              </figure>
+              <figure>
+                <img src="assets/screenshot_launcher_security.png" alt="Menedżer Bezpieczeństwa w Launcherze" />
+                <figcaption>Menedżer Bezpieczeństwa do monitorowania prób logowania i blokad IP.</figcaption>
+              </figure>
+          </div>
+        </section>
+        <section id="podsumowanie-section">
+          <h2 id="podsumowanie">Podsumowanie i Dalszy Rozwój</h2>
+          <div class="tech-subsection">
+            <h3>Osiągnięte Rezultaty</h3>
+            <p>
+              W ramach zrealizowanych prac osiągnięto wszystkie założone cele.
+              Stworzono w pełni funkcjonalny, interaktywny ekosystem, który
+              skutecznie "ożywia" dane archiwalne. Do kluczowych rezultatów
+              należą:
+            </p>
+            <ul>
+              <li>
+                <strong>Zintegrowany System Full-Stack:</strong> Zbudowano
+                spójną, modularną aplikację opartą na nowoczesnych, otwartych
+                technologiach.
+              </li>
+              <li>
+                <strong>Skuteczna Digitalizacja Danych:</strong> Historyczne,
+                papierowe dane z archiwów zostały przetworzone na dynamiczną,
+                cyfrową bazę wiedzy, demokratyzując dostęp do lokalnego
+                dziedzictwa.
+              </li>
+              <li>
+                <strong>Zaawansowane Funkcjonalności Analityczne:</strong>
+                System wyposażono w bogaty zestaw modułów analitycznych, w tym
+                dashboard ze statystykami, interaktywne rankingi, porównywarkę
+                oraz wizualizacje sieci społecznych.
+              </li>
+              <li>
+                <strong>Profesjonalny Ekosystem Narzędziowy:</strong> Stworzono
+                dedykowane, graficzne narzędzia deweloperskie (Launcher,
+                Edytory), które automatyzują i zabezpieczają proces
+                wprowadzania danych.
+              </li>
+            </ul>
+          </div>
+          <div class="tech-subsection">
+            <h3>Wnioski Końcowe</h3>
+            <p>
+              Realizacja projektu potwierdziła, że zastosowanie nowoczesnych
+              technologii webowych i bazodanowych jest wysoce efektywną metodą
+              na zabezpieczenie, analizę i popularyzację danych archiwalnych.
+              Stworzony system nie tylko rozwiązuje problem niedostępności
+              dokumentów, ale również otwiera nowe możliwości badawcze. Projekt
+              dowodzi, że nawet z pozoru "suche" dane katastralne mogą stać się
+              podstawą do zbudowania fascynującej, interaktywnej opowieści o
+              historii lokalnej społeczności.
+            </p>
+          </div>
+          <div class="tech-subsection">
+            <h3>Propozycje Dalszego Rozwoju</h3>
+            <p>
+              Zbudowana architektura jest elastyczna, co otwiera możliwości
+              dalszego rozwoju:
+            </p>
+            <ul>
+              <li>
+                <strong>Uniwersalizacja Narzędzia:</strong> Przekształcenie
+                systemu w konfigurowalne narzędzie, które mogłoby obsługiwać
+                dane dla dowolnej innej gminy.
+              </li>
+              <li>
+                <strong>Rozbudowa Modułu Genealogicznego:</strong> Dodanie
+                zaawansowanych funkcji, jak automatyczne wykrywanie
+                potencjalnych powiązań rodzinnych.
+              </li>
+              <li>
+                <strong>Porównywanie Map w Czasie:</strong> Rozszerzenie
+                systemu o możliwość wgrywania i porównywania map katastralnych z
+                różnych okresów historycznych.
+              </li>
+            </ul>
+          </div>
+        </section>
+        <section id="bibliografia-section">
+          <h2 id="bibliografia">Bibliografia i Źródła</h2>
+          <p>
+            Projekt opiera się na sprawdzonych technologiach oraz materiałach
+            archiwalnych pozyskanych z zaufanych instytucji.
+          </p>
+          <ol>
+            <li>
+              <strong>Dokumentacja frameworka Flask:</strong>
+              <a
+                href="https://flask.palletsprojects.com/"
+                target="_blank"
+                rel="noopener"
+                >https://flask.palletsprojects.com/</a
+              >
+            </li>
+            <li>
+              <strong>Dokumentacja biblioteki Leaflet.js:</strong>
+              <a
+                href="https://leafletjs.com/"
+                target="_blank"
+                rel="noopener"
+                >https://leafletjs.com/</a
+              >
+            </li>
+            <li>
+              <strong>Dokumentacja biblioteki D3.js:</strong>
+              <a
+                href="https://d3js.org/"
+                target="_blank"
+                rel="noopener"
+                >https://d3js.org/</a
+              >
+            </li>
+            <li>
+              <strong>Dokumentacja PostgreSQL i PostGIS:</strong>
+              <a
+                href="https://www.postgresql.org/docs/"
+                target="_blank"
+                rel="noopener"
+                >https://www.postgresql.org/docs/</a
+              >
+              oraz
+              <a
+                href="https://postgis.net/documentation/"
+                target="_blank"
+                rel="noopener"
+                >https://postgis.net/documentation/</a
+              >
+            </li>
+            <li>
+              <strong>Materiały archiwalne:</strong> Protokoły katastralne i
+              mapy pochodzące z zasobów Archiwum Państwowego w Tarnowie.
+            </li>
+            <li>
+              <strong>Materiały archiwalne:</strong> Księgi metrykalne
+              pochodzące z zasobów Archiwum Diecezjalnego w Tarnowie.
+            </li>
+          </ol>
+        </section>
+      </main>
+    </div>
+
+<script>
+      // ===========================
+      // FUNKCJA KOPIOWANIA KODU
+      // ===========================
+      function copyCode(buttonElement) {
+        const preElement = buttonElement.previousElementSibling;
+        const code = preElement.querySelector("code").innerText;
+        navigator.clipboard.writeText(code).then(
+          () => {
+            buttonElement.textContent = "Skopiowano!";
+            setTimeout(() => (buttonElement.textContent = "Kopiuj"), 2000);
+          },
+          (err) => console.error("Błąd kopiowania: ", err)
+        );
+      }
+
+      // ===========================
+      // GŁÓWNY SKRYPT APLIKACJI
+      // ===========================
+      document.addEventListener("DOMContentLoaded", () => {
+        const navbar = document.getElementById("navbar");
+        const navLinks = document.querySelectorAll("#navbar a");
+        const sections = Array.from(document.querySelectorAll("main section:has(h2[id])"));
+
+        // --- 1. PŁYNNE PRZEWIJANIE PO KLIKNIĘCIU W LINK ---
+        navLinks.forEach((anchor) => {
+          anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute("href");
+            const targetElement = document.querySelector(targetId);
+            
+            if (targetElement) {
+              const navHeight = navbar.offsetHeight;
+              const targetSection = targetElement.closest('section');
+              const targetPosition = targetSection.offsetTop - navHeight - 20;
+
+              window.scrollTo({
+                top: targetPosition,
+                behavior: "smooth",
+              });
+            }
+          });
+        });
+        
+        // --- 2. AKTYWNE PODŚWIETLENIE I STYLIZACJA NAWIGACJI PRZY PRZEWIJANIU ---
+        function updateOnScroll() {
+          const scrollPosition = window.scrollY;
+          navbar.classList.toggle("scrolled", scrollPosition > 100);
+
+          let currentSectionId = "";
+          sections.forEach(section => {
+              const sectionTop = section.offsetTop - navbar.offsetHeight - 40;
+              if (scrollPosition >= sectionTop) {
+                  currentSectionId = section.querySelector('h2[id]').id;
+              }
+          });
+
+          navLinks.forEach((link) => {
+            const linkHref = link.getAttribute("href").substring(1);
+            link.classList.toggle("active", linkHref === currentSectionId);
+          });
+        }
+        window.addEventListener("scroll", updateOnScroll);
+        updateOnScroll();
+        
+        // --- 3. ANIMACJA POJAWIANIA SIĘ SEKCJI ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('main section').forEach(section => {
+            observer.observe(section);
+        });
+
+        // --- 4. PRZEŁĄCZNIK MOTYWU Z SYNCHRONIZACJĄ ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = themeToggle.querySelector('i');
+        const THEME_KEY = 'mapTheme'; // Wspólny klucz dla całej aplikacji
+
+        function applyTheme(theme) {
+            const isLight = theme === 'light';
+            document.body.classList.toggle('light-mode', isLight);
+            themeIcon.className = isLight ? 'fas fa-moon' : 'fas fa-sun';
+            localStorage.setItem(THEME_KEY, theme);
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+        });
+
+        // Nasłuchuj zmian z innych zakładek
+        window.addEventListener('storage', (e) => {
+            if (e.key === THEME_KEY) {
+                applyTheme(e.newValue);
+            }
+        });
+
+        // Zastosuj motyw przy ładowaniu strony
+        const savedTheme = localStorage.getItem(THEME_KEY) || 'dark'; // Domyślnie ciemny
+        applyTheme(savedTheme);
+
+
+        // --- 5. PRZYCISK PEŁNEGO EKRANU ---
+        const fullscreenToggle = document.getElementById('fullscreen-toggle');
+        const fullscreenIcon = fullscreenToggle.querySelector('i');
+
+        function updateFullscreenIcon() {
+            if (document.fullscreenElement) {
+                fullscreenIcon.className = 'fas fa-compress';
+            } else {
+                fullscreenIcon.className = 'fas fa-expand';
+            }
+        }
+
+        fullscreenToggle.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', updateFullscreenIcon);
+
+
+        // --- 6. INICJALIZACJA LIGHTBOXA DLA ZDJĘĆ ---
+        (function initLightbox() {
+          const lightboxHTML = `
+            <div class="lightbox" id="lightbox">
+              <span class="lightbox-counter" id="lightbox-counter"></span>
+              <span class="lightbox-close" id="lightbox-close">&times;</span>
+              <span class="lightbox-nav lightbox-prev" id="lightbox-prev">&#10094;</span>
+              <span class="lightbox-nav lightbox-next" id="lightbox-next">&#10095;</span>
+              <div class="lightbox-content">
+                <img class="lightbox-image" id="lightbox-image" src="" alt="">
+                <div class="lightbox-caption" id="lightbox-caption"></div>
+              </div>
+            </div>`;
+          document.body.insertAdjacentHTML("beforeend", lightboxHTML);
+
+          const lightbox = document.getElementById("lightbox");
+          const lightboxImage = document.getElementById("lightbox-image");
+          const lightboxCaption = document.getElementById("lightbox-caption");
+          const lightboxCounter = document.getElementById("lightbox-counter");
+          const closeBtn = document.getElementById("lightbox-close");
+          const prevBtn = document.getElementById("lightbox-prev");
+          const nextBtn = document.getElementById("lightbox-next");
+
+          let galleryImages = [];
+          let currentImageIndex = 0;
+
+          const allImages = document.querySelectorAll(".gallery img, .screenshot");
+          allImages.forEach((img, index) => {
+            galleryImages.push({
+              src: img.src,
+              alt: img.alt || "",
+              caption: img.closest("figure")?.querySelector("figcaption")?.textContent || img.alt || "",
+            });
+            img.addEventListener("click", (e) => {
+              e.preventDefault();
+              openLightbox(index);
+            });
+          });
+
+          const openLightbox = (index) => {
+            currentImageIndex = index;
+            updateLightboxContent();
+            lightbox.classList.add("active");
+          };
+          const closeLightbox = () => lightbox.classList.remove("active");
+          const showPrev = () => showImage(currentImageIndex - 1);
+          const showNext = () => showImage(currentImageIndex + 1);
+          const showImage = (index) => {
+            if (index >= 0 && index < galleryImages.length) {
+              currentImageIndex = index;
+              updateLightboxContent();
+            }
+          };
+
+          const updateLightboxContent = () => {
+            const img = galleryImages[currentImageIndex];
+            lightboxImage.src = img.src;
+            lightboxImage.alt = img.alt;
+            lightboxCaption.textContent = img.caption;
+            lightboxCounter.textContent = `${currentImageIndex + 1} / ${galleryImages.length}`;
+            prevBtn.style.display = currentImageIndex > 0 ? "flex" : "none";
+            nextBtn.style.display = currentImageIndex < galleryImages.length - 1 ? "flex" : "none";
+          };
+
+          closeBtn.addEventListener("click", closeLightbox);
+          prevBtn.addEventListener("click", showPrev);
+          nextBtn.addEventListener("click", showNext);
+          lightbox.addEventListener("click", (e) => e.target === lightbox && closeLightbox());
+          document.addEventListener("keydown", (e) => {
+            if (lightbox.classList.contains("active")) {
+              if (e.key === "Escape") closeLightbox();
+              if (e.key === "ArrowLeft") showPrev();
+              if (e.key === "ArrowRight") showNext();
+            }
+          });
+        })();
+      });
+    </script>
+<!-- Krok 1: Wczytanie biblioteki Mermaid w klasyczny sposób -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    
+    <!-- Krok 2: Inicjalizacja biblioteki po jej załadowaniu -->
+    <script>
+      mermaid.initialize({ 
+        startOnLoad: true,
+        theme: 'dark' 
+      });
+    </script>
+  </body>
+</html>

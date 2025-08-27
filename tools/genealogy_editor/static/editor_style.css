@@ -1,0 +1,453 @@
+/* Plik: tools/genealogy_editor/static/editor_style.css */
+
+/* --- CZĘŚĆ 1: Style Podstawowe --- */
+
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2c3e50;
+  --danger-color: #e74c3c;
+  --success-color: #2ecc71;
+  --light-gray: #ecf0f1;
+  --border-color: #bdc3c7;
+  --background-color: #f8f9fa;
+  --tree-color: #27ae60;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: var(--background-color);
+  color: var(--secondary-color);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--light-gray);
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--secondary-color);
+}
+
+.btn,
+button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: white;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.btn:hover,
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.add-btn {
+  background-color: var(--primary-color);
+}
+.add-btn:hover {
+  background-color: #2980b9;
+}
+
+.save-btn {
+  background-color: var(--success-color);
+}
+.save-btn:hover {
+  background-color: #27ae60;
+}
+
+#exit-no-save {
+  background-color: #dc3545; /* bootstrap-owy “danger” red */
+  color: #ffffff;
+  border: none;
+}
+
+/* opcjonalnie: efekt na hover */
+#exit-no-save:hover {
+  background-color: #c82333;
+  cursor: pointer;
+}
+
+.cancel-btn {
+  background-color: #7f8c8d;
+}
+.cancel-btn:hover {
+  background-color: #6c757d;
+}
+
+.action-btn {
+  background-color: #9b59b6;
+}
+.action-btn:hover {
+  background-color: #8e44ad;
+}
+
+.delete-btn {
+  background-color: var(--danger-color);
+}
+.delete-btn:hover {
+  background-color: #c0392b;
+}
+
+/* NOWY STYL DLA PRZYCISKÓW DRZEWA */
+.btn-tree {
+  background: linear-gradient(45deg, var(--tree-color), #2ecc71);
+  color: white;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-tree:hover {
+  background: linear-gradient(45deg, #2ecc71, var(--tree-color));
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.4);
+}
+
+.search-bar-container {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+#searchGenealogyInput {
+  flex-grow: 1;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#familyFilter {
+  margin-left: 10px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: white;
+}
+
+.table-responsive-container {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 12px 15px;
+  border: 1px solid #e0e0e0;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.data-table thead th {
+  background-color: var(--secondary-color);
+  color: white;
+  font-weight: 600;
+}
+
+.data-table tbody tr:nth-of-type(even) {
+  background-color: #f9f9f9;
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--light-gray);
+}
+
+.data-table .actions {
+  text-align: right;
+}
+
+.data-table .actions button {
+  padding: 5px 10px;
+  margin-left: 5px;
+  font-size: 0.85rem;
+}
+
+/* Style dla Modala */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+/* ...I ZMIEŃ GO NA TO: */
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 850px; /* <--- ZWIĘKSZONA SZEROKOŚĆ */
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  font-weight: 300;
+  color: #999;
+  cursor: pointer;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 25px;
+  padding-top: 15px;
+  border-top: 1px solid var(--border-color);
+}
+
+.modal-footer button {
+  margin-left: 10px;
+}
+
+/* --- CZĘŚĆ 2: Style Specyficzne dla Genealogii --- */
+
+.relations-header {
+  margin-top: 20px;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 5px;
+}
+
+.family-header {
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+  color: white;
+  font-weight: bold;
+  text-align: left;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.family-header td {
+  padding: 15px 20px !important; /* !important, by nadpisać styl .data-table */
+  font-size: 1.1rem;
+  border-bottom: 3px solid #2980b9;
+}
+
+/* STYL DLA KOLUMNY Z PRZYCISKIEM DRZEWA W NAGŁÓWKU RODZINY */
+.family-tree-actions {
+  text-align: right !important;
+  padding: 10px 15px !important;
+  width: 140px;
+  vertical-align: middle !important;
+}
+
+.family-tree-actions .btn-tree {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.family-header:hover {
+  background: linear-gradient(135deg, #34495e 0%, #2980b9 100%);
+  transition: all 0.3s ease;
+}
+
+/* Tylko pierwsza kolumna ma cursor pointer dla collapse/expand */
+.family-header td:first-child {
+  cursor: pointer;
+}
+
+.family-header.collapsed td:first-child::before {
+  transform: rotate(-90deg);
+  content: "▶ ";
+}
+
+.family-header td:first-child::before {
+  content: "▼ ";
+  font-size: 0.9rem;
+  margin-right: 10px;
+  transition: transform 0.3s ease;
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+}
+
+.family-member td:nth-child(2) small {
+  font-weight: normal;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+
+.family-member td:nth-child(2) small[style*="color: #e74c3c"] {
+  background-color: #ffeaea;
+  border: 1px solid #e74c3c;
+}
+
+.protocol-link {
+  background: linear-gradient(45deg, #28a745, #20c997);
+  color: white !important;
+  padding: 4px 10px;
+  border-radius: 15px;
+  text-decoration: none !important;  
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+  transition: all 0.2s ease;
+  display: inline-block;
+  cursor: pointer;  
+}
+
+.protocol-link:hover {
+  transform: scale(1.05);
+  box-shadow: 0 3px 6px rgba(40, 167, 69, 0.4);
+  text-decoration: none !important;  
+}
+
+.protocol-link:link,
+.protocol-link:visited,
+.protocol-link:active,
+.protocol-link:focus {
+  text-decoration: none !important;
+}
+
+tr.hidden {
+  display: none;
+}
+
+/* Pokolorowanie małżeństw wg pokolenia */
+
+/* Dla dzieci/pozostałych brak wypełnienia, zostają domyślne tło */
+
+/* --- Modal overlay --- */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal.visible {
+  display: flex;
+}
+
+/* --- Modal content box --- */
+.modal .modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  width: 90%;
+  max-width: 1200px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.data-table td:nth-child(4) {
+  text-align: center;
+}
+
+.modal .modal-content .close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 32px;
+  cursor: pointer;
+  line-height: 1;
+  color: #555; 
+  padding: 0;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease; 
+}
+
+.modal .modal-content .close:hover {
+  color: #000; /* Zmieniamy kolor na czarny po najechaniu */
+  transform: scale(1.1); /* Lekko powiększamy dla lepszego feedbacku */
+}
+
+/* Ukrywamy przycisk dopóki nie załadowane dane */
+.hidden {
+  display: none !important;
+}
+
+.toolbar .btn {
+  margin-right: 8px;
+}
