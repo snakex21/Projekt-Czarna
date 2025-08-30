@@ -1,11 +1,12 @@
 /* ==========================================================================
    Plik: compare-style.css
    Opis: Dedykowany arkusz stylów dla strony porównywania protokołów.
-        Rozszerza protokol_styles.css o funkcjonalność porównywania
+         Rozszerza protokol_styles.css o funkcjonalność równoległego
+         wyświetlania dwóch protokołów katastralnych.
    ========================================================================== */
 
 /* ==========================================================================
-   1. Główny układ porównania
+   GŁÓWNY UKŁAD PORÓWNANIA
    ========================================================================== */
 .compare-main {
     padding: 2rem;
@@ -13,18 +14,18 @@
 }
 
 /* ==========================================================================
-   2. Kontener porównania - układ dwukolumnowy
+   KONTENER DWUKOLUMNOWY
    ========================================================================== */
 .compare-container {
     display: flex;
     gap: 2rem;
-    max-width: 1800px; /* Zwiększone z 1600px */
+    max-width: 1800px;
     margin: 0 auto;
     align-items: flex-start;
 }
 
 /* ==========================================================================
-   3. Kolumny protokołów
+   KOLUMNY PROTOKOŁÓW
    ========================================================================== */
 .protocol-column {
     flex: 1;
@@ -32,26 +33,27 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
-    max-width: 850px; /* Dodane maksymalna szerokość pojedynczej kolumny */
+    max-width: 850px;
 }
 
-/* Karty w kolumnach - dziedziczą style z content-card */
+/* Karty w kolumnach */
 .protocol-column .content-card {
     margin-bottom: 0;
 }
 
 /* ==========================================================================
-   4. Nagłówek protokołu w kolumnie - POPRAWIONY
+   NAGŁÓWEK PROTOKOŁU W KOLUMNIE
    ========================================================================== */
 .protocol-header-card {
     background: var(--bg-card);
     border-radius: var(--radius);
-    padding: 2rem 2rem 1.5rem 2rem; /* Zwiększony padding */
+    padding: 2rem 2rem 1.5rem 2rem;
     box-shadow: var(--shadow-md);
     position: relative;
-    min-height: 140px; /* Minimalna wysokość */
+    min-height: 140px;
 }
 
+/* Odznaka numeru protokołu */
 .protocol-number-badge {
     position: absolute;
     top: 1rem;
@@ -62,67 +64,94 @@
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.9rem;
-    z-index: 10; /* Dodane z-index */
+    z-index: 10;
 }
 
+/* Tytuł protokołu */
 .protocol-main-title {
-    margin-right: 100px; /* Dodane, aby tytuł nie wchodził pod badge */
+    margin-right: 100px;
     padding-right: 1rem;
 }
 
+/* Akcje protokołu */
 .protocol-actions {
     display: flex;
     gap: 0.75rem;
-    margin-top: 1.5rem; /* Zwiększone z 1rem */
+    margin-top: 1.5rem;
     flex-wrap: wrap;
 }
 
 .protocol-actions .action-btn {
-    flex: 0 1 auto; /* Zmienione z flex: 1 */
+    flex: 0 1 auto;
     min-width: 140px;
     padding: 0.6rem 1rem;
     font-size: 0.9rem;
 }
 
 /* ==========================================================================
-   5. Style dla przycisków w nagłówku (rozszerzenie)
+   PRZYCISKI NAWIGACJI DO MAPY (BEZ PODKREŚLEŃ)
    ========================================================================== */
+
+/* Stan rzeczywisty */
 .header-btn.map-btn-real {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     color: white;
     border: none;
+    text-decoration: none; /* Usunięcie podkreślenia */
 }
 
 .header-btn.map-btn-real:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    text-decoration: none; /* Usunięcie podkreślenia przy hover */
 }
 
+/* Stan wg protokołu */
 .header-btn.map-btn-protocol {
     background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
     color: var(--text-primary);
     border: none;
+    text-decoration: none; /* Usunięcie podkreślenia */
 }
 
 .header-btn.map-btn-protocol:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    text-decoration: none; /* Usunięcie podkreślenia przy hover */
 }
 
+/* Oba stany */
 .header-btn.map-btn-both {
     background: var(--primary-gradient);
     color: white;
     border: none;
+    text-decoration: none; /* Usunięcie podkreślenia */
 }
 
 .header-btn.map-btn-both:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+    text-decoration: none; /* Usunięcie podkreślenia przy hover */
+}
+
+/* Globalne usunięcie podkreśleń dla wszystkich stanów linków */
+.header-btn.map-btn-real:link,
+.header-btn.map-btn-real:visited,
+.header-btn.map-btn-real:active,
+.header-btn.map-btn-protocol:link,
+.header-btn.map-btn-protocol:visited,
+.header-btn.map-btn-protocol:active,
+.header-btn.map-btn-both:link,
+.header-btn.map-btn-both:visited,
+.header-btn.map-btn-both:active {
+    text-decoration: none;
 }
 
 /* ==========================================================================
-   6. Responsywność dla układu porównania - ULEPSZONA
+   RESPONSYWNOŚĆ
    ========================================================================== */
+
+/* Ekrany średnie */
 @media (max-width: 1400px) {
     .compare-container {
         max-width: 100%;
@@ -134,6 +163,7 @@
     }
 }
 
+/* Tablety */
 @media (max-width: 1200px) {
     .compare-container {
         flex-direction: column;
@@ -146,7 +176,7 @@
         margin: 0 auto;
     }
     
-    /* Separator między kolumnami w widoku mobilnym */
+    /* Separator między kolumnami */
     .protocol-column:first-child {
         position: relative;
         padding-bottom: 2rem;
@@ -166,6 +196,7 @@
     }
 }
 
+/* Telefony */
 @media (max-width: 768px) {
     .compare-main {
         padding: 1rem;
@@ -201,26 +232,25 @@
 }
 
 /* ==========================================================================
-   7. Style dla wydruku PDF w trybie porównania
+   STYLE DRUKOWANIA I PDF
    ========================================================================== */
 @media print {
-    /* Ukryj drugi protokół przy drukowaniu pojedynczego */
+    /* Drukowanie pojedynczego protokołu */
     .printing-single .protocol-column:not(.printing-target) {
         display: none !important;
     }
     
-    /* Rozciągnij drukowaną kolumnę na całą szerokość */
     .printing-single .protocol-column.printing-target {
         width: 100% !important;
         max-width: 100% !important;
     }
     
-    /* Usuń gap między kolumnami */
+    /* Usunięcie odstępów */
     .compare-container {
         gap: 0 !important;
     }
     
-    /* Każda kolumna na nowej stronie przy drukowaniu obu */
+    /* Podział stron przy drukowaniu obu */
     .protocol-column {
         page-break-after: always;
     }
@@ -231,7 +261,7 @@
 }
 
 /* ==========================================================================
-   8. Animacje wejścia dla kolumn
+   ANIMACJE WEJŚCIA
    ========================================================================== */
 @keyframes slideInLeft {
     from {
@@ -255,18 +285,20 @@
     }
 }
 
+/* Animacja lewej kolumny */
 .protocol-column:first-child .content-card,
 .protocol-column:first-child .protocol-header-card {
     animation: slideInLeft 0.5s ease-out;
 }
 
+/* Animacja prawej kolumny */
 .protocol-column:last-child .content-card,
 .protocol-column:last-child .protocol-header-card {
     animation: slideInRight 0.5s ease-out;
 }
 
 /* ==========================================================================
-   9. Wskaźnik ładowania
+   WSKAŹNIK ŁADOWANIA
    ========================================================================== */
 .loading-spinner {
     display: flex;
@@ -288,31 +320,31 @@
 }
 
 /* ==========================================================================
-   10. Dodatkowe poprawki dla lepszej czytelności
+   OPTYMALIZACJE CZYTELNOŚCI
    ========================================================================== */
 
-/* Większy odstęp między kartami w kolumnach */
+/* Większe odstępy między kartami */
 .protocol-column {
     gap: 1.5rem;
 }
 
-/* Poprawki dla sekcji działek aby były bardziej czytelne */
+/* Zwiększone paddingi w sekcji działek */
 .protocol-column .plots-section .card-body {
     padding: 1.5rem;
 }
 
-/* Lepsze wykorzystanie przestrzeni w kartach */
+/* Optymalne wykorzystanie przestrzeni */
 .protocol-column .content-card .card-body {
     padding: 1.5rem;
 }
 
-/* Poprawka dla info-content aby tekst był bardziej czytelny */
+/* Poprawiona czytelność tekstu */
 .protocol-column .info-content {
     padding: 1.25rem;
     line-height: 1.8;
 }
 
-/* Większa czcionka dla głównego tytułu właściciela */
+/* Większa czcionka dla nazwy właściciela */
 .protocol-column .owner-name-main {
     font-size: 1.4rem;
 }

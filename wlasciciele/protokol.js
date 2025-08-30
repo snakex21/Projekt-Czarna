@@ -1,11 +1,14 @@
-/**
- * Plik: protokol.js
- * Opis: Skrypt obsługujący wyświetlanie protokołów właścicielskich.
- *       Zarządza pobieraniem danych, renderowaniem, modalami i generowaniem PDF.
- */
+/* ==========================================================================
+   Plik: protokol.js
+   Opis: Główny skrypt obsługujący wyświetlanie protokołów katastralnych.
+         Zarządza pobieraniem danych, renderowaniem interfejsu, modalami
+         oraz generowaniem PDF i wizualizacją drzewa genealogicznego.
+   ========================================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // === 1. DEKLARACJA ZMIENNYCH I STAŁYCH ===
+    /* ==========================================================================
+       DEKLARACJA ZMIENNYCH I STAŁYCH
+       ========================================================================== */
     
     // Parametry URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -19,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const genealogyEl = document.getElementById('genealogy');
     const ownershipHistoryEl = document.getElementById('ownershipHistory');
     
-    // Elementy DOM - przyciski
+    // Elementy DOM - przyciski akcji
     const downloadPdfBtn = document.getElementById('downloadPdfBtn');
     const showOriginalBtn = document.getElementById('showOriginalBtn');
     const backToMapBtn = document.getElementById('backToMapBtn');
@@ -35,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextBtn = document.getElementById('nextImageBtn');
     const pageCounter = document.getElementById('pageCounter');
     
-    // Elementy DOM - drzewo genealogiczne
+    // Elementy DOM - dialog drzewa genealogicznego
     const treeDialog = document.getElementById('treeDialog');
     const closeTreeBtn = document.getElementById('closeTreeBtn');
     const treeContainer = document.getElementById('treeContainer');
@@ -47,35 +50,39 @@ document.addEventListener('DOMContentLoaded', () => {
     let ownerData = null;
     let havePlotDifferences = false;
     
-    // === 2. GŁÓWNA FUNKCJA INICJALIZUJĄCA ===
+    /* ==========================================================================
+       INICJALIZACJA APLIKACJI
+       ========================================================================== */
     
     /**
-     * Inicjalizuje aplikację - sprawdza parametry i pobiera dane
+     * Główna funkcja inicjalizująca - waliduje parametry i uruchamia komponenty
      */
     const init = () => {
-        // Walidacja parametrów
+        // Walidacja parametrów URL
         if (!ownerKey) {
             showError('Błąd: Brak klucza właściciela w adresie URL.');
             return;
         }
         
-        // Ustawienie daty w stopce
+        // Ustawienie aktualnej daty
         const currentDateEl = document.getElementById('currentDate');
         if (currentDateEl) {
             currentDateEl.textContent = new Date().toLocaleDateString('pl-PL');
         }
         
-        // Pobieranie danych
+        // Inicjalizacja komponentów
         fetchOwnerData();
         findProtocolImages();
         setupEventListeners();
         setupThemeLogic();
     };
     
-    // === 3. FUNKCJE KOMUNIKACJI Z API ===
+    /* ==========================================================================
+       KOMUNIKACJA Z API
+       ========================================================================== */
     
     /**
-     * Pobiera dane właściciela z API
+     * Pobiera dane właściciela z serwera
      */
     const fetchOwnerData = async () => {
         try {
@@ -96,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Wyszukuje skany protokołu
+     * Wyszukuje skany protokołu w katalogu serwera
      */
     const findProtocolImages = async () => {
         const basePath = `/assets/protokoly/${ownerKey}/`;
@@ -115,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             img.onerror = () => {
                 if (i === 1 && found.length === 0) {
-                    // Sprawdź pojedynczy plik
+                    // Sprawdzenie pojedynczego pliku
                     const singleImg = new Image();
                     singleImg.src = `/assets/protokoly/${ownerKey}.jpg`;
                     
@@ -135,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Kończy wyszukiwanie obrazów
+     * Finalizuje wyszukiwanie skanów i aktywuje przycisk
      */
     const finishImageSearch = (foundImages) => {
         imageUrls = foundImages;
@@ -144,21 +151,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // === 4. FUNKCJE RENDERUJĄCE I MANIPULUJĄCE DOM ===
+    /* ==========================================================================
+       RENDEROWANIE DANYCH
+       ========================================================================== */
     
     /**
-     * Renderuje dane właściciela na stronie
+     * Renderuje kompletne dane właściciela w interfejsie
      */
     const renderOwnerData = (data) => {
-        // Ustawienie tytułu strony
+        // Aktualizacja tytułu strony
         document.title = `Protokół - ${data.nazwa_wlasciciela || 'Nieznany'}`;
         
-        // Podstawowe dane
+        // Metadane protokołu
         fillField(orderNumberEl, data.numer_protokolu);
         fillField(protocolDateEl, formatDate(data.data_protokolu));
         fillField(protocolLocationEl, data.miejsce_protokolu);
         
-        // Dane właściciela
+        // Informacje o właścicielu
         const ownerHtml = `
             <div>
                 <div class="owner-name-main">${data.nazwa_wlasciciela || ''}</div>
@@ -176,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showHouseOnMapBtn.classList.remove('hidden');
         }
         
-        // Genealogia
+        // Sekcja genealogii
         if (data.genealogia) {
             fillField(genealogyEl, data.genealogia);
             document.getElementById('genealogySection').classList.remove('hidden');
@@ -194,17 +203,18 @@ document.addEventListener('DOMContentLoaded', () => {
         showOptionalSection('powiazaniaTransakcjeSection', 'powiazaniaTransakcje', data.powiazania_i_transakcje_html);
         showOptionalSection('interpretacjaWnioskiSection', 'interpretacjaWnioski', data.interpretacja_i_wnioski);
         
-        // Działki
+        // Renderowanie działek
         renderPlots(data);
     };
     
     /**
-     * Renderuje sekcje działek
+     * Renderuje sekcje działek z porównaniem stanów
      */
     const renderPlots = (data) => {
         const protokolPlots = data.dzialki_protokol || [];
         const rzeczywistePlots = data.dzialki_rzeczywiste || [];
         
+        // Funkcja porównująca listy działek
         const arePlotListsEqual = (listA, listB) => {
             if (listA.length !== listB.length) return false;
             const idsA = new Set(listA.map(p => p.id));
@@ -216,12 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
         havePlotDifferences = haveDifferences;
         
         if (haveDifferences) {
-            // Pokazujemy przełącznik i oba widoki
+            // Wyświetlenie przełącznika i obu widoków
             document.querySelector('.view-switcher').classList.remove('hidden');
             updatePlotSection('rzeczywistePlots', rzeczywistePlots);
             updatePlotSection('protokolPlots', protokolPlots);
         } else {
-            // Pokazujemy tylko jeden widok
+            // Wyświetlenie pojedynczego widoku
             document.querySelector('.view-switcher').classList.add('hidden');
             const viewRzeczywiste = document.getElementById('view-rzeczywiste');
             viewRzeczywiste.querySelector('.card-header h3').innerHTML = 
@@ -230,12 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('view-protokol').classList.add('hidden');
         }
         
-        // Konfiguracja przycisków mapy
+        // Konfiguracja linków do mapy
         setupMapLinks(rzeczywistePlots, protokolPlots, haveDifferences);
     };
     
     /**
-     * Aktualizuje sekcję działek
+     * Aktualizuje pojedynczą sekcję działek
      */
     const updatePlotSection = (containerId, plots) => {
         const container = document.getElementById(containerId);
@@ -247,10 +257,10 @@ document.addEventListener('DOMContentLoaded', () => {
             containerId === 'rzeczywistePlots' ? 'rzeczywiste-details' : 'protokol-details'
         );
         
-        // Numery działek
+        // Lista numerów działek
         numbersDiv.innerHTML = plots.map(p => generateFractionHTML(p.nazwa_lub_numer)).join(', ');
         
-        // Podsumowanie
+        // Podsumowanie kategorii
         const categoryCounts = plots.reduce((acc, p) => {
             const k = p.kategoria || 'nieznana';
             acc[k] = (acc[k] || 0) + 1;
@@ -260,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryDiv.textContent = `(w tym: ${Object.entries(categoryCounts)
             .map(([k, c]) => `${c} ${k}`).join(', ')})`;
         
-        // Szczegóły
+        // Szczegółowy podział
         const plotsByCat = plots.reduce((acc, p) => {
             const k = p.kategoria || 'nieznana';
             (acc[k] = acc[k] || []).push(p);
@@ -278,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Konfiguruje linki do mapy
+     * Konfiguruje przyciski nawigacji do mapy
      */
     const setupMapLinks = (rzeczywistePlots, protokolPlots, haveDifferences) => {
         const mapLinkReal = document.getElementById('mapLinkReal');
@@ -287,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapUrl = '../mapa/mapa.html';
         
         if (!haveDifferences && rzeczywistePlots.length > 0) {
-            // Jeden przycisk gdy stany są identyczne
+            // Pojedynczy przycisk dla identycznych stanów
             const plotIds = rzeczywistePlots.map(p => p.id).join(',');
             mapLinkReal.href = `${mapUrl}?highlightByIds=${plotIds}`;
             mapLinkReal.innerHTML = '<i class="fas fa-map-marked-alt"></i> Pokaż na mapie';
@@ -317,14 +327,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // === 5. OBSŁUGA ZDARZEŃ (EVENT LISTENERS) ===
+    /* ==========================================================================
+       OBSŁUGA ZDARZEŃ
+       ========================================================================== */
     
     /**
-     * Konfiguruje wszystkie event listenery
+     * Konfiguruje wszystkie handlery zdarzeń
      */
     const setupEventListeners = () => {
-        // Logika pełnego ekranu
-        setupFullscreen();       
+        // Inicjalizacja trybu pełnoekranowego
+        setupFullscreen();
+        
         // Przyciski główne
         downloadPdfBtn.addEventListener('click', generatePDF);
         showOriginalBtn.addEventListener('click', openImageModal);
@@ -339,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const mapUrl = '../mapa/mapa.html';
             const allIds = [ownerData.dom_obiekt_id];
             
-            // Dodaj działki
+            // Dodanie wszystkich działek
             if (ownerData.dzialki_rzeczywiste) {
                 allIds.push(...ownerData.dzialki_rzeczywiste.map(p => p.id));
             }
@@ -351,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = `${mapUrl}?highlightByIds=${uniqueIds}`;
         });
         
-        // Przełącznik widoków
+        // Przełącznik widoków działek
         const btnRzeczywiste = document.getElementById('btn-view-rzeczywiste');
         const btnProtokol = document.getElementById('btn-view-protokol');
         
@@ -394,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         prevBtn.addEventListener('click', showPrevImage);
         nextBtn.addEventListener('click', showNextImage);
         
-        // Drzewo genealogiczne
+        // Dialog drzewa genealogicznego
         showTreeBtn.addEventListener('click', loadGenealogyTree);
         closeTreeBtn.addEventListener('click', () => {
             treeDialog.close();
@@ -413,10 +426,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // === 6. FUNKCJE OBSŁUGI MODALI ===
+    /* ==========================================================================
+       MODAL SKANÓW PROTOKOŁU
+       ========================================================================== */
     
     /**
-     * Otwiera modal ze skanami
+     * Otwiera modal z przeglądaniem skanów
      */
     const openImageModal = () => {
         if (imageUrls.length === 0) return;
@@ -426,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         imageModal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         
-        // Inicjalizacja Panzoom
+        // Inicjalizacja Panzoom dla zoom/pan obrazu
         panzoomInstance = Panzoom(modalImage, {
             maxScale: 5,
             minScale: 0.5
@@ -436,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Zamyka modal ze skanami
+     * Zamyka modal skanów
      */
     const closeImageModal = () => {
         imageModal.classList.add('hidden');
@@ -463,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Pokazuje następny obraz
+     * Nawigacja - następny skan
      */
     const showNextImage = () => {
         if (currentImageIndex < imageUrls.length - 1) {
@@ -474,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Pokazuje poprzedni obraz
+     * Nawigacja - poprzedni skan
      */
     const showPrevImage = () => {
         if (currentImageIndex > 0) {
@@ -484,10 +499,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // === 7. FUNKCJE DRZEWA GENEALOGICZNEGO ===
+    /* ==========================================================================
+       DRZEWO GENEALOGICZNE
+       ========================================================================== */
     
     /**
-     * Ładuje i wyświetla drzewo genealogiczne
+     * Ładuje dane i wyświetla drzewo genealogiczne
      */
     const loadGenealogyTree = async () => {
         showTreeBtn.disabled = true;
@@ -508,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Rysuje drzewo genealogiczne używając D3.js
+     * Renderuje interaktywne drzewo genealogiczne przy użyciu D3.js
      */
     const drawGenealogyTree = (treeData) => {
         if (!treeData.persons || treeData.persons.length === 0) {
@@ -516,7 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Stałe konfiguracyjne dla layoutu drzewa
+        // Konfiguracja wymiarów i odstępów
         const NODE_WIDTH = 200;
         const NODE_HEIGHT = 120;
         const HORIZONTAL_SPACING = 80;
@@ -545,14 +562,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         /**
-         * Funkcja obliczająca generacje - od najstarszych do najmłodszych
+         * Oblicza generacje od najstarszych do najmłodszych
          */
         function calculateGenerations() {
-            const generations = new Map();   // id → nr generacji
+            const generations = new Map();
 
             function assignGeneration(personId, level) {
                 const current = generations.get(personId);
-                // Zostaw, jeśli ktoś jest już głębiej (większy level)
                 if (current !== undefined && current >= level) return;
 
                 generations.set(personId, level);
@@ -560,10 +576,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const person = persons.get(personId);
                 if (!person) return;
 
-                // Małżonkowie – ten sam poziom
+                // Małżonkowie - ten sam poziom
                 (person.spouseIds || []).forEach(spId => assignGeneration(spId, level));
 
-                // Dzieci – poziom niżej
+                // Dzieci - poziom niżej
                 persons.forEach(child => {
                     if (child.fatherId === personId || child.motherId === personId) {
                         assignGeneration(child.id, level + 1);
@@ -571,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            // Start: wszystkie osoby bez rodziców
+            // Start od osób bez rodziców
             persons.forEach((p, id) => {
                 if (!p.fatherId && !p.motherId) assignGeneration(id, 0);
             });
@@ -580,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         /**
-         * Funkcja grupująca pary małżeńskie
+         * Grupuje pary małżeńskie
          */
         function createMarriageGroups() {
             const marriages = new Map();
@@ -609,11 +625,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return marriages;
         }
 
-        // Obliczanie generacji i małżeństw
+        // Obliczanie struktury drzewa
         const generations = calculateGenerations();
         const marriages = createMarriageGroups();
         
-        // Pogrupowanie osób według generacji
+        // Grupowanie według generacji
         const generationGroups = new Map();
         persons.forEach((person, id) => {
             const gen = generations.get(id) || 0;
@@ -626,16 +642,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sortowanie generacji
         const sortedGenerations = Array.from(generationGroups.entries()).sort((a, b) => a[0] - b[0]);
         
-        // Pozycjonowanie węzłów z układem rodzinnym
+        // Pozycjonowanie węzłów
         const nodePositions = new Map();
         let maxWidth = 0;
         
         sortedGenerations.forEach(([genLevel, personsInGen], genIndex) => {
-            // Grupowanie osób w pary małżeńskie i pojedyncze
+            // Grupowanie w pary małżeńskie
             const arranged = [];
             const processed = new Set();
             
-            // Najpierw znajdź pary małżeńskie w tej generacji
+            // Pary małżeńskie
             marriages.forEach((marriage, marriageId) => {
                 const p1Gen = generations.get(marriage.person1.id);
                 const p2Gen = generations.get(marriage.person2.id);
@@ -651,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // Potem dodaj pojedyncze osoby
+            // Pojedyncze osoby
             personsInGen.forEach(person => {
                 if (!processed.has(person.id)) {
                     arranged.push({
@@ -662,14 +678,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // Oblicz szerokość tej generacji
+            // Obliczanie szerokości generacji
             const totalWidth = arranged.reduce((sum, group) => sum + group.width + HORIZONTAL_SPACING, 0) - HORIZONTAL_SPACING;
             
             if (totalWidth > maxWidth) {
                 maxWidth = totalWidth;
             }
             
-            // Pozycjonuj grupy w tej generacji
+            // Pozycjonowanie grup
             let currentX = MARGIN;
             const y = MARGIN + LEGEND_HEIGHT + genIndex * (NODE_HEIGHT + VERTICAL_SPACING);
             
@@ -698,15 +714,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Obliczanie wymiarów SVG
+        // Wymiary SVG
         const svgWidth = Math.max(maxWidth + 2 * MARGIN, 1000);
         const svgHeight = MARGIN + LEGEND_HEIGHT + sortedGenerations.length * (NODE_HEIGHT + VERTICAL_SPACING) + MARGIN;
 
-        
-        // Wyczyszczenie kontenera
+        // Czyszczenie kontenera
         treeContainer.innerHTML = '';
 
-        // Utworzenie SVG przy użyciu D3.js
+        // Tworzenie SVG z D3.js
         const svg = d3.create('svg')
             .attr('width', '100%')
             .attr('height', '100%')
@@ -721,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const g = svg.append('g');
 
         /**
-         * Funkcja tworząca połączenia rodzic-dziecko
+         * Tworzy połączenia rodzic-dziecko
          */
         function createParentChildConnections() {
             const connections = [];
@@ -729,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nodePositions.forEach((childPos, childId) => {
                 const child = childPos.person;
                 
-                // Znajdź rodziców
+                // Znajdowanie rodziców
                 const fatherPos = child.fatherId ? nodePositions.get(child.fatherId) : null;
                 const motherPos = child.motherId ? nodePositions.get(child.motherId) : null;
                 
@@ -737,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let parentCenterX, parentY;
                     
                     if (fatherPos && motherPos) {
-                        // Oboje rodzice - połączenie z punktu między nimi
+                        // Oboje rodzice
                         parentCenterX = (fatherPos.x + NODE_WIDTH/2 + motherPos.x + NODE_WIDTH/2) / 2;
                         parentY = Math.max(fatherPos.y, motherPos.y) + NODE_HEIGHT;
                     } else if (fatherPos) {
@@ -750,7 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         parentY = motherPos.y + NODE_HEIGHT;
                     }
                     
-                    // Dodaj połączenie
+                    // Tworzenie ścieżki połączenia
                     const childCenterX = childPos.x + NODE_WIDTH/2;
                     const childY = childPos.y;
                     const midY = parentY + (childY - parentY) / 2;
@@ -765,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return connections;
         }
 
-        // Rysowanie linii połączeń rodzic-dziecko
+        // Rysowanie połączeń rodzic-dziecko
         const parentChildConnections = createParentChildConnections();
         g.selectAll('.parent-child-connection')
             .data(parentChildConnections)
@@ -813,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .attr('class', 'person-node')
             .attr('transform', d => `translate(${d[1].x}, ${d[1].y})`);
 
-        // Prostokąty węzłów z kolorami według płci i statusu
+        // Prostokąty węzłów
         nodeGroups.append('rect')
             .attr('width', NODE_WIDTH)
             .attr('height', NODE_HEIGHT)
@@ -832,7 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .attr('stroke-width', d => d[1].person.isRoot ? 3 : 2)
             .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))');
 
-        // Nazwiska
+        // Imiona i nazwiska
         nodeGroups.append('text')
             .attr('x', NODE_WIDTH / 2)
             .attr('y', 25)
@@ -869,7 +884,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .attr('fill', '#888')
             .text(d => d[1].person.houseNumber ? `Dom: ${d[1].person.houseNumber}` : '');
 
-        // Link do protokołu (dla osób z kluczem protokołu)
+        // Link do protokołu
         nodeGroups.filter(d => d[1].person.protocolKey && !d[1].person.isRoot)
             .append('g')
             .attr('class', 'protocol-link')
@@ -940,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Dodanie SVG do kontenera
         treeContainer.appendChild(svg.node());
 
-        // Pokazanie dialogu
+        // Wyświetlenie dialogu
         treeDialog.showModal();
 
         // Obsługa klawisza ESC
@@ -954,99 +969,105 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', handleKeyPress);
     };
     
-    // === 8. FUNKCJE GENEROWANIA PDF ===
+    /* ==========================================================================
+       GENEROWANIE PDF
+       ========================================================================== */
     
     /**
-     * Generuje PDF z protokołu
+     * Generuje PDF z treścią protokołu
      */
     const generatePDF = async () => {
-    const ownerName = ownerData?.nazwa_wlasciciela || 'protokol';
-    const fileName = `Protokol_${ownerName.replace(/[^\p{L}\p{N}_-]+/gu, '_')}.pdf`;
+        const ownerName = ownerData?.nazwa_wlasciciela || 'protokol';
+        const fileName = `Protokol_${ownerName.replace(/[^\p{L}\p{N}_-]+/gu, '_')}.pdf`;
 
-    // 1) Wejdź w tryb PDF (bez animacji/przezroczystości – wymaga CSS .pdf-export)
-    document.body.classList.add('pdf-export');
+        // Przygotowanie strony do eksportu
+        document.body.classList.add('pdf-export');
 
-    // 2) Ukryj elementy interaktywne i zapamiętaj ich stan
-    const elementsToHide = document.querySelectorAll(
-        '.action-btn, .header-btn, .switch-btn, .details-toggle-btn, .view-switcher, .map-links-section, .top-header, .app-footer'
-    );
-    const originalDisplays = new Map();
-    elementsToHide.forEach(el => originalDisplays.set(el, el.style.display));
-    elementsToHide.forEach(el => el.style.display = 'none');
+        // Ukrycie elementów interaktywnych
+        const elementsToHide = document.querySelectorAll(
+            '.action-btn, .header-btn, .switch-btn, .details-toggle-btn, .view-switcher, .map-links-section, .top-header, .app-footer'
+        );
+        const originalDisplays = new Map();
+        elementsToHide.forEach(el => originalDisplays.set(el, el.style.display));
+        elementsToHide.forEach(el => el.style.display = 'none');
 
-    // 3) Odsłoń szczegóły działek; zapamiętaj które były ukryte
-    const initiallyHiddenDetails = [...document.querySelectorAll('.plot-details-list.hidden')];
-    document.querySelectorAll('.plot-details-list').forEach(el => el.classList.remove('hidden'));
+        // Rozwinięcie szczegółów działek
+        const initiallyHiddenDetails = [...document.querySelectorAll('.plot-details-list.hidden')];
+        document.querySelectorAll('.plot-details-list').forEach(el => el.classList.remove('hidden'));
 
-    // 4) Pokaż odpowiednie widoki działek (tak jak na ekranie)
-    const viewRzeczywiste = document.getElementById('view-rzeczywiste');
-    const viewProtokol = document.getElementById('view-protokol');
-    const wasRzeczywisteHidden = viewRzeczywiste?.classList.contains('hidden');
-    const wasProtokolHidden = viewProtokol?.classList.contains('hidden');
+        // Zarządzanie widokami działek
+        const viewRzeczywiste = document.getElementById('view-rzeczywiste');
+        const viewProtokol = document.getElementById('view-protokol');
+        const wasRzeczywisteHidden = viewRzeczywiste?.classList.contains('hidden');
+        const wasProtokolHidden = viewProtokol?.classList.contains('hidden');
 
-    // Ustal, czy są różnice (użyj zmiennej z renderu, a jeśli jej nie ma – policz teraz)
-    const computeHaveDifferences = () => {
-        const A = ownerData?.dzialki_protokol || [];
-        const B = ownerData?.dzialki_rzeczywiste || [];
-        if (A.length !== B.length) return true;
-        const idsA = new Set(A.map(p => p.id));
-        const idsB = new Set(B.map(p => p.id));
-        if (idsA.size !== idsB.size) return true;
-        for (const id of idsA) if (!idsB.has(id)) return true;
-        return false;
-    };
-    const differences = (typeof havePlotDifferences !== 'undefined')
-        ? havePlotDifferences
-        : computeHaveDifferences();
+        // Obliczenie różnic
+        const computeHaveDifferences = () => {
+            const A = ownerData?.dzialki_protokol || [];
+            const B = ownerData?.dzialki_rzeczywiste || [];
+            if (A.length !== B.length) return true;
+            const idsA = new Set(A.map(p => p.id));
+            const idsB = new Set(B.map(p => p.id));
+            if (idsA.size !== idsB.size) return true;
+            for (const id of idsA) if (!idsB.has(id)) return true;
+            return false;
+        };
+        const differences = (typeof havePlotDifferences !== 'undefined')
+            ? havePlotDifferences
+            : computeHaveDifferences();
 
-    if (differences) {
-        viewRzeczywiste?.classList.remove('hidden');
-        viewProtokol?.classList.remove('hidden');
-    } else {
-        viewRzeczywiste?.classList.remove('hidden');
-        viewProtokol?.classList.add('hidden'); // nie pokazuj pustego „wg Protokołu”
-    }
+        if (differences) {
+            viewRzeczywiste?.classList.remove('hidden');
+            viewProtokol?.classList.remove('hidden');
+        } else {
+            viewRzeczywiste?.classList.remove('hidden');
+            viewProtokol?.classList.add('hidden');
+        }
 
-    // 5) Poczekaj aż styl/Fonty się zastosują
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    if (document.fonts?.ready) { try { await document.fonts.ready; } catch(e) {} }
-    await new Promise(r => setTimeout(r, 50));
+        // Oczekiwanie na wyrenderowanie
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        if (document.fonts?.ready) { try { await document.fonts.ready; } catch(e) {} }
+        await new Promise(r => setTimeout(r, 50));
 
-    // 6) Parametry PDF (białe tło, wysoka skala)
-    const opt = {
-        margin: 10,
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-        scale: 2,            // podnieś do 3, jeśli chcesz jeszcze ostrzej
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        scrollY: 0
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { avoid: '.content-card' }
-    };
+        // Konfiguracja PDF
+        const opt = {
+            margin: 10,
+            filename: fileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                scrollY: 0
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { avoid: '.content-card' }
+        };
 
-    const content = document.querySelector('.main-content');
+        const content = document.querySelector('.main-content');
 
-    try {
-        await html2pdf().from(content).set(opt).save();
-    } finally {
-        // 7) Przywróć stan strony (bez przeładowania)
-        elementsToHide.forEach(el => el.style.display = originalDisplays.get(el) || '');
-        initiallyHiddenDetails.forEach(el => el.classList.add('hidden'));
+        try {
+            await html2pdf().from(content).set(opt).save();
+        } finally {
+            // Przywrócenie stanu strony
+            elementsToHide.forEach(el => el.style.display = originalDisplays.get(el) || '');
+            initiallyHiddenDetails.forEach(el => el.classList.add('hidden'));
 
-        if (wasRzeczywisteHidden) viewRzeczywiste?.classList.add('hidden'); else viewRzeczywiste?.classList.remove('hidden');
-        if (wasProtokolHidden) viewProtokol?.classList.add('hidden'); else viewProtokol?.classList.remove('hidden');
+            if (wasRzeczywisteHidden) viewRzeczywiste?.classList.add('hidden'); 
+            else viewRzeczywiste?.classList.remove('hidden');
+            if (wasProtokolHidden) viewProtokol?.classList.add('hidden'); 
+            else viewProtokol?.classList.remove('hidden');
 
-        document.body.classList.remove('pdf-export');
-    }
+            document.body.classList.remove('pdf-export');
+        }
     };
     
-    // === 9. FUNKCJE POMOCNICZE ===
+    /* ==========================================================================
+       FUNKCJE POMOCNICZE
+       ========================================================================== */
     
     /**
-     * Wypełnia pole wartością
+     * Wypełnia pole tekstem z obsługą wartości domyślnej
      */
     const fillField = (element, value) => {
         if (element) {
@@ -1055,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Pokazuje sekcję opcjonalną jeśli ma zawartość
+     * Wyświetla sekcję opcjonalną jeśli zawiera treść
      */
     const showOptionalSection = (sectionId, fieldId, value) => {
         if (value && value.trim()) {
@@ -1070,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Formatuje datę
+     * Formatuje datę do polskiego formatu
      */
     const formatDate = (dateString) => {
         if (!dateString) return '—';
@@ -1079,7 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Generuje HTML dla ułamków
+     * Generuje HTML dla ułamków z formatowaniem
      */
     const generateFractionHTML = (text) => {
         if (!text) return '';
@@ -1095,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
-     * Wyświetla komunikat o błędzie
+     * Wyświetla komunikat błędu
      */
     const showError = (message) => {
         document.body.innerHTML = `
@@ -1112,7 +1133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Zarządza logiką zmiany i zapamiętywania motywu kolorystycznego.
+     * Zarządza motywem kolorystycznym
      */
     const setupThemeLogic = () => {
         const themeToggleBtn = document.getElementById('themeToggleBtn');
@@ -1120,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const icon = themeToggleBtn.querySelector('i');
 
-        // Funkcja do zastosowania motywu i aktualizacji ikony
+        // Aplikacja motywu
         const applyTheme = (theme) => {
             document.body.classList.toggle('dark-mode', theme === 'dark');
             if (icon) {
@@ -1128,11 +1149,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Odczytanie zapisanego motywu i jego zastosowanie
+        // Odczyt zapisanego motywu
         const savedTheme = localStorage.getItem('mapTheme') || 'light';
         applyTheme(savedTheme);
 
-        // Listener do zmiany motywu przez użytkownika
+        // Obsługa zmiany motywu
         themeToggleBtn.addEventListener('click', () => {
             const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -1140,8 +1161,9 @@ document.addEventListener('DOMContentLoaded', () => {
             applyTheme(newTheme);
         });
     };
+    
     /**
-     * Zarządza trybem pełnoekranowym.
+     * Zarządza trybem pełnoekranowym
      */
     const setupFullscreen = () => {
         if (!fullscreenBtn) return;
@@ -1162,6 +1184,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // === 10. INICJALIZACJA APLIKACJI ===
+    /* ==========================================================================
+       URUCHOMIENIE APLIKACJI
+       ========================================================================== */
     init();
 });

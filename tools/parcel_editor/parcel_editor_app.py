@@ -1,402 +1,379 @@
+"""
+============================================================================
+Aplikacja: Edytor Mapy Katastralnej
+Opis: Serwer Flask obsługujący edycję działek na mapie interaktywnej.
+      Umożliwia dodawanie, edycję, usuwanie działek oraz zarządzanie kopiami.
+============================================================================
+"""
+
 import os
 import json
 import shutil
 import threading
 import webbrowser
-import time
 from datetime import datetime
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 
-# --- KONFIGURACJA ŚCIEŻEK ---
-
-# Ścieżka bazowa aplikacji (folder zawierający ten skrypt)
+# ==========================================================================
+# KONFIGURACJA ŚCIEŻEK SYSTEMU
+# ==========================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Ścieżka katalogu projektu (2 poziomy wyżej: .../Projekt Mapa Czarna)
 PROJECT_DIR = os.path.abspath(os.path.join(BASE_DIR, os.pardir, os.pardir))
-
-# Ścieżka do folderu z kopiami zapasowymi (współdzielony dla całego projektu)
 BACKUP_DIR = os.path.join(PROJECT_DIR, "backup")
-
-# Ścieżka do głównego pliku danych działek
 DATA_FILE_PATH = os.path.join(BACKUP_DIR, "parcels_data.json")
 
-# --- KONFIGURACJA APLIKACJI FLASK ---
-
-# Inicjalizacja głównego obiektu aplikacji Flask
+# ==========================================================================
+# INICJALIZACJA APLIKACJI FLASK
+# ==========================================================================
 app = Flask(
     __name__,
     static_folder=os.path.join(BASE_DIR, "static"),
     template_folder=os.path.join(BASE_DIR, "templates"),
 )
 
-# Wyłączenie kodowania znaków Unicode do sekwencji \uXXXX
-# Pozwala na poprawne zapisywanie polskich znaków w JSON
+# Konfiguracja kodowania JSON - zachowanie polskich znaków
 app.config["JSON_AS_ASCII"] = False
-
-# Wyłączenie automatycznego sortowania kluczy w JSON
-# Ważne dla zachowania kolejności działek w pliku
 app.config["JSON_SORT_KEYS"] = False
 
-# Globalna zmienna przechowująca dane działek w pamięci
+# Globalne przechowywanie danych
+map_config = {}
 parcels_data = {}
 
-# --- FUNKCJE POMOCNICZE DO ZARZĄDZANIA DANYMI ---
-
-def load_data_from_file():
-    """Wczytuje dane działek z pliku JSON do pamięci.
+# ==========================================================================
+# FUNKCJE ZARZĄDZANIA KONFIGURACJĄ
+# ==========================================================================
+def load_map_config_from_file():
+    """Wczytuje konfigurację mapy z pliku JSON."""
+    global map_config
+    config_path = os.path.join(PROJECT_DIR, "backup", "map_config.json")
     
-    Funkcja próbuje odczytać plik parcels_data.json i załadować
-    jego zawartość do globalnej zmiennej parcels_data.
-    W przypadku błędu inicjalizuje pusty słownik.
-    """
+    try:
+        if not os.path.exists(config_path):
+            # Domyślna konfiguracja gdy brak pliku
+            default_config = {
+                "calibration": {
+                    "sw": {"lat": 50.0414, "lng": 21.2261}, 
+                    "ne": {"lat": 50.0814, "lng": 21.2661}
+                },
+                "defaults": {
+                    "center": {"lat": 50.0614, "lng": 21.2461}, 
+                    "zoom": 14
+                }
+            }
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=4, ensure_ascii=False)
+            map_config = default_config
+            print("✅ Utworzono domyślny plik konfiguracyjny mapy")
+        else:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                map_config = json.load(f)
+            print("✅ Konfiguracja mapy załadowana pomyślnie")
+    except Exception as e:
+        print(f"❌ Błąd wczytywania konfiguracji: {e}")
+        # Konfiguracja awaryjna
+        map_config = {
+            "calibration": {
+                "sw": {"lat": 50.0414, "lng": 21.2261}, 
+                "ne": {"lat": 50.0814, "lng": 21.2661}
+            },
+            "defaults": {
+                "center": {"lat": 50.0614, "lng": 21.2461}, 
+                "zoom": 14
+            }
+        }
+
+# ==========================================================================
+# FUNKCJE ZARZĄDZANIA DANYMI
+# ==========================================================================
+def load_data_from_file():
+    """Wczytuje dane działek z pliku JSON."""
     global parcels_data
     
     try:
         with open(DATA_FILE_PATH, "r", encoding="utf-8") as f:
             parcels_data = json.load(f)
+        print(f"✅ Załadowano {len(parcels_data)} działek")
     except FileNotFoundError:
-        # Plik nie istnieje - tworzenie pustej struktury
         parcels_data = {}
-        print(
-            f"Ostrzeżenie: Plik {DATA_FILE_PATH} nie znaleziony. Utworzono pusty słownik."
-        )
-    except json.JSONDecodeError:
-        # Plik jest uszkodzony - tworzenie pustej struktury
+        print(f"⚠️  Brak pliku danych - utworzono nową bazę")
+    except json.JSONDecodeError as e:
         parcels_data = {}
-        print(f"Błąd: Nie można zdekodować pliku JSON. Użyto pustego słownika.")
-
+        print(f"❌ Błąd dekodowania JSON: {e}")
 
 def save_data_to_file():
-    """Zapisuje dane działek z pamięci do pliku JSON.
-    
-    Funkcja zapisuje aktualny stan zmiennej parcels_data
-    do pliku z odpowiednim formatowaniem i kodowaniem UTF-8.
-    """
+    """Zapisuje dane działek do pliku JSON."""
     try:
         with open(DATA_FILE_PATH, "w", encoding="utf-8") as f:
             json.dump(parcels_data, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(f"Krytyczny błąd podczas zapisu do pliku: {e}")
+        print(f"❌ Błąd zapisu: {e}")
 
-# --- API DO ZARZĄDZANIA DANYMI DZIAŁEK ---
-
+# ==========================================================================
+# ENDPOINTY API - OPERACJE CRUD
+# ==========================================================================
 @app.route("/api/parcels")
 def get_parcels():
-    """Zwraca wszystkie działki w formacie JSON.
-    
-    Endpoint używany przez frontend do początkowego załadowania
-    wszystkich działek na mapę.
-    """
+    """Zwraca wszystkie działki."""
     return jsonify(parcels_data)
-
 
 @app.route("/api/parcel", methods=["POST"])
 def add_parcel():
-    """Dodaje nową działkę do systemu.
-    
-    Oczekuje JSON z polami:
-    - id: unikalne ID działki
-    - parcel: obiekt z danymi działki (kategoria, geometria)
-    
-    Zwraca status operacji i komunikat.
-    """
+    """Dodaje nową działkę do systemu."""
     data = request.get_json()
     parcel_id = data.get("id")
     parcel_info = data.get("parcel")
 
-    # Walidacja danych wejściowych
+    # Walidacja danych
     if not parcel_id or not parcel_info:
-        return (
-            jsonify({"status": "error", "message": "Brak ID lub danych działki"}),
-            400,
-        )
+        return jsonify({"status": "error", "message": "Brak wymaganych danych"}), 400
 
-    # Sprawdzenie unikalności ID
+    # Sprawdzenie duplikatu
     if parcel_id in parcels_data:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Działka o ID '{parcel_id}' już istnieje.",
-                }
-            ),
-            409,  # HTTP 409 Conflict
-        )
+        return jsonify({
+            "status": "error",
+            "message": f"Działka '{parcel_id}' już istnieje"
+        }), 409
 
-    # Dodanie nowej działki i zapis do pliku
+    # Zapis nowej działki
     parcels_data[parcel_id] = parcel_info
     save_data_to_file()
     
-    return jsonify(
-        {"status": "success", "message": f"Działka '{parcel_id}' została dodana."}
-    )
+    return jsonify({
+        "status": "success", 
+        "message": f"Dodano działkę '{parcel_id}'"
+    })
 
-
-@app.route("/api/parcel/<string:parcel_id>", methods=["PUT"])
+@app.route("/api/parcel/<path:parcel_id>", methods=["PUT"])
 def update_parcel_geometry(parcel_id):
-    """Aktualizuje geometrię istniejącej działki.
-    
-    Pozwala na zmianę kształtu/położenia działki bez zmiany
-    innych jej właściwości.
-    
-    Args:
-        parcel_id: ID działki do aktualizacji (z URL)
-    """
-    # Sprawdzenie czy działka istnieje
+    """Aktualizuje geometrię działki."""
     if parcel_id not in parcels_data:
-        return jsonify({"status": "error", "message": "Działka nie znaleziona."}), 404
+        return jsonify({"status": "error", "message": "Działka nie istnieje"}), 404
 
     data = request.get_json()
     new_geometry = data.get("geometria")
 
-    # Walidacja nowej geometrii
     if not new_geometry:
-        return jsonify({"status": "error", "message": "Brak nowej geometrii."}), 400
+        return jsonify({"status": "error", "message": "Brak geometrii"}), 400
 
-    # Aktualizacja geometrii i zapis
     parcels_data[parcel_id]["geometria"] = new_geometry
     save_data_to_file()
     
-    return jsonify(
-        {
-            "status": "success",
-            "message": f"Geometria działki '{parcel_id}' została zaktualizowana.",
-        }
-    )
+    return jsonify({
+        "status": "success",
+        "message": f"Zaktualizowano geometrię '{parcel_id}'"
+    })
 
+@app.route("/api/parcel/<path:parcel_id>/category", methods=["PATCH"])
+def update_parcel_category(parcel_id):
+    """Zmienia kategorię działki."""
+    if parcel_id not in parcels_data:
+        return jsonify({"status": "error", "message": "Działka nie istnieje"}), 404
 
-@app.route("/api/parcel/rename/<string:old_id>", methods=["PATCH"])
+    data = request.get_json()
+    new_category = data.get("kategoria")
+
+    if not new_category:
+        return jsonify({"status": "error", "message": "Brak kategorii"}), 400
+
+    parcels_data[parcel_id]["kategoria"] = new_category
+    save_data_to_file()
+    
+    return jsonify({
+        "status": "success",
+        "message": f"Zmieniono kategorię '{parcel_id}' na '{new_category}'"
+    })
+
+@app.route("/api/parcel/rename/<path:old_id>", methods=["PATCH"])
 def rename_parcel(old_id):
-    """Zmienia ID (nazwę) istniejącej działki.
-    
-    Zachowuje pozycję działki w kolejności słownika,
-    co jest ważne dla zachowania porządku w liście.
-    
-    Args:
-        old_id: Obecne ID działki do zmiany (z URL)
-    """
+    """Zmienia identyfikator działki zachowując pozycję."""
     global parcels_data
     
-    # Sprawdzenie czy działka istnieje
     if old_id not in parcels_data:
-        return (
-            jsonify(
-                {"status": "error", "message": f"Działka '{old_id}' nie znaleziona."}
-            ),
-            404,
-        )
+        return jsonify({
+            "status": "error", 
+            "message": f"Działka '{old_id}' nie istnieje"
+        }), 404
 
     data = request.get_json()
     new_id = data.get("new_id")
 
-    # Walidacja nowego ID
     if not new_id:
-        return jsonify({"status": "error", "message": "Nie podano nowego ID."}), 400
+        return jsonify({"status": "error", "message": "Brak nowego ID"}), 400
 
-    # Sprawdzenie unikalności nowego ID
     if new_id in parcels_data and new_id != old_id:
-        return (
-            jsonify({"status": "error", "message": f"ID '{new_id}' jest już zajęte."}),
-            409,
-        )
+        return jsonify({
+            "status": "error", 
+            "message": f"ID '{new_id}' jest zajęte"
+        }), 409
 
-    # Zmiana ID z zachowaniem kolejności w słowniku
+    # Zmiana ID z zachowaniem kolejności
     if old_id != new_id:
-        # Tworzenie nowego słownika z zachowaniem kolejności
         items = list(parcels_data.items())
         try:
-            # Znajdź indeks elementu do zmiany nazwy
-            index = [i for i, (key, val) in enumerate(items) if key == old_id][0]
-            # Usuń stary element
+            index = next(i for i, (key, val) in enumerate(items) if key == old_id)
             parcel_content = parcels_data.pop(old_id)
-            # Stwórz nową listę tupli
             new_items = [(key, val) for key, val in items if key != old_id]
-            # Wstaw nowy element na prawidłowej pozycji
             new_items.insert(index, (new_id, parcel_content))
-            # Zaktualizuj główną zmienną
             parcels_data = dict(new_items)
-        except IndexError:  
-            # Fallback - prosty sposób bez zachowania kolejności
+        except StopIteration:
             parcel_content = parcels_data.pop(old_id)
             parcels_data[new_id] = parcel_content
 
     save_data_to_file()
     
-    return jsonify(
-        {
-            "status": "success",
-            "message": f"Zmieniono nazwę działki z '{old_id}' na '{new_id}'.",
-        }
-    )
+    return jsonify({
+        "status": "success",
+        "message": f"Zmieniono ID z '{old_id}' na '{new_id}'"
+    })
 
+@app.route("/api/parcels/delete_all", methods=["DELETE"])
+def delete_all_parcels():
+    """Usuwa wszystkie działki."""
+    global parcels_data
+    parcels_data.clear()
+    save_data_to_file()
+    
+    return jsonify({
+        "status": "success",
+        "message": "Usunięto wszystkie obiekty"
+    })
 
-@app.route("/api/parcel/<string:parcel_id>", methods=["DELETE"])
+@app.route("/api/parcel/<path:parcel_id>", methods=["DELETE"])
 def delete_parcel(parcel_id):
-    """Usuwa działkę z systemu.
-    
-    Trwale usuwa działkę z pliku danych.
-    
-    Args:
-        parcel_id: ID działki do usunięcia (z URL)
-    """
+    """Usuwa pojedynczą działkę."""
     if parcel_id in parcels_data:
-        # Usunięcie działki z pamięci i zapis zmian
         del parcels_data[parcel_id]
         save_data_to_file()
         
-        return jsonify(
-            {"status": "success", "message": f"Usunięto działkę '{parcel_id}'."}
-        )
+        return jsonify({
+            "status": "success", 
+            "message": f"Usunięto działkę '{parcel_id}'"
+        })
     
-    return jsonify({"status": "error", "message": "Działka nie znaleziona."}), 404
+    return jsonify({"status": "error", "message": "Działka nie istnieje"}), 404
 
-# --- ENDPOINTY APLIKACJI (STRONY I NAWIGACJA) ---
-
+# ==========================================================================
+# ROUTING INTERFEJSU
+# ==========================================================================
 @app.route("/")
 def root():
-    """Przekierowuje z głównego URL na stronę startową aplikacji."""
+    """Przekierowanie na główną stronę."""
     return redirect(url_for("index"))
-
 
 @app.route("/template.html")
 def index():
-    """Serwuje główny plik HTML aplikacji edytora działek."""
-    return render_template("template.html")
-
+    """Renderuje interfejs edytora z konfiguracją mapy."""
+    return render_template("template.html", map_config_data=map_config)
 
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
-    """Zamyka serwer Flask.
-    
-    Uruchamia zamknięcie w osobnym wątku, aby zdążyć
-    zwrócić odpowiedź HTTP przed faktycznym wyłączeniem.
-    """
+    """Bezpieczne zamknięcie serwera."""
     threading.Thread(target=lambda: os._exit(0)).start()
     return jsonify({"status": "success"})
 
-# --- API DO ZARZĄDZANIA KOPIAMI ZAPASOWYMI ---
-
+# ==========================================================================
+# SYSTEM KOPII ZAPASOWYCH
+# ==========================================================================
 @app.route("/api/backups")
 def get_backups():
-    """Zwraca listę dostępnych plików kopii zapasowych.
-    
-    Skanuje folder backup w poszukiwaniu plików JSON
-    zawierających kopie zapasowe danych działek.
-    """
-    # Sprawdzenie czy folder istnieje
+    """Lista dostępnych kopii zapasowych."""
     if not os.path.exists(BACKUP_DIR):
         return jsonify([])
     
-    # Filtrowanie i sortowanie plików kopii zapasowych
     files = sorted(
         [f for f in os.listdir(BACKUP_DIR) if f.endswith(".json") and "backup" in f],
-        reverse=True,  # Najnowsze pierwsze
+        reverse=True
     )
     
     return jsonify(files)
 
-
 @app.route("/backup", methods=["POST"])
 def backup_data():
-    """Tworzy nową kopię zapasową bieżących danych.
-    
-    Zapisuje aktualny stan danych do pliku z timestampem
-    w nazwie dla łatwej identyfikacji.
-    """
-    # Generowanie unikalnej nazwy pliku z datą i czasem
+    """Tworzy kopię zapasową z timestampem."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_path = os.path.join(BACKUP_DIR, f"parcels_data_backup_{timestamp}.json")
     
-    # Zapisanie aktualnych danych i utworzenie kopii
     save_data_to_file()
     shutil.copy2(DATA_FILE_PATH, backup_path)
     
-    return jsonify(
-        {
-            "status": "success",
-            "message": f"Kopia utworzona: {os.path.basename(backup_path)}",
-        }
-    )
-
+    return jsonify({
+        "status": "success",
+        "message": f"Utworzono kopię: {os.path.basename(backup_path)}"
+    })
 
 @app.route("/restore", methods=["POST"])
 def restore_data():
-    """Przywraca dane z wybranej kopii zapasowej.
-    
-    Zastępuje obecny plik danych wybraną kopią zapasową
-    i przeładowuje dane do pamięci.
-    """
+    """Przywraca dane z kopii."""
     filename = request.json.get("filename")
     
-    # Walidacja nazwy pliku
     if not filename:
-        return jsonify({"status": "error", "message": "Brak nazwy pliku."}), 400
+        return jsonify({"status": "error", "message": "Brak nazwy pliku"}), 400
     
     source_path = os.path.join(BACKUP_DIR, filename)
     
-    # Sprawdzenie bezpieczeństwa ścieżki (zapobieganie path traversal)
+    # Weryfikacja bezpieczeństwa
     if not (os.path.isfile(source_path) and source_path.startswith(BACKUP_DIR)):
-        return jsonify({"status": "error", "message": "Plik nie istnieje."}), 404
+        return jsonify({"status": "error", "message": "Plik nie istnieje"}), 404
     
-    # Przywrócenie kopii i przeładowanie danych
     shutil.copy2(source_path, DATA_FILE_PATH)
     load_data_from_file()
     
-    return jsonify({"status": "success", "message": f"Wczytano plik '{filename}'."})
-
+    return jsonify({
+        "status": "success", 
+        "message": f"Przywrócono z '{filename}'"
+    })
 
 @app.route("/delete_backup", methods=["POST"])
 def delete_backup():
-    """Usuwa wybraną kopię zapasową.
-    
-    Trwale usuwa plik kopii zapasowej z dysku.
-    Zawiera zabezpieczenia przed usunięciem plików spoza
-    dozwolonego katalogu.
-    """
+    """Usuwa kopię zapasową."""
     data = request.get_json(silent=True) or {}
     filename = data.get("filename")
 
-    # Walidacja nazwy pliku
     if not filename:
-        return jsonify({"status": "error", "message": "Brak nazwy pliku."}), 400
+        return jsonify({"status": "error", "message": "Brak nazwy pliku"}), 400
 
-    # Prosta walidacja bezpieczeństwa: tylko pliki .json z "backup" w nazwie
+    # Walidacja nazwy
     if not filename.endswith(".json") or "backup" not in filename:
-        return jsonify({"status": "error", "message": "Nieprawidłowa nazwa pliku."}), 400
+        return jsonify({"status": "error", "message": "Nieprawidłowa nazwa"}), 400
 
     file_path = os.path.join(BACKUP_DIR, filename)
 
-    # Upewnienie się, że ścieżka nie wychodzi poza BACKUP_DIR (ochrona przed path traversal)
-    if not (os.path.isfile(file_path) and os.path.abspath(file_path).startswith(os.path.abspath(BACKUP_DIR))):
-        return jsonify({"status": "error", "message": "Plik nie istnieje."}), 404
+    # Ochrona przed path traversal
+    if not (os.path.isfile(file_path) and 
+            os.path.abspath(file_path).startswith(os.path.abspath(BACKUP_DIR))):
+        return jsonify({"status": "error", "message": "Plik nie istnieje"}), 404
 
     try:
-        # Usunięcie pliku
         os.remove(file_path)
-        return jsonify({"status": "success", "message": f"Usunięto '{filename}'."})
+        return jsonify({
+            "status": "success", 
+            "message": f"Usunięto '{filename}'"
+        })
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Nie udało się usunąć: {e}"}), 500
+        return jsonify({
+            "status": "error", 
+            "message": f"Błąd usuwania: {e}"
+        }), 500
 
-# --- URUCHOMIENIE SERWERA ---
-
+# ==========================================================================
+# PUNKT STARTOWY APLIKACJI
+# ==========================================================================
 if __name__ == "__main__":
-    # Wczytanie danych przy starcie serwera
+    # Inicjalizacja przy starcie
     load_data_from_file()
+    load_map_config_from_file()
     
-    # Konfiguracja portu i adresu URL
+    # Konfiguracja serwera
     port = 5003
     url = f"http://127.0.0.1:{port}/template.html"
     
-    # Automatyczne otwarcie przeglądarki po uruchomieniu
+    # Auto-otwarcie przeglądarki po 1.25s
     threading.Timer(1.25, lambda: webbrowser.open(url)).start()
     
-    # Wyświetlenie informacji startowych
-    print("---------------------------------------------")
-    print(f"Uruchamianie serwera edytora mapy pod adresem: {url}")
-    print("---------------------------------------------")
+    print("=" * 50)
+    print(f"🚀 Edytor Mapy Katastralnej")
+    print(f"📍 Adres: {url}")
+    print("=" * 50)
     
-    # Uruchomienie serwera Flask
-    # debug=False - wyłączony tryb debugowania dla stabilności
-    # use_reloader=False - zapobiega podwójnemu uruchomieniu
+    # Uruchomienie serwera
     app.run(port=port, debug=False, use_reloader=False)
