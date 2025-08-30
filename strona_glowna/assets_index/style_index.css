@@ -1,44 +1,53 @@
 /* ==========================================================================
    Plik: style_index.css
+   Opis: Główny arkusz stylów dla strony startowej aplikacji
    ========================================================================== */
 
-/* 1. Zmienne CSS */
+/* ==========================================================================
+   1. ZMIENNE CSS I KONFIGURACJA
+   ========================================================================== */
 :root {
-    /* Paleta kolorów - stonowana, profesjonalna */
+    /* Paleta kolorów */
     --primary-color: #667eea;
     --primary-dark: #5a67d8;
     --primary-light: #7c8ff0;
     --accent-color: #d4ac7c;
     
-    /* Tła */
+    /* Tła i powierzchnie */
     --bg-overlay: rgba(30, 25, 20, 0.85);
     --bg-card: rgba(255, 255, 255, 0.98);
     --bg-card-hover: rgba(255, 255, 255, 1);
     --bg-dark: #1a1814;
+    --bg-hover: #f7fafc;
     
-    /* Teksty */
+    /* Kolory tekstu */
     --text-primary: #2d3748;
     --text-secondary: #4a5568;
     --text-light: #718096;
     --text-white: #ffffff;
     --text-cream: #f0e9e0;
     
-    /* Cienie i promienie */
+    /* Obramowania */
+    --border-color: #e2e8f0;
+    
+    /* Cienie */
     --shadow-sm: 0 2px 4px rgba(0,0,0,0.06);
     --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
     --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
     --shadow-xl: 0 20px 25px rgba(0,0,0,0.15);
-    --radius: 12px;
     
-    /* Czcionki */
+    /* Parametry UI */
+    --radius: 12px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Typografia */
     --font-heading: 'Playfair Display', serif;
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    
-    /* Przejścia */
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 2. Reset i podstawy */
+/* ==========================================================================
+   2. RESET I PODSTAWY
+   ========================================================================== */
 * {
     margin: 0;
     padding: 0;
@@ -56,7 +65,9 @@ body {
     overflow-x: hidden;
 }
 
-/* 3. Tło z mapą */
+/* ==========================================================================
+   3. TŁO Z MAPĄ I NAKŁADKI
+   ========================================================================== */
 .map-background {
     position: fixed;
     top: 0;
@@ -86,7 +97,9 @@ body {
     z-index: -1;
 }
 
-/* 4. Wrapper */
+/* ==========================================================================
+   4. KONTENER GŁÓWNY
+   ========================================================================== */
 .page-wrapper {
     position: relative;
     min-height: 100vh;
@@ -94,7 +107,9 @@ body {
     flex-direction: column;
 }
 
-/* 5. Nagłówek */
+/* ==========================================================================
+   5. NAGŁÓWEK GÓRNY
+   ========================================================================== */
 .top-header {
     padding: 1.5rem 0;
     backdrop-filter: blur(10px);
@@ -130,7 +145,9 @@ body {
     font-size: 0.95rem;
 }
 
-/* 6. Hero Section */
+/* ==========================================================================
+   6. SEKCJA HERO
+   ========================================================================== */
 .hero-section {
     flex: 1;
     display: flex;
@@ -145,7 +162,9 @@ body {
     width: 100%;
 }
 
-/* 7. Tytuł */
+/* ==========================================================================
+   7. TYTUŁ GŁÓWNY
+   ========================================================================== */
 .title-wrapper {
     text-align: center;
     margin-bottom: 2rem;
@@ -170,7 +189,9 @@ body {
     text-shadow: 2px 2px 6px rgba(0,0,0,0.4);
 }
 
-/* 8. Opis */
+/* ==========================================================================
+   8. OPIS GŁÓWNY
+   ========================================================================== */
 .description-wrapper {
     text-align: center;
     margin-bottom: 3rem;
@@ -187,7 +208,9 @@ body {
     text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
 }
 
-/* 9. Główny przycisk */
+/* ==========================================================================
+   9. PRZYCISK GŁÓWNY CTA
+   ========================================================================== */
 .action-container {
     display: flex;
     justify-content: center;
@@ -212,6 +235,7 @@ body {
     overflow: hidden;
 }
 
+/* Efekt świetlny na przycisku */
 .primary-button::before {
     content: '';
     position: absolute;
@@ -246,7 +270,9 @@ body {
     transform: translateX(5px);
 }
 
-/* 10. Karty funkcjonalności */
+/* ==========================================================================
+   10. KARTY FUNKCJONALNOŚCI
+   ========================================================================== */
 .features-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -309,7 +335,9 @@ body {
     color: rgba(240, 233, 224, 0.7);
 }
 
-/* 11. Sekcja dokumentów */
+/* ==========================================================================
+   11. SEKCJA DOKUMENTÓW
+   ========================================================================== */
 .documents-section {
     background: var(--bg-card);
     padding: 4rem 0;
@@ -336,6 +364,7 @@ body {
     gap: 1.5rem;
 }
 
+/* Karty dokumentów */
 .doc-card {
     background: white;
     border: 1px solid var(--border-color);
@@ -360,6 +389,7 @@ body {
     border-color: var(--primary-light);
 }
 
+/* Karta główna wyróżniona */
 .doc-card.main-card {
     background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
     color: white;
@@ -374,7 +404,7 @@ body {
 .doc-icon {
     width: 56px;
     height: 56px;
-    background: var(--bg-hover, #f7fafc);
+    background: var(--bg-hover);
     border-radius: var(--radius);
     display: flex;
     align-items: center;
@@ -427,7 +457,9 @@ body {
     transform: translateX(5px);
 }
 
-/* 12. Stopka */
+/* ==========================================================================
+   12. STOPKA
+   ========================================================================== */
 .page-footer {
     background: var(--bg-dark);
     color: var(--text-cream);
@@ -475,14 +507,12 @@ body {
     opacity: 0.6;
 }
 
-/* 13. Animacje */
+/* ==========================================================================
+   13. ANIMACJE
+   ========================================================================== */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes fadeInUp {
@@ -507,7 +537,10 @@ body {
     }
 }
 
-/* 14. Responsywność */
+/* ==========================================================================
+   14. RESPONSYWNOŚĆ
+   ========================================================================== */
+/* Tablety */
 @media (max-width: 768px) {
     .hero-section {
         padding: 2rem 1rem;
@@ -549,6 +582,7 @@ body {
     }
 }
 
+/* Telefony */
 @media (max-width: 480px) {
     .header-container {
         flex-direction: column;
@@ -562,7 +596,10 @@ body {
     }
 }
 
-/* 15. Wsparcie dla ciemnego motywu preferencji systemowych */
+/* ==========================================================================
+   15. PREFERENCJE SYSTEMOWE
+   ========================================================================== */
+/* Wsparcie dla ciemnego motywu */
 @media (prefers-color-scheme: dark) {
     .documents-section {
         background: rgba(26, 32, 44, 0.95);
@@ -583,7 +620,9 @@ body {
     }
 }
 
-/* 16. Drukowanie */
+/* ==========================================================================
+   16. STYLE DLA DRUKU
+   ========================================================================== */
 @media print {
     .map-background,
     .overlay-gradient {

@@ -1,33 +1,57 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-    <!-- Podstawowe metadane dokumentu -->
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ==========================================================================
+         METADANE I KONFIGURACJA
+         ========================================================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interaktywna mapa katastralna gminy Czarna z XIX wieku">
+    <meta name="author" content="System GIS Czarna">
+<meta name="keywords" content="mapa katastralna, Czarna, GIS, XIX wiek">
     <title>Interaktywna Mapa Katastralna - Gmina Czarna</title>
+
+    <!-- ==========================================================================
+         KONFIGURACJA MAPY (WSTRZYKIWANA PRZEZ SERWER)
+         ========================================================================== -->
+    <script>
+      // Ten obiekt jest dynamicznie generowany przez backend (Flask)
+      // Używamy `JSON.parse` z cudzysłowami, aby edytor kodu poprawnie interpretował składnię.
+      window.MAP_CONFIG = {{ map_config_data | tojson | safe }};
+    </script>
     
-    <!-- Biblioteki zewnętrzne - Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
+    <!-- ==========================================================================
+         STYLE ZEWNĘTRZNE I BIBLIOTEKI
+         ========================================================================== -->
+    <!-- Leaflet - framework mapowy -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css">
     
-    <!-- Biblioteki zewnętrzne - Font Awesome -->
+    <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Czcionki Google -->
+    <!-- Google Fonts - typografia -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Dedykowany arkusz stylów dla mapy -->
-    <link rel="stylesheet" href="style.css" />
+    <!-- Style aplikacji -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Tło gradientowe aplikacji -->
+    <!-- ==========================================================================
+         TŁO APLIKACJI
+         ========================================================================== -->
     <div class="background-gradient"></div>
     
-    <!-- Główny kontener aplikacji -->
+    <!-- ==========================================================================
+         GŁÓWNY KONTENER APLIKACJI
+         ========================================================================== -->
     <div id="app-wrapper">
         
-        <!-- Górny pasek narzędzi z tytułem i wyszukiwarką -->
+        <!-- ==========================================================================
+             GÓRNY PASEK NARZĘDZI
+             ========================================================================== -->
         <div class="top-toolbar">
+            <!-- Sekcja lewa - tytuł i statystyki -->
             <div class="toolbar-left">
                 <h1 class="app-title">
                     <i class="fas fa-map-marked-alt"></i>
@@ -45,6 +69,7 @@
                 </div>
             </div>
             
+            <!-- Sekcja prawa - wyszukiwarka i akcje -->
             <div class="toolbar-right">
                 <!-- Uniwersalna wyszukiwarka -->
                 <div class="search-universal">
@@ -53,7 +78,7 @@
                     <div class="search-results-dropdown" id="universal-search-results"></div>
                 </div>
                 
-                <!-- Przyciski akcji w toolbarze -->
+                <!-- Przyciski akcji -->
                 <div class="toolbar-actions">
                     <button class="toolbar-btn" id="fullscreen-btn" title="Pełny ekran">
                         <i class="fas fa-expand"></i>
@@ -68,11 +93,16 @@
             </div>
         </div>
         
-        <!-- Główny kontener z mapą i panelami bocznymi -->
+        <!-- ==========================================================================
+             GŁÓWNY KONTENER Z MAPĄ I PANELAMI
+             ========================================================================== -->
         <div id="main-container">
             
-            <!-- Panel lewy - lista właścicieli -->
+            <!-- ==========================================================================
+                 PANEL LEWY - WŁAŚCICIELE
+                 ========================================================================== -->
             <div class="side-panel left-panel" id="owners-panel">
+                <!-- Nagłówek panelu -->
                 <div class="panel-header">
                     <h2><i class="fas fa-users"></i> Właściciele</h2>
                     <button class="panel-toggle" data-panel="owners">
@@ -80,10 +110,11 @@
                     </button>
                 </div>
                 
+                <!-- Zawartość panelu -->
                 <div class="panel-content">
-                    <!-- Sekcja kontrolek dla panelu właścicieli -->
+                    <!-- Kontrolki właścicieli -->
                     <div class="owners-controls">
-                        <!-- Pole wyszukiwania -->
+                        <!-- Wyszukiwarka -->
                         <div class="search-box">
                             <i class="fas fa-search"></i>
                             <input type="text" id="ownerSearch" placeholder="Szukaj właściciela...">
@@ -92,7 +123,7 @@
                             </button>
                         </div>
                         
-                        <!-- Przyciski filtrowania i sortowania -->
+                        <!-- Filtry sortowania -->
                         <div class="filter-buttons">
                             <button class="filter-btn" data-sort="name">
                                 <i class="fas fa-sort-alpha-down"></i> Nazwisko
@@ -105,7 +136,7 @@
                             </button>
                         </div>
                         
-                        <!-- Sekcja porównywania protokołów -->
+                        <!-- Sekcja porównywania -->
                         <div class="compare-section">
                             <button id="compareModeBtn" class="compare-btn">
                                 <i class="fas fa-balance-scale"></i>
@@ -117,14 +148,12 @@
                         </div>
                     </div>
                     
-                    <!-- Lista właścicieli generowana dynamicznie -->
-                    <div id="ownersList" class="owners-list">
-                        <!-- Karty właścicieli będą tutaj dodawane przez JavaScript -->
-                    </div>
+                    <!-- Lista właścicieli (dynamiczna) -->
+                    <div id="ownersList" class="owners-list"></div>
                 </div>
             </div>
 
-            <!-- Uchwyt do rozwijania lewego panelu -->
+            <!-- Uchwyt rozwijania lewego panelu -->
             <div class="panel-expand-handle left-handle" data-panel="owners">
                 <div class="handle-tab">
                     <i class="fas fa-chevron-right"></i>
@@ -132,12 +161,14 @@
                 </div>
             </div>
             
-            <!-- Kontener główny mapy -->
+            <!-- ==========================================================================
+                 KONTENER MAPY
+                 ========================================================================== -->
             <div id="map-wrapper">
                 <!-- Element mapy Leaflet -->
                 <div id="map"></div>
 
-                <!-- Nakładki na mapie -->
+                <!-- Nakładki mapowe -->
                 
                 <!-- Kontrolki podświetlania -->
                 <div id="highlight-controls" class="hidden">
@@ -146,23 +177,21 @@
                     </button>
                 </div>
                 
-                <!-- Legenda dla wyróżnionych właścicieli -->
+                <!-- Legenda wyróżnionych właścicieli -->
                 <div id="owner-highlight-legend" class="map-overlay bottom-right hidden">
                     <div class="legend-header">
                         <h3><i class="fas fa-users"></i> Wyróżnieni właściciele</h3>
                     </div>
-                    <ul class="legend-list">
-                        <!-- Lista generowana dynamicznie przez JavaScript -->
-                    </ul>
+                    <ul class="legend-list"></ul>
                 </div>
                 
-                <!-- Wyświetlanie współrzędnych kursora -->
+                <!-- Wyświetlacz współrzędnych -->
                 <div class="coordinates-display map-overlay top-right">
                     <i class="fas fa-crosshairs"></i>
                     <span id="mouse-coordinates">—</span>
                 </div>
                 
-                <!-- Główna legenda warstw mapy -->
+                <!-- Legenda warstw -->
                 <div class="map-legend map-overlay bottom-left" id="legend">
                     <div class="legend-header">
                         <h3><i class="fas fa-list"></i> Warstwy</h3>
@@ -171,14 +200,12 @@
                         </button>
                     </div>
                     <div class="legend-content">
-                        <ul class="legend-list">
-                            <!-- Elementy legendy generowane przez JavaScript -->
-                        </ul>
+                        <ul class="legend-list"></ul>
                     </div>
                 </div>
             </div>
 
-            <!-- Uchwyt do rozwijania prawego panelu -->
+            <!-- Uchwyt rozwijania prawego panelu -->
             <div class="panel-expand-handle right-handle" data-panel="parcels">
                 <div class="handle-tab">
                     <i class="fas fa-chevron-left"></i>
@@ -186,8 +213,11 @@
                 </div>
             </div>
             
-            <!-- Panel prawy - lista działek i obiektów -->
+            <!-- ==========================================================================
+                 PANEL PRAWY - DZIAŁKI I OBIEKTY
+                 ========================================================================== -->
             <div class="side-panel right-panel" id="parcels-panel">
+                <!-- Nagłówek panelu -->
                 <div class="panel-header">
                     <h2><i class="fas fa-map"></i> Działki i obiekty</h2>
                     <button class="panel-toggle" data-panel="parcels">
@@ -195,8 +225,9 @@
                     </button>
                 </div>
                 
+                <!-- Zawartość panelu -->
                 <div class="panel-content">
-                    <!-- Zakładki do przełączania widoków -->
+                    <!-- Zakładki nawigacyjne -->
                     <div class="tabs-container">
                         <button class="tab-btn active" data-tab="parcels">
                             <i class="fas fa-home"></i> Działki
@@ -209,13 +240,13 @@
                         </button>
                     </div>
                     
-                    <!-- Wyszukiwarka działek -->
+                    <!-- Wyszukiwarka -->
                     <div class="search-box">
                         <i class="fas fa-search"></i>
                         <input type="text" id="parcelSearch" placeholder="Szukaj działki...">
                     </div>
                     
-                    <!-- Filtry kategorii działek -->
+                    <!-- Filtry kategorii -->
                     <div class="category-filters" id="parcel-category-filters">
                         <label class="category-filter">
                             <input type="checkbox" checked data-category="budowlana">
@@ -237,28 +268,25 @@
                     
                     <!-- Zawartość zakładek -->
                     <div class="tab-content active" id="parcels-tab">
-                        <div id="dzialki_panel" class="parcels-list">
-                            <!-- Lista działek generowana przez JavaScript -->
-                        </div>
+                        <div id="dzialki_panel" class="parcels-list"></div>
                     </div>
                     
                     <div class="tab-content" id="objects-tab">
-                        <div id="obiekty_panel" class="parcels-list">
-                            <!-- Lista obiektów generowana przez JavaScript -->
-                        </div>
+                        <div id="obiekty_panel" class="parcels-list"></div>
                     </div>
                     
                     <div class="tab-content" id="special-tab">
-                        <div class="special-objects-list">
-                            <!-- Obiekty specjalne generowane przez JavaScript -->
-                        </div>
+                        <div class="special-objects-list"></div>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Dolny pasek nawigacyjny z linkami do innych sekcji -->
+        <!-- ==========================================================================
+             DOLNY PASEK NAWIGACYJNY
+             ========================================================================== -->
         <div class="bottom-navigation">
+            <!-- Linki nawigacyjne -->
             <div class="nav-links">
                 <a href="../strona_glowna/index.html" class="nav-link">
                     <i class="fas fa-home"></i>
@@ -292,7 +320,9 @@
         </div>
     </div>
     
-    <!-- Nakładka ładowania wyświetlana podczas inicjalizacji -->
+    <!-- ==========================================================================
+         NAKŁADKA ŁADOWANIA
+         ========================================================================== -->
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
@@ -304,7 +334,11 @@
         </div>
     </div>
     
-    <!-- Okno modalne z pomocą -->
+    <!-- ==========================================================================
+         MODALE
+         ========================================================================== -->
+    
+    <!-- Modal pomocy -->
     <div class="modal" id="help-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -330,7 +364,7 @@
         </div>
     </div>
     
-    <!-- Okno modalne z ustawieniami -->
+    <!-- Modal ustawień -->
     <div class="modal" id="settings-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -361,12 +395,14 @@
         </div>
     </div>
 
-    <!-- Dołączenie skryptów JavaScript -->
+    <!-- ==========================================================================
+         SKRYPTY APLIKACJI
+         ========================================================================== -->
+    <!-- Biblioteka Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Biblioteka Leaflet do obsługi mapy -->
+    <!-- Rozszerzenie Leaflet Draw -->
     <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
-    <!-- Rozszerzenie Leaflet do rysowania na mapie -->
+    <!-- Główny skrypt aplikacji -->
     <script src="map-script.js"></script>
-    <!-- Główny skrypt obsługujący logikę mapy i interfejsu -->
 </body>
 </html>

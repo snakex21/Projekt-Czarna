@@ -1,31 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8" />
+    <!-- ==========================================================================
+         METADANE I KONFIGURACJA
+         ========================================================================== -->
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interaktywny graf powiązań protokołów katastralnych gminy Czarna">
     <title>Graf Powiązań - Protokoły Katastralne</title>
     
-    <!-- Vis.js Network -->
+    <!-- ==========================================================================
+         BIBLIOTEKI ZEWNĘTRZNE
+         ========================================================================== -->
+    <!-- Vis.js - biblioteka do wizualizacji grafów -->
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    
-    <!-- Font Awesome dla ikon -->
+    <!-- Font Awesome - zestaw ikon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts -->
+    <!-- Google Fonts - czcionka Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Arkusz stylów -->
-    <link rel="stylesheet" href="graf_style.css" />
+    <!-- Arkusz stylów aplikacji -->
+    <link rel="stylesheet" href="graf_style.css">
 </head>
 <body>
-    <!-- Kontener grafu -->
+    <!-- ==========================================================================
+         GŁÓWNY KONTENER GRAFU
+         ========================================================================== -->
     <div id="mynetwork"></div>
     
-    <!-- Gradient overlay dla efektu głębi -->
+    <!-- Gradient dla efektu wizualnego głębi -->
     <div class="gradient-overlay"></div>
     
-    <!-- Panel kontrolny -->
+    <!-- ==========================================================================
+         PANEL KONTROLNY - GŁÓWNY INTERFEJS UŻYTKOWNIKA
+         ========================================================================== -->
     <div class="control-panel">
+        <!-- Nagłówek panelu z przyciskiem zwijania -->
         <div class="panel-header">
             <h1><i class="fas fa-project-diagram"></i> Graf Protokołów Katastralnych</h1>
             <button class="panel-toggle" aria-label="Zwiń panel">
@@ -34,7 +43,9 @@
         </div>
         
         <div class="panel-content">
-            <!-- Sekcja wyszukiwania -->
+            <!-- ==========================================================================
+                 SEKCJA WYSZUKIWANIA
+                 ========================================================================== -->
             <div class="search-section">
                 <div class="search-container">
                     <i class="fas fa-search search-icon"></i>
@@ -51,7 +62,9 @@
                 <ul id="search-results"></ul>
             </div>
             
-            <!-- Statystyki -->
+            <!-- ==========================================================================
+                 SEKCJA STATYSTYK
+                 ========================================================================== -->
             <div class="stats-section">
                 <h3><i class="fas fa-chart-bar"></i> Statystyki</h3>
                 <div class="stats-grid">
@@ -70,7 +83,9 @@
                 </div>
             </div>
             
-            <!-- Kontrolki widoku -->
+            <!-- ==========================================================================
+                 KONTROLKI WIDOKU
+                 ========================================================================== -->
             <div class="controls-section">
                 <h3><i class="fas fa-sliders-h"></i> Kontrolki</h3>
                 <div class="control-buttons">
@@ -89,16 +104,18 @@
                 </div>
             </div>
             
-            <!-- Filtry -->
+            <!-- ==========================================================================
+                 FILTRY DANYCH
+                 ========================================================================== -->
             <div class="filters-section">
                 <h3><i class="fas fa-filter"></i> Filtry</h3>
                 <div class="filter-options">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="filter-isolated" />
+                        <input type="checkbox" id="filter-isolated">
                         <span>Ukryj pojedyncze węzły</span>
                     </label>
                     <label class="checkbox-label">
-                        <input type="checkbox" id="highlight-clusters" />
+                        <input type="checkbox" id="highlight-clusters">
                         <span>Podświetl klastry</span>
                     </label>
                 </div>
@@ -114,7 +131,9 @@
                 </div>
             </div>
             
-            <!-- Legenda -->
+            <!-- ==========================================================================
+                 LEGENDA
+                 ========================================================================== -->
             <div class="legend-section">
                 <h3><i class="fas fa-info-circle"></i> Legenda</h3>
                 <div class="legend-items">
@@ -133,7 +152,9 @@
                 </div>
             </div>
             
-            <!-- Nawigacja -->
+            <!-- ==========================================================================
+                 NAWIGACJA DO INNYCH SEKCJI
+                 ========================================================================== -->
             <div class="navigation-section">
                 <a href="../strona_glowna/index.html" class="nav-link">
                     <i class="fas fa-home"></i> Strona główna
@@ -145,18 +166,23 @@
         </div>
     </div>
 
-    <!-- Uchwyt do rozwijania panelu -->
+    <!-- ==========================================================================
+         ELEMENTY INTERFEJSU
+         ========================================================================== -->
+    <!-- Uchwyt do rozwijania zwiniętego panelu -->
     <div class="panel-expand-handle" style="display: none;">
         <i class="fas fa-chevron-right"></i>
     </div>
     
-    <!-- Tooltip dla szczegółów -->
+    <!-- Tooltip wyświetlający szczegóły węzła -->
     <div id="node-tooltip" class="tooltip"></div>
     
-    <!-- Mini-mapa -->
+    <!-- Mini-mapa dla nawigacji w dużych grafach -->
     <div id="minimap" class="minimap"></div>
     
-    <!-- Loading overlay -->
+    <!-- ==========================================================================
+         EKRAN ŁADOWANIA
+         ========================================================================== -->
     <div id="loading-overlay" class="loading-overlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
@@ -167,6 +193,9 @@
         </div>
     </div>
     
+    <!-- ==========================================================================
+         SKRYPTY APLIKACJI
+         ========================================================================== -->
     <script src="graf-script.js"></script>
 </body>
 </html>

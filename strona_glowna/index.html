@@ -1,30 +1,44 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
+    <!-- ==========================================================================
+         METADANE I KONFIGURACJA
+         ========================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interaktywna mapa katastralna gminy Czarna z XIX wieku - przeglądaj historyczne działki, poznaj dawnych właścicieli">
+    <meta name="keywords" content="mapa katastralna, Czarna, XIX wiek, genealogia, historia, księgi gruntowe">
     <title>Interaktywna Mapa Katastralna Gminy Czarna z XIX wieku</title>
     
-    <!-- Font Awesome dla ikon -->
+    <!-- ==========================================================================
+         STYLE ZEWNĘTRZNE
+         ========================================================================== -->
+    <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Google Fonts -->
+    <!-- Google Fonts - typografia -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
     
-    <!-- Arkusz stylów -->
+    <!-- Style aplikacji -->
     <link rel="stylesheet" href="assets_index/style_index.css">
 </head>
 <body>
-    <!-- Tło z mapą -->
+    <!-- ==========================================================================
+         TŁO I EFEKTY WIZUALNE
+         ========================================================================== -->
     <div class="map-background"></div>
     <div class="overlay-gradient"></div>
     
-    <!-- Główny kontener -->
+    <!-- ==========================================================================
+         GŁÓWNY KONTENER STRONY
+         ========================================================================== -->
     <div class="page-wrapper">
         
-        <!-- Nagłówek -->
+        <!-- ==========================================================================
+             NAGŁÓWEK
+             ========================================================================== -->
         <header class="top-header">
             <div class="header-container">
                 <div class="header-badge">
@@ -37,11 +51,13 @@
             </div>
         </header>
         
-        <!-- Główna sekcja -->
+        <!-- ==========================================================================
+             SEKCJA HERO
+             ========================================================================== -->
         <main class="hero-section">
             <div class="hero-container">
                 
-                <!-- Tytuł główny -->
+                <!-- Tytuł główny z podtytułem -->
                 <div class="title-wrapper">
                     <h1 class="main-title">
                         Interaktywna Mapa Katastralna
@@ -49,7 +65,7 @@
                     </h1>
                 </div>
                 
-                <!-- Opis -->
+                <!-- Opis projektu -->
                 <div class="description-wrapper">
                     <p class="main-description">
                         Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne,
@@ -57,7 +73,7 @@
                     </p>
                 </div>
                 
-                <!-- Główne przyciski -->
+                <!-- Główny przycisk akcji -->
                 <div class="action-container">
                     <a href="../mapa/mapa.html" class="primary-button">
                         <span class="button-icon"><i class="fas fa-map-marked-alt"></i></span>
@@ -111,12 +127,15 @@
             </div>
         </main>
         
-        <!-- Sekcja dokumentów -->
+        <!-- ==========================================================================
+             SEKCJA DOKUMENTÓW I MATERIAŁÓW
+             ========================================================================== -->
         <section class="documents-section">
             <div class="section-container">
                 <h2 class="section-title">Materiały i Dokumentacja</h2>
                 
                 <div class="documents-grid">
+                    <!-- Karta główna - mapa interaktywna -->
                     <a href="../mapa/mapa.html" class="doc-card main-card">
                         <div class="doc-icon">
                             <i class="fas fa-map"></i>
@@ -126,6 +145,7 @@
                         <span class="doc-arrow"><i class="fas fa-arrow-right"></i></span>
                     </a>
                     
+                    <!-- Karta historii -->
                     <a href="historia.html" class="doc-card">
                         <div class="doc-icon">
                             <i class="fas fa-landmark"></i>
@@ -134,6 +154,7 @@
                         <p>Krótki rys historyczny Czarnej</p>
                     </a>
                     
+                    <!-- Karta dokumentacji technicznej -->
                     <a href="../docs/index.html" class="doc-card">
                         <div class="doc-icon">
                             <i class="fas fa-book"></i>
@@ -142,6 +163,7 @@
                         <p>Przewodnik techniczny</p>
                     </a>
                     
+                    <!-- Karta grafu powiązań -->
                     <a href="../graf/graf.html" class="doc-card">
                         <div class="doc-icon">
                             <i class="fas fa-project-diagram"></i>
@@ -150,6 +172,7 @@
                         <p>Wizualizacja relacji</p>
                     </a>
                     
+                    <!-- Karta genealogii -->
                     <a href="../genealogia/genealogia.html" class="doc-card">
                         <div class="doc-icon">
                             <i class="fas fa-tree"></i>
@@ -158,6 +181,7 @@
                         <p>Powiązania rodzinne</p>
                     </a>
                     
+                    <!-- Karta pobierania dokumentacji -->
                     <a href="/Zgloszenie_i_Karta_Projektu/Karta Projektu Pracy Inżynierskiej.docx" 
                        class="doc-card" download>
                         <div class="doc-icon">
@@ -170,7 +194,9 @@
             </div>
         </section>
         
-        <!-- Stopka -->
+        <!-- ==========================================================================
+             STOPKA
+             ========================================================================== -->
         <footer class="page-footer">
             <div class="footer-container">
                 <div class="footer-credits">
@@ -191,15 +217,21 @@
         </footer>
     </div>
     
-    <!-- Minimalistyczny skrypt -->
+    <!-- ==========================================================================
+         SKRYPTY
+         ========================================================================== -->
     <script>
-        // Płynne pojawianie się elementów
+        /**
+         * Animacja płynnego pojawiania się elementów podczas przewijania
+         */
         document.addEventListener('DOMContentLoaded', function() {
             const elements = document.querySelectorAll('.feature-item, .doc-card');
             
+            // Obserwator sprawdzający widoczność elementów
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach((entry, index) => {
                     if (entry.isIntersecting) {
+                        // Opóźnione dodawanie klasy dla efektu kaskadowego
                         setTimeout(() => {
                             entry.target.classList.add('visible');
                         }, index * 100);
@@ -207,6 +239,7 @@
                 });
             }, { threshold: 0.1 });
             
+            // Rozpoczęcie obserwacji wszystkich elementów
             elements.forEach(el => observer.observe(el));
         });
     </script>
