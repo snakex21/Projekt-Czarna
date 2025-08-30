@@ -1,31 +1,48 @@
-# Testy panelu admin – tryb z logowaniem i bez logowania.
+"""
+================================================================================
+Plik: test_admin.py
+Opis: Testy jednostkowe panelu administracyjnego
+      Weryfikacja autoryzacji i dostępności interfejsu
+================================================================================
+"""
+
 import pytest
+
+# ================================================================================
+# TESTY PRZEKIEROWAŃ I ROUTINGU
+# ================================================================================
 
 def test_admin_redirects_to_main_admin_html(client):
     """
-    Testuje, czy żądanie do /admin przekierowuje na /admin/admin.html.
-    To jest teraz główna i jedyna strona panelu.
+    Weryfikuje przekierowanie z /admin na /admin/admin.html.
+    Panel administracyjny ma teraz jedną główną stronę.
     """
     resp = client.get("/admin", follow_redirects=False)
-    assert resp.status_code in (301, 302, 303, 307, 308) # Dopuszczamy różne kody przekierowań
-    # Sprawdzamy, czy lokalizacja kończy się na /admin/admin.html
+    # Akceptujemy różne kody przekierowań HTTP
+    assert resp.status_code in (301, 302, 303, 307, 308)
+    # Sprawdzamy końcową lokalizację
     assert resp.headers.get("Location", "").endswith("/admin/admin.html")
+
+# ================================================================================
+# TESTY DOSTĘPNOŚCI STRONY ADMINISTRACYJNEJ
+# ================================================================================
 
 def test_admin_html_serves_ok_when_auth_enabled(client, monkeypatch):
     """
-    Testuje, czy serwer ZAWSZE zwraca stronę admin.html (status 200 OK),
-    nawet gdy autoryzacja jest włączona. Logikę blokady przenieśliśmy do frontendu.
+    Sprawdza dostępność strony admin.html przy włączonej autoryzacji.
+    Strona powinna być zawsze dostępna - kontrola dostępu odbywa się w JS.
     """
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", True)
     
     resp = client.get("/admin/admin.html")
     assert resp.status_code == 200
-    assert b"Panel Administracyjny" in resp.data # Prosty sanity check, czy to na pewno ten plik
+    # Weryfikacja zawartości strony
+    assert b"Panel Administracyjny" in resp.data
 
 def test_admin_html_serves_ok_when_auth_disabled(client, monkeypatch):
     """
-    Testuje, czy strona admin.html jest serwowana, gdy autoryzacja jest wyłączona.
+    Sprawdza dostępność strony admin.html przy wyłączonej autoryzacji.
     """
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", False)
@@ -34,13 +51,19 @@ def test_admin_html_serves_ok_when_auth_disabled(client, monkeypatch):
     assert resp.status_code == 200
     assert b"Panel Administracyjny" in resp.data
 
+# ================================================================================
+# TESTY API AUTORYZACJI
+# ================================================================================
+
 def test_check_auth_when_enabled_and_logged_out(client, monkeypatch):
     """
-    Testuje API autoryzacji: włączone logowanie, użytkownik niezalogowany.
-    Ten test pozostaje kluczowy dla nowej logiki frontendowej.
+    Test API autoryzacji: logowanie włączone, użytkownik niezalogowany.
+    Endpoint kluczowy dla kontroli dostępu w warstwie frontend.
     """
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", True)
+    
+    # Upewniamy się, że sesja jest pusta
     with client.session_transaction() as sess:
         sess.pop("admin_logged_in", None)
 
@@ -51,10 +74,12 @@ def test_check_auth_when_enabled_and_logged_out(client, monkeypatch):
 
 def test_check_auth_when_enabled_and_logged_in(client, monkeypatch):
     """
-    Testuje API autoryzacji: włączone logowanie, użytkownik zalogowany.
+    Test API autoryzacji: logowanie włączone, użytkownik zalogowany.
     """
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", True)
+    
+    # Ustawiamy flagę zalogowania w sesji
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
 
