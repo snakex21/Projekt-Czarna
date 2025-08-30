@@ -1,5 +1,14 @@
-# Testy CRUD dla /api/admin/wlasciciele + edge‑case dla brakujących pól.
-# Działają na rozbudowanym mocku z conftest.py (in‑memory DB).
+"""
+================================================================================
+Plik: test_api_crud.py
+Opis: Testy operacji CRUD dla API właścicieli
+      Weryfikacja pełnego cyklu życia danych z powiązaniami działek
+================================================================================
+"""
+
+# ================================================================================
+# FUNKCJE POMOCNICZE
+# ================================================================================
 
 def _full_owner_payload(
     unikalny_klucz="U-1",
@@ -17,6 +26,10 @@ def _full_owner_payload(
     dzialki_rzeczywiste_ids=None,
     dzialki_protokol_ids=None,
 ):
+    """
+    Generuje kompletny payload właściciela dla testów.
+    Wszystkie pola opcjonalne mają wartości domyślne.
+    """
     return {
         "unikalny_klucz": unikalny_klucz,
         "nazwa_wlasciciela": nazwa_wlasciciela,
@@ -34,26 +47,36 @@ def _full_owner_payload(
         "dzialki_protokol_ids": dzialki_protokol_ids or [],
     }
 
+# ================================================================================
+# TESTY PEŁNEGO CYKLU CRUD
+# ================================================================================
+
 def test_owner_crud_and_parcel_linking_roundtrip(client, monkeypatch):
+    """
+    Test kompleksowy: CREATE → READ → UPDATE → DELETE właściciela
+    wraz z weryfikacją powiązań z działkami.
+    """
+    # Konfiguracja autoryzacji
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", True)
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
 
-    # CREATE
+    # --- CREATE: Tworzenie nowego właściciela ---
     payload = _full_owner_payload()
     resp = client.post("/api/admin/wlasciciele", json=payload)
     assert resp.status_code == 201
     new_id = resp.get_json().get("id")
     assert isinstance(new_id, int) and new_id > 0
 
-    # READ pojedynczy
+    # --- READ: Weryfikacja utworzonego rekordu ---
     resp = client.get(f"/api/admin/wlasciciele/{new_id}")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["id"] == new_id
 
-    # Pobierz ID obiektów do podlinkowania z mock bazy
+    # --- UPDATE: Modyfikacja danych i powiązanie działek ---
+    # Pobierz dostępne obiekty do powiązania
     resp = client.get("/api/admin/obiekty")
     obiekty = resp.get_json()
     parcel_ids_to_link = [obiekty[0]['id'], obiekty[1]['id']]
@@ -64,38 +87,47 @@ def test_owner_crud_and_parcel_linking_roundtrip(client, monkeypatch):
         dzialki_protokol_ids=parcel_ids_to_link
     )
     
-    # Wywołaj PUT, który obsługuje zarówno update, jak i linkowanie
     resp = client.put(f"/api/admin/wlasciciele/{new_id}", json=updated_payload)
     assert resp.status_code in (200, 204) or resp.get_json().get("status") == "success"
 
-    # READ sprawdzenie po UPDATE
+    # Weryfikacja aktualizacji
     resp = client.get(f"/api/admin/wlasciciele/{new_id}")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["nazwa_wlasciciela"] == "Jan Nowy"
     
-    # Sprawdź, czy działki zostały poprawnie podlinkowane
+    # Weryfikacja powiązań działek
     linked_parcel_ids = [p['id'] for p in data.get('dzialki_wszystkie', [])]
     assert sorted(linked_parcel_ids) == sorted(parcel_ids_to_link)
 
-    # DELETE
+    # --- DELETE: Usunięcie właściciela ---
     resp = client.delete(f"/api/admin/wlasciciele/{new_id}")
     assert resp.status_code in (200, 204) or resp.get_json().get("status") == "success"
 
-    # READ po DELETE → 404
+    # Weryfikacja usunięcia (oczekiwany 404)
     resp = client.get(f"/api/admin/wlasciciele/{new_id}")
     assert resp.status_code == 404
 
+# ================================================================================
+# TESTY PRZYPADKÓW BRZEGOWYCH
+# ================================================================================
+
 def test_owner_create_missing_required_field_returns_error(client, monkeypatch):
-    # Backend zwraca 500 przy braku obowiązkowych pól (wyjątek → 500).
+    """
+    Test tworzenia właściciela z brakującym polem wymaganym.
+    Dokumentuje obecne zachowanie API (zwraca 500 zamiast 400).
+    """
+    # Konfiguracja autoryzacji
     import app as backend_app
     monkeypatch.setattr(backend_app, "ADMIN_AUTH_ENABLED", True)
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
 
+    # Payload z brakującym polem nazwa_wlasciciela
     bad_payload = _full_owner_payload()
-    bad_payload.pop("nazwa_wlasciciela")  # wywola KeyError w backendzie
+    bad_payload.pop("nazwa_wlasciciela")  # Wywoła KeyError w backendzie
 
     resp = client.post("/api/admin/wlasciciele", json=bad_payload)
-    # W idealnym świecie byłoby 400, ale realny kod zwraca 500 — test to dokumentuje.
+    # Backend obecnie zwraca 500 przy błędzie walidacji
+    # W idealnej implementacji powinno być 400 Bad Request
     assert resp.status_code == 500
