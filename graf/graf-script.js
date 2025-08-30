@@ -1,9 +1,16 @@
 /**
- * Graf Powiązań - Protokoły Katastralne
- * Zaawansowana wizualizacja z ulepszoną funkcjonalnością
+ * Plik: graf-script.js
+ * Opis: System wizualizacji grafu powiązań protokołów katastralnych.
+ *       Wykorzystuje bibliotekę Vis.js do renderowania interaktywnego grafu.
  */
 
+/* ==========================================================================
+   KLASA GŁÓWNA - MENEDŻER GRAFU
+   ========================================================================== */
 class GraphManager {
+    /**
+     * Konstruktor - inicjalizacja właściwości i uruchomienie systemu
+     */
     constructor() {
         this.network = null;
         this.allNodes = null;
@@ -16,6 +23,9 @@ class GraphManager {
         this.init();
     }
     
+    /* ==========================================================================
+       SEKCJA INICJALIZACJI
+       ========================================================================== */
     async init() {
         await this.loadData();
         this.setupEventListeners();
@@ -24,6 +34,9 @@ class GraphManager {
         this.hideLoading();
     }
     
+    /**
+     * Ładowanie danych grafu z serwera
+     */
     async loadData() {
         const loadingOverlay = document.getElementById('loading-overlay');
         const progressBar = loadingOverlay.querySelector('.progress-bar');
@@ -49,10 +62,16 @@ class GraphManager {
         }
     }
     
+    /* ==========================================================================
+       TWORZENIE I KONFIGURACJA SIECI
+       ========================================================================== */
+    /**
+     * Tworzenie instancji grafu Vis.js z pełną konfiguracją
+     */
     createNetwork(data) {
         const container = document.getElementById('mynetwork');
         
-        // Przygotowanie danych z dodatkowymi właściwościami
+        // Przetwarzanie węzłów - dodanie metadanych
         const processedNodes = data.nodes.map(node => {
             const connections = data.edges.filter(
                 edge => edge.from === node.id || edge.to === node.id
@@ -60,8 +79,8 @@ class GraphManager {
             
             return {
                 ...node,
-                value: connections, // Wielkość węzła zależna od liczby połączeń
-                title: undefined, // Wyłączamy domyślny tooltip
+                value: connections, // Wielkość węzła zależna od połączeń
+                title: undefined, // Wyłączenie domyślnego tooltip
                 group: this.getNodeGroup(connections)
             };
         });
@@ -74,6 +93,7 @@ class GraphManager {
             edges: this.allEdges
         };
         
+        // Konfiguracja opcji wizualizacji
         const options = {
             nodes: {
                 shape: 'dot',
@@ -173,8 +193,8 @@ class GraphManager {
             interaction: {
                 hover: true,
                 tooltipDelay: 200,
-                hideEdgesOnDrag: false,  // ← TU BYŁA ZMIANA! Teraz false zamiast true
-                hideEdgesOnZoom: false,  // ← Dodałem też to dla pewności
+                hideEdgesOnDrag: false,
+                hideEdgesOnZoom: false,
                 navigationButtons: true,
                 keyboard: {
                     enabled: true,
@@ -187,12 +207,21 @@ class GraphManager {
         this.setupNetworkEvents();
     }
     
+    /**
+     * Określenie grupy węzła na podstawie liczby połączeń
+     */
     getNodeGroup(connections) {
         if (connections > 5) return 'hub';
         if (connections > 3) return 'cluster';
         return 'normal';
     }
     
+    /* ==========================================================================
+       OBSŁUGA ZDARZEŃ SIECI
+       ========================================================================== */
+    /**
+     * Konfiguracja zdarzeń interakcji z grafem
+     */
     setupNetworkEvents() {
         // Podwójne kliknięcie - przejście do protokołu
         this.network.on('doubleClick', (params) => {
@@ -202,7 +231,7 @@ class GraphManager {
             }
         });
         
-        // Pojedyncze kliknięcie - wyróżnienie i info
+        // Pojedyncze kliknięcie - wyróżnienie węzła
         this.network.on('click', (params) => {
             if (params.nodes.length > 0) {
                 this.selectNode(params.nodes[0]);
@@ -211,7 +240,7 @@ class GraphManager {
             }
         });
         
-        // Hover - pokaż połączenia
+        // Hover - podświetlenie połączeń
         this.network.on('hoverNode', (params) => {
             this.highlightConnections(params.node);
         });
@@ -220,7 +249,7 @@ class GraphManager {
             this.clearHighlight();
         });
         
-        // Stabilizacja
+        // Monitorowanie stabilizacji
         this.network.on('stabilizationProgress', (params) => {
             const progress = params.iterations / params.total * 100;
             console.log(`Stabilizacja: ${Math.round(progress)}%`);
@@ -231,6 +260,12 @@ class GraphManager {
         });
     }
     
+    /* ==========================================================================
+       METODY MANIPULACJI WĘZŁAMI
+       ========================================================================== */
+    /**
+     * Zaznaczenie węzła z animacją fokusa
+     */
     selectNode(nodeId) {
         this.selectedNode = nodeId;
         const node = this.allNodes.get(nodeId);
@@ -249,11 +284,14 @@ class GraphManager {
         this.highlightConnections(nodeId);
     }
     
+    /**
+     * Podświetlenie połączonych węzłów i krawędzi
+     */
     highlightConnections(nodeId) {
         const connectedNodes = this.network.getConnectedNodes(nodeId);
         const connectedEdges = this.network.getConnectedEdges(nodeId);
         
-        // Przyciemnij wszystkie węzły
+        // Modyfikacja węzłów - przyciemnienie niepołączonych
         const updateNodes = this.allNodes.get().map(node => ({
             id: node.id,
             color: {
@@ -268,7 +306,7 @@ class GraphManager {
         
         this.allNodes.update(updateNodes);
         
-        // Podświetl połączone krawędzie
+        // Modyfikacja krawędzi - podświetlenie aktywnych
         const updateEdges = this.allEdges.get().map(edge => ({
             id: edge.id,
             color: connectedEdges.includes(edge.id) 
@@ -280,8 +318,10 @@ class GraphManager {
         this.allEdges.update(updateEdges);
     }
     
+    /**
+     * Czyszczenie podświetleń
+     */
     clearHighlight() {
-        // Przywróć oryginalne kolory
         const updateNodes = this.allNodes.get().map(node => ({
             id: node.id,
             color: null
@@ -296,14 +336,23 @@ class GraphManager {
         this.allEdges.update(updateEdges);
     }
     
+    /**
+     * Odznaczenie wszystkich węzłów
+     */
     deselectAll() {
         this.selectedNode = null;
         document.getElementById('selected-node').textContent = '-';
         this.clearHighlight();
     }
     
+    /* ==========================================================================
+       OBSŁUGA INTERFEJSU UŻYTKOWNIKA
+       ========================================================================== */
+    /**
+     * Inicjalizacja wszystkich kontrolek i interakcji UI
+     */
     setupEventListeners() {
-        // Toggle panel i uchwyt
+        // === PANEL KONTROLNY ===
         const panel = document.querySelector('.control-panel');
         const toggleBtn = document.querySelector('.panel-toggle');
         const expandHandle = document.querySelector('.panel-expand-handle');
@@ -323,7 +372,7 @@ class GraphManager {
         toggleBtn.addEventListener('click', collapsePanel);
         expandHandle.addEventListener('click', expandPanel);
         
-        // Wyszukiwarka
+        // === WYSZUKIWARKA ===
         const searchInput = document.getElementById('search-input');
         const clearBtn = document.getElementById('clear-search');
         const searchResults = document.getElementById('search-results');
@@ -362,7 +411,7 @@ class GraphManager {
             clearBtn.style.display = 'none';
         });
         
-        // Reset widoku
+        // === PRZYCISKI KONTROLNE ===
         document.getElementById('reset-view-btn').addEventListener('click', () => {
             this.network.fit({
                 animation: {
@@ -373,7 +422,6 @@ class GraphManager {
             this.deselectAll();
         });
         
-        // Toggle fizyki
         document.getElementById('toggle-physics-btn').addEventListener('click', () => {
             this.physicsEnabled = !this.physicsEnabled;
             this.network.setOptions({ physics: { enabled: this.physicsEnabled } });
@@ -381,12 +429,10 @@ class GraphManager {
                 this.physicsEnabled ? 'ON' : 'OFF';
         });
         
-        // Zmiana układu
         document.getElementById('layout-btn').addEventListener('click', () => {
             this.changeLayout();
         });
         
-        // Pełny ekran
         document.getElementById('fullscreen-btn').addEventListener('click', () => {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
@@ -395,7 +441,7 @@ class GraphManager {
             }
         });
         
-        // Filtry
+        // === FILTRY ===
         document.getElementById('filter-isolated').addEventListener('change', (e) => {
             this.filterIsolatedNodes(e.target.checked);
         });
@@ -414,6 +460,12 @@ class GraphManager {
         });
     }
     
+    /* ==========================================================================
+       METODY UKŁADU I FILTROWANIA
+       ========================================================================== */
+    /**
+     * Przełączanie między układami grafu
+     */
     changeLayout() {
         const layouts = ['physics', 'hierarchical', 'circular'];
         const currentIndex = layouts.indexOf(this.currentLayout);
@@ -465,6 +517,9 @@ class GraphManager {
         this.network.redraw();
     }
     
+    /**
+     * Filtrowanie węzłów bez połączeń
+     */
     filterIsolatedNodes(hide) {
         const nodes = this.allNodes.get();
         const updates = [];
@@ -481,9 +536,12 @@ class GraphManager {
         this.allNodes.update(updates);
     }
     
+    /**
+     * Podświetlenie klastrów w grafie
+     */
     highlightClusters(highlight) {
         if (highlight) {
-            // Znajdź klastry używając algorytmu społeczności
+            // Wykrywanie społeczności
             const clusters = this.detectCommunities();
             const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
             
@@ -496,7 +554,7 @@ class GraphManager {
                 this.allNodes.update(updates);
             });
         } else {
-            // Przywróć oryginalne kolory
+            // Przywrócenie oryginalnych kolorów
             const updates = this.allNodes.get().map(node => ({
                 id: node.id,
                 color: null
@@ -505,8 +563,10 @@ class GraphManager {
         }
     }
     
+    /**
+     * Algorytm wykrywania społeczności
+     */
     detectCommunities() {
-        // Uproszczony algorytm wykrywania społeczności
         const visited = new Set();
         const communities = [];
         
@@ -539,6 +599,9 @@ class GraphManager {
         return communities;
     }
     
+    /**
+     * Filtrowanie według minimalnej liczby połączeń
+     */
     filterByConnections(minConnections) {
         const nodes = this.allNodes.get();
         const updates = [];
@@ -553,6 +616,12 @@ class GraphManager {
         this.allNodes.update(updates);
     }
     
+    /* ==========================================================================
+       METODY POMOCNICZE
+       ========================================================================== */
+    /**
+     * Inicjalizacja tooltipów
+     */
     initializeTooltips() {
         const tooltip = document.getElementById('node-tooltip');
         
@@ -577,17 +646,26 @@ class GraphManager {
         });
     }
     
+    /**
+     * Aktualizacja statystyk w panelu
+     */
     updateStats() {
         document.getElementById('total-nodes').textContent = this.allNodes.length;
         document.getElementById('total-edges').textContent = this.allEdges.length;
     }
     
+    /**
+     * Ukrycie ekranu ładowania
+     */
     hideLoading() {
         setTimeout(() => {
             document.getElementById('loading-overlay').style.display = 'none';
         }, 500);
     }
     
+    /**
+     * Wyświetlenie komunikatu błędu
+     */
     showError() {
         const overlay = document.getElementById('loading-overlay');
         overlay.querySelector('.loading-content').innerHTML = `
@@ -600,7 +678,9 @@ class GraphManager {
     }
 }
 
-// Inicjalizacja po załadowaniu DOM
+/* ==========================================================================
+   INICJALIZACJA APLIKACJI
+   ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
     new GraphManager();
 });

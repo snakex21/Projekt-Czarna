@@ -1,19 +1,24 @@
 /**
  * Plik: genealogia-script.js
- * Opis: Wizualizacja drzewa genealogicznego z hierarchicznym układem
+ * Opis: Wizualizacja interaktywnego drzewa genealogicznego z hierarchicznym układem.
+ *       Wykorzystuje D3.js do renderowania i obsługi interakcji.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // === KONFIGURACJA ===
+  /* ==========================================================================
+     KONFIGURACJA WIZUALIZACJI
+     ========================================================================== */
   const NODE_WIDTH = 180;
   const NODE_HEIGHT = 100;
   const HORIZONTAL_SPACING = 60;
   const VERTICAL_SPACING = 150;
   const MARRIAGE_LINE_OFFSET = 20;
-  const FAMILY_GROUP_SPACING = 200; // Większy odstęp między rodzinami
+  const FAMILY_GROUP_SPACING = 200;
   const MARGIN = 50;
 
-  // === ELEMENTY DOM ===
+  /* ==========================================================================
+     REFERENCJE DO ELEMENTÓW DOM
+     ========================================================================== */
   const container = document.getElementById("genealogy-network");
   const searchInput = document.getElementById("search-input");
   const searchResults = document.getElementById("search-results");
@@ -22,6 +27,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const centerViewBtn = document.getElementById("center-view");
   const resetViewBtn = document.getElementById("reset-view");
 
+  /* ==========================================================================
+     ZMIENNE STANU APLIKACJI
+     ========================================================================== */
   let svg = null;
   let g = null;
   let zoom = null;
@@ -29,10 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
   let families = new Map();
   let familyGroups = [];
 
-  // === FUNKCJE POMOCNICZE ===
-
+  /* ==========================================================================
+     ŁADOWANIE ZASOBÓW ZEWNĘTRZNYCH
+     ========================================================================== */
+  
   /**
-   * Ładowanie biblioteki D3.js
+   * Asynchroniczne ładowanie biblioteki D3.js
    */
   const loadD3 = () => {
     return new Promise((resolve, reject) => {
@@ -48,24 +58,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  /* ==========================================================================
+     POBIERANIE I PRZETWARZANIE DANYCH
+     ========================================================================== */
+  
   /**
-   * Pobieranie danych z API - próbujemy oba endpointy
+   * Pobiera dane genealogiczne z API lub pliku lokalnego
    */
   const fetchAllGenealogyData = async () => {
     try {
-      // Najpierw spróbuj pobrać pełny graf
+      // Próba pobrania z API
       const response = await fetch('/api/genealogia/full-graph');
       if (!response.ok) throw new Error('Błąd pobierania danych');
       const data = await response.json();
       
       console.log('Otrzymane dane z API:', data);
       
-      // Sprawdź czy to format vis.js (nodes/edges)
+      // Rozpoznanie formatu danych
       if (data.nodes && data.edges) {
         return processVisJsData(data);
-      }
-      // Sprawdź czy to format genealogia.json (persons)
-      else if (data.persons) {
+      } else if (data.persons) {
         return processGenealogyData(data);
       }
       
@@ -73,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error('Błąd pobierania danych:', error);
       
-      // Spróbuj załadować lokalny plik genealogia.json jako fallback
+      // Fallback - lokalny plik JSON
       try {
         const localResponse = await fetch('/genealogia/genealogia.json');
         if (localResponse.ok) {
@@ -90,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Przetwarzanie danych w formacie genealogia.json
+   * Przetwarza dane w formacie genealogia.json
    */
   const processGenealogyData = (data) => {
     if (!data.persons || !Array.isArray(data.persons)) {
@@ -100,7 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const personMap = new Map();
     
-    // Tworzenie osób
+    // Mapowanie osób
     allPersons = data.persons.map(person => {
       const p = {
         id: person.id,
@@ -124,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return p;
     });
 
-    // Budowanie relacji rodzic-dziecko
+    // Budowanie relacji rodzinnych
     allPersons.forEach(person => {
       if (person.fatherId) {
         person.parents.push(person.fatherId);
@@ -147,12 +159,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Przetwarzanie danych w formacie vis.js
+   * Przetwarza dane w formacie vis.js
    */
   const processVisJsData = (data) => {
     const personMap = new Map();
     
-    // Tworzenie osób
+    // Konwersja węzłów
     allPersons = data.nodes.map(node => {
       const person = {
         id: node.id,
@@ -170,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return person;
     });
 
-    // Przetwarzanie krawędzi
+    // Przetwarzanie relacji
     data.edges.forEach(edge => {
       const fromPerson = personMap.get(edge.from);
       const toPerson = personMap.get(edge.to);
@@ -178,7 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!fromPerson || !toPerson) return;
       
       if (edge.dashes || edge.color === '#9b59b6') {
-        // Małżeństwo
+        // Relacja małżeńska
         if (!fromPerson.spouses.includes(edge.to)) {
           fromPerson.spouses.push(edge.to);
         }
@@ -200,8 +212,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   };
 
+  /* ==========================================================================
+     ANALIZA STRUKTURY RODZINNEJ
+     ========================================================================== */
+  
   /**
-   * Identyfikacja grup rodzinnych (connected components)
+   * Identyfikuje niezależne grupy rodzinne (connected components)
    */
   const identifyFamilyGroups = () => {
     const visited = new Set();
@@ -215,13 +231,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const person = allPersons.find(p => p.id === personId);
       if (!person) return;
       
-      // Odwiedź wszystkie połączone osoby
+      // Rekurencyjne odwiedzanie połączonych osób
       [...person.parents, ...person.children, ...person.spouses].forEach(relatedId => {
         dfs(relatedId, group);
       });
     };
     
-    // Znajdź wszystkie niezależne grupy rodzinne
+    // Znajdowanie wszystkich grup
     allPersons.forEach(person => {
       if (!visited.has(person.id)) {
         const group = new Set();
@@ -230,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     
-    // Sortuj grupy według wielkości (największe najpierw)
+    // Sortowanie według wielkości
     familyGroups.sort((a, b) => b.size - a.size);
     
     console.log(`Znaleziono ${familyGroups.length} niezależnych grup rodzinnych:`, 
@@ -240,24 +256,24 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Obliczanie poziomów generacji z lepszym algorytmem
+   * Oblicza poziomy generacji dla każdej osoby
    */
   const calculateGenerations = () => {
     // Reset poziomów
     allPersons.forEach(p => p.level = null);
     
-    // Dla każdej grupy rodzinnej osobno
+    // Przetwarzanie każdej grupy rodzinnej
     familyGroups.forEach(group => {
       const groupPersons = allPersons.filter(p => group.has(p.id));
       
-      // Znajdź najstarsze pokolenie w tej grupie
+      // Znajdowanie korzeni drzewa
       const roots = groupPersons.filter(p => 
         p.parents.length === 0 || 
         p.parents.every(parentId => !group.has(parentId))
       );
       
       if (roots.length === 0) {
-        // Jeśli nie ma korzeni, znajdź osobę z największą liczbą potomków
+        // Heurystyka dla cyklicznych struktur
         let maxDescendants = 0;
         let bestRoot = null;
         
@@ -291,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
       while (queue.length > 0) {
         const current = queue.shift();
         
-        // Małżonkowie ZAWSZE na tym samym poziomie
+        // Małżonkowie na tym samym poziomie
         current.spouses.forEach(spouseId => {
           if (!group.has(spouseId)) return;
           const spouse = allPersons.find(p => p.id === spouseId);
@@ -370,7 +386,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Liczenie potomków w grupie
+   * Rekurencyjne liczenie potomków w grupie
    */
   const countDescendantsInGroup = (personId, group, visited = new Set()) => {
     if (visited.has(personId)) return 0;
@@ -391,35 +407,36 @@ document.addEventListener("DOMContentLoaded", () => {
     return count;
   };
 
+  /* ==========================================================================
+     POZYCJONOWANIE I UKŁAD GRAFICZNY
+     ========================================================================== */
+  
   /**
-   * Pozycjonowanie węzłów z grupowaniem rodzin
+   * Oblicza pozycje węzłów w układzie hierarchicznym
    */
   const positionNodes = (generations) => {
     let maxWidth = 0;
     let currentY = MARGIN;
     
-    // Sortuj poziomy
     const sortedLevels = Array.from(generations.keys()).sort((a, b) => a - b);
     
     sortedLevels.forEach(level => {
       const persons = generations.get(level);
       let currentX = MARGIN;
       
-      // Grupuj osoby według grup rodzinnych
+      // Grupowanie według rodzin
       familyGroups.forEach((group, groupIndex) => {
         const groupPersons = persons.filter(p => group.has(p.id));
         if (groupPersons.length === 0) return;
         
-        // Sortuj osoby w grupie
+        // Sortowanie osób w grupie
         groupPersons.sort((a, b) => {
-          // Małżeństwa razem
           const aSpouseInGroup = groupPersons.find(p => a.spouses.includes(p.id));
           const bSpouseInGroup = groupPersons.find(p => b.spouses.includes(p.id));
           
           if (aSpouseInGroup && !bSpouseInGroup) return -1;
           if (!aSpouseInGroup && bSpouseInGroup) return 1;
           
-          // Jeśli oboje mają małżonków, grupuj pary razem
           if (aSpouseInGroup && bSpouseInGroup) {
             const aSpouseId = Math.min(a.id, aSpouseInGroup.id);
             const bSpouseId = Math.min(b.id, bSpouseInGroup.id);
@@ -429,19 +446,18 @@ document.addEventListener("DOMContentLoaded", () => {
           return a.name.localeCompare(b.name);
         });
         
-        // Pozycjonuj osoby w tej grupie
+        // Pozycjonowanie osób
         const processed = new Set();
         
         groupPersons.forEach(person => {
           if (processed.has(person.id)) return;
           
-          // Znajdź małżonka w tej samej grupie i poziomie
           const spouse = person.spouses
             .map(id => groupPersons.find(p => p.id === id))
             .filter(Boolean)[0];
           
           if (spouse && !processed.has(spouse.id)) {
-            // Pozycjonuj parę
+            // Pozycjonowanie pary małżeńskiej
             person.x = currentX;
             person.y = currentY;
             spouse.x = currentX + NODE_WIDTH + MARRIAGE_LINE_OFFSET;
@@ -450,7 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
             processed.add(spouse.id);
             currentX += NODE_WIDTH * 2 + MARRIAGE_LINE_OFFSET + HORIZONTAL_SPACING;
           } else if (!processed.has(person.id)) {
-            // Pozycjonuj pojedynczą osobę
+            // Pozycjonowanie pojedynczej osoby
             person.x = currentX;
             person.y = currentY;
             processed.add(person.id);
@@ -458,7 +474,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
         
-        // Dodaj większy odstęp między grupami rodzinnymi
+        // Odstęp między grupami rodzinnymi
         if (groupIndex < familyGroups.length - 1 && groupPersons.length > 0) {
           currentX += FAMILY_GROUP_SPACING;
         }
@@ -472,7 +488,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Tworzenie połączeń
+   * Generuje połączenia między węzłami
    */
   const createConnections = () => {
     const connections = [];
@@ -484,14 +500,14 @@ document.addEventListener("DOMContentLoaded", () => {
         parent.children.forEach(childId => {
           const child = allPersons.find(p => p.id === childId);
           if (!child || child.level === null || parent.level === null) return;
-          if (child.level <= parent.level) return; // Tylko jeśli dziecko jest niżej
+          if (child.level <= parent.level) return;
           
           const parentX = parent.x + NODE_WIDTH / 2;
           const parentY = parent.y + NODE_HEIGHT;
           const childX = child.x + NODE_WIDTH / 2;
           const childY = child.y;
           
-          // Jeśli rodzic ma małżonka obok siebie, linia wychodzi ze środka
+          // Centrowanie linii dla par małżeńskich
           const spouse = parent.spouses
             .map(id => allPersons.find(p => p.id === id))
             .find(s => s && s.level === parent.level && Math.abs(s.x - parent.x) < NODE_WIDTH * 3);
@@ -525,7 +541,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!processedMarriages.has(marriageKey)) {
           processedMarriages.add(marriageKey);
           
-          // Tylko jeśli są obok siebie
           if (Math.abs(person.x - spouse.x) < NODE_WIDTH * 3) {
             marriages.push([person, spouse]);
           }
@@ -537,7 +552,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Grupowanie osób w rodziny (nazwiska)
+   * Analizuje i grupuje osoby według nazwisk
    */
   const analyzeFamilies = () => {
     families.clear();
@@ -555,27 +570,30 @@ document.addEventListener("DOMContentLoaded", () => {
     return families;
   };
 
+  /* ==========================================================================
+     RENDEROWANIE WIZUALIZACJI
+     ========================================================================== */
+  
   /**
-   * Rysowanie drzewa
+   * Główna funkcja rysująca drzewo genealogiczne
    */
   const drawTree = () => {
     container.innerHTML = '';
 
-    // Najpierw zidentyfikuj grupy rodzinne
+    // Analiza struktury
     identifyFamilyGroups();
-    
     const generations = calculateGenerations();
     const { width, height } = positionNodes(generations);
     const { connections, marriages } = createConnections();
 
-    // Tworzenie SVG
+    // Inicjalizacja SVG
     svg = d3.create('svg')
       .attr('width', '100%')
       .attr('height', '100%')
       .attr('viewBox', `0 0 ${width} ${height}`)
       .style('background', 'linear-gradient(135deg, #f5f3f0 0%, #e8e4de 100%)');
 
-    // Zoom
+    // Konfiguracja zoom
     zoom = d3.zoom()
       .scaleExtent([0.1, 3])
       .on('zoom', (event) => {
@@ -585,7 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.call(zoom);
     g = svg.append('g');
 
-    // Rysowanie połączeń rodzic-dziecko
+    // Renderowanie połączeń rodzic-dziecko
     g.selectAll('.parent-child-line')
       .data(connections)
       .enter()
@@ -598,7 +616,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .attr('stroke-dasharray', '5,5')
       .attr('opacity', 0.6);
 
-    // Rysowanie linii małżeństw
+    // Renderowanie linii małżeństw
     g.selectAll('.marriage-line')
       .data(marriages)
       .enter()
@@ -623,7 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .attr('font-size', '20px')
       .text('💕');
 
-    // Rysowanie węzłów osób
+    // Renderowanie węzłów osób
     const nodeGroups = g.selectAll('.person-node')
       .data(allPersons)
       .enter()
@@ -640,6 +658,7 @@ document.addEventListener("DOMContentLoaded", () => {
         d3.selectAll('.person-node rect').attr('stroke-width', 2);
         d3.select(event.currentTarget).select('rect').attr('stroke-width', 4);
         
+        // Logowanie informacji debugowych
         console.log('=== Informacje o osobie ===');
         console.log('Imię i nazwisko:', d.name);
         console.log('ID:', d.id);
@@ -657,7 +676,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log('Małżonkowie:', spouses.map(p => p ? `${p.name} (poziom ${p.level})` : 'nieznany').join(', ') || 'brak');
       });
 
-    // Prostokąty węzłów
+    // Tło węzła
     nodeGroups.append('rect')
       .attr('width', NODE_WIDTH)
       .attr('height', NODE_HEIGHT)
@@ -722,7 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     container.appendChild(svg.node());
     
-    // Auto-center
+    // Auto-centrowanie widoku
     setTimeout(() => {
       const bounds = g.node().getBBox();
       const fullWidth = container.clientWidth;
@@ -743,11 +762,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 100);
   };
 
+  /* ==========================================================================
+     FILTRY I INTERAKCJE
+     ========================================================================== */
+  
   /**
-   * Filtrowanie według rodziny
+   * Filtruje widok według wybranej rodziny
    */
   const filterByFamily = (familyName) => {
     if (!familyName || familyName === 'all') {
+      // Pokaż wszystko
       d3.selectAll('.person-node').style('opacity', 1);
       d3.selectAll('.parent-child-line').style('opacity', 0.6);
       d3.selectAll('.marriage-line').style('opacity', 1);
@@ -755,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       const familyMembers = families.get(familyName) || new Set();
       
-      // Rozszerz o małżonków
+      // Rozszerzenie o małżonków
       const extendedFamily = new Set(familyMembers);
       familyMembers.forEach(memberId => {
         const member = allPersons.find(p => p.id === memberId);
@@ -764,6 +788,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
       
+      // Zastosowanie filtru
       d3.selectAll('.person-node')
         .style('opacity', d => extendedFamily.has(d.id) ? 1 : 0.2);
       
@@ -785,10 +810,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Inicjalizacja kontrolek
+   * Inicjalizuje kontrolki interfejsu
    */
   const setupControls = () => {
-    // Lista rodzin
+    // Wypełnienie listy rodzin
     const sortedFamilies = Array.from(families.keys()).sort((a, b) => {
       const sizeA = families.get(a).size;
       const sizeB = families.get(b).size;
@@ -805,7 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
       familySelect.appendChild(option);
     });
 
-    // Event listeners
+    // Obsługa zdarzeń
     familySelect.addEventListener('change', (e) => {
       filterByFamily(e.target.value);
     });
@@ -828,7 +853,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // Wyszukiwarka
+    // Wyszukiwarka osób
     searchInput.addEventListener('input', (e) => {
       const term = e.target.value.toLowerCase().trim();
       searchResults.innerHTML = '';
@@ -843,6 +868,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const li = document.createElement('li');
         li.textContent = `${person.name} (Generacja ${person.level + 1})`;
         li.onclick = () => {
+          // Fokus na wybranej osobie
           const node = d3.selectAll('.person-node')
             .filter(d => d.id === person.id);
           
@@ -856,6 +882,7 @@ document.addEventListener("DOMContentLoaded", () => {
               .duration(750)
               .call(zoom.transform, transform);
             
+            // Podświetlenie
             d3.selectAll('.person-node rect').attr('stroke-width', 2);
             node.select('rect').attr('stroke-width', 4);
           }
@@ -868,10 +895,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  /* ==========================================================================
+     INICJALIZACJA APLIKACJI
+     ========================================================================== */
+  
   /**
-   * Inicjalizacja
+   * Główna funkcja inicjalizująca
    */
   const initialize = async () => {
+    // Ekran ładowania
     container.innerHTML = `
       <div class="loading-center">
         <div class="spinner"></div>
@@ -879,6 +911,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>`;
 
     try {
+      // Ładowanie zależności i danych
       await loadD3();
       const hasData = await fetchAllGenealogyData();
       
@@ -895,6 +928,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       console.log(`Załadowano ${allPersons.length} osób`);
       
+      // Budowanie wizualizacji
       analyzeFamilies();
       drawTree();
       setupControls();
@@ -911,6 +945,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Start
+  // Uruchomienie aplikacji
   initialize();
 });

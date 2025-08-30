@@ -1,11 +1,13 @@
 /* ==========================================================================
    Plik: style.css
-   Opis: Główny arkusz stylów dla aplikacji interaktywnej mapy katastralnej.
+   Opis: Główny arkusz stylów dla interaktywnej mapy katastralnej gminy Czarna.
+         Obsługuje layouty, komponenty UI oraz tryb ciemny.
    ========================================================================== */
 
 /* ==========================================================================
-   1. Reset i style podstawowe
+   RESET I PODSTAWOWE STYLE
    ========================================================================== */
+
 * {
     margin: 0;
     padding: 0;
@@ -17,14 +19,46 @@ html, body {
     width: 100%;
     overflow: hidden;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    /* Kolory podstawowe zdefiniowane są w zmiennych CSS w sekcji 18 */
 }
 
 /* ==========================================================================
-   2. Główny layout aplikacji
+   ZMIENNE KOLORYSTYCZNE
    ========================================================================== */
 
-/* Dekoracyjne tło z gradientem, widoczne za głównym kontenerem */
+/* Motyw jasny (domyślny) */
+:root {
+    --bg-main: #f4f7f6;
+    --bg-panel: white;
+    --bg-panel-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bg-hover: #f7fafc;
+    --bg-active: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    --text-on-accent: white;
+    --border-color: #e2e8f0;
+    --accent-color: #667eea;
+    --shadow-color: rgba(0,0,0,0.1);
+}
+
+/* Motyw ciemny */
+.dark-mode {
+    --bg-main: #1a202c;
+    --bg-panel: #2d3748;
+    --bg-panel-header: linear-gradient(135deg, #2c3e50 0%, #4c5a77 100%);
+    --bg-hover: #4a5568;
+    --bg-active: linear-gradient(135deg, rgba(144, 158, 226, 0.1) 0%, rgba(138, 108, 172, 0.1) 100%);
+    --text-primary: #e2e8f0;
+    --text-secondary: #a0aec0;
+    --border-color: #4a5568;
+    --accent-color: #909ee2;
+    --shadow-color: rgba(0,0,0,0.4);
+}
+
+/* ==========================================================================
+   GŁÓWNY LAYOUT APLIKACJI
+   ========================================================================== */
+
+/* Gradientowe tło aplikacji */
 .background-gradient {
     position: fixed;
     top: 0;
@@ -32,21 +66,23 @@ html, body {
     right: 0;
     bottom: 0;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    z-index: -1; /* Tło zawsze jest z tyłu */
+    z-index: -1;
 }
 
-/* Główny "szkielet" aplikacji, który wypełnia całe okno */
+/* Główny kontener aplikacji */
 #app-wrapper {
     display: flex;
-    flex-direction: column; /* Układ: góra (toolbar), środek (mapa), dół (nawigacja) */
+    flex-direction: column;
     height: 100vh;
-    background: var(--bg-main); /* Użycie zmiennej dla tła */
-    color: var(--text-primary); /* Użycie zmiennej dla tekstu */
-    transition: background-color 0.3s, color 0.3s; /* Płynne przejście dla trybu ciemnego */
+    background: var(--bg-main);
+    color: var(--text-primary);
+    transition: background-color 0.3s, color 0.3s;
 }
+
 /* ==========================================================================
-   3. Górny pasek narzędzi (Toolbar)
+   GÓRNY PASEK NARZĘDZI
    ========================================================================== */
+
 .top-toolbar {
     display: flex;
     justify-content: space-between;
@@ -56,8 +92,8 @@ html, body {
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-color);
     box-shadow: 0 2px 10px var(--shadow-color);
-    z-index: 1010; /* Zwiększony z-index, aby pasek był nad nakładkami mapy <-- ZMIANA */
-    flex-shrink: 0; /* Zapobiega kurczeniu się paska */
+    z-index: 1010;
+    flex-shrink: 0;
 }
 
 .toolbar-left, .toolbar-right {
@@ -66,6 +102,7 @@ html, body {
     gap: 20px;
 }
 
+/* Tytuł aplikacji */
 .app-title {
     font-size: 1.4rem;
     font-weight: 600;
@@ -78,7 +115,7 @@ html, body {
     gap: 10px;
 }
 
-/* --- Statystyki (właściciele, działki) --- */
+/* Statystyki */
 .toolbar-stats {
     display: flex;
     gap: 15px;
@@ -96,7 +133,7 @@ html, body {
     color: #667eea;
 }
 
-/* --- Przyciski akcji (pełny ekran, ustawienia) --- */
+/* Przyciski akcji */
 .toolbar-actions {
     display: flex;
     gap: 10px;
@@ -123,17 +160,18 @@ html, body {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-
 /* ==========================================================================
-   4. Główny kontener i panele boczne
+   KONTENER GŁÓWNY I PANELE BOCZNE
    ========================================================================== */
+
 #main-container {
     display: flex;
-    flex: 1; /* Kontener rozciąga się, aby wypełnić dostępną przestrzeń */
+    flex: 1;
     position: relative;
-    overflow: hidden; /* Zapobiega pojawianiu się suwaków */
+    overflow: hidden;
 }
 
+/* Panele boczne */
 .side-panel {
     width: 350px;
     background: var(--bg-panel);
@@ -143,21 +181,20 @@ html, body {
     display: flex;
     flex-direction: column;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 102; /* Panele są nad uchwytami */
-    flex-shrink: 0; /* Panele nie kurczą się */
+    z-index: 102;
+    flex-shrink: 0;
 }
 
-/* Stan zwinięty paneli */
 .side-panel.collapsed {
-    transform: translateX(-100%); /* Lewy panel chowa się w lewo */
-    pointer-events: none; /* Wyłącz interakcje ze zwiniętym panelem */
+    transform: translateX(-100%);
+    pointer-events: none;
 }
 
 .right-panel.collapsed {
-    transform: translateX(100%); /* Prawy panel chowa się w prawo */
+    transform: translateX(100%);
 }
 
-/* --- Nagłówek panelu --- */
+/* Nagłówek panelu */
 .panel-header {
     display: flex;
     justify-content: space-between;
@@ -173,10 +210,10 @@ html, body {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-on-accent); /* Jawne ustawienie koloru dla trybu ciemnego */
+    color: var(--text-on-accent);
 }
 
-/* Przycisk do zwijania panelu */
+/* Przycisk zwijania panelu */
 .panel-toggle {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -195,7 +232,7 @@ html, body {
     background: rgba(255, 255, 255, 0.3);
 }
 
-/* --- Zawartość panelu (przewijalna) --- */
+/* Zawartość panelu */
 .panel-content {
     flex: 1;
     overflow-y: auto;
@@ -203,16 +240,16 @@ html, body {
 }
 
 /* ==========================================================================
-   5. Uchwyty do rozwijania paneli
+   UCHWYTY ROZWIJANIA PANELI
    ========================================================================== */
+
 .panel-expand-handle {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    /* Zwiększamy z-index, aby uchwyty były widoczne NAD warstwami kafelkowymi mapy (np. satelita), które mają z-index ~200. */
-    z-index: 450; 
+    z-index: 450;
     cursor: pointer;
-    display: none; /* Domyślnie ukryte, pokazywane przez JS */
+    display: none;
     align-items: center;
     transition: all 0.3s ease;
 }
@@ -225,6 +262,10 @@ html, body {
     right: 0;
 }
 
+.panel-expand-handle.handle-visible {
+    display: flex;
+}
+
 .panel-expand-handle .handle-tab {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -235,7 +276,7 @@ html, body {
     gap: 8px;
     font-weight: 600;
     font-size: 0.9rem;
-    writing-mode: vertical-lr; /* Tekst pionowy */
+    writing-mode: vertical-lr;
     text-orientation: mixed;
     transition: all 0.3s ease;
 }
@@ -255,21 +296,21 @@ html, body {
 }
 
 /* ==========================================================================
-   6. Panel Właścicieli (lewy)
+   PANEL WŁAŚCICIELI
    ========================================================================== */
 
-/* --- Kontrolki (wyszukiwarka, filtry, porównanie) --- */
+/* Kontrolki panelu */
 .owners-controls {
     margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Odstępy między grupami kontrolek */
+    gap: 15px;
 }
 
-/* Wyszukiwarka w panelu */
+/* Wyszukiwarka */
 .search-box {
     position: relative;
-    margin-bottom: 15px; 
+    margin-bottom: 15px;
 }
 
 .search-box input {
@@ -309,7 +350,7 @@ html, body {
     padding: 5px;
 }
 
-/* Przyciski filtrów */
+/* Filtry sortowania */
 .filter-buttons {
     display: flex;
     gap: 10px;
@@ -341,7 +382,7 @@ html, body {
     border-color: transparent;
 }
 
-/* Sekcja porównywania */
+/* Przycisk porównywania */
 .compare-btn {
     width: 100%;
     padding: 12px;
@@ -367,7 +408,7 @@ html, body {
     background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
-/* --- Lista właścicieli --- */
+/* Lista właścicieli */
 .owners-list {
     display: flex;
     flex-direction: column;
@@ -447,10 +488,10 @@ html, body {
 }
 
 /* ==========================================================================
-   7. Panel Działek (prawy)
+   PANEL DZIAŁEK
    ========================================================================== */
 
-/* --- Kontener zakładek (Działki, Obiekty, Specjalne) --- */
+/* Zakładki nawigacyjne */
 .tabs-container {
     display: flex;
     gap: 5px;
@@ -489,11 +530,12 @@ html, body {
 .tab-content {
     display: none;
 }
+
 .tab-content.active {
     display: block;
 }
 
-/* --- Filtry kategorii działek --- */
+/* Filtry kategorii */
 .category-filters {
     display: flex;
     flex-wrap: wrap;
@@ -514,13 +556,14 @@ html, body {
     font-weight: 500;
     transition: all 0.2s;
 }
-/* Kolory dla badge'ów */
+
+/* Kolory kategorii */
 .filter-badge.budowlana { background: rgba(230, 126, 34, 0.1); color: #e67e22; }
 .filter-badge.rolna { background: rgba(39, 174, 96, 0.1); color: #27ae60; }
 .filter-badge.las { background: rgba(22, 160, 133, 0.1); color: #16a085; }
 .filter-badge.pastwisko { background: rgba(241, 196, 15, 0.1); color: #f1c40f; }
 
-/* --- Listy obiektów --- */
+/* Lista działek */
 .parcels-list {
     display: flex;
     flex-direction: column;
@@ -553,87 +596,90 @@ html, body {
     font-weight: 600;
 }
 
-/* --- Style dla zakładki "Specjalne" --- */
+/* Obiekty specjalne */
 .special-category-section {
-  margin-bottom: 20px;
+    margin-bottom: 20px;
 }
 
 .special-category-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: 10px;
-  font-weight: 600;
-  font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    font-size: 1rem;
 }
 
 .special-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-left: 10px; /* Lekkie wcięcie listy względem nagłówka */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 10px;
 }
 
 .special-item {
-  padding: 12px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+    padding: 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
 .special-item:hover {
-  transform: translateX(5px);
-  border-color: var(--accent-color);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    transform: translateX(5px);
+    border-color: var(--accent-color);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
 .special-item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-  font-weight: 500; /* Zmniejszona waga czcionki dla nazwy obiektu */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+    font-weight: 500;
 }
 
 .special-item-icon {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
+    font-size: 1.1rem;
+    color: var(--text-secondary);
 }
 
 .special-item-number {
-  color: var(--text-primary);
+    color: var(--text-primary);
 }
 
 .special-item-owners {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  padding-left: 27px; /* Wyrównanie tekstu pod nazwą obiektu, a nie pod ikoną */
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    padding-left: 27px;
 }
 
 /* ==========================================================================
-   8. Layout Mapy
+   KONTENER MAPY
    ========================================================================== */
+
 #map-wrapper {
     flex: 1;
     position: relative;
-    background: #f8f9fa; /* Kolor tła widoczny podczas ładowania kafelków */
-    transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Płynna zmiana marginesu przy zwijaniu paneli */
+    background: #f8f9fa;
+    transition: margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dostosowanie marginesów mapy, gdy panele są zwinięte */
+/* Stany rozszerzenia mapy */
 #map-wrapper.expanded-left {
     margin-left: -350px;
 }
+
 #map-wrapper.expanded-right {
     margin-right: -350px;
 }
+
 #map-wrapper.full-width {
     margin-left: -350px;
     margin-right: -350px;
@@ -645,41 +691,42 @@ html, body {
     position: relative;
 }
 
-/* Tło dla kafelków mapy, szczególnie ważne w trybie ciemnym */
 .leaflet-container {
     background-color: #92b0c9;
 }
 
 /* ==========================================================================
-   9. Nakładki Interfejsu na Mapie
+   NAKŁADKI NA MAPIE
    ========================================================================== */
 
-/* --- Klasa ogólna dla wszystkich nakładek --- */
+/* Klasa bazowa */
 .map-overlay {
     position: absolute;
-    z-index: 1000; /* Wysoki priorytet, aby były nad kontrolkami Leaflet */
-    pointer-events: auto; /* Elementy są interaktywne */
+    z-index: 1000;
+    pointer-events: auto;
     background: var(--bg-panel);
     border-radius: 12px;
     box-shadow: 0 5px 20px var(--shadow-color);
     max-width: 280px;
 }
 
-/* --- Pozycjonowanie nakładek w rogach --- */
+/* Pozycjonowanie */
 .map-overlay.top-right {
     top: 20px;
     right: 20px;
 }
+
 .map-overlay.bottom-left {
     bottom: 20px;
     left: 20px;
 }
+
 .map-overlay.bottom-right {
     bottom: 20px;
     right: 20px;
 }
 
-/* --- Przycisk "Wyczyść zaznaczenie" (na środku u góry) --- */
+/* Kontrolki podświetlania */
 #highlight-controls {
     position: absolute;
     top: 20px;
@@ -688,9 +735,11 @@ html, body {
     z-index: 1000;
     pointer-events: auto;
 }
+
 #highlight-controls.hidden {
     display: none !important;
 }
+
 .clear-highlight-btn {
     padding: 10px 20px;
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
@@ -705,22 +754,24 @@ html, body {
     align-items: center;
     gap: 8px;
 }
+
 .clear-highlight-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
 }
 
-/* --- Wyświetlacz współrzędnych --- */
+/* Wyświetlacz współrzędnych */
 .coordinates-display {
     padding: 10px 15px;
     font-family: 'Monaco', monospace;
     font-size: 0.9rem;
 }
 
-/* --- Główna legenda warstw --- */
+/* Legenda mapy */
 .map-legend {
     min-width: 200px;
 }
+
 .legend-header {
     display: flex;
     justify-content: space-between;
@@ -728,11 +779,13 @@ html, body {
     padding: 12px 15px;
     border-bottom: 1px solid var(--border-color);
     cursor: pointer;
-    user-select: none; /* Zapobiega zaznaczaniu tekstu przy klikaniu */
+    user-select: none;
 }
+
 .legend-header:hover {
     background: var(--bg-hover);
 }
+
 .legend-header h3 {
     font-size: 0.9rem;
     font-weight: 600;
@@ -740,6 +793,7 @@ html, body {
     align-items: center;
     gap: 8px;
 }
+
 .legend-toggle {
     background: transparent;
     border: none;
@@ -748,30 +802,36 @@ html, body {
     padding: 0;
     transition: transform 0.3s ease;
 }
+
 .legend-content {
     padding: 15px;
     max-height: 300px;
     overflow-y: auto;
     transition: all 0.3s ease;
 }
+
 .legend-list {
     list-style: none;
 }
+
 .legend-item {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 8px 0;
 }
+
 .legend-item.inactive {
     opacity: 0.5;
 }
+
 .legend-checkbox {
     cursor: pointer;
     width: 16px;
     height: 16px;
-    accent-color: var(--accent-color); /* Stylowanie checkboxa */
+    accent-color: var(--accent-color);
 }
+
 .legend-color-box {
     width: 20px;
     height: 20px;
@@ -779,23 +839,27 @@ html, body {
     border: 2px solid rgba(0,0,0,0.1);
     flex-shrink: 0;
 }
+
 .legend-label {
     cursor: pointer;
     flex: 1;
     font-size: 0.9rem;
 }
 
-/* --- Legenda wyróżnionych właścicieli --- */
+/* Legenda właścicieli */
 #owner-highlight-legend {
     padding: 15px;
     min-width: 250px;
 }
+
 #owner-highlight-legend.hidden {
     display: none !important;
 }
+
 #owner-highlight-legend ul {
     list-style: none;
 }
+
 #owner-highlight-legend li {
     display: flex;
     align-items: center;
@@ -804,8 +868,9 @@ html, body {
 }
 
 /* ==========================================================================
-   10. Dolny Pasek Nawigacyjny
+   DOLNA NAWIGACJA
    ========================================================================== */
+
 .bottom-navigation {
     display: flex;
     justify-content: space-between;
@@ -815,7 +880,7 @@ html, body {
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     box-shadow: 0 -2px 10px var(--shadow-color);
-    flex-shrink: 0; /* Zapobiega kurczeniu się paska */
+    flex-shrink: 0;
 }
 
 .nav-links {
@@ -859,8 +924,9 @@ html, body {
 }
 
 /* ==========================================================================
-   11. Okna modalne (Pomoc, Ustawienia)
+   MODALE
    ========================================================================== */
+
 .modal {
     position: fixed;
     top: 0;
@@ -868,7 +934,7 @@ html, body {
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.6);
-    display: none; /* Domyślnie ukryty, pokazywany przez JS (zmiana na display: flex) */
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 10000;
@@ -934,7 +1000,7 @@ html, body {
     color: var(--text-primary);
 }
 
-/* --- Elementy specyficzne dla okna Pomocy --- */
+/* Skróty klawiszowe */
 .shortcuts-list {
     list-style: none;
     padding: 0;
@@ -961,8 +1027,9 @@ kbd {
 }
 
 /* ==========================================================================
-   12. Ekran Ładowania (Loading Overlay)
+   EKRAN ŁADOWANIA
    ========================================================================== */
+
 .loading-overlay {
     position: fixed;
     top: 0;
@@ -1028,47 +1095,19 @@ kbd {
 }
 
 /* ==========================================================================
-   13. Style dla Trybu Ciemnego
+   TRYB CIEMNY - DODATKI
    ========================================================================== */
 
-/* --- Definicja zmiennych kolorystycznych (Motyw Jasny - domyślny) --- */
-:root {
-    --bg-main: #f4f7f6;
-    --bg-panel: white;
-    --bg-panel-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --bg-hover: #f7fafc;
-    --bg-active: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
-    --text-primary: #2d3748;
-    --text-secondary: #718096;
-    --text-on-accent: white;
-    --border-color: #e2e8f0;
-    --accent-color: #667eea;
-    --shadow-color: rgba(0,0,0,0.1);
-}
-
-/* --- Zmienne dla Trybu Ciemnego --- */
-.dark-mode {
-    --bg-main: #1a202c;
-    --bg-panel: #2d3748;
-    --bg-panel-header: linear-gradient(135deg, #2c3e50 0%, #4c5a77 100%);
-    --bg-hover: #4a5568;
-    --bg-active: linear-gradient(135deg, rgba(144, 158, 226, 0.1) 0%, rgba(138, 108, 172, 0.1) 100%);
-    --text-primary: #e2e8f0;
-    --text-secondary: #a0aec0;
-    --border-color: #4a5568;
-    --accent-color: #909ee2;
-    --shadow-color: rgba(0,0,0,0.4);
-}
-
-/* --- Dodatkowe nadpisania dla Trybu Ciemnego --- */
 .dark-mode .leaflet-tile {
-    filter: brightness(0.8) contrast(1.1); /* Delikatne przyciemnienie kafelków mapy */
+    filter: brightness(0.8) contrast(1.1);
 }
+
 .dark-mode .search-universal input,
 .dark-mode .info-badge,
 .dark-mode .shortcuts-list li {
     background: var(--bg-hover);
 }
+
 .dark-mode kbd {
     background: var(--bg-panel);
     border-color: var(--border-color);
@@ -1082,7 +1121,10 @@ kbd {
     color: var(--text-secondary);
 }
 
-/* --- Przełącznik motywu w Ustawieniach --- */
+/* ==========================================================================
+   KOMPONENTY USTAWIEŃ
+   ========================================================================== */
+
 .setting-item {
     display: flex;
     justify-content: space-between;
@@ -1090,11 +1132,13 @@ kbd {
     padding: 15px 0;
     border-bottom: 1px solid var(--border-color);
 }
+
 .setting-note {
     font-size: 0.85rem;
     color: var(--text-secondary);
     margin-top: 10px;
 }
+
 .setting-btn {
     padding: 8px 15px;
     background: var(--accent-color);
@@ -1104,31 +1148,72 @@ kbd {
     cursor: pointer;
     transition: opacity 0.2s;
 }
-.setting-btn:hover { opacity: 0.8; }
 
+.setting-btn:hover {
+    opacity: 0.8;
+}
+
+/* Przełącznik motywu */
 .theme-switch {
     position: relative;
     display: inline-block;
     width: 50px;
     height: 28px;
 }
-.theme-switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
-.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; }
-input:checked + .slider { background-color: var(--accent-color); }
-input:checked + .slider:before { transform: translateX(22px); }
-.slider.round { border-radius: 34px; }
-.slider.round:before { border-radius: 50%; }
 
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
 
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: var(--accent-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
 
 /* ==========================================================================
-   14. Uniwersalna Wyszukiwarka
+   UNIWERSALNA WYSZUKIWARKA
    ========================================================================== */
+
 .search-universal {
     position: relative;
     width: 300px;
 }
+
 .search-universal i {
     position: absolute;
     left: 12px;
@@ -1136,6 +1221,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     transform: translateY(-50%);
     color: var(--text-secondary);
 }
+
 .search-universal input {
     width: 100%;
     padding: 8px 35px;
@@ -1146,13 +1232,14 @@ input:checked + .slider:before { transform: translateX(22px); }
     font-size: 0.9rem;
     transition: all 0.3s;
 }
+
 .search-universal input:focus {
     outline: none;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     background: var(--bg-panel);
 }
 
-/* --- Rozwijane wyniki wyszukiwania --- */
+/* Wyniki wyszukiwania */
 #universal-search-results {
     display: none;
     position: absolute;
@@ -1163,10 +1250,11 @@ input:checked + .slider:before { transform: translateX(22px); }
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 10px 30px var(--shadow-color);
-    z-index: 2001; /* Wyżej niż inne elementy interfejsu */
+    z-index: 2001;
     max-height: 400px;
     overflow-y: auto;
 }
+
 .search-result-item {
     display: flex;
     align-items: center;
@@ -1176,44 +1264,125 @@ input:checked + .slider:before { transform: translateX(22px); }
     transition: background-color 0.2s;
     border-bottom: 1px solid var(--border-color);
 }
-.search-result-item:last-child { border-bottom: none; }
-.search-result-item:hover { background-color: var(--bg-hover); }
-.result-icon { font-size: 1.2rem; color: var(--accent-color); width: 25px; text-align: center; }
-.result-text { font-weight: 500; }
-.result-meta { margin-left: auto; font-size: 0.8rem; color: var(--text-secondary); background-color: var(--bg-hover); padding: 3px 8px; border-radius: 10px; }
 
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background-color: var(--bg-hover);
+}
+
+.result-icon {
+    font-size: 1.2rem;
+    color: var(--accent-color);
+    width: 25px;
+    text-align: center;
+}
+
+.result-text {
+    font-weight: 500;
+}
+
+.result-meta {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background-color: var(--bg-hover);
+    padding: 3px 8px;
+    border-radius: 10px;
+}
 
 /* ==========================================================================
-   15. Pozostałe (Scrollbar, Animacje, Media Queries)
+   ETYKIETY DZIAŁEK NA MAPIE
    ========================================================================== */
 
-/* --- Stylizacja paska przewijania --- */
+.parcel-label {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 
+        -1px -1px 0 #000,  
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+    pointer-events: none;
+}
+
+/* ==========================================================================
+   KONTROLKA LEAFLET
+   ========================================================================== */
+
+.leaflet-control-layers {
+    background: var(--bg-panel);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px var(--shadow-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.leaflet-top.leaflet-right .leaflet-control-layers {
+    margin-top: 70px;
+}
+
+.leaflet-control-layers-toggle {
+    background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers.png);
+    background-size: 26px 26px;
+    width: 36px;
+    height: 36px;
+}
+
+.dark-mode .leaflet-control-layers-toggle {
+    filter: invert(1);
+}
+
+.leaflet-control-layers-list {
+    padding: 10px;
+}
+
+.leaflet-control-layers-selector {
+    margin-right: 8px;
+}
+
+/* ==========================================================================
+   UTILITIES
+   ========================================================================== */
+
+/* Pasek przewijania */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
+
 ::-webkit-scrollbar-track {
     background: var(--bg-hover);
     border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(135deg, #5a67d8 0%, #6b4b8e 100%);
 }
 
-/* --- Animacje --- */
+/* Animacje */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
 .owner-card, .parcel-item {
     animation: fadeIn 0.3s ease-out;
 }
 
-/* --- Dostępność (Focus states) --- */
+/* Dostępność */
 button:focus-visible,
 input:focus-visible,
 a:focus-visible {
@@ -1221,7 +1390,10 @@ a:focus-visible {
     outline-offset: 2px;
 }
 
-/* --- Responsywność --- */
+/* ==========================================================================
+   MEDIA QUERIES
+   ========================================================================== */
+
 @media (max-width: 1200px) {
     .side-panel { width: 300px; }
     .search-universal { width: 250px; }
@@ -1232,84 +1404,8 @@ a:focus-visible {
 @media (max-width: 768px) {
     .toolbar-left { gap: 15px; }
     .app-title { font-size: 1.1rem; }
-    .toolbar-stats, .nav-info span { display: none; } /* Ukryj mniej ważne elementy */
+    .toolbar-stats, .nav-info span { display: none; }
     .search-universal { width: 180px; }
-    .nav-link span { display: none; } /* Pokaż tylko ikony w dolnej nawigacji */
-    .map-overlay.bottom-left, .map-overlay.bottom-right { bottom: 70px; } /* Podnieś legendy nad dolny pasek */
-}
-
-/* ==========================================================================
-   16. Etykiety z numerami działek na mapie
-   ========================================================================== */
-
-.parcel-label {
-    /* Resetujemy domyślny wygląd dymka tooltipa */
-    background-color: transparent;
-    border: none;
-    box-shadow: none;
-
-    /* Ustawiamy styl czcionki, aby była czytelna */
-    color: white;
-    font-size: 14px;
-    font-weight: 700; /* Pogrubienie dla lepszej widoczności */
-    line-height: 1;
-
-    /* Kluczowy element: dodajemy "obrys" do tekstu za pomocą cienia,
-       co sprawia, że biały tekst jest czytelny na każdym tle. */
-    text-shadow: 
-        -1px -1px 0 #000,  
-         1px -1px 0 #000,
-        -1px  1px 0 #000,
-         1px  1px 0 #000;
-
-    /* Ważne: dzięki temu etykieta nie przechwytuje kliknięć myszy.
-       Można klikać "przez" etykietę na działkę pod spodem. */
-    pointer-events: none;
-}
-
-/* ==========================================================================
-   17. Przełącznik Warstw (Leaflet Control)
-   ========================================================================== */
-
-/* Stylizacja ogólna kontenera przełącznika */
-.leaflet-control-layers {
-    background: var(--bg-panel);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px var(--shadow-color);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-}
-
-/* Przesunięcie przełącznika warstw, aby nie nachodził na inne elementy */
-.leaflet-top.leaflet-right .leaflet-control-layers {
-    margin-top: 70px; 
-}
-
-/* Stylizacja ikony przełącznika */
-.leaflet-control-layers-toggle {
-    background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers.png);
-    background-size: 26px 26px;
-    width: 36px;
-    height: 36px;
-}
-.dark-mode .leaflet-control-layers-toggle {
-    /* W trybie ciemnym domyślna ikona jest słabo widoczna, więc ją odwracamy */
-    filter: invert(1);
-}
-
-/* Stylizacja rozwiniętego menu */
-.leaflet-control-layers-list {
-    padding: 10px;
-}
-.leaflet-control-layers-selector {
-    margin-right: 8px;
-}
-
-/* ==========================================================================
-   18. Poprawki dla rozwijanych paneli
-   ========================================================================== */
-
-/* Uchwyty stają się widoczne po dodaniu klasy .handle-visible przez JS */
-.panel-expand-handle.handle-visible {
-    display: flex;
+    .nav-link span { display: none; }
+    .map-overlay.bottom-left, .map-overlay.bottom-right { bottom: 70px; }
 }

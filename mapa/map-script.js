@@ -1,39 +1,44 @@
-/**
- * Plik: map-script.js
- * Opis: Główny skrypt aplikacji interaktywnej mapy katastralnej.
- *       Zarządza inicjalizacją mapy, wczytywaniem i renderowaniem danych,
- *       obsługą interfejsu użytkownika oraz interakcjami na mapie.
- */
+/* ==========================================================================
+   Plik: map-script.js
+   Opis: Główny skrypt interaktywnej mapy katastralnej gminy Czarna.
+         Zarządza renderowaniem GeoJSON, interakcjami użytkownika oraz
+         integracją z API backendowym.
+   ========================================================================== */
 
 document.addEventListener("DOMContentLoaded", initializeApp);
 
-// === 1. DEKLARACJA ZMIENNYCH I STAŁYCH ===
+/* ==========================================================================
+   ZMIENNE GLOBALNE I KONFIGURACJA
+   ========================================================================== */
 
-// Główne obiekty aplikacji
+/* Instancje głównych obiektów */
 let map = null;                    
 let allOwnersData = [];            
 let allParcelsData = [];           
 let geojsonLayer = null;           
 let layersByCategory = {};         
 
-// Stan interfejsu użytkownika
+/* Stan interfejsu */
 let isInCompareMode = false;       
 let selectedForCompare = [];       
 
-// Warstwy podświetlania
+/* Warstwy podświetleń */
 let highlightedLayer = null;       
 let ownerHighlightLayer = null;    
 
-// Paleta kolorów do wyróżniania właścicieli
+/* Paleta kolorów dla właścicieli */
 const HIGHLIGHT_COLORS = [
     "#E6194B", "#F58231", "#FFE119", "#BFDF45", "#3CB44B", 
     "#42D4F4", "#4363D8", "#911EB4", "#F032E6", "#A9A9A9"
 ];
 
-// === 2. GŁÓWNA FUNKCJA INICJALIZUJĄCA ===
+/* ==========================================================================
+   INICJALIZACJA APLIKACJI
+   ========================================================================== */
 
 /**
- * Główny punkt wejścia aplikacji. Uruchamiana po załadowaniu DOM.
+ * Główny punkt wejścia aplikacji.
+ * Ukrywa ekran ładowania i inicjalizuje wszystkie komponenty.
  */
 function initializeApp() {
     console.log("🚀 Aplikacja startuje...");
@@ -49,7 +54,7 @@ function initializeApp() {
 }
 
 /**
- * Rejestruje główne event listenery dla elementów interfejsu.
+ * Rejestruje główne listenery interfejsu użytkownika.
  */
 function setupUIEventListeners() {
     setupPanelToggles();
@@ -57,43 +62,38 @@ function setupUIEventListeners() {
     setupUniversalSearch();
 }
 
-// === 3. INICJALIZACJA I KONFIGURACJA MAPY ===
+/* ==========================================================================
+   INICJALIZACJA MAPY LEAFLET
+   ========================================================================== */
 
 /**
- * Inicjalizuje mapę Leaflet z podstawowymi ustawieniami.
- * Konfiguruje granice, zoom, warstwy podkładowe, nakładki oraz przełącznik warstw.
+ * Konfiguruje mapę Leaflet z warstwami bazowymi i nakładkami.
+ * Ustawia granice, zoom oraz kontroler warstw.
  */
 function initializeMap() {
-    // --- Krok 1: Definicja warstw podkładowych (bazowych) ---
+    /* Warstwy bazowe */
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     });
 
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        attribution: 'Tiles &copy; Esri'
     });
     
     const minimalistLayer = L.tileLayer('', {
         attribution: 'Projekt Interaktywna Mapa Katastralna'
     });
 
-    // --- Krok 2: Definicja warstw nakładkowych (overlays) ---
-
-    // NOWE: Współrzędne dla historycznej mapy w przybliżonej lokalizacji Czarnej
-    // 50°3′41″N, 21°14′46″E to ok. 50.0614, 21.2461 w stopniach dziesiętnych
-    // Definiujemy obszar o boku ok. 4.5 km wokół tego punktu.
+    /* Warstwy nakładkowe */
     const historicalBounds = [
-        [50.0414, 21.2261], // Południowo-zachodni róg
-        [50.0814, 21.2661]  // Północno-wschodni róg
+        [50.0414, 21.2261], // SW
+        [50.0814, 21.2661]  // NE
     ];
 
     const historicalMapOverlay = L.imageOverlay("mapa.jpg", historicalBounds);
-
     geojsonLayer = L.geoJSON(); 
 
-    // --- Krok 3: Inicjalizacja mapy ---
-
-    // Definiujemy nowe, szersze granice, aby można było trochę oddalić mapę
+    /* Konfiguracja mapy */
     const maxBounds = L.latLngBounds(
         [50.0, 21.15], 
         [50.12, 21.35]
@@ -102,12 +102,11 @@ function initializeMap() {
     map = L.map("map", {
         layers: [satelliteLayer, historicalMapOverlay, geojsonLayer],
         maxBounds: maxBounds,
-        minZoom: 12, // Zwiększamy minimalne przybliżenie, by nie oddalić się za bardzo
-        maxZoom: 18  // Zwiększamy maksymalne przybliżenie dla szczegółów
-    }).setView([50.0614, 21.2461], 14); // Ustawiamy widok na centrum Czarnej z odpowiednim zoomem
+        minZoom: 12,
+        maxZoom: 18
+    }).setView([50.0614, 21.2461], 14);
 
-    // --- Krok 4: Konfiguracja przełącznika warstw ---
-
+    /* Kontroler warstw */
     const baseMaps = {
         "Satelita": satelliteLayer,
         "Mapa drogowa": osmLayer,
@@ -120,12 +119,11 @@ function initializeMap() {
     };
 
     L.control.layers(baseMaps, overlayMaps, { 
-        position: 'topright', // Pozycja przełącznika na mapie
-        collapsed: true       // Czy przełącznik ma być domyślnie zwinięty
+        position: 'topright',
+        collapsed: true
     }).addTo(map);
 
-    // --- Krok 5: Dodatkowe funkcje mapy (tak jak wcześniej) ---
-
+    /* Wyświetlanie współrzędnych kursora */
     map.on("mousemove", (e) => {
         const coordsDiv = document.getElementById("mouse-coordinates");
         if (coordsDiv) {
@@ -133,14 +131,16 @@ function initializeMap() {
         }
     });
 
-    console.log("✅ Mapa zainicjalizowana z przełącznikiem warstw");
+    console.log("✅ Mapa zainicjalizowana");
 }
 
-// === 4. FUNKCJE KOMUNIKACJI Z API ===
+/* ==========================================================================
+   KOMUNIKACJA Z API
+   ========================================================================== */
 
 /**
  * Pobiera dane z API i buduje interfejs użytkownika.
- * Wykonuje równoległe zapytania dla działek i właścicieli.
+ * Obsługuje stany ładowania i błędy.
  */
 function fetchDataAndBuildInterface() {
     console.log("📡 Rozpoczynam pobieranie danych z API...");
@@ -150,6 +150,7 @@ function fetchDataAndBuildInterface() {
     const obiektyBox = document.getElementById("obiekty_panel");
     const legendBox = document.getElementById("legend");
 
+    /* Funkcje pomocnicze dla stanów ładowania */
     const showLoading = (el, label = "Ładowanie…") => {
         if (!el) return;
         el.dataset._prevHtml = el.innerHTML;
@@ -171,11 +172,13 @@ function fetchDataAndBuildInterface() {
         el.innerHTML = `<div class="loading-error" role="alert">${msg}</div>`;
     };
 
+    /* Wyświetlanie stanów ładowania */
     showLoading(ownersBox, "Ładowanie listy właścicieli…");
     showLoading(dzialkiBox, "Ładowanie listy działek…");
     showLoading(obiektyBox, "Ładowanie obiektów…");
     if (legendBox) showLoading(legendBox, "Ładowanie legendy…");
 
+    /* Równoległe pobieranie danych */
     Promise.all([
         fetch("/api/dzialki").then(res => res.json()),
         fetch("/api/wlasciciele").then(res => res.json()),
@@ -189,8 +192,7 @@ function fetchDataAndBuildInterface() {
         if (legendBox) clearLoading(legendBox);
 
         allOwnersData = wlascicieleResponse.owners;
-        // JEDNA NOWA LINIJKA: Transformujemy współrzędne działek przed ich użyciem
-        allParcelsData = transformGeojsonData(dzialkiData.features);
+        allParcelsData = dzialkiData.features;
 
         const metadata = wlascicieleResponse.metadata;
         const sortByOrderBtn = document.getElementById("sortByOrderBtn");
@@ -215,55 +217,13 @@ function fetchDataAndBuildInterface() {
     });
 }
 
-/**
- * Transformuje współrzędne obiektów GeoJSON z pierwotnego, 
- * arbitralnego systemu na rzeczywiste współrzędne geograficzne.
- * @param {Array} features - Tablica obiektów GeoJSON.
- * @returns {Array} - Tablica obiektów z przekształconymi współrzędnymi.
- */
-function transformGeojsonData(features) {
-    // Definicja granic starego i nowego systemu współrzędnych
-    const oldBounds = { lat: { min: -10, max: 0 }, lng: { min: 0, max: 10 } };
-    const newBounds = { lat: { min: 50.0414, max: 50.0814 }, lng: { min: 21.2261, max: 21.2661 } };
-
-    // Obliczenie zakresów dla obu systemów
-    const oldLatSpan = oldBounds.lat.max - oldBounds.lat.min;
-    const oldLngSpan = oldBounds.lng.max - oldBounds.lng.min;
-    const newLatSpan = newBounds.lat.max - newBounds.lat.min;
-    const newLngSpan = newBounds.lng.max - newBounds.lng.min;
-
-    // Funkcja transformująca pojedynczą parę współrzędnych [lng, lat]
-    const transformCoords = (coords) => {
-        const [oldLng, oldLat] = coords;
-        const newLat = newBounds.lat.min + ((oldLat - oldBounds.lat.min) / oldLatSpan) * newLatSpan;
-        const newLng = newBounds.lng.min + ((oldLng - oldBounds.lng.min) / oldLngSpan) * newLngSpan;
-        return [newLng, newLat];
-    };
-
-    // Przetworzenie każdego obiektu w danych
-    features.forEach(feature => {
-        const geomType = feature.geometry.type;
-        const coords = feature.geometry.coordinates;
-
-        if (geomType === 'Point') {
-            feature.geometry.coordinates = transformCoords(coords);
-        } else if (geomType === 'LineString' || geomType === 'MultiPoint') {
-            feature.geometry.coordinates = coords.map(transformCoords);
-        } else if (geomType === 'Polygon' || geomType === 'MultiLineString') {
-            feature.geometry.coordinates = coords.map(ring => ring.map(transformCoords));
-        } else if (geomType === 'MultiPolygon') {
-            feature.geometry.coordinates = coords.map(polygon => polygon.map(ring => ring.map(transformCoords)));
-        }
-    });
-
-    return features;
-}
-
-// === 5. FUNKCJE RENDERUJĄCE I MANIPULUJĄCE DOM ===
+/* ==========================================================================
+   RENDEROWANIE OBIEKTÓW NA MAPIE
+   ========================================================================== */
 
 /**
  * Renderuje obiekty GeoJSON na mapie z odpowiednimi stylami.
- * @param {Array} parcels - Tablica obiektów GeoJSON do wyrenderowania.
+ * @param {Array} parcels - Tablica obiektów GeoJSON do wyrenderowania
  */
 function renderMapObjects(parcels) {
     if (!parcels) {
@@ -272,6 +232,7 @@ function renderMapObjects(parcels) {
     }
     console.log(`🗺️ Rysowanie ${parcels.length} obiektów...`);
 
+    /* Definicje stylów dla kategorii */
     const STYLES = {
         budowlana: { color: "#e67e22", weight: 2 },
         rolna: { color: "#27ae60", weight: 2 },
@@ -293,6 +254,7 @@ function renderMapObjects(parcels) {
         default: { color: "#3388ff", weight: 2 },
     };
 
+    /* Ikony dla punktów */
     const ICONS = {
         budynek: L.icon({
             iconUrl: "https://cdn-icons-png.flaticon.com/512/25/25694.png",
@@ -312,6 +274,7 @@ function renderMapObjects(parcels) {
         map.removeLayer(geojsonLayer);
     }
 
+    /* Tworzenie warstwy GeoJSON */
     geojsonLayer = L.geoJSON(parcels, {
         style: (feature) => STYLES[feature.properties.kategoria] || STYLES.default,
         
@@ -322,28 +285,29 @@ function renderMapObjects(parcels) {
             const props = feature.properties;
             const kategoria = props.kategoria || "default";
             
+            /* Grupowanie warstw według kategorii */
             if (!layersByCategory[kategoria]) {
                 layersByCategory[kategoria] = [];
             }
             layersByCategory[kategoria].push(layer);
 
+            /* Konfiguracja popup */
             let popupContent = `<b>Typ:</b> ${props.kategoria}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
             if (props.wlasciciele?.length > 0) {
                 popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
             }
             layer.bindPopup(popupContent);
 
-            // --- NOWA SEKCJA: DODAWANIE ETYKIET DO OBIEKTÓW ---
-            // Sprawdzamy, czy obiekt ma numer i nie jest punktem (np. domem)
+            /* Dodawanie etykiet do obiektów niepunktowych */
             if (props.numer_obiektu && feature.geometry.type !== 'Point') {
                 layer.bindTooltip(props.numer_obiektu.toString(), {
-                    permanent: true,      // Etykieta widoczna cały czas, a nie tylko po najechaniu
-                    direction: 'center',  // Wyśrodkowanie etykiety wewnątrz obiektu
-                    className: 'parcel-label' // Dedykowana klasa CSS do stylizacji
+                    permanent: true,
+                    direction: 'center',
+                    className: 'parcel-label'
                 });
             }
-            // --- KONIEC NOWEJ SEKCJI ---
 
+            /* Zdarzenia interakcji */
             layer.on({
                 mouseover: (e) => handleFeatureMouseover(e, feature),
                 mouseout: (e) => handleFeatureMouseout(e),
@@ -355,8 +319,13 @@ function renderMapObjects(parcels) {
     console.log("✅ Zakończono rysowanie obiektów");
 }
 
+/* ==========================================================================
+   PANEL WŁAŚCICIELI
+   ========================================================================== */
+
 /**
  * Konfiguruje panel właścicieli z funkcjami wyszukiwania i sortowania.
+ * Tworzy karty właścicieli i obsługuje tryb porównywania.
  */
 function setupOwnerPanel() {
     const ownerContainer = document.getElementById("ownersList");
@@ -364,6 +333,10 @@ function setupOwnerPanel() {
     const compareBtn = document.getElementById("compareModeBtn");
     let currentSort = "byOrder";
 
+    /**
+     * Renderuje listę właścicieli.
+     * @param {Array} owners - Tablica właścicieli do wyświetlenia
+     */
     const render = (owners) => {
         document.getElementById('visible-count').textContent = owners.length;
         ownerContainer.innerHTML = "";
@@ -374,6 +347,11 @@ function setupOwnerPanel() {
         });
     };
 
+    /**
+     * Tworzy kartę właściciela z przyciskami akcji.
+     * @param {Object} owner - Dane właściciela
+     * @returns {HTMLElement} Element karty właściciela
+     */
     const createOwnerCard = (owner) => {
         const card = document.createElement("div");
         card.className = "owner-card";
@@ -406,6 +384,11 @@ function setupOwnerPanel() {
         return card;
     };
 
+    /**
+     * Konfiguruje zdarzenia karty właściciela.
+     * @param {HTMLElement} card - Element karty
+     * @param {Object} owner - Dane właściciela
+     */
     const setupOwnerCardEvents = (card, owner) => {
         card.querySelector(".owner-details").onclick = () => {
             handleOwnerClick(owner.unikalny_klucz);
@@ -418,6 +401,7 @@ function setupOwnerPanel() {
         const maDzialkiRzeczywiste = owner.dzialki_rzeczywiste?.length > 0;
         const maDzialkiProtokol = owner.dzialki_protokol?.length > 0;
 
+        /* Konfiguracja przycisków działek */
         if (maDzialkiRzeczywiste) {
             btnRzeczywiste.onclick = (e) => {
                 e.stopPropagation();
@@ -438,6 +422,7 @@ function setupOwnerPanel() {
             btnProtokol.style.display = "none";
         }
 
+        /* Przycisk przełączania widoku */
         if (maDzialkiRzeczywiste && maDzialkiProtokol) {
             btnSwitch.style.display = "inline-flex";
             btnSwitch.onclick = (e) => {
@@ -450,10 +435,16 @@ function setupOwnerPanel() {
             btnSwitch.style.display = "none";
         }
 
+        /* Podświetlanie działek przy najechaniu */
         card.onmouseover = () => highlightOwnerParcels(owner, true);
         card.onmouseout = () => highlightOwnerParcels(owner, false);
     };
 
+    /**
+     * Podświetla działki właściciela na mapie.
+     * @param {Object} owner - Dane właściciela
+     * @param {boolean} highlight - Czy podświetlić
+     */
     const highlightOwnerParcels = (owner, highlight) => {
         if (!geojsonLayer) return;
         
@@ -472,6 +463,9 @@ function setupOwnerPanel() {
         });
     };
 
+    /**
+     * Sortuje i filtruje listę właścicieli.
+     */
     const sortAndFilter = () => {
         let data = [...allOwnersData];
         
@@ -493,6 +487,10 @@ function setupOwnerPanel() {
         render(filtered);
     };
 
+    /**
+     * Obsługuje kliknięcie na właściciela.
+     * @param {string} ownerKey - Klucz właściciela
+     */
     const handleOwnerClick = (ownerKey) => {
         if (!isInCompareMode) {
             window.location.href = `../wlasciciele/protokol.html?ownerId=${ownerKey}`;
@@ -501,6 +499,10 @@ function setupOwnerPanel() {
         }
     };
 
+    /**
+     * Obsługuje tryb porównywania właścicieli.
+     * @param {string} ownerKey - Klucz właściciela
+     */
     const handleCompareMode = (ownerKey) => {
         const card = ownerContainer.querySelector(`[data-owner-key="${ownerKey}"]`);
         
@@ -525,6 +527,9 @@ function setupOwnerPanel() {
         totalOwnersElement.textContent = allOwnersData.length;
     }
 
+    /**
+     * Konfiguruje listenery panelu właścicieli.
+     */
     function setupOwnerPanelEventListeners() {
         if (compareBtn) {
             compareBtn.addEventListener("click", () => {
@@ -544,6 +549,7 @@ function setupOwnerPanel() {
             });
         }
 
+        /* Przyciski sortowania */
         const filterButtons = document.querySelectorAll('.filter-btn');
         filterButtons.forEach(btn => {
             btn.addEventListener("click", () => {
@@ -559,6 +565,7 @@ function setupOwnerPanel() {
             });
         });
         
+        /* Wyszukiwarka */
         if (searchInput) {
             searchInput.addEventListener("input", sortAndFilter);
             
@@ -578,8 +585,12 @@ function setupOwnerPanel() {
     }
 }
 
+/* ==========================================================================
+   PANEL DZIAŁEK
+   ========================================================================== */
+
 /**
- * Konfiguruje panel działek z wyszukiwaniem i filtrowaniem.
+ * Konfiguruje panel działek z wyszukiwaniem, filtrowaniem i zakładkami.
  */
 function setupParcelPanel() {
     const searchInput = document.getElementById("parcelSearch");
@@ -588,6 +599,9 @@ function setupParcelPanel() {
     const tabs = document.querySelectorAll(".tab-btn");
     const categoryFilters = document.getElementById("parcel-category-filters");
 
+    /**
+     * Renderuje listę działek według aktywnych filtrów.
+     */
     const render = () => {
         dzialkiContainer.innerHTML = "";
         obiektyContainer.innerHTML = "";
@@ -614,32 +628,30 @@ function setupParcelPanel() {
             document.querySelectorAll('#parcel-category-filters input:checked')
         ).map(cb => cb.dataset.category);
 
+        /* Kategoryzacja działek */
         filteredList.forEach(p => {
-            const kategoria = p.properties.kategoria; 
-            // Definiujemy, które kategorie trafiają do poszczególnych zakładek
+            const kategoria = p.properties.kategoria;
             const dzialkiCategories = ["budowlana", "rolna", "las", "pastwisko"];
             const infrastrukturaCategories = ["droga", "rzeka"];
             
-            // Obiekty specjalne (dom, kapliczka) są obsługiwane przez renderSpecialObjects(), więc je pomijamy
             if (!dzialkiCategories.includes(kategoria) && !infrastrukturaCategories.includes(kategoria)) {
-                return; // Pomiń obiekty specjalne w tym miejscu
+                return;
             }
             
-            // Logika filtrowania dla zakładki "Działki"
             if (dzialkiCategories.includes(kategoria) && !activeCategories.includes(kategoria)) {
-              return; // Pomiń, jeśli kategoria działki jest odznaczona w filtrach
+              return;
             }
 
             const item = createParcelItem(p);
             
-            // Kategoryzacja do odpowiednich kontenerów
             if (dzialkiCategories.includes(kategoria)) {
               dzialkiContainer.appendChild(item);
-            } else { // W domyśle, jeśli to kategoria infrastruktury
+            } else {
               obiektyContainer.appendChild(item);
             }
         });
 
+        /* Podświetlanie dokładnych dopasowań */
         if (searchTerm.length > 0) {
             const exactMatches = sortedParcels.filter(
                 p => p.properties.numer_obiektu.toLowerCase() === searchTerm
@@ -653,6 +665,11 @@ function setupParcelPanel() {
         }
     };
 
+    /**
+     * Tworzy element działki.
+     * @param {Object} parcel - Dane działki
+     * @returns {HTMLElement} Element działki
+     */
     const createParcelItem = (parcel) => {
         const item = document.createElement("div");
         item.className = "parcel-item";
@@ -666,10 +683,12 @@ function setupParcelPanel() {
         return item;
     };
 
+    /* Konfiguracja listenerów */
     if (searchInput) {
         searchInput.addEventListener("input", render);
     }
     
+    /* Obsługa zakładek */
     tabs.forEach(tab => {
         tab.addEventListener("click", () => {
             tabs.forEach(t => t.classList.remove("active"));
@@ -688,6 +707,7 @@ function setupParcelPanel() {
         });
     });
     
+    /* Filtry kategorii */
     if (categoryFilters) {
         categoryFilters.querySelectorAll('input').forEach(checkbox => {
             checkbox.addEventListener('change', render);
@@ -701,7 +721,7 @@ function setupParcelPanel() {
 }
 
 /**
- * Renderuje sekcję obiektów specjalnych.
+ * Renderuje sekcję obiektów specjalnych (kapliczki, domy, inne).
  */
 function renderSpecialObjects() {
     const specialTab = document.getElementById('special-tab');
@@ -711,12 +731,14 @@ function renderSpecialObjects() {
     
     specialContainer.innerHTML = '';
     
+    /* Kategorie obiektów specjalnych */
     const specialCategories = {
         'kapliczka': { icon: '⛪', label: 'Kapliczki', items: [] },
         'budynek': { icon: '🏠', label: 'Domy', items: [] },
         'obiekt_specjalny': { icon: '⭐', label: 'Obiekty specjalne', items: [] }
     };
     
+    /* Grupowanie obiektów */
     allParcelsData.forEach(feature => {
         const kategoria = feature.properties.kategoria;
         if (specialCategories[kategoria]) {
@@ -724,6 +746,7 @@ function renderSpecialObjects() {
         }
     });
     
+    /* Renderowanie sekcji */
     Object.entries(specialCategories).forEach(([key, category]) => {
         if (category.items.length === 0) return;
         
@@ -732,8 +755,12 @@ function renderSpecialObjects() {
     });
 }
 
+/* ==========================================================================
+   LEGENDA MAPY
+   ========================================================================== */
+
 /**
- * Konfiguruje legendę mapy z możliwością włączania/wyłączania kategorii.
+ * Konfiguruje legendę z możliwością przełączania widoczności warstw.
  */
 function setupLegend() {
     const legendEl = document.getElementById("legend");
@@ -748,6 +775,7 @@ function setupLegend() {
 
     setupLegendToggle(legendHeader, legendContent, legendToggle);
 
+    /* Style kategorii */
     const STYLES = {
         budowlana: { color: "#e67e22" },
         rolna: { color: "#27ae60" },
@@ -760,6 +788,7 @@ function setupLegend() {
         obiekt_specjalny: { color: "#2c3e50" },
     };
 
+    /* Etykiety kategorii */
     const legendItems = {
         budowlana: "Działka Budowlana",
         rolna: "Działka Rolna",
@@ -772,6 +801,7 @@ function setupLegend() {
         obiekt_specjalny: "Obiekt Specjalny",
     };
 
+    /* Renderowanie elementów legendy */
     legendContainer.innerHTML = "";
     Object.entries(legendItems).forEach(([kategoria, label]) => {
         const legendItem = createLegendItem(kategoria, label, STYLES[kategoria]);
@@ -779,17 +809,21 @@ function setupLegend() {
     });
 }
 
-// === 6. OBSŁUGA ZDARZEŃ (EVENT LISTENERS) ===
+/* ==========================================================================
+   OBSŁUGA INTERFEJSU UŻYTKOWNIKA
+   ========================================================================== */
 
 /**
- * Konfiguruje przełączanie paneli bocznych (zwijanie/rozwijanie).
- * Używa klas CSS do zarządzania widocznością uchwytów.
+ * Konfiguruje przełączanie paneli bocznych.
  */
 function setupPanelToggles() {
     const toggleButtons = document.querySelectorAll('.panel-toggle');
     const expandHandles = document.querySelectorAll('.panel-expand-handle');
     const mapWrapper = document.getElementById('map-wrapper');
 
+    /**
+     * Aktualizuje stan mapy po zmianie paneli.
+     */
     const updateMapState = () => {
         const leftPanel = document.getElementById('owners-panel');
         const rightPanel = document.getElementById('parcels-panel');
@@ -810,6 +844,7 @@ function setupPanelToggles() {
         setTimeout(() => map.invalidateSize(), 350);
     };
 
+    /* Przyciski zwijania */
     toggleButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const panelType = btn.dataset.panel;
@@ -818,7 +853,7 @@ function setupPanelToggles() {
 
             panel.classList.add('collapsed');
             if (handle) {
-                handle.classList.add('handle-visible'); // Używamy klasy zamiast stylu
+                handle.classList.add('handle-visible');
             }
 
             const icon = btn.querySelector('i');
@@ -828,13 +863,14 @@ function setupPanelToggles() {
         });
     });
 
+    /* Uchwyty rozwijania */
     expandHandles.forEach(handle => {
         handle.addEventListener('click', () => {
             const panelType = handle.dataset.panel;
             const panel = document.getElementById(panelType === 'owners' ? 'owners-panel' : 'parcels-panel');
 
             panel.classList.remove('collapsed');
-            handle.classList.remove('handle-visible'); // Używamy klasy zamiast stylu
+            handle.classList.remove('handle-visible');
 
             const toggleBtn = panel.querySelector('.panel-toggle');
             if (toggleBtn) {
@@ -848,7 +884,7 @@ function setupPanelToggles() {
 }
 
 /**
- * Konfiguruje akcje toolbara i ustawienia aplikacji.
+ * Konfiguruje akcje paska narzędzi.
  */
 function setupToolbarActions() {
     const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -877,6 +913,10 @@ function setupUniversalSearch() {
     const searchInput = document.getElementById('universal-search');
     const resultsContainer = document.getElementById('universal-search-results');
 
+    /**
+     * Renderuje wyniki wyszukiwania.
+     * @param {Array} results - Wyniki wyszukiwania
+     */
     const renderResults = (results) => {
         resultsContainer.innerHTML = '';
         
@@ -893,28 +933,29 @@ function setupUniversalSearch() {
         resultsContainer.style.display = 'block';
     };
 
+    /**
+     * Tworzy element wyniku wyszukiwania.
+     * @param {Object} item - Wynik wyszukiwania
+     * @returns {HTMLElement} Element wyniku
+     */
     const createSearchResultItem = (item) => {
         const itemEl = document.createElement('div');
         itemEl.className = 'search-result-item';
         itemEl.dataset.id = item.id;
         itemEl.dataset.type = item.type;
 
-        // ZMIANA: Zaczynamy od pustego HTML dla ikony
-        let iconHtml = ''; 
+        let iconHtml = '';
         let text, meta;
 
         if (item.type === 'owner') {
             text = item.name;
             meta = `Właściciel (Lp. ${item.lp})`;
-            // Dla właściciela nie dodajemy ikony, więc iconHtml pozostaje puste
         } else {
-            // Ikonę dodajemy tylko dla działek
             iconHtml = '<i class="result-icon fas fa-map-marker-alt"></i>';
             text = `Działka nr ${item.number}`;
             meta = item.category;
         }
 
-        // ZMIANA: Wstawiamy zmienną iconHtml, która będzie pusta dla właścicieli
         itemEl.innerHTML = `
             ${iconHtml}
             <span class="result-text">${text}</span>
@@ -924,6 +965,11 @@ function setupUniversalSearch() {
         return itemEl;
     };
 
+    /**
+     * Wykonuje wyszukiwanie w danych.
+     * @param {string} term - Fraza wyszukiwania
+     * @returns {Array} Wyniki wyszukiwania
+     */
     const performSearch = (term) => {
         const ownerResults = allOwnersData
             .filter(owner => 
@@ -949,6 +995,7 @@ function setupUniversalSearch() {
         return [...ownerResults, ...parcelResults].slice(0, 10);
     };
 
+    /* Listenery */
     searchInput.addEventListener('input', () => {
         const term = searchInput.value.toLowerCase().trim();
 
@@ -977,6 +1024,7 @@ function setupUniversalSearch() {
         resultsContainer.style.display = 'none';
     });
 
+    /* Zamykanie przy kliknięciu poza */
     document.addEventListener('click', e => {
         if (!resultsContainer.contains(e.target) && e.target !== searchInput) {
             resultsContainer.style.display = 'none';
@@ -984,22 +1032,28 @@ function setupUniversalSearch() {
     });
 }
 
+/* ==========================================================================
+   OBSŁUGA ZDARZEŃ MAPY
+   ========================================================================== */
+
 /**
- * Obsługuje najechanie myszą na obiekt na mapie.
- * @param {Event} e - Zdarzenie mouseover.
- * @param {Object} feature - Obiekt GeoJSON.
+ * Obsługuje najechanie kursorem na obiekt mapy.
+ * @param {Event} e - Zdarzenie najechania
+ * @param {Object} feature - Obiekt GeoJSON
  */
 function handleFeatureMouseover(e, feature) {
     if (e.target.setStyle) {
         e.target.setStyle({ weight: 5, color: "red" });
     }
 
+    /* Podświetlenie w panelu działek */
     const parcelButton = document.querySelector(`.parcelButton[data-feature-id="${feature.id}"]`);
     if (parcelButton) {
         parcelButton.classList.add("highlighted-by-map");
         checkElementVisibility(parcelButton);
     }
 
+    /* Podświetlenie właścicieli */
     const props = feature.properties;
     const realOwners = (props.wlasciciele || []).filter(owner => {
         const ownerData = allOwnersData.find(o => o.id === owner.id);
@@ -1017,8 +1071,8 @@ function handleFeatureMouseover(e, feature) {
 }
 
 /**
- * Obsługuje zjechanie myszą z obiektu na mapie.
- * @param {Event} e - Zdarzenie mouseout.
+ * Obsługuje zjechanie kursorem z obiektu mapy.
+ * @param {Event} e - Zdarzenie zjechania
  */
 function handleFeatureMouseout(e) {
     geojsonLayer.resetStyle(e.target);
@@ -1038,8 +1092,8 @@ function handleFeatureMouseout(e) {
 }
 
 /**
- * Konfiguruje interakcje dla kontenera działek.
- * @param {HTMLElement} container - Kontener z listą działek.
+ * Konfiguruje interakcje panelu działek.
+ * @param {HTMLElement} container - Kontener działek
  */
 function setupParcelInteractions(container) {
     if (!container) return;
@@ -1077,18 +1131,20 @@ function setupParcelInteractions(container) {
     });
 }
 
-// Przycisk czyszczenia podświetlenia
+/* Przycisk czyszczenia podświetleń */
 const clearHighlightBtn = document.getElementById("clearHighlightBtn");
 if (clearHighlightBtn) {
     clearHighlightBtn.addEventListener("click", clearAllHighlights);
 }
 
-// === 7. FUNKCJE PODŚWIETLANIA I WYRÓŻNIANIA ===
+/* ==========================================================================
+   FUNKCJE PODŚWIETLANIA
+   ========================================================================== */
 
 /**
  * Podświetla obiekty na mapie według ID.
- * @param {number[]} featureIds - Tablica ID obiektów.
- * @param {string} color - Kolor podświetlenia.
+ * @param {Array} featureIds - Tablica ID obiektów
+ * @param {string} color - Kolor podświetlenia
  */
 function highlightFeaturesByIds(featureIds, color) {
     if (highlightedLayer) {
@@ -1104,6 +1160,7 @@ function highlightFeaturesByIds(featureIds, color) {
         fillOpacity: 0.5,
     };
 
+    /* Tworzenie warstw podświetleń */
     geojsonLayer.eachLayer(layer => {
         if (featureIds.includes(layer.feature.id)) {
             let clonedLayer;
@@ -1132,9 +1189,9 @@ function highlightFeaturesByIds(featureIds, color) {
 }
 
 /**
- * Podświetla działki należące do właścicieli z unikalnym kolorowaniem.
- * @param {string[]} uniqueOwnerKeys - Klucze właścicieli.
- * @param {string} ownershipType - Typ własności ('wszystkie', 'rzeczywista', 'protokol').
+ * Podświetla działki właścicieli z kolorowaniem.
+ * @param {Array} uniqueOwnerKeys - Klucze właścicieli
+ * @param {string} ownershipType - Typ własności
  */
 function highlightAndColorOwners(uniqueOwnerKeys, ownershipType = 'wszystkie') {
     if (ownerHighlightLayer) {
@@ -1182,6 +1239,7 @@ function clearAllHighlights() {
         geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
     }
 
+    /* Czyszczenie parametrów URL */
     const url = new URL(window.location);
     url.searchParams.delete("parcels");
     url.searchParams.delete("highlightTopOwners");
@@ -1191,16 +1249,19 @@ function clearAllHighlights() {
     document.getElementById('selected-count').textContent = 0;
 }
 
-// === 8. FUNKCJE OBSŁUGI PARAMETRÓW URL ===
+/* ==========================================================================
+   OBSŁUGA PARAMETRÓW URL
+   ========================================================================== */
 
 /**
- * Przetwarza parametry z URL i wykonuje odpowiednie akcje.
+ * Przetwarza parametry URL i wykonuje odpowiednie akcje.
  */
 function handleUrlParameters() {
     const params = new URLSearchParams(window.location.search);
     const idsToHighlight = new Set();
     let popupInfo = null;
 
+    /* Parametr highlightByIds */
     const idsParam = params.get("highlightByIds");
     if (idsParam) {
         idsParam.split(',')
@@ -1209,6 +1270,7 @@ function handleUrlParameters() {
             .forEach(id => idsToHighlight.add(id));
     }
 
+    /* Parametr highlightTopOwners */
     const ownersParam = params.get("highlightTopOwners");
     if (ownersParam) {
         const ownershipType = params.get("ownership") || "wszystkie";
@@ -1221,6 +1283,7 @@ function handleUrlParameters() {
         }
     }
     
+    /* Parametr findHouseNumber */
     const houseNumberParam = params.get("findHouseNumber");
     if (houseNumberParam) {
         const ownerName = params.get("ownerName") || '';
@@ -1241,6 +1304,7 @@ function handleUrlParameters() {
         }
     }
 
+    /* Zastosowanie podświetleń */
     if (idsToHighlight.size > 0) {
         highlightFeaturesByIds(Array.from(idsToHighlight), 'fuchsia');
     }
@@ -1264,6 +1328,7 @@ async function handleShowHouseByOwnerKeyFromURL() {
     
     if (!ownerKey || showWhat !== 'house') return;
 
+    /* Pobieranie danych właściciela */
     let ownerData = null;
     try {
         const resp = await fetch(`/api/wlasciciel/${encodeURIComponent(ownerKey)}`);
@@ -1276,6 +1341,7 @@ async function handleShowHouseByOwnerKeyFromURL() {
     
     if (!ownerData) return;
 
+    /* Oczekiwanie na gotowość warstw */
     try { 
         await whenGeoJSONIsReady(); 
     } catch (_) {}
@@ -1290,9 +1356,11 @@ async function handleShowHouseByOwnerKeyFromURL() {
             <span>Właściciel: ${ownerName}</span>
         </div>`;
 
+    /* Próba znalezienia domu */
     if (objectId && focusFeatureById(objectId, popupHtml)) return;
     if (houseNo && focusHouseByNumberAndOwner(houseNo, ownerData.id, ownerName)) return;
     
+    /* Fallback - szukanie po numerze */
     if (houseNo) {
         let candidateId = null;
         map.eachLayer(l => {
@@ -1309,13 +1377,15 @@ async function handleShowHouseByOwnerKeyFromURL() {
     }
 }
 
-// === 9. FUNKCJE POMOCNICZE ===
+/* ==========================================================================
+   FUNKCJE POMOCNICZE
+   ========================================================================== */
 
 /**
- * Czeka aż warstwy GeoJSON będą gotowe na mapie.
- * @param {number} maxTries - Maksymalna liczba prób.
- * @param {number} delayMs - Opóźnienie między próbami.
- * @returns {Promise}
+ * Czeka na gotowość warstw GeoJSON.
+ * @param {number} maxTries - Maksymalna liczba prób
+ * @param {number} delayMs - Opóźnienie między próbami
+ * @returns {Promise} Promise rozwiązywany gdy warstwy są gotowe
  */
 function whenGeoJSONIsReady(maxTries = 30, delayMs = 150) {
     return new Promise((resolve, reject) => {
@@ -1335,10 +1405,10 @@ function whenGeoJSONIsReady(maxTries = 30, delayMs = 150) {
 }
 
 /**
- * Znajduje i podświetla obiekt według ID.
- * @param {string|number} objectId - ID obiektu.
- * @param {string} popupHtml - HTML dla popup.
- * @returns {boolean} Czy znaleziono obiekt.
+ * Znajduje i fokusuje obiekt według ID.
+ * @param {string|number} objectId - ID obiektu
+ * @param {string} popupHtml - HTML dla popup
+ * @returns {boolean} Czy znaleziono obiekt
  */
 function focusFeatureById(objectId, popupHtml) {
     let found = false;
@@ -1350,12 +1420,14 @@ function focusFeatureById(objectId, popupHtml) {
             found = true;
             
             try {
+                /* Ustawienie widoku */
                 if (layer.getBounds) {
                     map.fitBounds(layer.getBounds(), { maxZoom: 19, padding: [20, 20] });
                 } else if (layer.getLatLng) {
                     map.setView(layer.getLatLng(), 19);
                 }
                 
+                /* Stylizacja */
                 if (layer.setStyle && layer.feature.geometry?.type !== 'Point') {
                     layer.setStyle({ 
                         color: 'fuchsia', 
@@ -1366,6 +1438,7 @@ function focusFeatureById(objectId, popupHtml) {
                     if (layer.bringToFront) layer.bringToFront();
                 }
                 
+                /* Popup */
                 if (popupHtml) {
                     layer.bindPopup(popupHtml, { maxWidth: 320 }).openPopup();
                 }
@@ -1380,10 +1453,10 @@ function focusFeatureById(objectId, popupHtml) {
 
 /**
  * Znajduje dom według numeru i właściciela.
- * @param {string} houseNumber - Numer domu.
- * @param {string} ownerId - ID właściciela.
- * @param {string} ownerName - Nazwa właściciela.
- * @returns {boolean} Czy znaleziono dom.
+ * @param {string} houseNumber - Numer domu
+ * @param {string|number} ownerId - ID właściciela
+ * @param {string} ownerName - Nazwa właściciela
+ * @returns {boolean} Czy znaleziono dom
  */
 function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
     let match = null;
@@ -1417,8 +1490,8 @@ function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
 
 /**
  * Znajduje obiekt domu według numeru.
- * @param {string} houseNumber - Numer domu.
- * @returns {Object|null} Obiekt GeoJSON lub null.
+ * @param {string} houseNumber - Numer domu
+ * @returns {Object|null} Obiekt domu lub null
  */
 function findHouseFeature(houseNumber) {
     const searchNumber = String(houseNumber).trim().toLowerCase();
@@ -1438,8 +1511,8 @@ function findHouseFeature(houseNumber) {
 
 /**
  * Oblicza środek geometrii obiektu.
- * @param {Object} feature - Obiekt GeoJSON.
- * @returns {L.LatLng} Współrzędne środka.
+ * @param {Object} feature - Obiekt GeoJSON
+ * @returns {L.LatLng} Środek geometrii
  */
 function getCenterOfFeature(feature) {
     const layer = findLayerById(feature.id);
@@ -1457,8 +1530,8 @@ function getCenterOfFeature(feature) {
 
 /**
  * Znajduje warstwę według ID.
- * @param {number} featureId - ID obiektu.
- * @returns {L.Layer|null} Warstwa lub null.
+ * @param {number} featureId - ID obiektu
+ * @returns {L.Layer|null} Warstwa lub null
  */
 function findLayerById(featureId) {
     let foundLayer = null;
@@ -1476,8 +1549,8 @@ function findLayerById(featureId) {
 
 /**
  * Oblicza środek warstwy.
- * @param {L.Layer} layer - Warstwa Leaflet.
- * @returns {L.LatLng} Współrzędne środka.
+ * @param {L.Layer} layer - Warstwa Leaflet
+ * @returns {L.LatLng} Środek warstwy
  */
 function getCenterOfLayer(layer) {
     if (layer.getBounds) return layer.getBounds().getCenter();
@@ -1486,8 +1559,8 @@ function getCenterOfLayer(layer) {
 }
 
 /**
- * Ustawia widok na warstwę.
- * @param {L.Layer} layer - Warstwa do wyświetlenia.
+ * Ustawia widok mapy na warstwę.
+ * @param {L.Layer} layer - Warstwa do wycentrowania
  */
 function focusOnLayer(layer) {
     if (!layer) return;
@@ -1500,10 +1573,10 @@ function focusOnLayer(layer) {
 }
 
 /**
- * Podświetla lub usuwa podświetlenie warstwy.
- * @param {number} featureId - ID obiektu.
- * @param {boolean} shouldHighlight - Czy podświetlić.
- * @param {string} highlightColor - Kolor podświetlenia.
+ * Podświetla lub resetuje styl warstwy.
+ * @param {number} featureId - ID obiektu
+ * @param {boolean} shouldHighlight - Czy podświetlić
+ * @param {string} highlightColor - Kolor podświetlenia
  */
 function findAndHighlightLayer(featureId, shouldHighlight, highlightColor = "lime") {
     if (document.getElementById("parcelSearch").value.length > 0 && highlightColor === "lime") {
@@ -1522,9 +1595,9 @@ function findAndHighlightLayer(featureId, shouldHighlight, highlightColor = "lim
 }
 
 /**
- * Obsługuje kliknięcie na obiekt - pokazuje właścicieli.
- * @param {Array} wlasciciele - Lista właścicieli.
- * @param {L.LatLng|L.Layer} latlngOrLayer - Współrzędne lub warstwa.
+ * Obsługuje kliknięcie na obiekt mapy.
+ * @param {Array} wlasciciele - Lista właścicieli obiektu
+ * @param {L.LatLng|L.Layer} latlngOrLayer - Pozycja lub warstwa
  */
 function handleObjectClick(wlasciciele, latlngOrLayer) {
     if (!wlasciciele || wlasciciele.length === 0) {
@@ -1547,9 +1620,9 @@ function handleObjectClick(wlasciciele, latlngOrLayer) {
 }
 
 /**
- * Wyświetla popup z listą właścicieli do wyboru.
- * @param {Array} wlasciciele - Lista właścicieli.
- * @param {L.LatLng} latlng - Współrzędne popup.
+ * Wyświetla popup wyboru właściciela.
+ * @param {Array} wlasciciele - Lista właścicieli
+ * @param {L.LatLng} latlng - Pozycja popup
  */
 function showOwnerSelectionPopup(wlasciciele, latlng) {
     let listaHtml = "<h3>Ta działka ma wielu właścicieli.<br>Wybierz protokół:</h3><ul>";
@@ -1569,6 +1642,7 @@ function showOwnerSelectionPopup(wlasciciele, latlng) {
 
     const popup = L.popup().setLatLng(latlng).setContent(listaHtml).openOn(map);
 
+    /* Obsługa kliknięć na linki */
     popup.on("contentupdate", () => {
         const links = popup.getElement().querySelectorAll(".protocol-link-in-popup");
         links.forEach(link => {
@@ -1586,8 +1660,8 @@ function showOwnerSelectionPopup(wlasciciele, latlng) {
 }
 
 /**
- * Sprawdza widoczność elementu w kontenerze i dodaje wskaźniki.
- * @param {HTMLElement} element - Element do sprawdzenia.
+ * Sprawdza widoczność elementu w kontenerze.
+ * @param {HTMLElement} element - Element do sprawdzenia
  */
 function checkElementVisibility(element) {
     const container = element.closest('.tab-content-right');
@@ -1612,9 +1686,9 @@ function checkElementVisibility(element) {
 }
 
 /**
- * Tworzy sekcję dla kategorii obiektów specjalnych.
- * @param {Object} category - Dane kategorii.
- * @returns {HTMLElement} Element sekcji.
+ * Tworzy sekcję kategorii specjalnej.
+ * @param {Object} category - Dane kategorii
+ * @returns {HTMLElement} Element sekcji
  */
 function createSpecialCategorySection(category) {
     const section = document.createElement('div');
@@ -1629,6 +1703,7 @@ function createSpecialCategorySection(category) {
     
     const itemsList = section.querySelector('.special-items-list');
     
+    /* Sortowanie po numerze */
     category.items.sort((a, b) => {
         const numA = parseInt(a.properties.numer_obiektu) || 0;
         const numB = parseInt(b.properties.numer_obiektu) || 0;
@@ -1645,9 +1720,9 @@ function createSpecialCategorySection(category) {
 
 /**
  * Tworzy element obiektu specjalnego.
- * @param {Object} item - Dane obiektu.
- * @param {string} icon - Ikona kategorii.
- * @returns {HTMLElement} Element obiektu.
+ * @param {Object} item - Dane obiektu
+ * @param {string} icon - Ikona obiektu
+ * @returns {HTMLElement} Element obiektu
  */
 function createSpecialObjectItem(item, icon) {
     const itemEl = document.createElement('div');
@@ -1665,6 +1740,7 @@ function createSpecialObjectItem(item, icon) {
         <div class="special-item-owners">${ownerNames}</div>
     `;
     
+    /* Zdarzenia */
     itemEl.addEventListener('click', () => {
         const layer = findLayerById(item.id);
         if (layer) {
@@ -1685,7 +1761,10 @@ function createSpecialObjectItem(item, icon) {
 }
 
 /**
- * Konfiguruje zwijanie/rozwijanie legendy.
+ * Konfiguruje zwijanie legendy.
+ * @param {HTMLElement} header - Nagłówek legendy
+ * @param {HTMLElement} content - Zawartość legendy
+ * @param {HTMLElement} toggle - Przycisk zwijania
  */
 function setupLegendToggle(header, content, toggle) {
     let isCollapsed = false;
@@ -1707,10 +1786,10 @@ function setupLegendToggle(header, content, toggle) {
 
 /**
  * Tworzy element legendy.
- * @param {string} kategoria - Kategoria obiektu.
- * @param {string} label - Etykieta tekstowa.
- * @param {Object} style - Styl obiektu.
- * @returns {HTMLElement} Element legendy.
+ * @param {string} kategoria - Kategoria obiektu
+ * @param {string} label - Etykieta w legendzie
+ * @param {Object} style - Style wizualne
+ * @returns {HTMLElement} Element legendy
  */
 function createLegendItem(kategoria, label, style) {
     const li = document.createElement("li");
@@ -1736,6 +1815,7 @@ function createLegendItem(kategoria, label, style) {
     li.appendChild(colorBox);
     li.appendChild(labelEl);
 
+    /* Obsługa przełączania warstw */
     checkbox.addEventListener("change", () => {
         const layers = layersByCategory[kategoria];
         
@@ -1755,9 +1835,9 @@ function createLegendItem(kategoria, label, style) {
 
 /**
  * Przypisuje kolory do właścicieli.
- * @param {string[]} ownerKeys - Klucze właścicieli.
- * @param {string} ownershipType - Typ własności.
- * @returns {Object} Mapa kolorów.
+ * @param {Array} ownerKeys - Klucze właścicieli
+ * @param {string} ownershipType - Typ własności
+ * @returns {Object} Mapa kolorów właścicieli
  */
 function assignColorsToOwners(ownerKeys, ownershipType) {
     const colorMap = {};
@@ -1781,6 +1861,9 @@ function assignColorsToOwners(ownerKeys, ownershipType) {
 
 /**
  * Przetwarza warstwę dla podświetlenia właściciela.
+ * @param {L.Layer} layer - Warstwa do przetworzenia
+ * @param {Object} ownerColorMap - Mapa kolorów właścicieli
+ * @param {string} ownershipType - Typ własności
  */
 function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     const parcelOwners = layer.feature.properties.wlasciciele;
@@ -1792,6 +1875,7 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     const ownerKey = matchedOwner.unikalny_klucz;
     const isReal = matchedOwner.typ_posiadania === "własność rzeczywista";
 
+    /* Filtrowanie według typu własności */
     if ((ownershipType === "rzeczywista" && !isReal) || 
         (ownershipType === "protokol" && isReal)) {
         return;
@@ -1801,6 +1885,7 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
         ? (isReal ? ownerColorMap[ownerKey].rzeczywista : ownerColorMap[ownerKey].protokol)
         : ownerColorMap[ownerKey];
         
+    /* Tworzenie sklonowanej warstwy */
     let clonedLayer;
     if (layer instanceof L.Polygon) {
         clonedLayer = L.polygon(layer.getLatLngs(), { 
@@ -1830,7 +1915,10 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
 }
 
 /**
- * Tworzy legendę dla podświetlonych właścicieli.
+ * Tworzy legendę podświetlonych właścicieli.
+ * @param {Array} ownerKeys - Klucze właścicieli
+ * @param {Object} colorMap - Mapa kolorów
+ * @param {HTMLElement} legendElement - Element legendy
  */
 function createOwnerHighlightLegend(ownerKeys, colorMap, legendElement) {
     const legendList = legendElement.querySelector("ul");
@@ -1863,8 +1951,13 @@ function createOwnerHighlightLegend(ownerKeys, colorMap, legendElement) {
     legendElement.classList.remove("hidden");
 }
 
+/* ==========================================================================
+   FUNKCJE INTERFEJSU UŻYTKOWNIKA
+   ========================================================================== */
+
 /**
- * Konfiguruje funkcjonalność pełnego ekranu.
+ * Konfiguruje tryb pełnoekranowy.
+ * @param {HTMLElement} btn - Przycisk pełnego ekranu
  */
 function setupFullscreen(btn) {
     btn.addEventListener('click', () => {
@@ -1881,7 +1974,11 @@ function setupFullscreen(btn) {
 }
 
 /**
- * Konfiguruje okna modalne.
+ * Konfiguruje modale pomocy i ustawień.
+ * @param {HTMLElement} helpBtn - Przycisk pomocy
+ * @param {HTMLElement} settingsBtn - Przycisk ustawień
+ * @param {HTMLElement} helpModal - Modal pomocy
+ * @param {HTMLElement} settingsModal - Modal ustawień
  */
 function setupModals(helpBtn, settingsBtn, helpModal, settingsModal) {
     const openModal = modal => modal.style.display = 'flex';
@@ -1899,20 +1996,18 @@ function setupModals(helpBtn, settingsBtn, helpModal, settingsModal) {
 }
 
 /**
- * Konfiguruje przełącznik motywu.
+ * Konfiguruje przełącznik motywu jasnego/ciemnego.
+ * @param {HTMLElement} toggle - Przełącznik motywu
  */
 function setupTheme(toggle) {
-    // Funkcja do zastosowania motywu na stronie
     const applyTheme = (theme) => {
         document.body.classList.toggle('dark-mode', theme === 'dark');
         toggle.checked = (theme === 'dark');
     };
 
-    // Odczytanie zapisanego motywu i jego zastosowanie
     const savedTheme = localStorage.getItem('mapTheme') || 'light';
     applyTheme(savedTheme);
 
-    // Listener do zmiany motywu przez użytkownika
     toggle.addEventListener('change', () => {
         const newTheme = toggle.checked ? 'dark' : 'light';
         localStorage.setItem('mapTheme', newTheme);
@@ -1921,18 +2016,19 @@ function setupTheme(toggle) {
 }
 
 /**
- * Resetuje widok aplikacji.
+ * Resetuje widok aplikacji do stanu początkowego.
  */
 function resetView() {
+    /* Zwijanie paneli */
     document.getElementById('owners-panel').classList.add('collapsed');
     document.getElementById('parcels-panel').classList.add('collapsed');
     
-    // Używamy klas do pokazania uchwytów, spójnie z nową logiką
     document.querySelector('.panel-expand-handle.left-handle').classList.add('handle-visible');
     document.querySelector('.panel-expand-handle.right-handle').classList.add('handle-visible');
 
     clearAllHighlights();
     
+    /* Reset widoku mapy */
     if (geojsonLayer && geojsonLayer.getLayers().length > 0) {
         map.fitBounds(geojsonLayer.getBounds());
     }
@@ -1944,7 +2040,9 @@ function resetView() {
 }
 
 /**
- * Konfiguruje skróty klawiszowe.
+ * Konfiguruje skróty klawiszowe aplikacji.
+ * @param {HTMLElement} helpModal - Modal pomocy
+ * @param {HTMLElement} settingsModal - Modal ustawień
  */
 function setupKeyboardShortcuts(helpModal, settingsModal) {
     document.addEventListener('keydown', event => {
@@ -1954,11 +2052,13 @@ function setupKeyboardShortcuts(helpModal, settingsModal) {
             if (event.key !== 'Escape') return;
         }
 
+        /* Ctrl+F - wyszukiwanie */
         if (event.ctrlKey && event.key === 'f') {
             event.preventDefault();
             document.getElementById('universal-search').focus();
         }
 
+        /* +/- - zoom */
         if (event.key === '+') {
             event.preventDefault();
             map.zoomIn();
@@ -1969,6 +2069,7 @@ function setupKeyboardShortcuts(helpModal, settingsModal) {
             map.zoomOut();
         }
         
+        /* Escape - zamykanie */
         if (event.key === 'Escape') {
             event.preventDefault();
             
@@ -1987,8 +2088,8 @@ function setupKeyboardShortcuts(helpModal, settingsModal) {
 }
 
 /**
- * Obsługuje kliknięcie na wynik wyszukiwania właściciela.
- * @param {string} ownerKey - Klucz właściciela.
+ * Obsługuje wynik wyszukiwania właściciela.
+ * @param {string} ownerKey - Klucz właściciela
  */
 function handleOwnerSearchResult(ownerKey) {
     const ownerCard = document.querySelector(`.owner-card[data-owner-key="${ownerKey}"]`);
@@ -2003,8 +2104,8 @@ function handleOwnerSearchResult(ownerKey) {
 }
 
 /**
- * Obsługuje kliknięcie na wynik wyszukiwania działki.
- * @param {number} parcelId - ID działki.
+ * Obsługuje wynik wyszukiwania działki.
+ * @param {number} parcelId - ID działki
  */
 function handleParcelSearchResult(parcelId) {
     const layer = findLayerById(parcelId);
