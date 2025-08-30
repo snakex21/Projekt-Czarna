@@ -1,31 +1,31 @@
 /* ==========================================================================
    Plik: protokol_styles.css
-   Opis: Arkusz stylów dla strony protokołu - spójny z aplikacją mapy.
-        Zawiera style dla wyświetlania, drukowania i eksportu do PDF.
+   Opis: Arkusz stylów dla strony protokołu katastralnego. Zapewnia spójność
+         z aplikacją mapy oraz obsługę drukowania i eksportu do PDF.
    ========================================================================== */
 
 /* ==========================================================================
-   1. Reset i zmienne
+   RESET I ZMIENNE GLOBALNE
    ========================================================================== */
 :root {
-    /* Kolory główne - spójne z mapą */
+    /* Kolory główne - spójne z aplikacją mapy */
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --primary-color: #667eea;
     --primary-dark: #5a67d8;
     --secondary-color: #764ba2;
     
-    /* Kolory tła */
+    /* Paleta tła */
     --bg-main: #f4f7f6;
     --bg-card: white;
     --bg-hover: #f7fafc;
     
-    /* Kolory tekstu */
+    /* Paleta tekstu */
     --text-primary: #2d3748;
     --text-secondary: #718096;
     --text-light: #a0aec0;
     --text-on-primary: white;
     
-    /* Inne */
+    /* Elementy UI */
     --border-color: #e2e8f0;
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
@@ -49,10 +49,10 @@ body {
 }
 
 /* ==========================================================================
-   2. Layout główny
+   LAYOUT GŁÓWNY
    ========================================================================== */
 
-/* Gradient tła jak w mapie */
+/* Gradient tła - identyczny jak w aplikacji mapy */
 .background-gradient {
     position: fixed;
     top: 0;
@@ -71,7 +71,7 @@ body {
 }
 
 /* ==========================================================================
-   3. Nagłówek aplikacji
+   NAGŁÓWEK APLIKACJI
    ========================================================================== */
 .top-header {
     background: var(--bg-card);
@@ -151,7 +151,7 @@ body {
 }
 
 /* ==========================================================================
-   4. Główna zawartość
+   GŁÓWNA ZAWARTOŚĆ
    ========================================================================== */
 .main-content {
     flex: 1;
@@ -161,7 +161,7 @@ body {
     padding: 2rem;
 }
 
-/* Sekcja tytułu protokołu */
+/* Sekcja tytułowa protokołu */
 .protocol-title-section {
     background: var(--bg-card);
     border-radius: var(--radius);
@@ -202,7 +202,7 @@ body {
 }
 
 /* ==========================================================================
-   5. Karty zawartości
+   KARTY ZAWARTOŚCI
    ========================================================================== */
 .content-container {
     display: flex;
@@ -250,7 +250,7 @@ body {
 }
 
 /* ==========================================================================
-   6. Sekcja właściciela
+   SEKCJA WŁAŚCICIELA
    ========================================================================== */
 .owner-info {
     display: flex;
@@ -279,7 +279,7 @@ body {
 }
 
 /* ==========================================================================
-   7. Przełącznik widoków
+   PRZEŁĄCZNIK WIDOKÓW DZIAŁEK
    ========================================================================== */
 .view-switcher {
     display: flex;
@@ -325,7 +325,7 @@ body {
 }
 
 /* ==========================================================================
-   8. Sekcja działek
+   SEKCJA DZIAŁEK
    ========================================================================== */
 .plots-summary {
     padding: 1rem;
@@ -378,7 +378,7 @@ body {
 }
 
 /* ==========================================================================
-   9. Przyciski akcji
+   PRZYCISKI AKCJI
    ========================================================================== */
 .action-btn {
     padding: 0.75rem 1.5rem;
@@ -400,7 +400,7 @@ body {
     box-shadow: var(--shadow-md);
 }
 
-/* Warianty kolorystyczne */
+/* Warianty kolorystyczne przycisków */
 .map-btn {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;
@@ -434,7 +434,7 @@ body {
 }
 
 /* ==========================================================================
-   10. Zawartość informacyjna
+   ZAWARTOŚĆ INFORMACYJNA
    ========================================================================== */
 .info-content {
     white-space: pre-wrap;
@@ -459,9 +459,10 @@ body {
 }
 
 /* ==========================================================================
-   11. Ułamki i liczby
+   FORMATOWANIE UŁAMKÓW I LICZB
    ========================================================================== */
-/* --- Domyślne style dla ułamków w działkach --- */
+
+/* Style ułamków w sekcji działek */
 .plots-section .whole-number {
     display: inline-block;
     font-weight: 600;
@@ -496,7 +497,7 @@ body {
     padding-bottom: 1px;
 }
 
-/* --- Style dla ułamków w pozostałych sekcjach (treść protokołu, genealogia, itp.) --- */
+/* Style ułamków w treści protokołu */
 .info-content .whole-number,
 .protocol-content-section .whole-number,
 #genealogySection .whole-number,
@@ -556,20 +557,10 @@ body {
 #interpretacjaWnioskiSection .fraction .numerator {
     border-bottom: 1px solid currentColor;
     padding-bottom: 1px;
-}
-
-.info-content .fraction .numerator,
-.protocol-content-section .fraction .numerator,
-#genealogySection .fraction .numerator,
-#wspolwlasnoscSection .fraction .numerator,
-#powiazaniaTransakcjeSection .fraction .numerator,
-#interpretacjaWnioskiSection .fraction .numerator {
-    border-bottom: 1px solid currentColor;
-    padding-bottom: 1px;
     transform: translateY(0.02em);
 }
 
-/* --- Style dla ułamków w sekcji właściciela --- */
+/* Style ułamków w sekcji właściciela */
 .owner-info .whole-number {
     display: inline-block;
     font-weight: 600;
@@ -604,7 +595,7 @@ body {
     padding-bottom: 1px;
 }
 
-/* --- delikatne podświetlenie dla lepszej czytelności --- */
+/* Podświetlenie dla lepszej czytelności */
 @media screen {
     .info-content .fraction,
     .protocol-content-section .fraction {
@@ -613,7 +604,7 @@ body {
         border-radius: 2px;
     }
     
-    /* Hover tylko dla działek i właściciela */
+    /* Efekt hover tylko dla działek i właściciela */
     .plots-section .fraction:hover,
     .owner-info .fraction:hover {
         transform: scale(1.05);
@@ -621,7 +612,7 @@ body {
 }
 
 /* ==========================================================================
-   12. Modal skanów
+   MODAL SKANÓW PROTOKOŁU
    ========================================================================== */
 .modal-overlay {
     position: fixed;
@@ -719,7 +710,7 @@ body {
 }
 
 /* ==========================================================================
-   13. Dialog drzewa genealogicznego
+   DIALOG DRZEWA GENEALOGICZNEGO
    ========================================================================== */
 .tree-dialog {
     width: 90vw; 
@@ -782,7 +773,7 @@ body {
     padding: 1rem;
 }
 
-/* Style dla elementów drzewa D3 */
+/* Style dla elementów drzewa D3.js */
 .person-node {
     cursor: pointer;
 }
@@ -802,7 +793,7 @@ body {
 }
 
 /* ==========================================================================
-   14. Stopka
+   STOPKA APLIKACJI
    ========================================================================== */
 .app-footer {
     background: var(--bg-card);
@@ -823,7 +814,7 @@ body {
 }
 
 /* ==========================================================================
-   15. Klasy pomocnicze
+   KLASY POMOCNICZE
    ========================================================================== */
 .hidden {
     display: none !important;
@@ -834,7 +825,7 @@ body {
 }
 
 /* ==========================================================================
-   16. Responsywność
+   RESPONSYWNOŚĆ
    ========================================================================== */
 @media (max-width: 768px) {
     .header-content {
@@ -882,10 +873,10 @@ body {
 }
 
 /* ==========================================================================
-   17. Style do druku i PDF
+   STYLE DO DRUKU I EKSPORTU PDF
    ========================================================================== */
 @media print {
-    /* === PODSTAWOWE USTAWIENIA === */
+    /* Konfiguracja strony */
     @page {
         size: A4;
         margin: 15mm;
@@ -904,7 +895,7 @@ body {
         line-height: 1.5 !important;
     }
     
-    /* === UKRYWANIE ELEMENTÓW === */
+    /* Ukrywanie elementów interaktywnych */
     .background-gradient,
     .top-header,
     .app-footer,
@@ -919,7 +910,7 @@ body {
         display: none !important;
     }
     
-    /* === GŁÓWNY KONTENER === */
+    /* Główny kontener */
     #app-wrapper {
         background: white !important;
     }
@@ -930,7 +921,7 @@ body {
         margin: 0 !important;
     }
     
-    /* === TYTUŁ PROTOKOŁU === */
+    /* Tytuł protokołu */
     .protocol-title-section {
         background: white !important;
         border: 2px solid #000 !important;
@@ -958,7 +949,7 @@ body {
         font-size: 10pt !important;
     }
     
-    /* === KARTY ZAWARTOŚCI === */
+    /* Karty zawartości */
     .content-card {
         box-shadow: none !important;
         border: 1.5px solid #000 !important; 
@@ -988,7 +979,7 @@ body {
         background: white !important;
     }
     
-    /* === SEKCJA WŁAŚCICIELA === */
+    /* Sekcja właściciela */
     .owner-info {
         background: #f8f8f8 !important; 
         border: 1px solid #000 !important;
@@ -1012,7 +1003,7 @@ body {
         font-weight: bold !important;
     }
     
-    /* === ZAWARTOŚĆ INFORMACYJNA === */
+    /* Zawartość informacyjna */
     .info-content {
         background: white !important;
         border: 1px solid #666 !important;
@@ -1022,7 +1013,7 @@ body {
         line-height: 1.6 !important;
     }
     
-    /* === DZIAŁKI === */
+    /* Działki */
     .plots-summary {
         background: white !important;
         border: 1px solid #666 !important;
@@ -1066,7 +1057,7 @@ body {
         color: #000000 !important;
     }
     
-    /* === UŁAMKI W PDF === */
+    /* Formatowanie ułamków w PDF */
     .fraction {
         display: inline-block !important;
         vertical-align: middle !important;
@@ -1092,14 +1083,14 @@ body {
         font-size: 1em !important;
     }
     
-    /* === LINKI === */
+    /* Linki */
     a, a:visited {
         color: #000000 !important;
         text-decoration: underline !important;
         font-weight: 500 !important;
     }
     
-    /* === POKAŻ WSZYSTKIE WIDOKI === */
+    /* Widoczność wszystkich widoków */
     .view-container {
         display: block !important;
     }
@@ -1108,14 +1099,14 @@ body {
         margin-top: 15px !important;
     }
     
-    /* === NAGŁÓWKI SEKCJI === */
+    /* Nagłówki sekcji */
     h3 {
         color: #000000 !important;
         font-weight: bold !important;
         page-break-after: avoid;
     }
     
-    /* === TABELE (jeśli są) === */
+    /* Tabele */
     table {
         border-collapse: collapse !important;
         width: 100% !important;
@@ -1132,7 +1123,7 @@ body {
         font-weight: bold !important;
     }
     
-    /* === ZAPOBIEGANIE ŁAMANIU STRON === */
+    /* Zapobieganie łamaniu stron */
     .content-card,
     .protocol-title-section,
     .plot-category-block {
@@ -1143,7 +1134,7 @@ body {
         page-break-after: avoid !important;
     }
     
-    /* === STOPKA NA KAŻDEJ STRONIE === */
+    /* Stopka na każdej stronie */
     @bottom-center {
         content: "Strona " counter(page);
         font-size: 9pt;
@@ -1151,17 +1142,17 @@ body {
     }
 }
 
-/* Tryb eksportu do PDF – wyłącza animacje/filtry/przezroczystości */
+/* Tryb eksportu PDF - wyłącza animacje i przezroczystości */
 .pdf-export, 
 .pdf-export * {
-  animation: none !important;
-  transition: none !important;
-  filter: none !important;
+    animation: none !important;
+    transition: none !important;
+    filter: none !important;
 }
 
 .pdf-export #app-wrapper {
-  background: #ffffff !important;  /* bez przezroczystości */
-  opacity: 1 !important;
+    background: #ffffff !important;
+    opacity: 1 !important;
 }
 
 .pdf-export .background-gradient,
@@ -1172,7 +1163,7 @@ body {
 .pdf-export .action-btn,
 .pdf-export .header-btn,
 .pdf-export .details-toggle-btn {
-  display: none !important;
+    display: none !important;
 }
 
 .pdf-export .content-card,
@@ -1180,13 +1171,13 @@ body {
 .pdf-export .owner-info,
 .pdf-export .info-content,
 .pdf-export .plots-summary {
-  opacity: 1 !important;
-  transform: none !important;
-  box-shadow: none !important;    /* opcjonalnie, czyściej w PDF */
+    opacity: 1 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* ==========================================================================
-   18. Animacje
+   ANIMACJE
    ========================================================================== */
 @keyframes fadeIn {
     from {
@@ -1204,7 +1195,7 @@ body {
 }
 
 /* ==========================================================================
-   19. Dark mode 
+   TRYB CIEMNY
    ========================================================================== */
 .dark-mode {
     --bg-main: #1a202c;
@@ -1220,27 +1211,25 @@ body {
 }
 
 /* ==========================================================================
-   20. Ulepszone style ułamków dla ekranu
+   ULEPSZONE STYLE UŁAMKÓW DLA EKRANU
    ========================================================================== */
-
-/* Dla lepszej czytelności na ekranie */
 @media screen {
     .fraction {
         transition: transform 0.2s ease;
     }
     
     .fraction:hover {
-        transform: scale(1.1); /* Delikatne powiększenie przy najechaniu */
+        transform: scale(1.1);
     }
     
-    /* W ważnych miejscach */
+    /* Ułamki w ważnych miejscach */
     .owner-info .whole-number,
     .owner-info .fraction {
         color: var(--primary-dark);
         font-weight: 700;
     }
     
-    /* W treści protokołu */
+    /* Ułamki w treści protokołu */
     .info-content .fraction {
         background: rgba(102, 126, 234, 0.05);
         padding: 0 3px;

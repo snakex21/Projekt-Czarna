@@ -1,93 +1,77 @@
-/**
- * Plik: stats-script.js
- * Opis: Skrypt obsługujący stronę statystyk w stylu mapy katastralnej
- */
+/* ==========================================================================
+   Plik: stats-script.js
+   Opis: Główny skrypt obsługujący Centrum Analityczne - wizualizację
+         i analizę danych katastralnych Gminy Czarna z XIX wieku
+   ========================================================================== */
 
-// =============================================================================
-// INICJALIZACJA
-// =============================================================================
+/* ==========================================================================
+   INICJALIZACJA APLIKACJI
+   ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    // Synchronizacja motywu
-    initThemeSync();
-    
-    // Inicjalizacja UI
-    initUI();
-    
-    // Ładowanie danych
-    loadStatistics();
-    
-    // Animacje liczników
-    initCounters();
-    
-    // Skróty klawiszowe
-    initKeyboardShortcuts();
+    initThemeSync();      // Synchronizacja motywu z innymi modułami
+    initUI();            // Inicjalizacja interfejsu użytkownika
+    loadStatistics();    // Ładowanie danych statystycznych
+    initCounters();      // Animacje liczników
+    initKeyboardShortcuts(); // Obsługa skrótów klawiszowych
 });
 
-// =============================================================================
-// SYNCHRONIZACJA MOTYWU
-// =============================================================================
+/* ==========================================================================
+   ZARZĄDZANIE MOTYWEM
+   ========================================================================== */
+/**
+ * Synchronizuje motyw aplikacji z preferencjami użytkownika
+ */
 function initThemeSync() {
-    // Odczyt motywu z localStorage (używamy klucza 'mapTheme' dla spójności)
     const savedTheme = localStorage.getItem('mapTheme') || 'light';
     applyTheme(savedTheme);
 
-    // Nasłuchiwanie zmian w innych zakładkach
+    // Nasłuchiwanie zmian motywu w innych zakładkach
     window.addEventListener('storage', (e) => {
         if (e.key === 'mapTheme') {
             applyTheme(e.newValue);
         }
     });
 
-    // Przycisk zmiany motywu
+    // Obsługa przycisku zmiany motywu
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
             const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-            // Zapisz w localStorage (używamy klucza 'mapTheme')
             localStorage.setItem('mapTheme', newTheme);
-
-            // Zastosuj motyw
             applyTheme(newTheme);
-
-            // Pokaż powiadomienie
             showToast('success', 'Motyw zmieniony', `Przełączono na tryb ${newTheme === 'dark' ? 'ciemny' : 'jasny'}`);
         });
     }
 }
 
+/**
+ * Aplikuje wybrany motyw do interfejsu
+ */
 function applyTheme(theme) {
     const isDark = theme === 'dark';
     document.body.classList.toggle('dark-mode', isDark);
-
-    // Zmień ikonę
+    
     const icon = document.querySelector('#theme-toggle i');
     if (icon) {
         icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
     }
 }
 
-// =============================================================================
-// INICJALIZACJA UI
-// =============================================================================
+/* ==========================================================================
+   INICJALIZACJA INTERFEJSU UŻYTKOWNIKA
+   ========================================================================== */
 function initUI() {
-    // Zakładki
-    initTabs();
-    
-    // Wyszukiwarka
-    initSearch();
-    
-    // Przyciski akcji
-    initActionButtons();
-    
-    // Modal pomocy
-    initHelpModal();
-    
-    // Pełny ekran
-    initFullscreen();
+    initTabs();          // System zakładek
+    initSearch();        // Wyszukiwarka globalna
+    initActionButtons(); // Przyciski akcji
+    initHelpModal();     // Modal pomocy
+    initFullscreen();    // Tryb pełnoekranowy
 }
 
+/**
+ * Inicjalizuje system zakładek
+ */
 function initTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanels = document.querySelectorAll('.tab-panel');
@@ -96,15 +80,14 @@ function initTabs() {
         button.addEventListener('click', () => {
             const targetTab = button.dataset.tab;
             
-            // Usuń aktywne klasy
+            // Przełączanie aktywnej zakładki
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabPanels.forEach(panel => panel.classList.remove('active'));
             
-            // Dodaj aktywne klasy
             button.classList.add('active');
             document.getElementById(targetTab).classList.add('active');
             
-            // Załaduj dane dla zakładki jeśli potrzeba
+            // Lazy loading dla zakładki Timeline
             if (targetTab === 'timeline' && !button.dataset.loaded) {
                 loadTimeline();
                 button.dataset.loaded = 'true';
@@ -113,6 +96,9 @@ function initTabs() {
     });
 }
 
+/**
+ * Inicjalizuje globalną wyszukiwarkę
+ */
 function initSearch() {
     const searchToggle = document.getElementById('search-toggle');
     const searchBar = document.getElementById('search-bar');
@@ -129,7 +115,7 @@ function initSearch() {
     searchClose?.addEventListener('click', () => {
         searchBar.classList.remove('active');
         searchInput.value = '';
-        performGlobalSearch(''); // Wyczyść wyszukiwanie
+        performGlobalSearch('');
     });
 
     searchInput?.addEventListener('input', (e) => {
@@ -137,17 +123,18 @@ function initSearch() {
     });
 }
 
+/**
+ * Wykonuje globalne wyszukiwanie w aktywnej zakładce
+ */
 function performGlobalSearch(query) {
     const normalizedQuery = query.trim().toLowerCase();
     const activePanel = document.querySelector('.tab-panel.active');
     if (!activePanel) return;
 
-    // Najpierw usuń poprzednie podświetlenia i komunikaty
     clearHighlights(activePanel);
     const existingNoResults = activePanel.querySelector('.no-results-message');
     if (existingNoResults) existingNoResults.remove();
 
-    // Jeśli zapytanie jest puste, pokaż wszystko i zakończ
     if (!normalizedQuery) {
         activePanel.querySelectorAll('.ranking-item, .timeline-item, .demo-year-card').forEach(item => {
             item.style.display = '';
@@ -169,22 +156,28 @@ function performGlobalSearch(query) {
         }
     });
 
-    // Pokaż komunikat, jeśli nic nie znaleziono
     if (!foundSomething) {
         const noResultsMessage = document.createElement('div');
         noResultsMessage.className = 'no-results-message';
-        noResultsMessage.innerHTML = `<i class="fas fa-search"></i><h3>Brak wyników</h3><p>Nie znaleziono wyników dla frazy "${query}"</p>`;
+        noResultsMessage.innerHTML = `
+            <i class="fas fa-search"></i>
+            <h3>Brak wyników</h3>
+            <p>Nie znaleziono wyników dla frazy "${query}"</p>`;
         
-        // Znajdź odpowiedni kontener do wstawienia komunikatu
-        const targetContainer = activePanel.querySelector('.ranking-list') || activePanel.querySelector('.timeline') || activePanel.querySelector('.demo-cards-grid') || activePanel;
+        const targetContainer = activePanel.querySelector('.ranking-list') || 
+                               activePanel.querySelector('.timeline') || 
+                               activePanel.querySelector('.demo-cards-grid') || 
+                               activePanel;
         targetContainer.appendChild(noResultsMessage);
     }
 }
 
+/**
+ * Podświetla znaleziony tekst
+ */
 function highlightText(element, query) {
     const regex = new RegExp(query, 'gi');
     
-    // Używamy rekurencyjnej funkcji, aby ominąć tagi HTML i podświetlać tylko tekst
     function walkAndHighlight(node) {
         if (node.nodeType === 3) { // Węzeł tekstowy
             const text = node.textContent;
@@ -202,40 +195,33 @@ function highlightText(element, query) {
     walkAndHighlight(element);
 }
 
+/**
+ * Usuwa podświetlenia z kontenera
+ */
 function clearHighlights(container) {
     const highlights = container.querySelectorAll('mark.search-highlight');
     highlights.forEach(mark => {
-        // Zastępujemy element <mark> jego własną zawartością tekstową
-        // To jest bezpieczniejsze niż manipulowanie węzłami rodzica.
         if (mark.parentNode) {
             mark.outerHTML = mark.innerHTML;
         }
     });
-
-    // Po usunięciu wszystkich <mark>, normalizujemy strukturę,
-    // aby połączyć sąsiadujące ze sobą węzły tekstowe.
     container.normalize();
 }
 
+/**
+ * Inicjalizuje przyciski akcji
+ */
 function initActionButtons() {
     // Eksport wykresów
-    document.getElementById('export-chart1')?.addEventListener('click', () => {
-        exportChart('pieChart');
-    });
+    document.getElementById('export-chart1')?.addEventListener('click', () => exportChart('pieChart'));
+    document.getElementById('export-chart2')?.addEventListener('click', () => exportChart('barChart'));
     
-    document.getElementById('export-chart2')?.addEventListener('click', () => {
-        exportChart('barChart');
-    });
-    
-    // Pokaż na mapie
+    // Przekierowanie do mapy
     document.getElementById('show-on-map')?.addEventListener('click', () => {
         const ownership = document.querySelector('input[name="ownership"]:checked').value;
         const category = document.getElementById('category-filter').value;
-        
-        // Pobierz top 10 z aktualnego rankingu
         const topOwners = getTop10Owners(ownership, category);
         const ownerKeys = topOwners.map(o => o.unikalny_klucz).join(',');
-        
         window.location.href = `../mapa/mapa.html?highlightTopOwners=${encodeURIComponent(ownerKeys)}&ownership=${ownership}`;
     });
     
@@ -243,33 +229,26 @@ function initActionButtons() {
     document.getElementById('export-btn')?.addEventListener('click', exportToExcel);
     document.getElementById('print-btn')?.addEventListener('click', printReport);
     document.getElementById('share-btn')?.addEventListener('click', shareReport);
-    
-    // Feedback
-    document.getElementById('feedback-btn')?.addEventListener('click', () => {
-        showToast('info', 'Opinie', 'Funkcja opinii będzie dostępna wkrótce');
-    });
 }
 
+/**
+ * Inicjalizuje modal pomocy
+ */
 function initHelpModal() {
     const helpBtn = document.getElementById('help-btn');
     const modal = document.getElementById('help-modal');
     const closeBtn = modal?.querySelector('.modal-close');
     
-    helpBtn?.addEventListener('click', () => {
-        modal.classList.add('active');
-    });
-    
-    closeBtn?.addEventListener('click', () => {
-        modal.classList.remove('active');
-    });
-    
+    helpBtn?.addEventListener('click', () => modal.classList.add('active'));
+    closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
     modal?.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.remove('active');
-        }
+        if (e.target === modal) modal.classList.remove('active');
     });
 }
 
+/**
+ * Inicjalizuje tryb pełnoekranowy
+ */
 function initFullscreen() {
     const fullscreenBtn = document.getElementById('fullscreen-toggle');
     
@@ -284,35 +263,26 @@ function initFullscreen() {
     });
 }
 
-// =============================================================================
-// ŁADOWANIE DANYCH
-// =============================================================================
+/* ==========================================================================
+   ZARZĄDZANIE DANYMI
+   ========================================================================== */
 let statsData = null;
+let charts = {};
 
+/**
+ * Ładuje wszystkie dane statystyczne z API
+ */
 async function loadStatistics() {
     try {
         const response = await fetch('/api/stats');
         statsData = await response.json();
         
-        // Aktualizuj liczniki
         updateCounters(statsData.general_stats);
-        
-        // Wykresy
         createCharts(statsData);
-        
-        // Rankingi
         loadRankings(statsData);
-        
-        // Demografia
         loadDemographics(statsData.demografia);
-        
-        // Aktywność
         renderActivityCalendar(statsData.protocols_per_day);
-
-        // NOWA SEKCJA: Statystyki genealogiczne
         loadGenealogyStats(statsData);
-    
-        // Analiza
         loadInsights(statsData);
         
     } catch (error) {
@@ -321,15 +291,15 @@ async function loadStatistics() {
     }
 }
 
-// =============================================================================
-// LICZNIKI ANIMOWANE
-// =============================================================================
+/* ==========================================================================
+   ANIMACJE LICZNIKÓW
+   ========================================================================== */
+/**
+ * Inicjalizuje animowane liczniki z Intersection Observer
+ */
 function initCounters() {
     const counters = document.querySelectorAll('.counter');
-    
-    const observerOptions = {
-        threshold: 0.5
-    };
+    const observerOptions = { threshold: 0.5 };
     
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -345,6 +315,9 @@ function initCounters() {
     counters.forEach(counter => observer.observe(counter));
 }
 
+/**
+ * Animuje pojedynczy licznik
+ */
 function animateCounter(element, target) {
     let current = 0;
     const increment = target / 50;
@@ -359,8 +332,10 @@ function animateCounter(element, target) {
     }, 30);
 }
 
+/**
+ * Aktualizuje główne liczniki statystyk
+ */
 function updateCounters(stats) {
-    // Główne liczniki
     const ownersCounter = document.querySelector('#total-owners .counter');
     const plotsCounter = document.querySelector('#total-plots .counter');
     
@@ -375,11 +350,12 @@ function updateCounters(stats) {
     }
 }
 
-// =============================================================================
-// WYKRESY
-// =============================================================================
-let charts = {};
-
+/* ==========================================================================
+   WYKRESY I WIZUALIZACJE
+   ========================================================================== */
+/**
+ * Tworzy wszystkie wykresy Chart.js
+ */
 function createCharts(data) {
     // Wykres kołowy - struktura własności
     const pieCtx = document.getElementById('pieChart')?.getContext('2d');
@@ -399,22 +375,14 @@ function createCharts(data) {
                         counts.pastwisko || 0,
                         inneCount
                     ],
-                    backgroundColor: [
-                        '#10b981',
-                        '#f59e0b',
-                        '#3b82f6',
-                        '#8b5cf6',
-                        '#ef4444'
-                    ]
+                    backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444']
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
+                    legend: { position: 'bottom' }
                 }
             }
         });
@@ -423,7 +391,7 @@ function createCharts(data) {
     // Wykres słupkowy - Top 10 właścicieli
     const barCtx = document.getElementById('barChart')?.getContext('2d');
     if (barCtx && data.rankings_real.all_plots) {
-        const top10 = data.rankings_real.all_plots.slice(0, 10).reverse(); // Odwracamy, by największy był na górze
+        const top10 = data.rankings_real.all_plots.slice(0, 10).reverse();
         
         charts.bar = new Chart(barCtx, {
             type: 'bar',
@@ -439,36 +407,27 @@ function createCharts(data) {
                 }]
             },
             options: {
-                indexAxis: 'y', // Ustawienie osi Y jako głównej osi dla etykiet
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false
-                    },
+                    legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            title: (tooltipItems) => {
-                                // Pełna nazwa w podpowiedzi
-                                return tooltipItems[0].label;
-                            }
+                            title: (tooltipItems) => tooltipItems[0].label
                         }
                     }
                 },
                 scales: {
                     x: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Liczba działek'
-                        }
+                        title: { display: true, text: 'Liczba działek' }
                     },
                     y: {
                         ticks: {
-                            autoSkip: false, // Pokaż wszystkie etykiety
-                            callback: function(value, index, values) {
+                            autoSkip: false,
+                            callback: function(value) {
                                 const label = this.getLabelForValue(value);
-                                // Skracaj etykiety na osi, jeśli są za długie
                                 return (label.length > 25) ? label.substring(0, 22) + '...' : label;
                             }
                         }
@@ -479,26 +438,29 @@ function createCharts(data) {
     }
 }
 
-// =============================================================================
-// RANKINGI
-// =============================================================================
+/* ==========================================================================
+   RANKINGI WŁAŚCICIELI
+   ========================================================================== */
+/**
+ * Ładuje i wyświetla rankingi właścicieli
+ */
 function loadRankings(data) {
     const container = document.getElementById('ranking-list');
     if (!container) return;
     
-    // Domyślnie pokaż ranking rzeczywisty, wszystkie kategorie
     displayRanking(data.rankings_real.all_plots || [], container);
     
     // Obsługa filtrów
     document.querySelectorAll('input[name="ownership"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            filterRankings();
-        });
+        radio.addEventListener('change', filterRankings);
     });
     
     document.getElementById('category-filter')?.addEventListener('change', filterRankings);
 }
 
+/**
+ * Wyświetla listę rankingową
+ */
 function displayRanking(rankingData, container) {
     container.innerHTML = rankingData.slice(0, 50).map((owner, index) => {
         const position = index + 1;
@@ -520,6 +482,9 @@ function displayRanking(rankingData, container) {
     }).join('');
 }
 
+/**
+ * Filtruje rankingi według wybranych kryteriów
+ */
 function filterRankings() {
     if (!statsData) return;
 
@@ -530,20 +495,20 @@ function filterRankings() {
     const dataSet = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
     let rankingData = category === 'all' ? dataSet.all_plots : dataSet[category];
 
-    if (!rankingData) {
-        rankingData = [];
-    }
+    if (!rankingData) rankingData = [];
     
     displayRanking(rankingData, container);
 
-    // Po przefiltrowaniu, zastosuj ponownie wyszukiwanie tekstowe
     const searchQuery = document.getElementById('global-search').value;
     performGlobalSearch(searchQuery);
 }
 
-// =============================================================================
-// OŚ CZASU
-// =============================================================================
+/* ==========================================================================
+   OŚ CZASU PROTOKOŁÓW
+   ========================================================================== */
+/**
+ * Ładuje i wyświetla chronologię protokołów
+ */
 function loadTimeline() {
     if (!statsData?.protocols_per_day) return;
 
@@ -556,7 +521,6 @@ function loadTimeline() {
             day: 'numeric'
         });
 
-        // Tworzenie listy właścicieli jako linków (bez otwierania w nowej karcie)
         const ownersListHtml = item.owners.map(owner => `
             <li>
                 <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}">
@@ -580,457 +544,12 @@ function loadTimeline() {
     }).join('');
 }
 
-// =============================================================================
-// DEMOGRAFIA
-// =============================================================================
-function loadDemographics(demografiaData) {
-    if (!demografiaData || demografiaData.length === 0) return;
-    
-    // Wykres demograficzny
-    const ctx = document.getElementById('demographicsChart')?.getContext('2d');
-    if (ctx) {
-        charts.demographics = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: demografiaData.map(d => d.rok),
-                datasets: [{
-                    label: 'Populacja ogółem',
-                    data: demografiaData.map(d => d.populacja_ogolem || 0),
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true
-                    }
-                }
-            }
-        });
-    }
-    
-    // Karty demograficzne
-    const container = document.getElementById('demo-cards');
-    if (container) {
-        container.innerHTML = demografiaData.map(entry => `
-            <div class="demo-card">
-                <div class="demo-year">${entry.rok}</div>
-                <div class="demo-population">Populacja: ${entry.populacja_ogolem || 'N/A'}</div>
-                ${entry.katolicy ? `<div>Katolicy: ${entry.katolicy}</div>` : ''}
-                ${entry.zydzi ? `<div>Żydzi: ${entry.zydzi}</div>` : ''}
-                ${entry.opis ? `<div class="demo-note">${entry.opis}</div>` : ''}
-            </div>
-        `).join('');
-    }
-}
-
-// =============================================================================
-// MAPA AKTYWNOŚCI
-// =============================================================================
-function renderActivityCalendar(protocolsData) {
-    if (!protocolsData || protocolsData.length === 0) return;
-
-    const container = document.getElementById('activity-calendar-container');
-    if (!container) return;
-
-    // Przetwarzanie danych
-    const dataMap = new Map();
-    protocolsData.forEach(item => {
-        const date = new Date(item.protocol_date).toISOString().split('T')[0];
-        dataMap.set(date, item.protocol_count);
-    });
-
-    const maxCount = Math.max(...dataMap.values());
-    const startDate = new Date(protocolsData[0].protocol_date);
-    const endDate = new Date(protocolsData[protocolsData.length - 1].protocol_date);
-
-    // Tworzenie siatki kalendarza
-    let calendarHtml = '<div class="activity-calendar">';
-    let currentDate = new Date(startDate);
-    currentDate.setDate(startDate.getDate() - startDate.getDay());
-
-    while (currentDate <= endDate) {
-        const dateString = currentDate.toISOString().split('T')[0];
-        const count = dataMap.get(dateString) || 0;
-        let level = 0;
-        if (count > 0) {
-            level = Math.ceil((count / maxCount) * 4);
-        }
-        const tooltipText = `${currentDate.toLocaleDateString('pl-PL')}: ${count} protokołów`;
-        
-        // Usunęliśmy statyczny tooltip z HTML
-        calendarHtml += `<div class="day-cell" data-tooltip="${tooltipText}" data-level="${level}"></div>`;
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-    calendarHtml += '</div>';
-
-    // Tworzenie legendy
-    const legendHtml = `
-        <div class="activity-legend">
-            <span>Mniej</span>
-            <div class="legend-item">
-                <div class="day-cell" data-level="1"></div><div class="day-cell" data-level="2"></div><div class="day-cell" data-level="3"></div><div class="day-cell" data-level="4"></div>
-            </div>
-            <span>Więcej</span>
-        </div>
-    `;
-
-    container.innerHTML = calendarHtml + legendHtml;
-
-    // Logika dynamicznego tooltipa
-    const calendar = container.querySelector('.activity-calendar');
-    let tooltip = document.getElementById('calendar-tooltip');
-    
-    // Stwórz element tooltipa, jeśli jeszcze nie istnieje
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'calendar-tooltip';
-        document.body.appendChild(tooltip);
-    }
-    
-    calendar.addEventListener('mouseover', (e) => {
-        if (e.target.classList.contains('day-cell') && e.target.dataset.tooltip) {
-            const cell = e.target;
-            tooltip.textContent = cell.dataset.tooltip;
-            tooltip.classList.add('visible');
-
-            const cellRect = cell.getBoundingClientRect();
-            const tooltipRect = tooltip.getBoundingClientRect();
-
-            // Pozycjonuj nad komórką
-            let top = cellRect.top - tooltipRect.height - 8;
-            let left = cellRect.left + (cellRect.width / 2) - (tooltipRect.width / 2);
-
-            // Sprawdź, czy nie wychodzi poza lewą/prawą krawędź okna
-            if (left < 0) left = 5;
-            if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
-            
-            tooltip.style.left = `${left}px`;
-            tooltip.style.top = `${top}px`;
-        }
-    });
-
-    calendar.addEventListener('mouseout', (e) => {
-        if (e.target.classList.contains('day-cell')) {
-            tooltip.classList.remove('visible');
-        }
-    });
-}
-
-// =============================================================================
-// ANALIZA I WNIOSKI
-// =============================================================================
-function loadInsights(data) {
-    // Mini statystyki
-    const counts = data.category_counts || {};
-    document.getElementById('stat-forests').textContent = counts.las || 0;
-    document.getElementById('stat-rivers').textContent = counts.rzeka || 0;
-    document.getElementById('stat-buildings').textContent = counts.budynek || 0;
-    document.getElementById('stat-chapels').textContent = counts.kapliczka || 0;
-
-    // Największy właściciel
-    if (data.rankings_real.all_plots?.[0]) {
-        const biggest = data.rankings_real.all_plots[0];
-        document.getElementById('biggest-owner').textContent = 
-            `${biggest.nazwa_wlasciciela} - ${biggest.plot_count} działek`;
-    }
-    
-    // Trend własności
-    document.getElementById('ownership-trend').textContent = 
-        `${data.general_stats.total_owners} właścicieli kontroluje ${data.general_stats.total_plots} działek`;
-    
-    // Koncentracja
-    const top10Count = data.rankings_real.all_plots?.slice(0, 10)
-        .reduce((sum, o) => sum + o.plot_count, 0) || 0;
-    const concentration = ((top10Count / data.general_stats.total_plots) * 100).toFixed(1);
-    document.getElementById('concentration').textContent = 
-        `Top 10 właścicieli posiada ${concentration}% wszystkich działek`;
-}
-
-// =============================================================================
-// STATYSTYKI GENEALOGICZNE (NOWA SEKCJA)
-// =============================================================================
-function loadGenealogyStats(data) {
-    const stats = data.genealogy_stats;
-    if (!stats) return;
-
-    // Aktualizacja kluczowych wskaźników
-    const totalPeopleEl = document.getElementById('stat-total-people');
-    const genderRatioEl = document.getElementById('stat-gender-ratio');
-
-    if (totalPeopleEl) totalPeopleEl.textContent = stats.total_people;
-    if (genderRatioEl) genderRatioEl.textContent = `${stats.male_count} / ${stats.female_count}`;
-
-    // Renderowanie listy najpopularniejszych nazwisk
-    const surnamesContainer = document.getElementById('top-surnames-list');
-    if (surnamesContainer) {
-        surnamesContainer.innerHTML = stats.top_surnames.map((surname, index) => {
-            const position = index + 1;
-            let positionClass = '';
-            if (position === 1) positionClass = 'gold';
-            else if (position === 2) positionClass = 'silver';
-            else if (position === 3) positionClass = 'bronze';
-
-            return `
-                <div class="ranking-item">
-                    <div class="ranking-position ${positionClass}">${position}</div>
-                    <div class="ranking-info">
-                        <div class="ranking-name">${surname.name}</div>
-                    </div>
-                    <div class="surname-count">${surname.count}</div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // Tworzenie wykresu urodzeń wg dekad
-    const chartCtx = document.getElementById('genealogy-births-chart')?.getContext('2d');
-    if (chartCtx) {
-        if (charts.genealogyBirths) {
-            charts.genealogyBirths.destroy();
-        }
-
-        const gradient = chartCtx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(118, 75, 162, 0.6)');
-        gradient.addColorStop(1, 'rgba(102, 126, 234, 0.1)');
-
-        charts.genealogyBirths = new Chart(chartCtx, {
-            type: 'bar',
-            data: {
-                labels: stats.births_by_decade.labels,
-                datasets: [{
-                    label: 'Liczba urodzeń',
-                    data: stats.births_by_decade.data,
-                    backgroundColor: gradient,
-                    borderColor: '#764ba2',
-                    borderWidth: 2,
-                    borderRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Liczba osób'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Dekada'
-                        }
-                    }
-                }
-            }
-        });
-    }
-}
-
-// =============================================================================
-// NARZĘDZIA
-// =============================================================================
-function exportChart(chartId) {
-    const chart = charts[chartId === 'pieChart' ? 'pie' : 'bar'];
-    if (!chart) return;
-    
-    const url = chart.toBase64Image();
-    const link = document.createElement('a');
-    link.download = `wykres-${chartId}-${Date.now()}.png`;
-    link.href = url;
-    link.click();
-    
-    showToast('success', 'Eksport', 'Wykres został pobrany');
-}
-
-function exportToExcel() {
-    if (!statsData) {
-        showToast('error', 'Błąd', 'Dane nie zostały jeszcze załadowane.');
-        return;
-    }
-
-    try {
-        // Pokaż informację o rozpoczęciu
-        showToast('info', 'Eksport', 'Rozpoczęto generowanie pliku Excel...');
-
-        // 1. Utwórz nowy skoroszyt
-        const wb = XLSX.utils.book_new();
-
-        // 2. Przygotuj dane dla każdego arkusza
-        
-        // --- Arkusz 1: Podsumowanie ---
-        const summaryData = [
-            ["Kluczowa Statystyka", "Wartość"],
-            ["Całkowita liczba właścicieli", statsData.general_stats.total_owners],
-            ["Całkowita liczba działek", statsData.general_stats.total_plots],
-            ...Object.entries(statsData.category_counts).map(([key, value]) => [`Liczba działek - ${key}`, value])
-        ];
-        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-        XLSX.utils.book_append_sheet(wb, wsSummary, "Podsumowanie");
-        
-        // --- Arkusz 2: Rankingi Rzeczywiste ---
-        let realRankingsData = [];
-        for (const category in statsData.rankings_real) {
-            statsData.rankings_real[category].forEach((owner, index) => {
-                realRankingsData.push({
-                    "Kategoria": category,
-                    "Pozycja": index + 1,
-                    "Właściciel": owner.nazwa_wlasciciela,
-                    "Numer Protokołu": owner.numer_protokolu,
-                    "Liczba Działek": owner.plot_count
-                });
-            });
-        }
-        const wsRealRankings = XLSX.utils.json_to_sheet(realRankingsData);
-        XLSX.utils.book_append_sheet(wb, wsRealRankings, "Rankingi Rzeczywiste");
-
-        // --- Arkusz 3: Rankingi z Protokołu ---
-        let protocolRankingsData = [];
-        for (const category in statsData.rankings_protocol) {
-            statsData.rankings_protocol[category].forEach((owner, index) => {
-                protocolRankingsData.push({
-                    "Kategoria": category,
-                    "Pozycja": index + 1,
-                    "Właściciel": owner.nazwa_wlasciciela,
-                    "Numer Protokołu": owner.numer_protokolu,
-                    "Liczba Działek": owner.plot_count
-                });
-            });
-        }
-        const wsProtocolRankings = XLSX.utils.json_to_sheet(protocolRankingsData);
-        XLSX.utils.book_append_sheet(wb, wsProtocolRankings, "Rankingi z Protokołu");
-
-        // --- Arkusz 4: Demografia ---
-        const wsDemographics = XLSX.utils.json_to_sheet(statsData.demografia);
-        XLSX.utils.book_append_sheet(wb, wsDemographics, "Demografia");
-
-        // --- Arkusz 5: Genealogia ---
-        const genealogyData = [
-            ["Najpopularniejsze Nazwiska"],
-            ["Pozycja", "Nazwisko", "Liczba wystąpień"],
-            ...statsData.genealogy_stats.top_surnames.map((s, i) => [i + 1, s.name, s.count]),
-            [], // Pusta linia jako separator
-            ["Urodzenia wg Dekad"],
-            ["Dekada", "Liczba urodzeń"],
-            ...statsData.genealogy_stats.births_by_decade.labels.map((label, i) => [
-                label, statsData.genealogy_stats.births_by_decade.data[i]
-            ])
-        ];
-        const wsGenealogy = XLSX.utils.aoa_to_sheet(genealogyData);
-        XLSX.utils.book_append_sheet(wb, wsGenealogy, "Genealogia");
-
-        // --- Arkusz 6: Aktywność Spisowa ---
-        const activityData = statsData.protocols_per_day.map(day => ({
-            "Data": new Date(day.protocol_date).toLocaleDateString('pl-PL'),
-            "Liczba protokołów": day.protocol_count,
-            "Właściciele": day.owners.map(o => o.nazwa_wlasciciela).join(', ')
-        }));
-        const wsActivity = XLSX.utils.json_to_sheet(activityData);
-        XLSX.utils.book_append_sheet(wb, wsActivity, "Aktywność Spisowa");
-
-        // 3. Wygeneruj i pobierz plik
-        const today = new Date().toISOString().slice(0, 10);
-        const fileName = `statystyki_gmina_czarna_${today}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-        showToast('success', 'Eksport zakończony', `Plik ${fileName} został pobrany.`);
-
-    } catch (error) {
-        console.error("Błąd podczas eksportu do Excel:", error);
-        showToast('error', 'Błąd eksportu', 'Wystąpił nieoczekiwany problem.');
-    }
-}
-
-function printReport() {
-    window.print();
-    showToast('info', 'Drukowanie', 'Przygotowano raport do druku');
-}
-
-function shareReport() {
-    if (navigator.share) {
-        navigator.share({
-            title: 'Statystyki Gminy Czarna',
-            text: 'Zobacz statystyki właścicieli gruntów z XIX wieku',
-            url: window.location.href
-        });
-    } else {
-        // Kopiuj link
-        navigator.clipboard.writeText(window.location.href);
-        showToast('success', 'Udostępnianie', 'Link skopiowany do schowka');
-    }
-}
-
-function getTop10Owners(ownership, category) {
-    const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
-    const rankingData = category === 'all' ? data.all_plots : data[category];
-    return rankingData?.slice(0, 10) || [];
-}
-
-// =============================================================================
-// POWIADOMIENIA TOAST
-// =============================================================================
-function showToast(type, title, message) {
-    const container = document.getElementById('toast-container');
-    
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `
-        <div class="toast-icon">
-            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}"></i>
-        </div>
-        <div class="toast-content">
-            <div class="toast-title">${title}</div>
-            <div class="toast-message">${message}</div>
-        </div>
-    `;
-    
-    container.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'toastOut 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-// =============================================================================
-// SKRÓTY KLAWISZOWE
-// =============================================================================
-function initKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        // Ctrl+F - Wyszukiwanie
-        if (e.ctrlKey && e.key === 'f') {
-            e.preventDefault();
-            document.getElementById('search-toggle')?.click();
-        }
-        
-        // D - Tryb ciemny
-        if (e.key === 'd' && !e.target.matches('input, textarea')) {
-            document.getElementById('theme-toggle')?.click();
-        }
-        
-        // Esc - Zamknij modal/wyszukiwanie
-        if (e.key === 'Escape') {
-            document.querySelector('.modal.active')?.classList.remove('active');
-            document.getElementById('search-bar')?.classList.remove('active');
-        }
-    });
-}
-
-// =============================================================================
-// ULEPSZONA FUNKCJA DEMOGRAFII
-// =============================================================================
+/* ==========================================================================
+   DEMOGRAFIA - ANALIZA POPULACJI
+   ========================================================================== */
+/**
+ * Ładuje i wyświetla dane demograficzne
+ */
 function loadDemographics(demografiaData) {
     if (!demografiaData || demografiaData.length === 0) {
         document.getElementById('demographics').innerHTML = `
@@ -1043,47 +562,37 @@ function loadDemographics(demografiaData) {
         return;
     }
     
-    // Sortuj dane chronologicznie
     demografiaData.sort((a, b) => a.rok - b.rok);
     
-    // Oblicz statystyki
+    // Obliczanie statystyk
     const firstYear = demografiaData[0];
     const lastYear = demografiaData[demografiaData.length - 1];
     const growthPercent = ((lastYear.populacja_ogolem - firstYear.populacja_ogolem) / firstYear.populacja_ogolem * 100).toFixed(1);
     const yearSpan = lastYear.rok - firstYear.rok;
     
-    // Aktualizuj podsumowanie
     document.getElementById('demo-growth').textContent = growthPercent > 0 ? `+${growthPercent}%` : `${growthPercent}%`;
     document.getElementById('demo-years').textContent = `${yearSpan} lat`;
     
-    // Główny wykres
     createDemographicsChart(demografiaData);
-    
-    // Timeline wydarzeń
     createDemographicsTimeline(demografiaData);
-    
-    // Karty szczegółowe
     createDemographicsCards(demografiaData);
-    
-    // Analiza porównawcza
     createComparisonAnalysis(demografiaData);
 }
 
+/**
+ * Tworzy wykres demograficzny
+ */
 function createDemographicsChart(data) {
     const ctx = document.getElementById('demographicsChart')?.getContext('2d');
     if (!ctx) return;
     
-    // Przygotuj dane dla wykresów
     const years = data.map(d => d.rok);
     const totalPopulation = data.map(d => d.populacja_ogolem || 0);
     const catholics = data.map(d => d.katolicy || 0);
     const jewish = data.map(d => d.zydzi || 0);
     const others = data.map(d => d.inni || 0);
     
-    // Usuń poprzedni wykres jeśli istnieje
-    if (charts.demographics) {
-        charts.demographics.destroy();
-    }
+    if (charts.demographics) charts.demographics.destroy();
     
     charts.demographics = new Chart(ctx, {
         type: 'line',
@@ -1177,43 +686,34 @@ function createDemographicsChart(data) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Liczba mieszkańców'
-                    },
-                    grid: {
-                        drawBorder: false
-                    }
+                    title: { display: true, text: 'Liczba mieszkańców' },
+                    grid: { drawBorder: false }
                 },
                 x: {
-                    title: {
-                        display: true,
-                        text: 'Rok'
-                    },
-                    grid: {
-                        display: false
-                    }
+                    title: { display: true, text: 'Rok' },
+                    grid: { display: false }
                 }
             }
         }
     });
 }
 
+/**
+ * Tworzy timeline wydarzeń demograficznych
+ */
 function createDemographicsTimeline(data) {
     const container = document.getElementById('demo-timeline-track');
     if (!container) return;
 
-    // Funkcja pomocnicza do wybierania ikony na podstawie opisu
     const getIconForEvent = (description) => {
         const desc = description.toLowerCase();
         if (desc.includes('kolei')) return '🚂';
         if (desc.includes('budow')) return '🏗️';
         if (desc.includes('wojn')) return '⚔️';
         if (desc.includes('epidemi') || desc.includes('chorob')) return '🏥';
-        return '📅'; // Domyślna ikona
+        return '📅';
     };
 
-    // Dynamiczne tworzenie listy wydarzeń z danych demograficznych
     const events = data
         .filter(entry => entry.opis && entry.opis.trim() !== '')
         .map(entry => ({
@@ -1228,17 +728,13 @@ function createDemographicsTimeline(data) {
         return;
     }
 
-    // Jeśli jest tylko jedno wydarzenie, wyśrodkuj je
     if (events.length === 1) {
         const event = events[0];
         container.innerHTML = `
-            <div class="timeline-event ${event.major ? 'major' : ''}" 
-                 style="left: 50%;">
+            <div class="timeline-event ${event.major ? 'major' : ''}" style="left: 50%;">
                 <span>${event.icon}</span>
                 <span>${event.year}</span>
-                <div class="timeline-event-tooltip">
-                    ${event.text}
-                </div>
+                <div class="timeline-event-tooltip">${event.text}</div>
             </div>
         `;
         return;
@@ -1251,26 +747,24 @@ function createDemographicsTimeline(data) {
     container.innerHTML = events
         .map(event => {
             const positionPercent = ((event.year - minEventYear) / yearRange) * 100;
-
             return `
-                <div class="timeline-event ${event.major ? 'major' : ''}" 
-                     style="left: ${positionPercent}%">
+                <div class="timeline-event ${event.major ? 'major' : ''}" style="left: ${positionPercent}%">
                     <span>${event.icon}</span>
                     <span>${event.year}</span>
-                    <div class="timeline-event-tooltip">
-                        ${event.text}
-                    </div>
+                    <div class="timeline-event-tooltip">${event.text}</div>
                 </div>
             `;
         }).join('');
 }
 
+/**
+ * Tworzy karty demograficzne dla każdego roku
+ */
 function createDemographicsCards(data) {
     const container = document.getElementById('demo-cards');
     if (!container) return;
     
     container.innerHTML = data.map((entry, index) => {
-        // Oblicz zmiany
         let changePercent = 0;
         let changeType = '';
         if (index > 0 && entry.populacja_ogolem && data[index - 1].populacja_ogolem) {
@@ -1278,13 +772,11 @@ function createDemographicsCards(data) {
             changeType = changePercent > 0 ? 'positive' : 'negative';
         }
         
-        // Oblicz procenty wyznań
         const total = entry.populacja_ogolem || 1;
         const catholicPercent = entry.katolicy ? (entry.katolicy / total * 100).toFixed(1) : 0;
         const jewishPercent = entry.zydzi ? (entry.zydzi / total * 100).toFixed(1) : 0;
         const otherPercent = entry.inni ? (entry.inni / total * 100).toFixed(1) : 0;
         
-        // Określ ikony wydarzeń
         const eventIcons = {
             'kolej': '🚂',
             'budowa': '🏗️',
@@ -1376,7 +868,7 @@ function createDemographicsCards(data) {
         `;
     }).join('');
     
-    // Animuj paski postępu
+    // Animacja pasków postępu
     setTimeout(() => {
         document.querySelectorAll('.religion-fill').forEach(fill => {
             const width = fill.style.width;
@@ -1388,6 +880,9 @@ function createDemographicsCards(data) {
     }, 100);
 }
 
+/**
+ * Tworzy analizę porównawczą demografii
+ */
 function createComparisonAnalysis(data) {
     const container = document.getElementById('demo-comparison');
     if (!container || data.length < 2) return;
@@ -1395,7 +890,6 @@ function createComparisonAnalysis(data) {
     const firstYear = data[0];
     const lastYear = data[data.length - 1];
     
-    // Oblicz statystyki
     const totalGrowth = lastYear.populacja_ogolem - firstYear.populacja_ogolem;
     const avgGrowthPerYear = (totalGrowth / (lastYear.rok - firstYear.rok)).toFixed(1);
     const maxPopulation = Math.max(...data.map(d => d.populacja_ogolem || 0));
@@ -1404,33 +898,22 @@ function createComparisonAnalysis(data) {
     const comparisonHTML = `
         <div class="comparison-cards">
             <div class="comparison-card">
-                <div class="comparison-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
+                <div class="comparison-icon"><i class="fas fa-chart-line"></i></div>
                 <div class="comparison-value">+${totalGrowth}</div>
                 <div class="comparison-label">Wzrost całkowity</div>
             </div>
-            
             <div class="comparison-card">
-                <div class="comparison-icon">
-                    <i class="fas fa-calendar-alt"></i>
-                </div>
+                <div class="comparison-icon"><i class="fas fa-calendar-alt"></i></div>
                 <div class="comparison-value">${avgGrowthPerYear}</div>
                 <div class="comparison-label">Średni wzrost/rok</div>
             </div>
-            
             <div class="comparison-card">
-                <div class="comparison-icon">
-                    <i class="fas fa-arrow-up"></i>
-                </div>
+                <div class="comparison-icon"><i class="fas fa-arrow-up"></i></div>
                 <div class="comparison-value">${maxPopulation}</div>
                 <div class="comparison-label">Maksymalna populacja</div>
             </div>
-            
             <div class="comparison-card">
-                <div class="comparison-icon">
-                    <i class="fas fa-arrow-down"></i>
-                </div>
+                <div class="comparison-icon"><i class="fas fa-arrow-down"></i></div>
                 <div class="comparison-value">${minPopulation}</div>
                 <div class="comparison-label">Minimalna populacja</div>
             </div>
@@ -1440,3 +923,412 @@ function createComparisonAnalysis(data) {
     container.querySelector('.comparison-cards').innerHTML = comparisonHTML;
 }
 
+/* ==========================================================================
+   KALENDARZ AKTYWNOŚCI
+   ========================================================================== */
+/**
+ * Renderuje kalendarz aktywności spisowej
+ */
+function renderActivityCalendar(protocolsData) {
+    if (!protocolsData || protocolsData.length === 0) return;
+
+    const container = document.getElementById('activity-calendar-container');
+    if (!container) return;
+
+    const dataMap = new Map();
+    protocolsData.forEach(item => {
+        const date = new Date(item.protocol_date).toISOString().split('T')[0];
+        dataMap.set(date, item.protocol_count);
+    });
+
+    const maxCount = Math.max(...dataMap.values());
+    const startDate = new Date(protocolsData[0].protocol_date);
+    const endDate = new Date(protocolsData[protocolsData.length - 1].protocol_date);
+
+    let calendarHtml = '<div class="activity-calendar">';
+    let currentDate = new Date(startDate);
+    currentDate.setDate(startDate.getDate() - startDate.getDay());
+
+    while (currentDate <= endDate) {
+        const dateString = currentDate.toISOString().split('T')[0];
+        const count = dataMap.get(dateString) || 0;
+        let level = 0;
+        if (count > 0) {
+            level = Math.ceil((count / maxCount) * 4);
+        }
+        const tooltipText = `${currentDate.toLocaleDateString('pl-PL')}: ${count} protokołów`;
+        
+        calendarHtml += `<div class="day-cell" data-tooltip="${tooltipText}" data-level="${level}"></div>`;
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+    calendarHtml += '</div>';
+
+    const legendHtml = `
+        <div class="activity-legend">
+            <span>Mniej</span>
+            <div class="legend-item">
+                <div class="day-cell" data-level="1"></div>
+                <div class="day-cell" data-level="2"></div>
+                <div class="day-cell" data-level="3"></div>
+                <div class="day-cell" data-level="4"></div>
+            </div>
+            <span>Więcej</span>
+        </div>
+    `;
+
+    container.innerHTML = calendarHtml + legendHtml;
+
+    // Dynamiczny tooltip
+    const calendar = container.querySelector('.activity-calendar');
+    let tooltip = document.getElementById('calendar-tooltip');
+    
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'calendar-tooltip';
+        document.body.appendChild(tooltip);
+    }
+    
+    calendar.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('day-cell') && e.target.dataset.tooltip) {
+            const cell = e.target;
+            tooltip.textContent = cell.dataset.tooltip;
+            tooltip.classList.add('visible');
+
+            const cellRect = cell.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+
+            let top = cellRect.top - tooltipRect.height - 8;
+            let left = cellRect.left + (cellRect.width / 2) - (tooltipRect.width / 2);
+
+            if (left < 0) left = 5;
+            if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
+            
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
+        }
+    });
+
+    calendar.addEventListener('mouseout', (e) => {
+        if (e.target.classList.contains('day-cell')) {
+            tooltip.classList.remove('visible');
+        }
+    });
+}
+
+/* ==========================================================================
+   ANALIZA I WNIOSKI
+   ========================================================================== */
+/**
+ * Ładuje wnioski analityczne
+ */
+function loadInsights(data) {
+    // Mini statystyki kategorii
+    const counts = data.category_counts || {};
+    document.getElementById('stat-forests').textContent = counts.las || 0;
+    document.getElementById('stat-rivers').textContent = counts.rzeka || 0;
+    document.getElementById('stat-buildings').textContent = counts.budynek || 0;
+    document.getElementById('stat-chapels').textContent = counts.kapliczka || 0;
+
+    // Największy właściciel
+    if (data.rankings_real.all_plots?.[0]) {
+        const biggest = data.rankings_real.all_plots[0];
+        document.getElementById('biggest-owner').textContent = 
+            `${biggest.nazwa_wlasciciela} - ${biggest.plot_count} działek`;
+    }
+    
+    // Trend własności
+    document.getElementById('ownership-trend').textContent = 
+        `${data.general_stats.total_owners} właścicieli kontroluje ${data.general_stats.total_plots} działek`;
+    
+    // Koncentracja własności
+    const top10Count = data.rankings_real.all_plots?.slice(0, 10)
+        .reduce((sum, o) => sum + o.plot_count, 0) || 0;
+    const concentration = ((top10Count / data.general_stats.total_plots) * 100).toFixed(1);
+    document.getElementById('concentration').textContent = 
+        `Top 10 właścicieli posiada ${concentration}% wszystkich działek`;
+}
+
+/* ==========================================================================
+   STATYSTYKI GENEALOGICZNE
+   ========================================================================== */
+/**
+ * Ładuje i wyświetla statystyki genealogiczne
+ */
+function loadGenealogyStats(data) {
+    const stats = data.genealogy_stats;
+    if (!stats) return;
+
+    // Aktualizacja wskaźników
+    const totalPeopleEl = document.getElementById('stat-total-people');
+    const genderRatioEl = document.getElementById('stat-gender-ratio');
+
+    if (totalPeopleEl) totalPeopleEl.textContent = stats.total_people;
+    if (genderRatioEl) genderRatioEl.textContent = `${stats.male_count} / ${stats.female_count}`;
+
+    // Lista najpopularniejszych nazwisk
+    const surnamesContainer = document.getElementById('top-surnames-list');
+    if (surnamesContainer) {
+        surnamesContainer.innerHTML = stats.top_surnames.map((surname, index) => {
+            const position = index + 1;
+            let positionClass = '';
+            if (position === 1) positionClass = 'gold';
+            else if (position === 2) positionClass = 'silver';
+            else if (position === 3) positionClass = 'bronze';
+
+            return `
+                <div class="ranking-item">
+                    <div class="ranking-position ${positionClass}">${position}</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">${surname.name}</div>
+                    </div>
+                    <div class="surname-count">${surname.count}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Wykres urodzeń wg dekad
+    const chartCtx = document.getElementById('genealogy-births-chart')?.getContext('2d');
+    if (chartCtx) {
+        if (charts.genealogyBirths) charts.genealogyBirths.destroy();
+
+        const gradient = chartCtx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(118, 75, 162, 0.6)');
+        gradient.addColorStop(1, 'rgba(102, 126, 234, 0.1)');
+
+        charts.genealogyBirths = new Chart(chartCtx, {
+            type: 'bar',
+            data: {
+                labels: stats.births_by_decade.labels,
+                datasets: [{
+                    label: 'Liczba urodzeń',
+                    data: stats.births_by_decade.data,
+                    backgroundColor: gradient,
+                    borderColor: '#764ba2',
+                    borderWidth: 2,
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Liczba osób' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Dekada' }
+                    }
+                }
+            }
+        });
+    }
+}
+
+/* ==========================================================================
+   NARZĘDZIA EKSPORTU I UDOSTĘPNIANIA
+   ========================================================================== */
+/**
+ * Eksportuje wykres jako obraz PNG
+ */
+function exportChart(chartId) {
+    const chart = charts[chartId === 'pieChart' ? 'pie' : 'bar'];
+    if (!chart) return;
+    
+    const url = chart.toBase64Image();
+    const link = document.createElement('a');
+    link.download = `wykres-${chartId}-${Date.now()}.png`;
+    link.href = url;
+    link.click();
+    
+    showToast('success', 'Eksport', 'Wykres został pobrany');
+}
+
+/**
+ * Eksportuje dane do pliku Excel
+ */
+function exportToExcel() {
+    if (!statsData) {
+        showToast('error', 'Błąd', 'Dane nie zostały jeszcze załadowane.');
+        return;
+    }
+
+    try {
+        showToast('info', 'Eksport', 'Rozpoczęto generowanie pliku Excel...');
+
+        const wb = XLSX.utils.book_new();
+
+        // Arkusz: Podsumowanie
+        const summaryData = [
+            ["Kluczowa Statystyka", "Wartość"],
+            ["Całkowita liczba właścicieli", statsData.general_stats.total_owners],
+            ["Całkowita liczba działek", statsData.general_stats.total_plots],
+            ...Object.entries(statsData.category_counts).map(([key, value]) => [`Liczba działek - ${key}`, value])
+        ];
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Podsumowanie");
+        
+        // Arkusz: Rankingi Rzeczywiste
+        let realRankingsData = [];
+        for (const category in statsData.rankings_real) {
+            statsData.rankings_real[category].forEach((owner, index) => {
+                realRankingsData.push({
+                    "Kategoria": category,
+                    "Pozycja": index + 1,
+                    "Właściciel": owner.nazwa_wlasciciela,
+                    "Numer Protokołu": owner.numer_protokolu,
+                    "Liczba Działek": owner.plot_count
+                });
+            });
+        }
+        const wsRealRankings = XLSX.utils.json_to_sheet(realRankingsData);
+        XLSX.utils.book_append_sheet(wb, wsRealRankings, "Rankingi Rzeczywiste");
+
+        // Arkusz: Rankingi z Protokołu
+        let protocolRankingsData = [];
+        for (const category in statsData.rankings_protocol) {
+            statsData.rankings_protocol[category].forEach((owner, index) => {
+                protocolRankingsData.push({
+                    "Kategoria": category,
+                    "Pozycja": index + 1,
+                    "Właściciel": owner.nazwa_wlasciciela,
+                    "Numer Protokołu": owner.numer_protokolu,
+                    "Liczba Działek": owner.plot_count
+                });
+            });
+        }
+        const wsProtocolRankings = XLSX.utils.json_to_sheet(protocolRankingsData);
+        XLSX.utils.book_append_sheet(wb, wsProtocolRankings, "Rankingi z Protokołu");
+
+        // Arkusz: Demografia
+        const wsDemographics = XLSX.utils.json_to_sheet(statsData.demografia);
+        XLSX.utils.book_append_sheet(wb, wsDemographics, "Demografia");
+
+        // Arkusz: Genealogia
+        const genealogyData = [
+            ["Najpopularniejsze Nazwiska"],
+            ["Pozycja", "Nazwisko", "Liczba wystąpień"],
+            ...statsData.genealogy_stats.top_surnames.map((s, i) => [i + 1, s.name, s.count]),
+            [],
+            ["Urodzenia wg Dekad"],
+            ["Dekada", "Liczba urodzeń"],
+            ...statsData.genealogy_stats.births_by_decade.labels.map((label, i) => [
+                label, statsData.genealogy_stats.births_by_decade.data[i]
+            ])
+        ];
+        const wsGenealogy = XLSX.utils.aoa_to_sheet(genealogyData);
+        XLSX.utils.book_append_sheet(wb, wsGenealogy, "Genealogia");
+
+        // Arkusz: Aktywność Spisowa
+        const activityData = statsData.protocols_per_day.map(day => ({
+            "Data": new Date(day.protocol_date).toLocaleDateString('pl-PL'),
+            "Liczba protokołów": day.protocol_count,
+            "Właściciele": day.owners.map(o => o.nazwa_wlasciciela).join(', ')
+        }));
+        const wsActivity = XLSX.utils.json_to_sheet(activityData);
+        XLSX.utils.book_append_sheet(wb, wsActivity, "Aktywność Spisowa");
+
+        const today = new Date().toISOString().slice(0, 10);
+        const fileName = `statystyki_gmina_czarna_${today}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        showToast('success', 'Eksport zakończony', `Plik ${fileName} został pobrany.`);
+
+    } catch (error) {
+        console.error("Błąd podczas eksportu do Excel:", error);
+        showToast('error', 'Błąd eksportu', 'Wystąpił nieoczekiwany problem.');
+    }
+}
+
+/**
+ * Drukuje raport
+ */
+function printReport() {
+    window.print();
+    showToast('info', 'Drukowanie', 'Przygotowano raport do druku');
+}
+
+/**
+ * Udostępnia raport
+ */
+function shareReport() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Statystyki Gminy Czarna',
+            text: 'Zobacz statystyki właścicieli gruntów z XIX wieku',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href);
+        showToast('success', 'Udostępnianie', 'Link skopiowany do schowka');
+    }
+}
+
+/**
+ * Pobiera top 10 właścicieli według kryteriów
+ */
+function getTop10Owners(ownership, category) {
+    const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
+    const rankingData = category === 'all' ? data.all_plots : data[category];
+    return rankingData?.slice(0, 10) || [];
+}
+
+/* ==========================================================================
+   SYSTEM POWIADOMIEŃ TOAST
+   ========================================================================== */
+/**
+ * Wyświetla powiadomienie toast
+ */
+function showToast(type, title, message) {
+    const container = document.getElementById('toast-container');
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}"></i>
+        </div>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+    `;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'toastOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+/* ==========================================================================
+   SKRÓTY KLAWISZOWE
+   ========================================================================== */
+/**
+ * Inicjalizuje obsługę skrótów klawiszowych
+ */
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+F - Wyszukiwanie
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('search-toggle')?.click();
+        }
+        
+        // D - Tryb ciemny (tylko gdy nie jest aktywne pole tekstowe)
+        if (e.key === 'd' && !e.target.matches('input, textarea')) {
+            document.getElementById('theme-toggle')?.click();
+        }
+        
+        // Esc - Zamknij modal/wyszukiwanie
+        if (e.key === 'Escape') {
+            document.querySelector('.modal.active')?.classList.remove('active');
+            document.getElementById('search-bar')?.classList.remove('active');
+        }
+    });
+}

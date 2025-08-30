@@ -1,36 +1,48 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ==========================================================================
+         METADANE I KONFIGURACJA
+         ========================================================================== -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Centrum Analityczne - kompleksowa analiza danych katastralnych Gminy Czarna z XIX wieku">
+    <meta name="keywords" content="analiza danych, statystyki, gmina Czarna, dane katastralne, XIX wiek">
     <title>Centrum Analityczne - Gmina Czarna</title>
     
-    <!-- Font Awesome -->
+    <!-- ==========================================================================
+         ZEWNĘTRZNE ZASOBY
+         ========================================================================== -->
+    <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts -->
+    <!-- Google Fonts - typografia -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
-    
-    <!-- Chart.js dla wykresów -->
+    <!-- Chart.js - wizualizacja danych -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Arkusz stylów -->
-    <link rel="stylesheet" href="stats-style.css" />
+    <!-- Arkusz stylów aplikacji -->
+    <link rel="stylesheet" href="stats-style.css">
 </head>
 <body>
-    <!-- Animowane tło -->
+    <!-- ==========================================================================
+         WARSTWA TŁA ANIMOWANEGO
+         ========================================================================== -->
     <div class="animated-bg">
         <div class="gradient-sphere sphere-1"></div>
         <div class="gradient-sphere sphere-2"></div>
         <div class="gradient-sphere sphere-3"></div>
     </div>
     
-    <!-- Główny kontener -->
+    <!-- ==========================================================================
+         GŁÓWNY KONTENER APLIKACJI
+         ========================================================================== -->
     <div class="app-container">
         
-        <!-- Nowoczesny nagłówek -->
+        <!-- ==========================================================================
+             NAGŁÓWEK Z NAWIGACJĄ
+             ========================================================================== -->
         <header class="main-header">
             <div class="header-content">
+                <!-- Logo i tytuł aplikacji -->
                 <div class="brand">
                     <div class="logo-animated">
                         <i class="fas fa-chart-line"></i>
@@ -41,6 +53,7 @@
                     </div>
                 </div>
                 
+                <!-- Nawigacja główna -->
                 <nav class="header-nav">
                     <a href="../mapa/mapa.html" class="nav-pill">
                         <i class="fas fa-map"></i>
@@ -59,6 +72,7 @@
                         <span>Genealogia</span>
                     </a>
                     
+                    <!-- Przyciski akcji nagłówka -->
                     <div class="header-actions">
                         <button class="icon-btn" id="search-toggle" title="Szukaj">
                             <i class="fas fa-search"></i>
@@ -73,7 +87,7 @@
                 </nav>
             </div>
             
-            <!-- Ukryte pole wyszukiwania -->
+            <!-- Wysuwany pasek wyszukiwania -->
             <div class="search-bar" id="search-bar">
                 <div class="search-container">
                     <i class="fas fa-search"></i>
@@ -85,9 +99,12 @@
             </div>
         </header>
 
-        <!-- Sekcja Hero ze statystykami -->
+        <!-- ==========================================================================
+             SEKCJA HERO - GŁÓWNE STATYSTYKI
+             ========================================================================== -->
         <section class="hero-section">
             <div class="hero-grid">
+                <!-- Karta właścicieli -->
                 <div class="hero-card primary">
                     <div class="card-background"></div>
                     <div class="card-content">
@@ -107,6 +124,7 @@
                     </div>
                 </div>
                 
+                <!-- Karta działek -->
                 <div class="hero-card secondary">
                     <div class="card-background"></div>
                     <div class="card-content">
@@ -126,6 +144,7 @@
                     </div>
                 </div>
                 
+                <!-- Karta okresu czasowego -->
                 <div class="hero-card accent">
                     <div class="card-background"></div>
                     <div class="card-content">
@@ -145,8 +164,11 @@
             </div>
         </section>
 
-        <!-- Zakładki z zawartością -->
+        <!-- ==========================================================================
+             SYSTEM ZAKŁADEK
+             ========================================================================== -->
         <div class="tabs-container">
+            <!-- Nawigacja zakładek -->
             <div class="tabs-header">
                 <button class="tab-button active" data-tab="overview">
                     <i class="fas fa-chart-pie"></i>
@@ -164,7 +186,7 @@
                     <i class="fas fa-users-cog"></i>
                     <span>Demografia</span>
                 </button>
-                <button class="tab-button" data-tab="genealogy"> <!-- NOWY PRZYCISK -->
+                <button class="tab-button" data-tab="genealogy">
                     <i class="fas fa-sitemap"></i>
                     <span>Genealogia</span>
                 </button>
@@ -174,14 +196,15 @@
                 </button>
             </div>
 
-            <!-- Zawartość zakładek -->
+            <!-- ==========================================================================
+                 ZAWARTOŚĆ ZAKŁADEK
+                 ========================================================================== -->
             <div class="tabs-content">
                 
-                <!-- Zakładka: Przegląd -->
+                <!-- ZAKŁADKA: PRZEGLĄD -->
                 <div class="tab-panel active" id="overview">
                     <div class="dashboard-grid">
-                        
-                        <!-- Wykres kołowy kategorii -->
+                        <!-- Wykres struktury własności -->
                         <div class="dashboard-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-chart-pie"></i> Struktura własności</h3>
@@ -194,7 +217,7 @@
                             </div>
                         </div>
                         
-                        <!-- Wykres słupkowy top właścicieli -->
+                        <!-- Wykres największych właścicieli -->
                         <div class="dashboard-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-chart-bar"></i> Top 10 właścicieli</h3>
@@ -207,7 +230,7 @@
                             </div>
                         </div>
                         
-                        <!-- Mini statystyki -->
+                        <!-- Mini statystyki kategorii -->
                         <div class="dashboard-card stats-grid">
                             <div class="mini-stat">
                                 <div class="mini-icon green">
@@ -218,7 +241,6 @@
                                     <span class="mini-value" id="stat-forests">0</span>
                                 </div>
                             </div>
-                            
                             <div class="mini-stat">
                                 <div class="mini-icon blue">
                                     <i class="fas fa-water"></i>
@@ -228,7 +250,6 @@
                                     <span class="mini-value" id="stat-rivers">0</span>
                                 </div>
                             </div>
-                            
                             <div class="mini-stat">
                                 <div class="mini-icon orange">
                                     <i class="fas fa-home"></i>
@@ -238,7 +259,6 @@
                                     <span class="mini-value" id="stat-buildings">0</span>
                                 </div>
                             </div>
-                            
                             <div class="mini-stat">
                                 <div class="mini-icon purple">
                                     <i class="fas fa-church"></i>
@@ -250,23 +270,22 @@
                             </div>
                         </div>
                         
-                        <!-- Aktywność - protokoły dzienne -->
+                        <!-- Kalendarz aktywności -->
                         <div class="dashboard-card wide">
                             <div class="card-header">
                                 <h3><i class="fas fa-calendar-day"></i> Kalendarz aktywności spisowej</h3>
                             </div>
                             <div class="card-body" id="activity-calendar-container">
-                                <!-- Kalendarz i legenda będą generowane tutaj przez JS -->
+                                <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Zakładka: Rankingi -->
+                <!-- ZAKŁADKA: RANKINGI -->
                 <div class="tab-panel" id="rankings">
                     <div class="rankings-container">
-                        
-                        <!-- Filtry rankingów -->
+                        <!-- Panel filtrów -->
                         <div class="rankings-filters">
                             <div class="filter-group">
                                 <label>Typ własności:</label>
@@ -277,7 +296,6 @@
                                     <label for="own-protocol">Protokół</label>
                                 </div>
                             </div>
-                            
                             <div class="filter-group">
                                 <label>Kategoria:</label>
                                 <select id="category-filter">
@@ -288,36 +306,33 @@
                                     <option value="pastwisko">Pastwiska</option>
                                 </select>
                             </div>
-                            
                             <button class="btn-primary" id="show-on-map">
                                 <i class="fas fa-map-marked-alt"></i>
                                 Pokaż TOP 10 na mapie
                             </button>
                         </div>
-                        
                         <!-- Lista rankingowa -->
                         <div class="ranking-list" id="ranking-list">
-                            <!-- Generowane przez JS -->
+                            <!-- Generowane dynamicznie przez JavaScript -->
                         </div>
                     </div>
                 </div>
                 
-                <!-- Zakładka: Oś czasu -->
+                <!-- ZAKŁADKA: OŚ CZASU -->
                 <div class="tab-panel" id="timeline">
                     <div class="timeline-container">
                         <div class="timeline-header">
                             <h3><i class="fas fa-history"></i> Chronologia protokołów</h3>
                         </div>
                         <div class="timeline" id="timeline-content">
-                            <!-- Generowane przez JS -->
+                            <!-- Generowane dynamicznie przez JavaScript -->
                         </div>
                     </div>
                 </div>
                 
-                <!-- Zakładka: Demografia -->
+                <!-- ZAKŁADKA: DEMOGRAFIA -->
                 <div class="tab-panel" id="demographics">
                     <div class="demographics-container">
-                        
                         <!-- Nagłówek z podsumowaniem -->
                         <div class="demo-header">
                             <div class="demo-summary">
@@ -335,39 +350,35 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Główny wykres liniowy -->
+                        <!-- Główny wykres demograficzny -->
                         <div class="demo-main-chart">
                             <canvas id="demographicsChart"></canvas>
                         </div>
-                        
-                        <!-- Timeline z wydarzeniami -->
+                        <!-- Timeline wydarzeń historycznych -->
                         <div class="demo-timeline">
                             <h4><i class="fas fa-history"></i> Kluczowe wydarzenia</h4>
                             <div class="timeline-track" id="demo-timeline-track">
-                                <!-- Generowane przez JS -->
+                                <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
                         </div>
-                        
-                        <!-- Karty szczegółowe dla każdego roku -->
+                        <!-- Karty szczegółowe -->
                         <div class="demo-cards-grid" id="demo-cards">
-                            <!-- Generowane przez JS -->
+                            <!-- Generowane dynamicznie przez JavaScript -->
                         </div>
-                        
                         <!-- Analiza porównawcza -->
                         <div class="demo-comparison" id="demo-comparison">
                             <h4><i class="fas fa-balance-scale"></i> Analiza porównawcza</h4>
                             <div class="comparison-cards">
-                                <!-- Generowane przez JS -->
+                                <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- NOWA ZAKŁADKA: GENEALOGIA -->
+                <!-- ZAKŁADKA: GENEALOGIA -->
                 <div class="tab-panel" id="genealogy">
                     <div class="dashboard-grid">
-                        <!-- Karta z kluczowymi wskaźnikami -->
+                        <!-- Wskaźniki genealogiczne -->
                         <div class="dashboard-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
@@ -389,18 +400,16 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Karta z najpopularniejszymi nazwiskami -->
+                        <!-- Ranking nazwisk -->
                         <div class="dashboard-card">
                              <div class="card-header">
                                 <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
                             </div>
                             <div class="ranking-list" id="top-surnames-list">
-                                <!-- Lista generowana przez JS -->
+                                <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
                         </div>
-
-                        <!-- Karta z wykresem urodzeń -->
+                        <!-- Wykres urodzeń -->
                         <div class="dashboard-card wide">
                             <div class="card-header">
                                 <h3><i class="fas fa-birthday-cake"></i> Urodzenia wg dekad</h3>
@@ -412,9 +421,10 @@
                     </div>
                 </div>
 
-                <!-- Zakładka: Analiza -->
+                <!-- ZAKŁADKA: ANALIZA -->
                 <div class="tab-panel" id="analysis">
                     <div class="analysis-container">
+                        <!-- Narzędzia analityczne -->
                         <div class="analysis-tools">
                             <button class="tool-btn" id="compare-btn">
                                 <i class="fas fa-balance-scale"></i>
@@ -433,9 +443,8 @@
                                 <span>Udostępnij</span>
                             </button>
                         </div>
-                        
+                        <!-- Karty z wnioskami analitycznymi -->
                         <div class="insights-grid">
-                            <!-- Karty z wnioskami -->
                             <div class="insight-card">
                                 <div class="insight-icon">
                                     <i class="fas fa-lightbulb"></i>
@@ -443,7 +452,6 @@
                                 <h4>Największy właściciel</h4>
                                 <p id="biggest-owner">Analizowanie...</p>
                             </div>
-                            
                             <div class="insight-card">
                                 <div class="insight-icon">
                                     <i class="fas fa-chart-line"></i>
@@ -451,7 +459,6 @@
                                 <h4>Trend własności</h4>
                                 <p id="ownership-trend">Analizowanie...</p>
                             </div>
-                            
                             <div class="insight-card">
                                 <div class="insight-icon">
                                     <i class="fas fa-percentage"></i>
@@ -465,7 +472,9 @@
             </div>
         </div>
 
-        <!-- Stopka -->
+        <!-- ==========================================================================
+             STOPKA APLIKACJI
+             ========================================================================== -->
         <footer class="main-footer">
             <div class="footer-content">
                 <div class="footer-info">
@@ -474,15 +483,18 @@
                 </div>
                 <div class="footer-actions">
                     <button class="footer-btn" id="help-btn">
-                    <i class="fas fa-question-circle"></i>
-                      Pomoc
+                        <i class="fas fa-question-circle"></i>
+                        Pomoc
                     </button>
                 </div>
             </div>
         </footer>
     </div>
 
-    <!-- Toast notifications -->
+    <!-- ==========================================================================
+         KOMPONENTY UI
+         ========================================================================== -->
+    <!-- Kontener powiadomień toast -->
     <div class="toast-container" id="toast-container"></div>
 
     <!-- Modal pomocy -->
@@ -503,7 +515,6 @@
                         <li><strong>Analiza:</strong> Zaawansowane narzędzia</li>
                     </ul>
                 </div>
-                
                 <div class="help-section">
                     <h3>Skróty klawiszowe</h3>
                     <div class="shortcuts">
@@ -517,8 +528,12 @@
         </div>
     </div>
 
-<!-- Biblioteka SheetJS (xlsx) do generowania plików Excel -->
+    <!-- ==========================================================================
+         SKRYPTY ZEWNĘTRZNE I APLIKACJI
+         ========================================================================== -->
+    <!-- SheetJS - obsługa plików Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Główny skrypt aplikacji -->
     <script src="stats-script.js"></script>
 </body>
 </html>
