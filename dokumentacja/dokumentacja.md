@@ -116,7 +116,7 @@ System został zaprojektowany w oparciu o sprawdzoną, **trójwarstwową archite
 
 **Diagram Architektury Systemu:**
 
-![Schemat Architektury Projektu](images/project_architecture_schema.png)
+![Rysunek 1: Schemat architektury systemu](images/architektura_systemu_diagram.png)
 
 ## 3.2. Uzasadnienie Wyborów Technologicznych
 
@@ -140,7 +140,7 @@ Sercem systemu jest relacyjna baza danych PostgreSQL, rozszerzona o PostGIS, kt�
 
 Poniższy diagram przedstawia kluczowe tabele w bazie danych oraz relacje (klucze obce) między nimi. Wizualizuje on, w jaki sposób dane o właścicielach, obiektach, demografii i genealogii są ze sobą połączone.
 
-![Schemat Architektury Bazy Danych](images/project_database_schema.png)
+![Rysunek 2: Diagram związków encji (ERD) bazy danych](images/baza_danych_diagram_erd.png)
 
 ## 4.2. Szczegółowy Opis Kluczowych Tabel
 
@@ -185,6 +185,28 @@ Tabela łącząca dla relacji małżeńskich (wiele-do-wielu między osobami).
 *   `malzonek1_id (INTEGER, FK)`: Klucz obcy do tabeli `osoby_genealogia`.
 *   `malzonek2_id (INTEGER, FK)`: Klucz obcy do tabeli `osoby_genealogia`.
 
+#### `powiazania_protokolow`
+Tabela łącząca, która realizuje relację wiele-do-wielu *między* protokołami. Jest kluczowa dla modułu grafu powiązań.
+*   `wlasciciel_id_1 (INTEGER, FK)`: Klucz obcy wskazujący na pierwszy protokół w relacji.
+*   `wlasciciel_id_2 (INTEGER, FK)`: Klucz obcy wskazujący na drugi protokół w relacji.
+*   `typ_relacji (VARCHAR)`: Opcjonalne pole opisujące charakter relacji (np. "sprzedaż", "dziedziczenie").
+
+#### `konfiguracja_systemu`
+Przechowuje globalne ustawienia aplikacji w formacie klucz-wartość. Zapewnia centralne zarządzanie kluczowymi parametrami systemu.
+*   `klucz (VARCHAR, PK)`: Unikalny klucz identyfikujący ustawienie (np. `map_calibration`).
+*   `wartosc (JSONB)`: Wartość ustawienia przechowywana w wydajnym, binarnym formacie JSON, idealnym do przechowywania złożonych obiektów konfiguracyjnych, takich jak współrzędne mapy.
+*   `opis (TEXT)`: Opcjonalny opis przeznaczenia danego ustawienia.
+
+#### `login_attempts`
+Zapisuje każdą próbę logowania do panelu admina w celu monitorowania bezpieczeństwa i wykrywania prób ataku typu brute-force.
+*   `ip_address (VARCHAR)`: Adres IP, z którego nastąpiła próba.
+*   `successful (BOOLEAN)`: Wartość `true`, jeśli logowanie było udane.
+
+#### `blocked_ips`
+Przechowuje adresy IP, które zostały automatycznie zablokowane po przekroczeniu limitu nieudanych prób logowania.
+*   `ip_address (VARCHAR, UK)`: Zablokowany adres IP.
+*   `reason (TEXT)`: Powód blokady (np. automatyczna lub ręczna).
+
 ## 4.3. Integralność Danych
 
 Integralność referencyjna danych jest zapewniona poprzez użycie kluczy obcych z regułą `ON DELETE CASCADE`. Gwarantuje to, że usunięcie rekordu nadrzędnego (np. właściciela) automatycznie powoduje usunięcie wszystkich powiązanych z nim rekordów podrzędnych (np. wpisów w tabeli `dzialki_wlasciciele`), co zapobiega powstawaniu osieroconych danych i utrzymuje spójność bazy.
@@ -206,20 +228,22 @@ Launcher to centralna aplikacja desktopowa (GUI) napisana w Pythonie z użyciem 
     *   **Sieciowym:** Serwer dostępny dla innych urządzeń w sieci lokalnej (nasłuchuje na `0.0.0.0`), z automatyczną konfiguracją reguł firewalla w systemie Windows.
 *   **Automatyzacja Migracji:** Pozwala na bezpieczne przeprowadzenie procesu migracji danych z plików JSON do bazy PostgreSQL jednym kliknięciem.
 *   **Zintegrowane Narzędzia Administracyjne:**
-    *   **Menedżer Kopii Zapasowych:** Umożliwia tworzenie, przywracanie i zarządzanie kompletnymi archiwami `.zip` zawierającymi zarówno dane, jak i skany protokołów.
-    *   **Konfiguracja Bazy Danych:** Oferuje wbudowany edytor pliku konfiguracyjnego `.env`, co pozwala na zmianę parametrów połączenia z bazą bez opuszczania aplikacji.
-    *   **Ustawienia Administratora:** Dedykowany panel do zarządzania bezpieczeństwem panelu admina, w tym włączanie/wyłączanie autoryzacji oraz bezpieczne ustawianie hasła (które jest automatycznie haszowane).
+    *   **Menedżer Kopii Zapasowych:** Umożliwia tworzenie, przywracanie i zarządzanie kompletnymi archiwami `.zip`.
+    *   **Konfiguracja Bazy Danych:** Oferuje wbudowany edytor pliku konfiguracyjnego `.env`.
+    *   **Ustawienia Administratora:** Dedykowany panel do zarządzania bezpieczeństwem, w tym włączanie/wyłączanie autoryzacji oraz bezpieczne ustawianie hasła.
+    *   **Konfigurator Mapy:** Zaawansowane okno, które łączy dwie kluczowe funkcje: **wybór pliku mapy tła** (.jpg/.png) oraz **kalibrację współrzędnych**. Narzędzie automatycznie kopiuje wybrany plik mapy do odpowiednich folderów (`mapa/` oraz `tools/parcel_editor/`) i wyświetla jego podgląd, gwarantując spójność wizualną między edytorem a aplikacją główną.
+    *   **Ustawienia Witryny:** Dedykowany interfejs do zarządzania globalnym wyglądem, np. do ustawienia **własnej ikony (favicon)** dla wszystkich stron aplikacji. Zmiana jest zapisywana w bazie danych, a serwer dynamicznie serwuje wybrany plik, co eliminuje potrzebę modyfikacji kodu źródłowego frontendowego.
 *   **Szybki Dostęp i Monitoring:**
     *   **Uruchamianie Narzędzi:** Zapewnia bezpośredni dostęp do wszystkich edytorów (właścicieli, działek, genealogii) oraz do uruchamiania zautomatyzowanych testów jednostkowych (`pytest`).
     *   **Bezpośrednie Linki:** Oferuje przyciski otwierające kluczowe widoki aplikacji (strona główna, mapa, panel admina) bezpośrednio w przeglądarce.
     *   **Zarządzanie Procesami:** Wyświetla listę wszystkich aktywnych procesów potomnych (serwer, edytory) wraz z ich identyfikatorami (PID) i pozwala na ich awaryjne zatrzymanie.
     *   **Wielozakładkowa Konsola:** Każdy uruchomiony proces otrzymuje własną zakładkę z konsolą, w której na żywo wyświetlane są jego logi, co ułatwia diagnostykę i monitoring.
 
-![Główne okno Launchera z widoczną konsolą i kilkoma uruchomionymi procesami w zakładkach](images/launcher_main_window.png)
+![Rysunek 3: Główne okno aplikacji Launcher z konsolą i aktywnymi procesami](images/launcher_okno_glowne.png)
 
 ### 5.2. Edytor Właścicieli (`tools/owner_editor.py`)
 
-Edytor Właścicieli to samodzielna, w pełni funkcjonalna aplikacja desktopowa (GUI) napisana w Pythonie z użyciem biblioteki Tkinter. Została ona zaprojektowana jako dedykowane, "idiotoodporne" narzędzie dla historyków, badaczy i osób wprowadzających dane, aby w sposób ustrukturyzowany i bezpieczny zarządzać kluczowymi danymi tekstowymi projektu.
+Edytor Właścicieli to samodzielna, w pełni funkcjonalna aplikacja desktopowa (GUI) napisana w Pythonie z użyciem biblioteki Tkinter. Została ona zaprojektowana jako dedykowane narzędzie dla historyków, badaczy i osób wprowadzających dane, aby w sposób ustrukturyzowany i bezpieczny zarządzać kluczowymi danymi tekstowymi projektu.
 
 **Problem, który rozwiązuje:** Ręczna edycja złożonych plików JSON jest nie tylko niewygodna, ale przede wszystkim wysoce podatna na błędy (literówki, błędy składni), które mogłyby uniemożliwić późniejszą migrację danych do bazy. Edytor całkowicie eliminuje to ryzyko, udostępniając przyjazny, graficzny interfejs, który prowadzi użytkownika przez cały proces i dba o poprawność formatu danych.
 
@@ -248,13 +272,13 @@ Edytor Właścicieli to samodzielna, w pełni funkcjonalna aplikacja desktopowa 
 
 *   **Centralny Eksport Danych:** Wszystkie dane (właściciele i demografia) są eksportowane do czystych plików `.json` w folderze `backup/`, gotowych do użycia przez skrypt migracyjny.
 
-![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui.png)
+![Rysunek 4: Formularz edycji protokołu w Edytorze Właścicieli](images/edytor_wlascicieli_1.png)
 
-![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui2.png)
+![Rysunek 5: Okno powiększenia pola tekstowego ułatwiające edycję obszernych opisów](images/edytor_wlascicieli_2.png)
 
-![Okno edycji jednego właściciela w Edytorze Właścicieli, z widoczną sekcją zarządzania skanami](images/screenshot_owner_editor_gui3.png)
+![Rysunek 6: Sekcja zarządzania skanami z możliwością zmiany kolejności stron](images/edytor_wlascicieli_3.png)
 
-![Osobne okno Edytora Demografii, pokazujące tabelę z danymi](images/screenshot_owner_editor_gui4.png)
+![Rysunek 7: Dedykowany moduł do edycji danych demograficznych](images/edytor_demografii.png)
 
 ### 5.3. Edytor Działek (`tools/parcel_editor/parcel_editor_app.py`)
 
@@ -284,7 +308,7 @@ Edytor Działek to zaawansowane narzędzie zaprojektowane specjalnie do procesu 
 
 *   **Eksport w Standardzie GeoJSON:** Cała sesja rysowania jest na bieżąco zapisywana, a finalny wynik pracy jest przechowywany w pliku `backup/parcels_data.json`. Dane są zapisywane w formacie **GeoJSON**, który jest otwartym standardem w świecie systemów informacji geograficznej (GIS). Zapewnia to pełną interoperacyjność i gotowość danych do użycia przez skrypt migracyjny, który przetwarza je i importuje do bazy PostGIS.
 
-![Główne okno Edytora Działek z widoczną mapą, narysowanymi obiektami, panelem bocznym i otwartym modalem menedżera kopii zapasowych](images/screenshot_parcel_editor.png)
+![Rysunek 8: Interfejs główny Edytora Działek z widocznym menedżerem kopii zapasowych](images/edytor_dzialek_interfejs_glowny.png)
 
 ### 5.4. Edytor Genealogii (`tools/genealogy_editor/editor_app.py`)
 
@@ -312,18 +336,19 @@ Edytor Genealogii to wyspecjalizowane narzędzie webowe, zaprojektowane do zarz�
 
 *   **Eksport do Pliku JSON:** Całość danych genealogicznych jest zapisywana w ustrukturyzowanym pliku `backup/genealogia.json`, który następnie służy jako źródło dla głównego skryptu migracyjnego.
 
-![Główne okno Edytora Genealogii, pokazujące tabelę z pogrupowanymi rodzinami i otwarty formularz edycji osoby z widocznym autouzupełnianiem](images/genealogy_editor_main_view.png)
+![Rysunek 9: Interfejs główny Edytora Genealogii z grupowaniem rodów i formularzem edycji](images/edytor_genealogii_interfejs_glowny.png)
 
 ---
 
 # Rozdział 6: Implementacja Backendu i Procesu Migracji
 
-### 6.1.1 Serwer API (`backend/app.py`)
+### 6.1. Serwer API (`backend/app.py`)
 
 Backend aplikacji pełni rolę mózgu operacji. Został zaimplementowany w Pythonie przy użyciu mikroframeworka Flask. Jego główne zadania to:
 *   **Udostępnianie REST API:** Serwuje dane z bazy PostgreSQL poprzez zdefiniowane endpointy (np. `/api/wlasciciele`, `/api/dzialki`). Dane są zwracane w formacie JSON, gotowym do użycia przez aplikację frontendową.
-*   **Serwowanie Aplikacji Frontendowej:** Flask serwuje również wszystkie pliki statyczne (HTML, CSS, JS, obrazy), dzięki czemu cały projekt działa jako jedna, spójna aplikacja bez potrzeby konfiguracji zewnętrznych serwerów jak Apache czy Nginx.
+*   **Serwowanie Aplikacji Frontendowej:** Flask serwuje również wszystkie pliki statyczne (HTML, CSS, JS, obrazy), dzięki czemu cały projekt działa jako jedna, spójna aplikacja bez potrzeby konfiguracji zewnętrznych serwerów jak Apache czy Nginx. Przy serwowaniu strony mapy, backend dynamicznie wstrzykuje do kodu HTML aktualne dane konfiguracyjne (współrzędne, zoom) pobrane z bazy danych.
 *   **Logika Biznesowa:** Zawiera logikę do obsługi bardziej złożonych zapytań, np. generowanie danych do grafu powiązań czy statystyk.
+*   **Zarządzanie Konfiguracją:** Przy starcie serwer wczytuje do pamięci globalne ustawienia systemowe z tabeli `konfiguracja_systemu`, co zapewnia, że wszystkie komponenty aplikacji korzystają z tych samych, aktualnych parametrów.
 
 #### Kluczowe Endpointy API
 
@@ -355,7 +380,7 @@ Poniżej opisano najważniejsze publiczne endpointy API, które dostarczają dan
 
 Panel administracyjny korzysta z osobnego zestawu endpointów pod ścieżką `/api/admin/...`, które implementują pełne operacje CRUD (Create, Read, Update, Delete) dla wszystkich kluczowych tabel.
 
-#### 6.1.2. Mechanizmy Bezpieczeństwa
+### 6.2. Mechanizmy Bezpieczeństwa
 
 W celu zabezpieczenia panelu administracyjnego oraz ochrony integralności danych, zaimplementowano następujące mechanizmy:
 *   **Konfigurowalna Autoryzacja:** Dostęp do panelu admina może być włączony lub wyłączony za pomocą zmiennej `ADMIN_AUTH_ENABLED` w pliku `.env`. Pozwala to na elastyczne dostosowanie poziomu bezpieczeństwa w zależności od środowiska (deweloperskie vs. produkcyjne).
@@ -365,16 +390,17 @@ W celu zabezpieczenia panelu administracyjnego oraz ochrony integralności danyc
     *   Przeglądanie logów z próbami logowania.
     *   Ręczne odblokowywanie adresów IP, w tym awaryjne odblokowanie `localhost` w przypadku przypadkowej samoblokady.
 
-#### 6.1.3. Cykl Życia Danych i Proces Migracji
+### 6.3. Cykl Życia Danych i Proces Migracji
 
 Dane w projekcie przechodzą przez precyzyjnie zdefiniowany, kontrolowany cykl życia, co zapewnia ich spójność i integralność.
-1.  **Dane Źródłowe (`backup/*.json`):** Wszystkie dane wprowadzane są za pomocą dedykowanych edytorów, które zapisują je w postaci ustrukturyzowanych plików JSON. Pliki te stanowią "źródło prawdy" i podstawę do tworzenia kopii zapasowych.
-2.  **Migracja (`backend/migrate_data.py`):** Skrypt migracyjny wczytuje pliki JSON, czyści docelowe tabele w bazie danych, a następnie importuje dane, transformując geometrię do formatu PostGIS (WKT). Proces ten jest idempotentny, co oznacza, że jego wielokrotne uruchomienie zawsze prowadzi do tego samego, spójnego stanu bazy.
-3.  **Udostępnianie (API):** Działający serwer Flask udostępnia dane z bazy poprzez endpointy API.
-4.  **Zarządzanie (Panel Admina):** Panel administracyjny pozwala na modyfikację danych bezpośrednio w bazie.
-5.  **Backup (Eksport):** Funkcja eksportu w panelu admina odwraca proces migracji, generując pliki JSON z aktualnego stanu bazy danych, co zamyka cykl życia danych.
+1.  **Konfiguracja Mapy:** Administrator, za pomocą **Kalibratora Mapy** w Launcherze, wprowadza współrzędne mapy. Dane te są zapisywane jednocześnie do pliku `backup/map_config.json` oraz do tabeli `konfiguracja_systemu` w bazie danych.
+2.  **Dane Źródłowe (`backup/*.json`):** Wszystkie dane wprowadzane są za pomocą dedykowanych edytorów, które zapisują je w postaci ustrukturyzowanych plików JSON. Edytor Działek korzysta z `map_config.json`, aby zapewnić spójność rysowanych obiektów z finalną mapą. Pliki te stanowią "źródło prawdy" i podstawę do tworzenia kopii zapasowych.
+3.  **Migracja (`backend/migrate_data.py`):** Skrypt migracyjny wczytuje pliki JSON, czyści docelowe tabele w bazie danych, a następnie importuje dane, transformując geometrię do formatu PostGIS (WKT). Proces ten jest idempotentny, co oznacza, że jego wielokrotne uruchomienie zawsze prowadzi do tego samego, spójnego stanu bazy.
+4.  **Udostępnianie (API):** Działający serwer Flask wczytuje konfigurację mapy z bazy, a następnie udostępnia dane o obiektach i właścicielach poprzez endpointy API.
+5.  **Zarządzanie (Panel Admina):** Panel administracyjny pozwala na modyfikację danych bezpośrednio w bazie.
+6.  **Backup (Eksport):** Funkcja eksportu w panelu admina odwraca proces migracji, generując pliki JSON z aktualnego stanu bazy danych, co zamyka cykl życia danych.
 
-#### 6.1.4. Obsługa Błędów i Kody Statusu API
+### 6.4. Obsługa Błędów i Kody Statusu API
 
 API zostało zaprojektowane z myślą o przewidywalnej obsłudze błędów. Klient front-endowy może polegać na standardowych kodach statusu HTTP w celu odpowiedniej reakcji.
 
@@ -389,7 +415,7 @@ API zostało zaprojektowane z myślą o przewidywalnej obsłudze błędów. Klie
 | **409 Conflict** | Konflikt. Próba utworzenia zasobu, który już istnieje. | `POST /api/admin/wlasciciele` z istniejącym kluczem | `{ "status": "error", "message": "ID już istnieje." }` |
 | **500 Internal Server Error**| Błąd serwera. Wystąpił nieoczekiwany błąd po stronie backendu. | Błąd połączenia z bazą danych | `{ "status": "error", "message": "Wystąpił błąd serwera." }` |
 
-### 6.2. Skrypt Migracyjny (`backend/migrate_data.py`)
+### 6.5. Skrypt Migracyjny (`backend/migrate_data.py`)
 
 Jest to kluczowy skrypt jednorazowego użytku, który zasila system w dane. Jego proces działania jest następujący:
 1.  **Odczyt Danych Źródłowych:** Wczytuje dane z plików `owner_data_to_import.json` i `parcels_data.json`.
@@ -446,7 +472,7 @@ Ten panel służy do eksploracji obiektów geograficznych. Został podzielony na
     *   **Ustawienia:** Otwiera okno modalne, w którym użytkownik może zresetować widok do stanu początkowego lub przełączyć **motyw kolorystyczny na ciemny**. Wybrany motyw jest zapamiętywany i automatycznie stosowany we wszystkich modułach aplikacji (mapa, protokół, statystyki), zapewniając spójne doświadczenie wizualne.
     *   **Pomoc:** Wyświetla okno z informacjami o skrótach klawiszowych i wskazówkami dotyczącymi użytkowania.
 
-![Główny widok mapy z otwartymi oboma panelami bocznymi i widocznym przełącznikiem warstw](images/screenshot_mapa.png)
+![Rysunek 10: Główny widok interaktywnej mapy z panelami bocznymi i przełącznikiem warstw](images/mapa_interaktywna_widok_glowny.png)
 
 ### 7.2. Panel Administracyjny (`admin/`)
 
@@ -470,9 +496,9 @@ Panel stanowi centralny punkt zarządzania danymi bezpośrednio w bazie PostgreS
     *   **Estetyczny Interfejs:** Panel został zaprojektowany z dbałością o detale wizualne, aby praca z danymi była nie tylko efektywna, ale i przyjemna.
     *   **Dynamiczne Elementy:** Interfejs zawiera "smaczki", takie jak dynamicznie aktualizowana data i zegar w czasie rzeczywistym, co dodaje mu profesjonalizmu.
 
-![Dashboard Panelu Administracyjnego, pokazujący statystyki i menu boczne](images/panel_admina.PNG)
+![Rysunek 11: Pulpit główny (dashboard) Panelu Administracyjnego](images/panel_administracyjny_dashboard.png)
 
-![Widok edycji właściciela w panelu admina, z widoczną listą rozwijaną do wyboru działek](images/widok_edycji_wlasciciela_admin.PNG)
+![Rysunek 12: Formularz edycji protokołu w Panelu Administracyjnym z interaktywnym polem wyboru działek](images/panel_administracyjny_edycja_protokolu.png)
 
 
 #### 7.3.1. Centrum Analityczne - Statystyki i Rankingi (`wlasciciele/stats.html`)
@@ -497,7 +523,7 @@ Strona statystyk została zaprojektowana jako nowoczesne **Centrum Analityczne (
 
 *   **Uniwersalna Wyszukiwarka:** Strona jest wyposażona w globalną wyszukiwarkę, która w czasie rzeczywistym filtruje wszystkie widoczne komponenty (rankingi, osie czasu) i podświetla znalezione frazy.
 
-![Strona Centrum Analitycznego z widocznymi wykresami i rankingami](images/centrum_analityczne.PNG)
+![Rysunek 13: Widok Centrum Analitycznego z interaktywnymi wykresami i rankingami](images/modul_statystyk_dashboard.png)
 
 #### 7.3.2. Porównywarka Protokołów (`wlasciciele/compare.html`)
 
@@ -507,7 +533,7 @@ Narzędzie to zostało stworzone w celu ułatwienia szczegółowej analizy poró
 *   **Wspólna Nawigacja do Mapy:** Przyciski na górnym pasku pozwalają na jednoczesną wizualizację na mapie działek obu porównywanych właścicieli, z rozróżnieniem na stan rzeczywisty i z protokołu.
 *   **Eksport do PDF:** Każdy z protokołów może być indywidualnie wyeksportowany do pliku PDF, co jest przydatne do archiwizacji lub dalszej analizy offline.
 
-![Widok Porównywarki z dwoma protokołami obok siebie](images/porownanie_protokolow.PNG)
+![Rysunek 14: Interfejs Porównywarki Protokołów w układzie dwukolumnowym](images/modul_porownywarki_protokolow.png)
 
 #### 7.3.3. Widok Szczegółowy Protokołu (`wlasciciele/protokol.html`)
 
@@ -522,7 +548,7 @@ Strona została podzielona na logiczne, tematyczne karty, które ułatwiają naw
 *   **Dane Właściciela:** Sekcja prezentująca podstawowe informacje o osobie, której dotyczy protokół, w tym imię, nazwisko oraz numer domu.
 
 *   **Sekcje Analityczne (Wkład Własny):** Aby zwiększyć wartość analityczną surowych danych, wprowadzone zostały dodatkowe, autorskie sekcje interpretacyjne, które nie występowały w oryginalnych dokumentach:
-    *   **Genealogia:** Zwięzłe podsumowanie najbliższych relacji rodzinnych (małżonek, dzieci, rodzice), które stanowi wprowadzenie do pełnego drzewa genealogicznego.
+    *   **Genealogia:** Zwięzłe podsumowanie najbliższych relacji rodzinnych (małżonek, dzieci, rodzice), które stanowi wprowadzenie do pełnego drzewa genealogicznego. **Dane te są efektem integracji informacji z protokołów katastralnych oraz ksiąg metrykalnych z Archiwum Diecezjalnego.**
     *   **Współwłasność / Służebność:** Interpretacja zapisów dotyczących praw osób trzecich do majątku.
     *   **Powiązania i Transakcje:** Wylistowanie innych osób wspomnianych w protokole, co jest kluczowe dla budowania grafu powiązań.
     *   **Interpretacja i Wnioski:** Autorska analiza i podsumowanie treści protokołu, które wyjaśnia jego znaczenie w kontekście historycznym i prawnym.
@@ -538,13 +564,17 @@ Widok protokołu jest w pełni interaktywny i zintegrowany z resztą ekosystemu:
 *   **Drzewo Genealogiczne:** Przycisk **"Pokaż drzewo genealogiczne"** dynamicznie generuje i wyświetla w oknie modalnym pełną, interaktywną wizualizację sieci rodzinnej powiązanej z daną osobą.
 *   **Narzędzia Dodatkowe:** Górny pasek nawigacyjny oferuje narzędzia takie jak przełączenie widoku w **tryb pełnoekranowy** dla wygodniejszej analizy, **eksport całego protokołu do pliku PDF** oraz bezpośredni dostęp do zdigitalizowanych **skanów oryginalnego dokumentu**.
 
-![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_1.PNG)
-![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_2.PNG)
-![Pełny widok strony jednego, przykładowego protokołu (np. Anny Micek), pokazujący wszystkie opisane sekcje](images/protokol_szczegolowy_3.PNG)
+![Rysunek 15: Widok szczegółowy protokołu - sekcja nagłówkowa i analityczna](images/widok_protokolu_szczegolowego_1.png)
+![Rysunek 16: Widok szczegółowy protokołu - sekcja stanu posiadania i transkrypcji](images/widok_protokolu_szczegolowego_2.png)
+![Rysunek 17: Widok szczegółowy protokołu - sekcja interpretacji](images/widok_protokolu_szczegolowego_3.png)
 
 ### 7.4. Moduł Genealogiczny (`genealogia/` i `graf/`) - Wizualizacja Sieci Społecznych
 
-Moduł genealogiczny stanowi jeden z najbardziej innowacyjnych komponentów projektu, przekształcając płaskie dane z protokołów w dynamiczną, interaktywną wizualizację sieci społecznych i powiązań rodzinnych gminy Czarna w XIX wieku. Składa się on z dwóch uzupełniających się widoków: **Grafu Powiązań** oraz **Drzewa Genealogicznego**.
+Moduł genealogiczny stanowi jeden z najbardziej innowacyjnych komponentów projektu, przekształcając płaskie dane z protokołów w dynamiczną, interaktywną wizualizację sieci społecznych i powiązań rodzinnych gminy Czarna w XIX wieku. Jednym z kluczowych osiągnięć modułu jest zdolność do automatycznego identyfikowania i renderowania wszystkich, nawet niepołączonych ze sobą, grup rodzinnych na jednym płótnie. Daje to unikalny, całościowy wgląd w strukturę genealogiczną całej społeczności.
+
+System składa się z dwóch uzupełniających się widoków: **Grafu Powiązań** oraz **Drzewa Genealogicznego**.
+
+![Rysunek 23: Globalny widok genealogiczny całej społeczności, pokazujący wszystkie zidentyfikowane grupy rodzinne jako niezależne, hierarchiczne struktury](images/wizualizacja_genealogii_spolecznosci.png)
 
 #### 7.4.1. Graf Powiązań (`graf/graf.html`)
 
@@ -567,7 +597,7 @@ Widok Grafu Powiązań stanowi makroskopowe narzędzie analityczne, którego cel
         *   **Szczegółowe Informacje (Tooltip):** Po najechaniu na węzeł wyświetlana jest etykieta z dodatkowymi informacjami.
         *   **Nawigacja do Protokołu:** **Podwójne kliknięcie** na dowolny węzeł natychmiast przenosi użytkownika do szczegółowego widoku protokołu danej osoby, co pozwala na płynne przejście od analizy makro (cała sieć) do analizy mikro (pojedynczy dokument).
 
-![Strona ze statystykami lub porównywarką](images/screenshot_graf_powiazan.png)
+![Rysunek 18: Wizualizacja sieci społeczno-ekonomicznych w module Grafu Powiązań](images/graf_powiazan_interfejs_glowny.png)
 
 #### 7.4.2. Drzewo Genealogiczne (`genealogia.html` oraz logika w `protokol.js`)
 
@@ -584,7 +614,7 @@ Drzewo Genealogiczne to bardziej szczegółowa i ustrukturyzowana wizualizacja, 
     *   **Czytelna Prezentacja:** Każdy węzeł w drzewie zawiera kluczowe informacje: imię i nazwisko, lata życia oraz symbol płci. Węzły są pokolorowane w zależności od pokolenia, a osoba stanowiąca punkt wyjścia dla generowania drzewa jest specjalnie wyróżniona.
     *   **Pełna Interaktywność:** Użytkownik może przesuwać (pan) i powiększać (zoom) widok drzewa, co jest niezbędne przy analizie dużych, wielopokoleniowych rodzin. Podwójne kliknięcie na dowolną osobę w drzewie powoduje dynamiczne przerysowanie całej wizualizacji, ustawiając tę osobę jako nowy punkt centralny.
 
-![Widok wygenerowanego Drzewa Genealogicznego w oknie modalnym](images/screenshot_genealogia_drzewo.png)
+![Rysunek 19: Interaktywna wizualizacja drzewa genealogicznego wygenerowana w oknie modalnym](images/wizualizacja_drzewa_genealogicznego.png)
 
 ### 7.5. Strona Wprowadzająca i Materiały Uzupełniające
 
@@ -606,7 +636,7 @@ Strona główna pełni rolę profesjonalnej wizytówki i centralnego punktu wej�
 
 *   **Struktura i Treść:** Strona w zwięzły i przystępny sposób komunikuje cel i zakres projektu, prezentuje jego najważniejsze funkcjonalności w formie estetycznych kart, a także zawiera formalne informacje o autorze i opiekunie naukowym pracy, co podkreśla jej akademicki charakter.
 
-![Główny widok strony startowej (index.html), pokazujący tytuł, przyciski i karty funkcjonalności](images/screenshot_strona_glowna.png)
+![Rysunek 20: Strona główna projektu pełniąca rolę centrum nawigacyjnego](images/strona_glowna_widok_startowy.png)
 
 #### 7.5.2. Rys Historyczny Gminy Czarna (`strona_glowna/historia.html`)
 
@@ -616,7 +646,7 @@ Aby dostarczyć użytkownikom niezbędnego kontekstu merytorycznego, stworzono d
 *   **Integracja z Materiałem Źródłowym:** Tekst jest ilustrowany **zdigitalizowanymi materiałami archiwalnymi**, takimi jak historyczne zdjęcia (np. dworca kolejowego) oraz fragmenty oryginalnych protokołów. Pozwala to na bezpośrednie zapoznanie się z charakterem źródeł, na których opiera się cały projekt.
 *   **Spójność Wizualna:** Podstrona historyczna utrzymuje spójność wizualną ze stroną główną, wykorzystując ten sam motyw graficzny z mapą w tle, co zapewnia płynne i jednolite doświadczenie użytkownika podczas nawigacji po całym serwisie.
 
-![Widok podstrony z rysem historycznym, pokazujący tekst i galerię zdjęć](images/history_page_view.png)
+![Rysunek 21: Podstrona z rysem historycznym gminy i galerią materiałów archiwalnych](images/podstrona_rys_historyczny.png)
 
 #### 7.5.3. Dokumentacja Techniczna (`docs/`)
 
@@ -627,7 +657,7 @@ W celu zapewnienia łatwości wdrożenia i dalszego rozwoju projektu, stworzono 
 *   **Przewodnik Wdrożeniowy:** Kluczowym elementem dokumentacji jest szczegółowy przewodnik "krok po kroku", który prowadzi nowego użytkownika przez cały proces – od instalacji wymaganego oprogramowania (Python, PostgreSQL), przez konfigurację bazy danych, aż po finalne uruchomienie aplikacji za pomocą Launchera.
 *   **Galeria Aplikacji:** W dokumentacji zintegrowano również galerię zrzutów ekranu, prezentującą wszystkie kluczowe widoki i narzędzia, co pozwala na szybkie zapoznanie się z możliwościami systemu.
 
-![Widok strony dokumentacji technicznej z widoczną nawigacją i blokiem kodu](images/docs_page_view.png)
+![Rysunek 22: Widok interaktywnej dokumentacji technicznej projektu](images/strona_dokumentacji_technicznej.png)
 
 ---
 
@@ -723,7 +753,7 @@ Zbudowana architektura jest modularna i elastyczna, co otwiera szerokie możliwo
 
 # Rozdział 10. Instalacja i Wdrożenie
 
-Poniższa sekcja zawiera szczegółową instrukcję krok po kroku, która pozwala na uruchomienie kompletnego środowiska projektu na nowym komputerze z systemem Windows.
+Poniższa sekcja zawiera szczegółową instrukcję krok po kroku, która pozwala na uruchomienie kompletnego środowiska projektu na nowym komputerze z systemem Windows. **Szczegółowy, interaktywny przewodnik wdrożeniowy ze zrzutami ekranu dla każdego kroku dostępny jest w dokumentacji webowej projektu (`docs/index.html`).**
 
 ## 10.1. Krok 1: Wymagane Oprogramowanie
 
@@ -769,7 +799,14 @@ Przed rozpoczęciem należy pobrać i zainstalować następujące oprogramowanie
     -- Ten skrypt tworzy całą strukturę bazy danych dla projektu.
 
     -- Usunięcie starych tabel, jeśli istnieją, dla czystej instalacji
-    DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele, wlasciciele, obiekty_geograficzne, demografia, login_attempts, blocked_ips CASCADE;
+    DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele, wlasciciele, obiekty_geograficzne, demografia, login_attempts, blocked_ips, konfiguracja_systemu CASCADE;
+
+    -- Tabela globalnej konfiguracji systemu
+    CREATE TABLE konfiguracja_systemu (
+        klucz VARCHAR(50) PRIMARY KEY,
+        wartosc JSONB NOT NULL,
+        opis TEXT
+    );
 
     -- Tabela na obiekty geograficzne (działki, drogi, budynki, etc.)
     CREATE TABLE obiekty_geograficzne (
@@ -842,7 +879,7 @@ Przed rozpoczęciem należy pobrać i zainstalować następujące oprogramowanie
         opis TEXT
     );
 
-    -- Tabela na powiązania między protokołami (dla przyszłej rozbudowy)
+    -- Tabela na powiązania między protokołami (dla modułu grafu)
     CREATE TABLE powiazania_protokolow (
         id SERIAL PRIMARY KEY,
         wlasciciel_id_1 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
@@ -876,6 +913,12 @@ Przed rozpoczęciem należy pobrać i zainstalować następujące oprogramowanie
 
     -- Włączenie rozszerzenia PostGIS (jeśli jeszcze nie jest włączone)
     CREATE EXTENSION IF NOT EXISTS postgis;
+
+    -- Wstawienie domyślnej konfiguracji mapy, aby aplikacja mogła wystartować
+    INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) VALUES
+    ('map_calibration', '{"sw": {"lat": 50.0414, "lng": 21.2261}, "ne": {"lat": 50.0814, "lng": 21.2661}}', 'Współrzędne kalibracji mapy historycznej.'),
+    ('map_defaults', '{"center": {"lat": 50.0614, "lng": 21.2461}, "zoom": 14}', 'Domyślny widok startowy mapy.')
+    ON CONFLICT (klucz) DO NOTHING;
     ```
 7.  Kliknij ikonę **"Execute/Refresh" (trójkąt Play)** lub wciśnij klawisz `F5`, aby wykonać skrypt. Twoja baza danych jest gotowa.
 
@@ -907,9 +950,15 @@ Najprostszym sposobem na uruchomienie całego systemu jest użycie dedykowanego 
     python launcher/launcher_app.py
     ```
 3.  W oknie Launchera, które się pojawi, wykonaj następujące kroki w podanej kolejności:
-    a. Kliknij przycisk **"Migruj Dane do Bazy"**, aby wypełnić bazę danych danymi z plików JSON. Poczekaj na komunikat o pomyślnym zakończeniu w konsoli.
-    b. Kliknij przycisk **"Uruchom Serwer Backend"**, aby wystartować aplikację Flask.
-    c. Użyj przycisków w sekcji **"Szybki Dostęp"**, aby otworzyć mapę lub panel administracyjny w przeglądarce.
+    a. **Konfiguracja połączenia z bazą (opcjonalnie):** Jeśli nie edytowałeś ręcznie pliku `.env`, kliknij przycisk **"Konfiguracja DB"** w Launcherze. Otworzy się edytor, w którym możesz sprawdzić i uzupełnić dane logowania do bazy. To najbezpieczniejszy sposób, aby upewnić się, że aplikacja będzie mogła połączyć się z PostgreSQL.
+    b. **Kalibracja Mapy (opcjonalnie):** Przy pierwszym uruchomieniu warto sprawdzić lub ustawić współrzędne mapy, klikając **"Kalibracja Mapy"**. Domyślne wartości są już wprowadzone, więc ten krok nie jest obligatoryjny do startu.
+    c. **Migracja danych:** Kliknij przycisk **"Migruj Dane do Bazy"**. W konsoli na dole okna zobaczysz postęp importowania danych z plików źródłowych do bazy PostgreSQL. Poczekaj na komunikat o pomyślnym zakończeniu.
+    d. **Uruchomienie serwera:** Gdy migracja się zakończy, kliknij **"Uruchom Serwer Backend"**, aby wystartować aplikację Flask.
+    e. **Dostęp do aplikacji:** Użyj przycisków w sekcji **"Szybki Dostęp"**, aby otworzyć mapę lub panel administracyjny w przeglądarce.
+
+    **Dodatkowe opcje konfiguracyjne (opcjonalne):**
+    *   **"Konfigurator Mapy"** pozwala na podmianę pliku mapy tła oraz dostosowanie jej współrzędnych.
+    *   **"Ustawienia Witryny"** umożliwiają zmianę ikony (favicon) aplikacji.
 
 Aplikacja będzie dostępna pod adresem `http://127.0.0.1:5000`.
 
@@ -925,6 +974,7 @@ Aplikacja będzie dostępna pod adresem `http://127.0.0.1:5000`.
     *   **Rozwiązanie:** Prawdopodobnie nie został wykonany skrypt SQL z kroku 10.2 w `pgAdmin 4`. Uruchom go, aby utworzyć wszystkie wymagane tabele.
 *   **Problem:** Błąd `function st_asgeojson does not exist` podczas migracji.
     *   **Rozwiązanie:** Rozszerzenie PostGIS nie zostało poprawnie zainstalowane lub włączone w bazie danych. Wykonaj zapytanie `CREATE EXTENSION postgis;` w `pgAdmin 4`.
+
 ---
 
 # Bibliografia
