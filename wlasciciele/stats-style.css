@@ -621,6 +621,39 @@ body {
   color: white;
 }
 
+/* ========================================================================== 
+   Przełącznik serii genealogicznych (segmented control)                      
+   ========================================================================== */
+.segmented {
+  display: inline-flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 4px;
+}
+.segmented input[type="radio"] { display: none; }
+.segmented label {
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--transition-fast);
+}
+.segmented label:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.segmented input[type="radio"]:checked + label {
+  background: var(--gradient-primary);
+  color: #fff;
+}
+
 select {
   padding: 0.5rem 1rem;
   border: 1px solid var(--border);
@@ -957,6 +990,90 @@ kbd {
   border-radius: 4px;
   font-family: monospace;
   font-size: 0.875rem;
+}
+
+/* Modal porównania okresów */
+.comparison-setup {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.period-selector label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.period-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.summary-card {
+  background: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.summary-card h4 {
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.summary-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.summary-value.positive { color: var(--success); }
+.summary-value.negative { color: var(--danger); }
+
+.summary-detail {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-primary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: var(--transition);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.tool-btn:hover {
+  border-color: var(--primary);
+  background: var(--bg-secondary);
+  transform: translateY(-2px);
 }
 
 /* ==========================================================================
@@ -1596,6 +1713,66 @@ kbd {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================================================
+   SEKCJA ANALIZA
+   ========================================================================== */
+.analysis-container {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px var(--shadow);
+}
+
+.analysis-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  justify-content: center;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.insight-card {
+  background: var(--bg-secondary);
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: center;
+  transition: var(--transition);
+}
+
+.insight-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.insight-icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 1rem;
+  background: var(--gradient-primary);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.insight-card h4 {
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.insight-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 /* ==========================================================================
