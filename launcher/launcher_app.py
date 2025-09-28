@@ -54,6 +54,10 @@ TOOLS_DIR = os.path.join(BASE_DIR, "tools")
 ASSETS_FOLDER = os.path.join(BASE_DIR, "assets")
 PROTOKOLY_FOLDER = os.path.join(ASSETS_FOLDER, "protokoly")
 SITE_ASSETS_FOLDER = os.path.join(ASSETS_FOLDER, "site")
+ICONS_SCAN_FOLDERS = [
+    os.path.join(BASE_DIR, "icons"),
+    os.path.join(ASSETS_FOLDER, "icons"),
+]
 
 DATA_FILES = {
     "owners": {
@@ -153,6 +157,82 @@ ADMIN_PASSWORD_HASH=
         print(f"⚠️ Nie można utworzyć pliku .env: {e}")
         return False
 
+def _auto_sync_site_icon():
+    """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę 
+    z folderów icons → assets/site i zapisuje ścieżkę w konfiguracji bazy danych."""
+    
+    # KROK 1: Sprawdź czy w folderze site już istnieje favicon
+    existing_favicon = _find_existing_favicon_in_site()
+    if existing_favicon:
+        print(f"🔍 Wykryto istniejący favicon: {existing_favicon}")
+        _save_favicon_to_database(existing_favicon)
+        return
+    
+    # KROK 2: Jeśli brak favicon w site/, szukaj w folderach icons i kopiuj pierwszy znaleziony  
+    for folder in ICONS_SCAN_FOLDERS:
+        if not os.path.isdir(folder):
+            continue
+        for fname in os.listdir(folder):
+            if not fname.lower().endswith((".png", ".ico", ".jpg", ".jpeg")):
+                continue
+            src = os.path.join(folder, fname)
+            dest = os.path.join(SITE_ASSETS_FOLDER, fname)
+            
+            # Kopiuj tylko jeśli plik nie istnieje lub jest różny
+            if not os.path.exists(dest) or not filecmp.cmp(src, dest, shallow=False):
+                os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
+                shutil.copy2(src, dest)
+                print(f"📋 Skopiowano favicon z {folder}: {fname}")
+            
+            _save_favicon_to_database(fname)
+            return  # używamy tylko pierwszego pliku
+
+def _find_existing_favicon_in_site():
+    """Szuka istniejącego pliku favicon w folderze assets/site.
+    Zwraca nazwę pliku lub None jeśli nie znaleziono."""
+    
+    if not os.path.isdir(SITE_ASSETS_FOLDER):
+        return None
+    
+    # Standardowe nazwy favicon (z priorytetem)
+    standard_names = ["favicon.ico", "favicon.png", "favicon.jpg", "favicon.jpeg"]
+    
+    # Najpierw sprawdź standardowe nazwy
+    for name in standard_names:
+        full_path = os.path.join(SITE_ASSETS_FOLDER, name)
+        if os.path.isfile(full_path):
+            return name
+    
+    # Jeśli nie ma standardowych nazw, szukaj plików zaczynających się od "favicon"
+    try:
+        for fname in os.listdir(SITE_ASSETS_FOLDER):
+            if (fname.lower().startswith("favicon") and 
+                any(fname.lower().endswith(ext) for ext in [".png", ".ico", ".jpg", ".jpeg"])):
+                return fname
+    except OSError:
+        pass
+    
+    return None
+
+def _save_favicon_to_database(filename):
+    """Zapisuje ścieżkę favicon do bazy danych."""
+    try:
+        db_cfg = get_db_config_from_env()
+        with psycopg2.connect(**db_cfg) as conn, conn.cursor() as cur:
+            rel_path = os.path.join("site", filename).replace("\\", "/")
+            cur.execute(
+                "INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) "
+                "VALUES ('site_favicon', %s, %s) "
+                "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
+                (json.dumps({"path": rel_path}), "Ścieżka do ikony witryny (favicon)")
+            )
+            conn.commit()
+            print(f"✅ Zapisano favicon do bazy danych: {rel_path}")
+    except psycopg2.Error as e:
+        # Baza może jeszcze nie istnieć – to nie błąd krytyczny przy pierwszym uruchomieniu
+        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć): {e}")
+        pass
+
 def check_backup_folder_files():
     """Sprawdza folder backup i tworzy brakujące pliki JSON."""
     files_to_check = {
@@ -237,7 +317,8 @@ class AppLauncher(tk.Tk):
         
         check_env_configuration()
         check_backup_folder_files()
-        
+        _auto_sync_site_icon()
+
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
         
@@ -1817,9 +1898,6 @@ class InstructionsWindow(tk.Toplevel):
         y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
         self.geometry(f"+{x}+{y}")
         self.focus_set()
-
-# Pozostałe klasy (BackupManager, SiteSettingsManager, SecurityManager) 
-# są już dobrze napisane i nie wymagają większych zmian
 
 class BackupManager(tk.Toplevel):
     """Okno dialogowe do zarządzania kopiami zapasowymi projektu."""
