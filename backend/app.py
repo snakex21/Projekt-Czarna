@@ -147,16 +147,6 @@ def check_ip_blacklist():
             conn.close()
 
 # =============================================================================
-# POMOCNICZE FUNKCJE BAZODANOWE
-# =============================================================================
-
-def get_db_connection():
-    """Tworzy i zwraca połączenie z bazą danych PostgreSQL."""
-    conn = psycopg2.connect(**DB_CONFIG)
-    conn.set_client_encoding('UTF8')  # Obsługa polskich znaków
-    return conn
-
-# =============================================================================
 # PUBLICZNE ENDPOINTY API
 # =============================================================================
 
@@ -412,39 +402,54 @@ def get_drzewo_genealogiczne(unikalny_klucz):
 
 @app.route('/api/stats')
 def get_stats():
-    """Zwraca kompleksowe statystyki systemu."""
+    """Zwraca kompleksowe statystyki systemu (w tym genealogia: urodzenia/zgony/śluby)."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    # Statystyki ogólne
+    # ——— Statystyki ogólne
     cur.execute("SELECT COUNT(*) as total_owners FROM wlasciciele;")
     total_owners = cur.fetchone()['total_owners']
     cur.execute("SELECT COUNT(*) as total_plots FROM obiekty_geograficzne;")
     total_plots = cur.fetchone()['total_plots']
 
-    # Protokoły dzienne
+    # ——— Protokoły dzienne
     cur.execute("""
-        SELECT data_protokolu::date as protocol_date, COUNT(*) as protocol_count,
-               json_agg(json_build_object('unikalny_klucz', unikalny_klucz, 'nazwa_wlasciciela', nazwa_wlasciciela) 
-               ORDER BY nazwa_wlasciciela) as owners
-        FROM wlasciciele WHERE data_protokolu IS NOT NULL
-        GROUP BY protocol_date ORDER BY protocol_date ASC;
+        SELECT
+            data_protokolu::date as protocol_date,
+            COUNT(*) as protocol_count,
+            json_agg(
+                json_build_object(
+                    'unikalny_klucz', unikalny_klucz,
+                    'nazwa_wlasciciela', nazwa_wlasciciela
+                ) ORDER BY nazwa_wlasciciela
+            ) as owners
+        FROM wlasciciele
+        WHERE data_protokolu IS NOT NULL
+        GROUP BY protocol_date
+        ORDER BY protocol_date ASC;
     """)
     protocols_per_day = cur.fetchall()
 
-    # Funkcja do generowania rankingów
+    # ——— Rankingi (rzeczywista vs. „z protokołu”)
     def get_rankings_for_type(ownership_type):
-        condition = "dw.typ_posiadania = 'własność rzeczywista'" if ownership_type == 'rzeczywista' else "(dw.typ_posiadania != 'własność rzeczywista' OR dw.typ_posiadania IS NULL)"
+        condition = (
+            "dw.typ_posiadania = 'własność rzeczywista'"
+            if ownership_type == 'rzeczywista'
+            else "(dw.typ_posiadania != 'własność rzeczywista' OR dw.typ_posiadania IS NULL)"
+        )
+
         def get_top_by_category(category_name=None):
             category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
             query = f"""
-                SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu, COUNT(dw.obiekt_id) as plot_count
+                SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu,
+                       COUNT(dw.obiekt_id) as plot_count
                 FROM wlasciciele w
                 JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                 JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
                 WHERE {condition} {category_condition}
                 GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
-                HAVING COUNT(dw.obiekt_id) > 0 ORDER BY plot_count DESC;
+                HAVING COUNT(dw.obiekt_id) > 0
+                ORDER BY plot_count DESC;
             """
             cur.execute(query)
             return cur.fetchall()
@@ -465,52 +470,117 @@ def get_stats():
     rankings_real = get_rankings_for_type('rzeczywista')
     rankings_protocol = get_rankings_for_type('protokol')
 
-    # Demografia
+    # ——— Demografia
     cur.execute("SELECT * FROM demografia ORDER BY rok ASC;")
     demografia_data = cur.fetchall()
 
-    # Kategorie obiektów
+    # ——— Kategorie obiektów
     cur.execute("""
-        SELECT kategoria, COUNT(*) as count 
-        FROM obiekty_geograficzne 
-        WHERE kategoria IS NOT NULL 
+        SELECT kategoria, COUNT(*) as count
+        FROM obiekty_geograficzne
+        WHERE kategoria IS NOT NULL
         GROUP BY kategoria;
     """)
     category_counts_list = cur.fetchall()
     category_counts = {item['kategoria']: item['count'] for item in category_counts_list}
 
-    # Statystyki genealogiczne
-    cur.execute("SELECT rok_urodzenia, plec, imie_nazwisko FROM osoby_genealogia;")
-    genealogia_raw = cur.fetchall()
+    # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
+    cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
+    genealogia_raw = cur.fetchall()  # :contentReference[oaicite:0]{index=0}
 
     total_people = len(genealogia_raw)
     gender_counts = Counter(p['plec'] for p in genealogia_raw)
-    
+
     # Top nazwisk
-    surnames = [p['imie_nazwisko'].split()[-1] for p in genealogia_raw if ' ' in p['imie_nazwisko']]
+    surnames = [
+        p['imie_nazwisko'].split()[-1]
+        for p in genealogia_raw
+        if p.get('imie_nazwisko') and ' ' in p['imie_nazwisko']
+    ]
     top_surnames = Counter(surnames).most_common(10)
-    
+
+    current_year = datetime.now().year
+
+    def only_valid_years(values):
+        out = []
+        for y in values:
+            if isinstance(y, int) and 0 < y <= current_year:
+                out.append(y)
+            elif isinstance(y, str) and y.isdigit():
+                yi = int(y)
+                if 0 < yi <= current_year:
+                    out.append(yi)
+        return out
+
     # Urodzenia wg dekad
-    births_by_decade = Counter()
-    for person in genealogia_raw:
-        if person['rok_urodzenia']:
-            decade = (person['rok_urodzenia'] // 10) * 10
-            births_by_decade[decade] += 1
-    
-    sorted_decades = sorted(births_by_decade.items())
-    births_by_decade_chart = {
-        'labels': [f"{d[0]}s" for d in sorted_decades],
-        'data': [d[1] for d in sorted_decades]
-    }
+    birth_years = only_valid_years([p.get('rok_urodzenia') for p in genealogia_raw])
+    births_by_decade_ctr = Counter((y // 10) * 10 for y in birth_years)
+
+    # Zgony wg dekad
+    death_years = only_valid_years([p.get('rok_smierci') for p in genealogia_raw])
+    deaths_by_decade_ctr = Counter((y // 10) * 10 for y in death_years)
+
+    # Śluby wg dekad (z tabeli malzenstwa – bierzemy rok_slubu / rok / data_slubu)
+    try:
+        cur.execute("SELECT * FROM malzenstwa;")
+        malzenstwa_rows = cur.fetchall()
+    except Exception:
+        malzenstwa_rows = []
+
+    def extract_marriage_year(row):
+        # preferowane kolumny numeryczne
+        for key in ('rok_slubu', 'rok'):
+            v = row.get(key)
+            if isinstance(v, int) and 0 < v <= current_year:
+                return v
+            if isinstance(v, str) and v.isdigit():
+                vi = int(v)
+                if 0 < vi <= current_year:
+                    return vi
+        # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
+        txt = row.get('data_slubu') or ''
+        if isinstance(txt, str):
+            m = re.search(r'(17|18|19|20)\d{2}', txt)
+            if m:
+                year = int(m.group(0))
+                if 0 < year <= current_year:
+                    return year
+        return None
+
+    marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
+    marriage_years = [y for y in marriage_years if y is not None]
+    marriages_by_decade_ctr = Counter((y // 10) * 10 for y in marriage_years)
+
+    # Jednolita funkcja budowania serii (etykiety „1850s”, „1860s”, …)
+    def build_decade_series(counter: Counter, significance: int):
+        if not counter:
+            return {'labels': [], 'data': []}
+        decades_sorted = sorted(counter)
+        first_decade = next((d for d in decades_sorted if counter[d] >= significance), decades_sorted[0])
+        last_decade = next((d for d in reversed(decades_sorted) if counter[d] >= significance), decades_sorted[-1])
+        rng = range(first_decade, last_decade + 10, 10)
+        return {
+            'labels': [f"{d}s" for d in rng],
+            'data': [counter.get(d, 0) for d in rng]
+        }
+
+    # próg istotności jak dotąd (min 1 os./dekadę przy małych zbiorach)
+    significance = max(1, total_people // 200)
+
+    births_by_decade = build_decade_series(births_by_decade_ctr, significance)
+    deaths_by_decade = build_decade_series(deaths_by_decade_ctr, significance)
+    marriages_by_decade = build_decade_series(marriages_by_decade_ctr, 1)  # śluby często będą rzadsze
 
     genealogy_stats = {
         'total_people': total_people,
         'male_count': gender_counts.get('M', 0),
         'female_count': gender_counts.get('F', 0),
         'top_surnames': [{'name': name, 'count': count} for name, count in top_surnames],
-        'births_by_decade': births_by_decade_chart
+        'births_by_decade': births_by_decade,
+        'deaths_by_decade': deaths_by_decade,
+        'marriages_by_decade': marriages_by_decade
     }
-    
+
     cur.close()
     conn.close()
 
@@ -586,42 +656,288 @@ def get_graph_data():
 
 @app.route('/api/genealogia/full-graph')
 def get_full_genealogy_graph():
-    """Zwraca pełny graf genealogiczny wszystkich osób."""
+    """
+    Zwraca pełny graf genealogiczny:
+      nodes: osoby z birthDate/deathDate (obiekt {year, month?, day?} lub None)
+      edges:
+        - rodzic->dziecko (linia ciągła)
+        - małżeństwo (linia przerywana, kolor fioletowy)
+          + opcjonalnie marriageDate i label "Ślub YYYY", jeśli DB ma takie dane
+    Wersja hybrydowa: działa, gdy w DB NIE ma kolumny z datą ślubu,
+    oraz automatycznie skorzysta z niej, jeśli się pojawi.
+    """
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    # Pobierz osoby jako węzły
-    cur.execute("SELECT p.id, p.imie_nazwisko, p.plec, w.unikalny_klucz as protocol_key FROM osoby_genealogia p LEFT JOIN wlasciciele w ON p.id_protokolu = w.id;")
-    wszystkie_osoby = cur.fetchall()
+    # ---------- pomocnicze: wykrywanie kolumn ----------
+    def table_cols(schema, table):
+        cur.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s;
+        """, (schema, table))
+        return {r['column_name'] for r in cur.fetchall()}
+
+    cols_osoby = table_cols('public', 'osoby_genealogia')
+    cols_malz  = table_cols('public', 'malzenstwa')
+
+    # ---------- pomocnicze: budowa obiektu daty ----------
+    def date_obj(y=None, m=None, d=None):
+        if y is None:
+            return None
+        try:
+            out = {'year': int(y)}
+        except Exception:
+            return None
+        if m is not None:
+            try:
+                out['month'] = int(m)
+            except Exception:
+                pass
+        if d is not None:
+            try:
+                out['day'] = int(d)
+            except Exception:
+                pass
+        return out
+
+    def date_from_row(row, y_keys=(), m_keys=(), d_keys=(), text_keys=()):
+        """
+        Zbuduj obiekt daty z wielu możliwych kolumn:
+         1) priorytet: (rok, miesiac, dzien)
+         2) alternatywa: pojedynczy tekst 'YYYY' lub 'YYYY-MM[-DD]'
+        """
+        # wariant rozwinięty
+        y = next((row.get(k) for k in y_keys if k in row and row.get(k) is not None), None)
+        if y is not None:
+            m = next((row.get(k) for k in m_keys if k in row and row.get(k) is not None), None)
+            d = next((row.get(k) for k in d_keys if k in row and row.get(k) is not None), None)
+            return date_obj(y, m, d)
+        # wariant tekstowy
+        for tk in text_keys:
+            val = row.get(tk)
+            if not val:
+                continue
+            try:
+                parts = str(val).strip().split('-')
+                y = int(parts[0])
+                m = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
+                d = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+                return date_obj(y, m, d)
+            except Exception:
+                continue
+        return None
+
+    # ---------- NODES ----------
+    select_cols = ["p.id", "p.imie_nazwisko", "p.plec"]
+    # daty urodz./zgonu (Twoje obecne kolumny: tylko rok_urodzenia / rok_smierci)
+    if "rok_urodzenia" in cols_osoby:   select_cols.append("p.rok_urodzenia")
+    if "rok_smierci"   in cols_osoby:   select_cols.append("p.rok_smierci")
+    # opcjonalne
+    if "numer_domu"    in cols_osoby:   select_cols.append("p.numer_domu")
+    if "uwagi"         in cols_osoby:   select_cols.append("p.uwagi")
+
+    join_w = False
+    if "id_protokolu" in cols_osoby:
+        join_w = True
+        select_cols.append("p.id_protokolu")
+        select_cols.append("w.unikalny_klucz AS protocol_key")
+
+    sql_nodes = "SELECT " + ", ".join(select_cols) + " FROM osoby_genealogia p"
+    if join_w:
+        sql_nodes += " LEFT JOIN wlasciciele w ON p.id_protokolu = w.id"
+    sql_nodes += ";"
+
+    cur.execute(sql_nodes)
+    osoby = cur.fetchall()
+
     nodes = []
-    for osoba in wszystkie_osoby:
-        tooltip_text = f"ID: {osoba['id']}" + (f"\nProtokół: {osoba['protocol_key']}" if osoba['protocol_key'] else "")
+    for r in osoby:
+        # Twoje obecne kolumny to tylko rok_* — budujemy obiekt {year: ...} gdy jest rok
+        bdate = date_obj(r.get("rok_urodzenia")) if "rok_urodzenia" in cols_osoby else None
+        ddate = date_obj(r.get("rok_smierci"))   if "rok_smierci"   in cols_osoby else None
+
+        # tooltip
+        tooltip = [f"ID: {r['id']}"]
+        protocol_key = r.get("protocol_key") if join_w else None
+        if protocol_key:
+            tooltip.append(f"Protokół: {protocol_key}")
+        if "uwagi" in cols_osoby and r.get("uwagi"):
+            tooltip.append(f"Uwagi: {r['uwagi']}")
+
+        plec  = (r.get("plec") or "M").upper()
+        shape = "box" if plec == "M" else "ellipse"
+        color = "#3498db" if plec == "M" else "#e91e63"
+
         nodes.append({
-            'id': osoba['id'], 
-            'label': osoba['imie_nazwisko'],
-            'shape': 'box' if osoba['plec'] == 'M' else 'ellipse',
-            'color': '#3498db' if osoba['plec'] == 'M' else '#e91e63',
-            'title': tooltip_text, 
-            'protocolKey': osoba['protocol_key']
+            "id": r["id"],
+            "label": r.get("imie_nazwisko") or f"Osoba {r['id']}",
+            "shape": shape,
+            "color": color,
+            "title": "\n".join(tooltip),
+            "protocolKey": protocol_key,
+            "birthDate": bdate,
+            "deathDate": ddate,
+            # kompatybilność wstecz (gdy front jeszcze czyta birthYear/deathYear)
+            "birthYear": int(r["rok_urodzenia"]) if r.get("rok_urodzenia") is not None else None,
+            "deathYear": int(r["rok_smierci"])   if r.get("rok_smierci")   is not None else None,
+            "houseNumber": r.get("numer_domu") if "numer_domu" in cols_osoby else None,
+            "notes": r.get("uwagi") if "uwagi" in cols_osoby else None,
         })
-        
-    # Relacje jako krawędzie
+
+    # ---------- EDGES: rodzic → dziecko ----------
     edges = []
-    cur.execute("SELECT id, id_ojca, id_matki FROM osoby_genealogia WHERE id_ojca IS NOT NULL OR id_matki IS NOT NULL;")
-    for relacja in cur.fetchall():
-        if relacja['id_ojca']: 
-            edges.append({'from': relacja['id_ojca'], 'to': relacja['id']})
-        if relacja['id_matki']: 
-            edges.append({'from': relacja['id_matki'], 'to': relacja['id']})
-            
-    cur.execute("SELECT malzonek1_id, malzonek2_id FROM malzenstwa;")
-    for malzenstwo in cur.fetchall():
-        edges.append({'from': malzenstwo['malzonek1_id'], 'to': malzenstwo['malzonek2_id'], 
-                     'dashes': True, 'color': '#9b59b6', 'arrows': ''})
+    if {"id_ojca", "id_matki"} & cols_osoby:
+        cols = ["id"]
+        if "id_ojca" in cols_osoby: cols.append("id_ojca")
+        if "id_matki" in cols_osoby: cols.append("id_matki")
+        sql_pc = "SELECT " + ", ".join(cols) + " FROM osoby_genealogia"
+        where = []
+        if "id_ojca" in cols_osoby: where.append("id_ojca IS NOT NULL")
+        if "id_matki" in cols_osoby: where.append("id_matki IS NOT NULL")
+        if where:
+            sql_pc += " WHERE " + " OR ".join(where)
+        sql_pc += ";"
+
+        cur.execute(sql_pc)
+        for rel in cur.fetchall():
+            if "id_ojca" in rel and rel["id_ojca"] is not None:
+                edges.append({"from": rel["id_ojca"], "to": rel["id"]})
+            if "id_matki" in rel and rel["id_matki"] is not None:
+                edges.append({"from": rel["id_matki"], "to": rel["id"]})
+
+    # ---------- EDGES: małżeństwa (linia przerywana) ----------
+    # hybrydowo: jeśli w tabeli 'malzenstwa' brak kolumny z datą — zwrócimy same pary
+    select_m = ["malzonek1_id", "malzonek2_id"]
+    # ewentualne kolumny daty, jeśli kiedyś dodasz (wszystkie są opcjonalne)
+    for c in ["rok_slubu", "miesiac_slubu", "dzien_slubu", "rok", "miesiac", "dzien", "data_slubu"]:
+        if c in cols_malz:
+            select_m.append(c)
+
+    cur.execute("SELECT " + ", ".join(select_m) + " FROM malzenstwa;")
+    for m in cur.fetchall():
+        # spróbuj złożyć datę z tego co istnieje (jeśli nic nie ma, md==None)
+        md = date_from_row(
+            m,
+            y_keys=[k for k in ["rok_slubu", "rok"] if k in m],
+            m_keys=[k for k in ["miesiac_slubu", "miesiac"] if k in m],
+            d_keys=[k for k in ["dzien_slubu", "dzien"] if k in m],
+            text_keys=[k for k in ["data_slubu"] if k in m],
+        )
+        label_txt = f"Ślub {md['year']}" if md and "year" in md else ""
+
+        edges.append({
+            "from":   m["malzonek1_id"],
+            "to":     m["malzonek2_id"],
+            "dashes": True,
+            "color":  "#9b59b6",
+            "arrows": "",
+            # hybryda: te pola są, gdy są dane; inaczej None/"" i front nic nie wyświetli
+            "marriageDate": md,
+            "label": label_txt
+        })
 
     cur.close()
     conn.close()
-    return jsonify({'nodes': nodes, 'edges': edges})
+    return jsonify({"nodes": nodes, "edges": edges})
+
+@app.route('/api/genealogia/persons-format')
+def get_genealogy_persons_format():
+    """Zwraca wszystkie osoby w formacie genealogicznym (persons array)."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Pobierz wszystkie osoby
+    cur.execute("""
+        SELECT p.id, p.json_id, p.imie_nazwisko, p.plec, p.rok_urodzenia, p.rok_smierci, 
+               p.numer_domu, p.uwagi, p.id_ojca, p.id_matki, w.unikalny_klucz as protocol_key 
+        FROM osoby_genealogia p 
+        LEFT JOIN wlasciciele w ON p.id_protokolu = w.id;
+    """)
+    wszystkie_osoby = cur.fetchall()
+
+    # Pobierz wszystkie małżeństwa
+    cur.execute("SELECT malzonek1_id, malzonek2_id FROM malzenstwa;")
+    wszystkie_malzenstwa = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    # Stwórz mapę db_id -> json_id
+    db_id_to_json_id = {p['id']: p['json_id'] for p in wszystkie_osoby}
+    
+    # Stwórz mapę współmałżonków
+    spouse_map = {}
+    for marriage in wszystkie_malzenstwa:
+        id1, id2 = marriage['malzonek1_id'], marriage['malzonek2_id']
+        json_id1, json_id2 = db_id_to_json_id.get(id1), db_id_to_json_id.get(id2)
+        if json_id1 and json_id2:
+            spouse_map.setdefault(id1, []).append(json_id2)
+            spouse_map.setdefault(id2, []).append(json_id1)
+
+    # Formatuj osoby do formatu genealogicznego
+    persons_json = []
+    for p in wszystkie_osoby:
+        person_data = {
+            "id": p['json_id'], 
+            "name": p['imie_nazwisko'], 
+            "gender": p['plec'], 
+            "houseNumber": p.get('numer_domu'),
+            "protocolKey": p.get('protocol_key'), 
+            "parents": [],
+            "children": [],
+            "spouses": spouse_map.get(p['id'], []),
+            "notes": p.get('uwagi')
+        }
+        
+        # Dodaj daty urodzenia i śmierci
+        if p.get('rok_urodzenia'):
+            person_data["birthDate"] = {"year": p['rok_urodzenia']}
+        else:
+            person_data["birthDate"] = None
+            
+        if p.get('rok_smierci'):
+            person_data["deathDate"] = {"year": p['rok_smierci']}
+        else:
+            person_data["deathDate"] = None
+        
+        # Dodaj rodziców
+        if p.get('id_ojca'):
+            father_json_id = db_id_to_json_id.get(p['id_ojca'])
+            if father_json_id:
+                person_data["fatherId"] = father_json_id
+                person_data["parents"].append(father_json_id)
+        else:
+            person_data["fatherId"] = None
+            
+        if p.get('id_matki'):
+            mother_json_id = db_id_to_json_id.get(p['id_matki'])
+            if mother_json_id:
+                person_data["motherId"] = mother_json_id
+                person_data["parents"].append(mother_json_id)
+        else:
+            person_data["motherId"] = None
+
+        persons_json.append(person_data)
+
+    # Dodaj dzieci do rodziców
+    for person in persons_json:
+        person_db_id = None
+        # Znajdź db_id dla tej osoby
+        for p in wszystkie_osoby:
+            if p['json_id'] == person['id']:
+                person_db_id = p['id']
+                break
+                
+        if person_db_id:
+            # Znajdź dzieci tej osoby
+            children = []
+            for p in wszystkie_osoby:
+                if p['id_ojca'] == person_db_id or p['id_matki'] == person_db_id:
+                    children.append(p['json_id'])
+            person['children'] = children
+
+    return jsonify({"persons": persons_json})
 
 # =============================================================================
 # SERWOWANIE PLIKÓW STATYCZNYCH (FRONTEND)

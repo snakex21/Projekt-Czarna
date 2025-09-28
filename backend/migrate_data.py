@@ -11,6 +11,7 @@ import os
 import psycopg2
 from psycopg2.extras import execute_values
 import re
+from datetime import date
 from dotenv import load_dotenv
 
 # ================================================================================
@@ -370,71 +371,253 @@ try:
         )
         print(f"✔️ Wstawiono {len(demografia_to_insert)} wpisów")
         
-    # --- ETAP 7: IMPORT GENEALOGII ---
+    # --- ETAP 7: IMPORT DANYCH GENEALOGICZNYCH ---
     if genealogia_data:
         print("\n--- Etap 7: Import danych genealogicznych ---")
+
+        # 7.1) Wstawianie osób + mapowanie json_id -> id w bazie
         json_id_to_db_id = {}
 
-        # Wstaw osoby
         print("  → Wstawianie osób...")
         for osoba in genealogia_data:
+            # powiązanie z protokołem (jeśli w JSON jest klucz protokołu)
             id_protokolu = owner_id_map.get(osoba.get("protocolKey"))
-            birth_date_obj = osoba.get("birthDate")
-            rok_urodzenia = birth_date_obj.get("year") if birth_date_obj else None
-            death_date_obj = osoba.get("deathDate")
-            rok_smierci = death_date_obj.get("year") if death_date_obj else None
 
+            # bezpieczne pobranie lat (rok może nie istnieć)
+            birth = osoba.get("birthDate") or {}
+            death = osoba.get("deathDate") or {}
+            rok_urodzenia = birth.get("year")
+            rok_smierci   = death.get("year")
+
+            # INSERT osoby do tabeli osoby_genealogia
             cur.execute(
-                """INSERT INTO osoby_genealogia 
-                   (json_id, imie_nazwisko, plec, numer_domu, 
-                    rok_urodzenia, rok_smierci, id_protokolu, uwagi) 
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) 
-                   RETURNING id""",
-                (osoba["id"], osoba["name"], osoba.get("gender"), 
-                 osoba.get("houseNumber"), rok_urodzenia, rok_smierci, 
-                 id_protokolu, osoba.get("notes"))
+                """
+                INSERT INTO osoby_genealogia
+                    (json_id, imie_nazwisko, plec, numer_domu,
+                    rok_urodzenia, rok_smierci, id_protokolu, uwagi)
+                VALUES
+                    (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    osoba.get("id"),
+                    osoba.get("name"),
+                    osoba.get("gender"),
+                    osoba.get("houseNumber"),
+                    rok_urodzenia,
+                    rok_smierci,
+                    id_protokolu,
+                    osoba.get("notes"),
+                ),
             )
             db_id = cur.fetchone()[0]
-            json_id_to_db_id[osoba["id"]] = db_id
+            json_id_to_db_id[osoba.get("id")] = db_id
+
         print(f"  ✔️ Wstawiono {len(json_id_to_db_id)} osób")
 
-        # Aktualizuj relacje rodzicielskie
+        # 7.2) Uzupełnienie relacji rodzicielskich (id_ojca / id_matki)
         print("  → Tworzenie relacji rodzicielskich...")
         for osoba in genealogia_data:
-            db_id = json_id_to_db_id.get(osoba["id"])
-            id_ojca = json_id_to_db_id.get(osoba.get("fatherId"))
+            db_id    = json_id_to_db_id.get(osoba.get("id"))
+            id_ojca  = json_id_to_db_id.get(osoba.get("fatherId"))
             id_matki = json_id_to_db_id.get(osoba.get("motherId"))
+
             if db_id and (id_ojca or id_matki):
                 cur.execute(
-                    """UPDATE osoby_genealogia 
-                       SET id_ojca = %s, id_matki = %s 
-                       WHERE id = %s""", 
-                    (id_ojca, id_matki, db_id)
+                    """
+                    UPDATE osoby_genealogia
+                    SET id_ojca = %s,
+                        id_matki = %s
+                    WHERE id = %s
+                    """,
+                    (id_ojca, id_matki, db_id),
                 )
 
-        # Wstaw małżeństwa
-        print("  → Tworzenie relacji małżeńskich...")
-        malzenstwa_to_insert = []
-        seen_malzenstwa = set()
-        
-        for osoba in genealogia_data:
-            id1 = json_id_to_db_id.get(osoba["id"])
-            for spouse_json_id in osoba.get("spouseIds", []):
-                id2 = json_id_to_db_id.get(spouse_json_id)
-                if id1 and id2:
-                    para = tuple(sorted((id1, id2)))
-                    if para not in seen_malzenstwa:
-                        malzenstwa_to_insert.append(para)
-                        seen_malzenstwa.add(para)
+        # 7.3) Relacje małżeńskie (hybrydowo: rok/miesiąc/dzień lub pełna data, jeśli istnieją kolumny)
+        print("  → Tworzenie relacji małżeńskich (hybrydowo)...")
 
-        if malzenstwa_to_insert:
-            execute_values(
-                cur, 
-                "INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) VALUES %s", 
-                malzenstwa_to_insert
-            )
-            print(f"  ✔️ Wstawiono {len(malzenstwa_to_insert)} małżeństw")
-    
+        # 7.3.1) Wykryj kolumny dostępne w tabeli 'malzenstwa'
+        cur.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name   = 'malzenstwa';
+        """)
+        _mcols     = {r[0] for r in cur.fetchall()}
+        _HAS_YMD   = {'rok_slubu', 'miesiac_slubu', 'dzien_slubu'}.issubset(_mcols)
+        _HAS_DATE  = 'data_slubu' in _mcols
+
+        # 7.3.2) Słowniki pomocnicze
+        persons_by_json_id = {}
+        for o in genealogia_data:
+            # zachowaj klucz jako str i int (na wszelki wypadek różnic typów)
+            if 'id' in o:
+                persons_by_json_id[str(o['id'])] = o
+                try:
+                    persons_by_json_id[int(o['id'])] = o
+                except Exception:
+                    pass
+
+        # 7.3.3) Pomocnicze funkcje dat
+        def _extract_marriage_date(source_person: dict, spouse_json_id):
+            """
+            Szuka daty ślubu w typowych polach:
+            - source_person['marriages'] = [{spouseId, date}, ...]
+            - source_person['marriageDates'] = {<spouseId>: <date>}
+            - source_person['marriageDate'] = <date>
+            Fallback: rok z 'notes'/'uwagi' (np. 'ślub 1844').
+            Zwraca: dict|str|int|None (różne warianty; normalizuje _normalize_date_fields).
+            """
+            if not source_person:
+                return None
+
+            marriages = source_person.get('marriages', [])
+            if isinstance(marriages, list):
+                for m in marriages:
+                    sid = m.get('spouseId') or m.get('spouse_id') or m.get('id')
+                    if str(sid) == str(spouse_json_id) and (m.get('date') is not None):
+                        return m.get('date')
+
+            mdict = source_person.get('marriageDates')
+            if isinstance(mdict, dict):
+                val = mdict.get(str(spouse_json_id)) or mdict.get(spouse_json_id)
+                if val is not None:
+                    return val
+
+            if source_person.get('marriageDate') is not None:
+                return source_person.get('marriageDate')
+
+            # Fallback: rok w treści notatek
+            notes = source_person.get('notes') or source_person.get('uwagi') or ''
+            if isinstance(notes, str):
+                m = re.search(r'(17|18|19|20)\d{2}', notes)
+                if m:
+                    return int(m.group(0))
+
+            return None
+
+        def _normalize_date_fields(val):
+            """
+            Normalizuje wartość daty do (rok, miesiac, dzien, iso_date).
+            Obsługiwane formaty:
+            - dict {year, month?, day?}
+            - int lub 'YYYY'
+            - 'YYYY-MM'
+            - 'YYYY-MM-DD'
+            iso_date zwracamy tylko, gdy data jest kompletna i poprawna.
+            """
+            if val is None:
+                return (None, None, None, None)
+
+            y = m = d = None
+            iso = None
+
+            if isinstance(val, dict):
+                y = val.get('year'); m = val.get('month'); d = val.get('day')
+            elif isinstance(val, int):
+                y = val
+            elif isinstance(val, str):
+                s = val.strip()
+                if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s):
+                    y, m, d = map(int, s.split('-')); iso = s
+                elif re.fullmatch(r'\d{4}-\d{2}', s):
+                    y, m = map(int, s.split('-'))
+                elif re.fullmatch(r'\d{4}', s):
+                    y = int(s)
+
+            # bezpieczne zrzutowanie
+            try:    y = int(y) if y is not None else None
+            except: y = None
+            try:    m = int(m) if m is not None else None
+            except: m = None
+            try:    d = int(d) if d is not None else None
+            except: d = None
+
+            if iso is None and y and m and d:
+                try:
+                    iso = date(y, m, d).isoformat()  # walidacja kalendarzowa
+                except Exception:
+                    iso = None
+
+            return (y, m, d, iso)
+
+        # 7.3.4) Zbierz unikalne pary małżeństw i przygotuj dane do INSERT
+        seen_pairs = set()
+        values = []
+
+        for osoba in genealogia_data:
+            json_id_1 = osoba.get('id')
+            db_id_1   = json_id_to_db_id.get(json_id_1) \
+                    or json_id_to_db_id.get(str(json_id_1))
+
+            if not db_id_1:
+                continue
+
+            for spouse_json_id in osoba.get('spouseIds', []):
+                db_id_2 = json_id_to_db_id.get(spouse_json_id) \
+                    or json_id_to_db_id.get(str(spouse_json_id))
+                if not db_id_2:
+                    continue
+
+                # para uporządkowana → brak duplikatów (A,B) vs (B,A)
+                pair = tuple(sorted((int(db_id_1), int(db_id_2))))
+                if pair in seen_pairs:
+                    continue
+                seen_pairs.add(pair)
+
+                # Spróbuj znaleźć datę ślubu: najpierw po stronie 'osoba', potem po stronie małżonka
+                dval = _extract_marriage_date(osoba, spouse_json_id)
+                if not dval:
+                    other = persons_by_json_id.get(spouse_json_id) or persons_by_json_id.get(str(spouse_json_id))
+                    dval = _extract_marriage_date(other, json_id_1)
+
+                y, m, d, iso = _normalize_date_fields(dval)
+
+                if _HAS_YMD and _HAS_DATE:
+                    values.append((pair[0], pair[1], y, m, d, iso))
+                elif _HAS_YMD:
+                    values.append((pair[0], pair[1], y, m, d))
+                elif _HAS_DATE:
+                    values.append((pair[0], pair[1], iso))
+                else:
+                    values.append((pair[0], pair[1]))
+
+        # 7.3.5) INSERT do 'malzenstwa' – wariant zależny od dostępnych kolumn
+        if not values:
+            print("  (brak małżeństw do wstawienia)")
+        else:
+            if _HAS_YMD and _HAS_DATE:
+                sql = """
+                    INSERT INTO malzenstwa
+                        (malzonek1_id, malzonek2_id, rok_slubu, miesiac_slubu, dzien_slubu, data_slubu)
+                    VALUES %s
+                    ON CONFLICT DO NOTHING
+                """
+            elif _HAS_YMD:
+                sql = """
+                    INSERT INTO malzenstwa
+                        (malzonek1_id, malzonek2_id, rok_slubu, miesiac_slubu, dzien_slubu)
+                    VALUES %s
+                    ON CONFLICT DO NOTHING
+                """
+            elif _HAS_DATE:
+                sql = """
+                    INSERT INTO malzenstwa
+                        (malzonek1_id, malzonek2_id, data_slubu)
+                    VALUES %s
+                    ON CONFLICT DO NOTHING
+                """
+            else:
+                sql = """
+                    INSERT INTO malzenstwa
+                        (malzonek1_id, malzonek2_id)
+                    VALUES %s
+                    ON CONFLICT DO NOTHING
+                """
+
+            execute_values(cur, sql, values)
+            print(f"  ✔️ Wstawiono {len(values)} małżeństw")
+
     # Zatwierdź transakcję
     conn.commit()
     print("\n" + "=" * 50)
