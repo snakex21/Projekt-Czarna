@@ -15,7 +15,8 @@ document.addEventListener("DOMContentLoaded", initializeApp);
 let map = null;                    
 let allOwnersData = [];            
 let allParcelsData = [];           
-let geojsonLayer = null;           
+let geojsonLayer = null;
+let historicalMapOverlay = null;           
 let layersByCategory = {};         
 
 /* Stan interfejsu */
@@ -50,6 +51,7 @@ function initializeApp() {
     
     initializeMap();
     setupUIEventListeners();
+    setupHistoricalMapOpacityControl();
     fetchDataAndBuildInterface();
 }
 
@@ -90,7 +92,7 @@ function initializeMap() {
         [50.0814, 21.2661]  // NE
     ];
 
-    const historicalMapOverlay = L.imageOverlay("mapa.jpg", historicalBounds);
+    historicalMapOverlay = L.imageOverlay("mapa.jpg", historicalBounds);
     geojsonLayer = L.geoJSON(); 
 
     /* Konfiguracja mapy */
@@ -2085,6 +2087,65 @@ function setupKeyboardShortcuts(helpModal, settingsModal) {
             }
         }
     });
+}
+
+/**
+ * Konfiguruje kontrolkę przezroczystości mapy historycznej.
+ */
+function setupHistoricalMapOpacityControl() {
+    // Czekamy aż mapa i kontrolka warstw będą dostępne
+    const trySetup = () => {
+        const layersControl = document.querySelector('.leaflet-control-layers-list');
+        
+        if (!historicalMapOverlay || !layersControl) {
+            setTimeout(trySetup, 100);
+            return;
+        }
+        
+        // Sprawdzamy czy już nie został dodany
+        if (document.querySelector('.opacity-control-inline')) {
+            return;
+        }
+        
+        // Tworzymy kontrolkę przezroczystości
+        const opacityControl = document.createElement('div');
+        opacityControl.className = 'opacity-control-inline';
+        opacityControl.innerHTML = `
+            <div class="opacity-inline-header">
+                <i class="fas fa-adjust"></i>
+                <span>Przezroczystość mapy XIX w.</span>
+            </div>
+            <div class="opacity-inline-slider-container">
+                <input type="range" min="0" max="100" value="100" 
+                       class="opacity-inline-slider" id="historical-opacity-slider">
+                <div class="opacity-inline-value">
+                    <span id="opacity-percentage">100</span>%
+                </div>
+            </div>
+        `;
+        
+        // Dodajemy na końcu kontrolki warstw
+        layersControl.appendChild(opacityControl);
+        
+        // Konfigurujemy slider
+        const opacitySlider = document.getElementById('historical-opacity-slider');
+        const opacityPercentage = document.getElementById('opacity-percentage');
+        
+        opacitySlider.addEventListener('input', (e) => {
+            const value = e.target.value;
+            const opacity = value / 100;
+            
+            historicalMapOverlay.setOpacity(opacity);
+            opacityPercentage.textContent = value;
+        });
+        
+        // Inicjalizacja wartości początkowej
+        historicalMapOverlay.setOpacity(1);
+        
+        console.log("✅ Kontrolka przezroczystości dodana do panelu warstw");
+    };
+    
+    trySetup();
 }
 
 /**
