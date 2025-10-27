@@ -11,9 +11,10 @@
     
     <!-- ==========================================================================
          BIBLIOTEKI ZEWNĘTRZNE
-         Opis: D3.js do renderowania i interakcji w SVG.
+         Opis: D3.js do renderowania i interakcji w SVG, Chart.js do wykresów statystyk.
          ========================================================================== -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- ==========================================================================
@@ -598,6 +599,171 @@
         .dark-mode ::-webkit-scrollbar-thumb:hover {
             background: var(--text-secondary);
         }
+
+        /* ==========================================================================
+           SEKCJA STATYSTYK DEMOGRAFICZNYCH XIX WIEKU
+           ========================================================================== */
+        .stats-section {
+            position: fixed;
+            top: 70px;
+            right: 0;
+            width: 500px;
+            height: calc(100vh - 70px);
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+            z-index: 20;
+            transform: translateX(100%);
+            transition: transform 0.3s ease-in-out;
+            box-shadow: -4px 0 12px var(--shadow-color);
+        }
+
+        .stats-section.open {
+            transform: translateX(0);
+        }
+
+        .stats-section-header {
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel-solid);
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-section-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 1.3rem;
+        }
+
+        .stats-close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: color 0.2s;
+        }
+
+        .stats-close-btn:hover {
+            color: var(--accent-danger);
+        }
+
+        .stats-content {
+            padding: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-hover);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s;
+        }
+
+        .stat-card h3 {
+            color: var(--text-primary);
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-card-icon {
+            font-size: 1.2rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin: 15px 0;
+        }
+
+        .stat-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-summary-item {
+            background: var(--bg-panel-solid);
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-summary-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-primary);
+        }
+
+        .stat-summary-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .stats-toggle-btn {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+            transition: all 0.3s;
+            z-index: 15;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .stats-toggle-btn:hover {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 16px rgba(52, 152, 219, 0.6);
+        }
+
+        .stats-toggle-btn.active {
+            right: 520px;
+        }
+
+        @media (max-width: 1400px) {
+            .stats-section {
+                width: 400px;
+            }
+            .stats-toggle-btn.active {
+                right: 420px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .stats-section {
+                width: 100%;
+            }
+            .stats-toggle-btn {
+                right: 10px;
+            }
+            .stats-toggle-btn.active {
+                right: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -740,6 +906,109 @@
             <div class="loading-overlay" id="loading-overlay">
                 <div class="spinner"></div>
                 <div>Ładowanie drzewa genealogicznego...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         PRZYCISK TOGGLE STATYSTYK DEMOGRAFICZNYCH
+         ========================================================================== -->
+    <button class="stats-toggle-btn" id="stats-toggle-btn" title="Pokaż statystyki demograficzne XIX wieku">
+        <i class="fas fa-chart-bar"></i>
+    </button>
+
+    <!-- ==========================================================================
+         PANEL STATYSTYK DEMOGRAFICZNYCH XIX WIEKU
+         ========================================================================== -->
+    <div class="stats-section" id="stats-section">
+        <div class="stats-section-header">
+            <h2>📊 Demografia XIX wieku</h2>
+            <button class="stats-close-btn" id="stats-close-btn">&times;</button>
+        </div>
+        
+        <div class="stats-content">
+            <!-- Śmiertelność niemowląt -->
+            <div class="stat-card">
+                <h3>
+                    <span class="stat-card-icon">👶</span>
+                    Śmiertelność niemowląt
+                </h3>
+                <div class="chart-container">
+                    <canvas id="infant-mortality-chart"></canvas>
+                </div>
+                <div class="stat-summary">
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="infant-deaths-value">-</div>
+                        <div class="stat-summary-label">Zgony do 1 roku</div>
+                    </div>
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="infant-mortality-rate">-</div>
+                        <div class="stat-summary-label">Wskaźnik śmiertelności</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Długość życia według pokoleń -->
+            <div class="stat-card">
+                <h3>
+                    <span class="stat-card-icon">📅</span>
+                    Długość życia według pokoleń
+                </h3>
+                <div class="chart-container">
+                    <canvas id="lifespan-chart"></canvas>
+                </div>
+                <div class="stat-summary">
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="avg-lifespan-value">-</div>
+                        <div class="stat-summary-label">Średni wiek zgonu</div>
+                    </div>
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="lifespan-trend">-</div>
+                        <div class="stat-summary-label">Trend</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sezonowość urodzeń i zgonów -->
+            <div class="stat-card">
+                <h3>
+                    <span class="stat-card-icon">🌦️</span>
+                    Sezonowość urodzeń i zgonów
+                </h3>
+                <div class="chart-container">
+                    <canvas id="seasonality-chart"></canvas>
+                </div>
+                <div class="stat-summary">
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="peak-birth-month">-</div>
+                        <div class="stat-summary-label">Szczyt urodzeń</div>
+                    </div>
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="peak-death-month">-</div>
+                        <div class="stat-summary-label">Szczyt zgonów</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Struktura rodzin -->
+            <div class="stat-card">
+                <h3>
+                    <span class="stat-card-icon">👨‍👩‍👧‍👦</span>
+                    Struktura rodzin
+                </h3>
+                <div class="chart-container">
+                    <canvas id="family-structure-chart"></canvas>
+                </div>
+                <div class="stat-summary">
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="avg-children-value">-</div>
+                        <div class="stat-summary-label">Średnia dzieci/rodzinę</div>
+                    </div>
+                    <div class="stat-summary-item">
+                        <div class="stat-summary-value" id="total-families-value">-</div>
+                        <div class="stat-summary-label">Liczba rodzin</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -3950,6 +4219,300 @@
                 clearTimeout(zoomTimeout);
             }
         });
+
+        /* ==========================================================================
+        OBSŁUGA PANELU STATYSTYK DEMOGRAFICZNYCH XIX WIEKU
+        ========================================================================== */
+
+        const statsSection = document.getElementById('stats-section');
+        const statsToggleBtn = document.getElementById('stats-toggle-btn');
+        const statsCloseBtn = document.getElementById('stats-close-btn');
+        let demographicCharts = {};
+
+        function toggleStatsPanel() {
+            statsSection.classList.toggle('open');
+            statsToggleBtn.classList.toggle('active');
+            
+            if (statsSection.classList.contains('open') && Object.keys(demographicCharts).length === 0) {
+                loadDemographicStats();
+            }
+        }
+
+        statsToggleBtn.addEventListener('click', toggleStatsPanel);
+        statsCloseBtn.addEventListener('click', toggleStatsPanel);
+
+        async function loadDemographicStats() {
+            console.log('📊 Ładowanie statystyk demograficznych...');
+            
+            try {
+                await Promise.all([
+                    loadInfantMortality(),
+                    loadLifespanByGeneration(),
+                    loadSeasonality(),
+                    loadFamilyStructure()
+                ]);
+                console.log('✅ Statystyki demograficzne załadowane');
+            } catch (error) {
+                console.error('❌ Błąd ładowania statystyk:', error);
+            }
+        }
+
+        async function loadInfantMortality() {
+            const response = await fetch('/api/genealogia/infant-mortality');
+            const data = await response.json();
+            
+            document.getElementById('infant-deaths-value').textContent = data.total_infant_deaths;
+            document.getElementById('infant-mortality-rate').textContent = `${data.mortality_rate}%`;
+            
+            const ctx = document.getElementById('infant-mortality-chart').getContext('2d');
+            demographicCharts.infantMortality = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Liczba zgonów',
+                        data: data.data,
+                        backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                        borderColor: 'rgba(231, 76, 60, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Rozkład zgonów niemowląt według wieku',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { 
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                                stepSize: 1
+                            },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadLifespanByGeneration() {
+            const response = await fetch('/api/genealogia/lifespan-by-generation');
+            const data = await response.json();
+            
+            if (data.data.length > 0) {
+                const avgAge = (data.data.reduce((a, b) => a + b, 0) / data.data.length).toFixed(1);
+                document.getElementById('avg-lifespan-value').textContent = `${avgAge} lat`;
+                
+                const trend = data.data.length > 1 ? 
+                    (data.data[data.data.length - 1] > data.data[0] ? '↑' : '↓') : '-';
+                document.getElementById('lifespan-trend').textContent = trend;
+            }
+            
+            const ctx = document.getElementById('lifespan-chart').getContext('2d');
+            demographicCharts.lifespan = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Średni wiek zgonu (lata)',
+                        data: data.data,
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Zmiany długości życia w XIX wieku',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadSeasonality() {
+            const response = await fetch('/api/genealogia/seasonality');
+            const data = await response.json();
+            
+            const maxBirthIndex = data.births.indexOf(Math.max(...data.births));
+            const maxDeathIndex = data.deaths.indexOf(Math.max(...data.deaths));
+            
+            document.getElementById('peak-birth-month').textContent = data.labels[maxBirthIndex];
+            document.getElementById('peak-death-month').textContent = data.labels[maxDeathIndex];
+            
+            const ctx = document.getElementById('seasonality-chart').getContext('2d');
+            demographicCharts.seasonality = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Urodzenia',
+                            data: data.births,
+                            backgroundColor: 'rgba(39, 174, 96, 0.7)',
+                            borderColor: 'rgba(39, 174, 96, 1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Zgony',
+                            data: data.deaths,
+                            backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                            borderColor: 'rgba(231, 76, 60, 1)',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: true,
+                            labels: {
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Rozkład wydarzeń według miesięcy',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { 
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                                stepSize: 1
+                            },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        x: {
+                            ticks: { 
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function loadFamilyStructure() {
+            const response = await fetch('/api/genealogia/family-structure');
+            const data = await response.json();
+            
+            document.getElementById('avg-children-value').textContent = data.average_children;
+            document.getElementById('total-families-value').textContent = data.total_families;
+            
+            const ctx = document.getElementById('family-structure-chart').getContext('2d');
+            demographicCharts.familyStructure = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Liczba rodzin',
+                        data: data.data,
+                        backgroundColor: 'rgba(155, 89, 182, 0.7)',
+                        borderColor: 'rgba(155, 89, 182, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Rozkład wielkości rodzin',
+                            color: getComputedStyle(document.documentElement).getPropertyValue('--text-primary')
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { 
+                                color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary'),
+                                stepSize: 1
+                            },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        x: {
+                            ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartsTheme(theme) {
+            const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-primary');
+            const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary');
+            
+            Object.values(demographicCharts).forEach(chart => {
+                if (chart && chart.options) {
+                    if (chart.options.plugins.title) {
+                        chart.options.plugins.title.color = textColor;
+                    }
+                    if (chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+                        chart.options.plugins.legend.labels.color = textColor;
+                    }
+                    if (chart.options.scales) {
+                        if (chart.options.scales.x && chart.options.scales.x.ticks) {
+                            chart.options.scales.x.ticks.color = secondaryColor;
+                        }
+                        if (chart.options.scales.y && chart.options.scales.y.ticks) {
+                            chart.options.scales.y.ticks.color = secondaryColor;
+                        }
+                    }
+                    chart.update();
+                }
+            });
+        }
+
+        const originalApplyTheme = applyTheme;
+        applyTheme = function(theme) {
+            originalApplyTheme(theme);
+            if (Object.keys(demographicCharts).length > 0) {
+                updateChartsTheme(theme);
+            }
+        };
     </script>
 </body>
 </html>
