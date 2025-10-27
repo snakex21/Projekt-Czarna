@@ -1825,3 +1825,100 @@ kbd {
     padding: 0.4rem 0.8rem;
   }
 }
+/* ==========================================================================
+   ZESTAWIENIA TABELARYCZNE – NOWE WIDOKI GENEALOGICZNE
+   ========================================================================== */
+.table-wrapper {
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  border: 1px solid var(--border, rgba(102, 126, 234, 0.2));
+  overflow-x: auto;
+  box-shadow: 0 18px 32px rgba(31, 41, 55, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+body.dark-mode .table-wrapper {
+  background: rgba(17, 24, 39, 0.45);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  min-width: 480px;
+}
+
+.stats-table thead {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9));
+  color: #fff;
+}
+
+body.dark-mode .stats-table thead {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.65), rgba(118, 75, 162, 0.65));
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+body.dark-mode .stats-table th,
+body.dark-mode .stats-table td {
+  border-bottom-color: rgba(71, 85, 105, 0.45);
+}
+
+.stats-table tbody tr:hover {
+  background: rgba(102, 126, 234, 0.08);
+}
+
+body.dark-mode .stats-table tbody tr:hover {
+  background: rgba(102, 126, 234, 0.18);
+}
+
+.stats-table td:last-child {
+  font-weight: 600;
+  color: #764ba2;
+}
+
+body.dark-mode .stats-table td:last-child {
+  color: #c084fc;
+}
+
+.stats-table td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table-wrapper .empty-row {
+  text-align: center;
+  font-style: italic;
+  color: var(--text-secondary, #64748b);
+}
+
+body.dark-mode .table-wrapper .empty-row {
+  color: #a1accd;
+}
+.stats-note {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary, #64748b);
+}
+
+body.dark-mode .stats-note {
+  color: #a1accd;
+}
+
+.stats-note span {
+  font-weight: 600;
+  color: #764ba2;
+}
+
+body.dark-mode .stats-note span {
+  color: #c084fc;
+}

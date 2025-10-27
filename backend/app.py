@@ -594,6 +594,349 @@ def get_stats():
         'genealogy_stats': genealogy_stats
     })
 
+# =============================================================================
+# GENEALOGICZNE STATYSTYKI DEMOGRAFICZNE – NOWE ENDPOINTY
+# =============================================================================
+
+_DATE_PARSE_FORMATS = ['%Y-%m-%d', '%d-%m-%Y', '%Y.%m.%d', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%Y']
+
+
+def _get_table_columns(cur, table_name):
+    """Pobiera zbiór nazw kolumn dostępnych w zadanej tabeli."""
+    try:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = %s;
+            """,
+            (table_name,)
+        )
+        rows = cur.fetchall()
+        return {row['column_name'] if isinstance(row, dict) else row[0] for row in rows}
+    except Exception:
+        return set()
+
+
+def _coerce_datetime(value):
+    """Konwertuje dowolny typ zwrócony z bazy na obiekt datetime."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    value_str = str(value).strip()
+    if not value_str:
+        return None
+    for fmt in _DATE_PARSE_FORMATS:
+        try:
+            return datetime.strptime(value_str, fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(value_str)
+    except Exception:
+        pass
+    digits = re.findall(r"\d+", value_str)
+    if len(digits) >= 3:
+        try:
+            variants = []
+            if len(digits[0]) == 4:
+                variants.append((int(digits[0]), int(digits[1]), int(digits[2])))
+            if len(digits[-1]) == 4:
+                variants.append((int(digits[-1]), int(digits[0]), int(digits[1])))
+            for year, month, day in variants:
+                return datetime(year, max(1, min(month, 12)), max(1, min(day, 31)))
+        except Exception:
+            pass
+    return None
+
+
+def _safe_datetime(year, month=None, day=None):
+    """Buduje obiekt datetime nawet przy niepełnych danych."""
+    if year is None:
+        return None
+    try:
+        year = int(year)
+    except Exception:
+        return None
+    try:
+        month_val = int(month) if month is not None else 1
+    except Exception:
+        month_val = 1
+    try:
+        day_val = int(day) if day is not None else 1
+    except Exception:
+        day_val = 1
+    month_val = max(1, min(month_val, 12))
+    day_val = max(1, min(day_val, 28))
+    try:
+        return datetime(year, month_val, day_val)
+    except Exception:
+        return datetime(year, 1, 1)
+
+
+def _first_available(row, columns, candidates):
+    for col in candidates:
+        if col in columns:
+            value = row.get(col)
+            if value not in (None, ""):
+                return value
+    return None
+
+
+def _extract_date(row, columns, prefix):
+    if prefix == 'birth':
+        direct_cols = ['birth_date', 'birthdate', 'data_urodzenia']
+        year_cols = ['birth_year', 'rok_urodzenia', 'year_birth']
+        month_cols = ['birth_month', 'miesiac_urodzenia', 'month_birth']
+        day_cols = ['birth_day', 'dzien_urodzenia', 'day_birth']
+    else:
+        direct_cols = ['death_date', 'deathdate', 'data_smierci']
+        year_cols = ['death_year', 'rok_smierci', 'year_death']
+        month_cols = ['death_month', 'miesiac_smierci', 'month_death']
+        day_cols = ['death_day', 'dzien_smierci', 'day_death']
+
+    for col in direct_cols:
+        if col in columns:
+            dt = _coerce_datetime(row.get(col))
+            if dt:
+                return dt
+
+    year_val = _first_available(row, columns, year_cols)
+    if year_val in (None, ""):
+        return None
+    month_val = _first_available(row, columns, month_cols)
+    day_val = _first_available(row, columns, day_cols)
+    return _safe_datetime(year_val, month_val, day_val)
+
+
+@app.route('/api/genealogy/infant-mortality')
+def get_infant_mortality():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    columns = set()
+    try:
+        columns = _get_table_columns(cur, 'osoby_genealogia')
+        select_cols = ['id']
+        for col in [
+            'imie_nazwisko', 'name',
+            'birth_date', 'birthdate', 'data_urodzenia',
+            'death_date', 'deathdate', 'data_smierci',
+            'birth_year', 'rok_urodzenia',
+            'birth_month', 'miesiac_urodzenia',
+            'birth_day', 'dzien_urodzenia',
+            'death_year', 'rok_smierci',
+            'death_month', 'miesiac_smierci',
+            'death_day', 'dzien_smierci'
+        ]:
+            if col in columns:
+                select_cols.append(col)
+        cur.execute(f"SELECT {', '.join(dict.fromkeys(select_cols))} FROM osoby_genealogia;")
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    categories = {
+        '0-7 dni': 0,
+        '8-30 dni': 0,
+        '1-6 miesięcy': 0,
+        '6-12 miesięcy': 0
+    }
+    details = []
+    births_recorded = 0
+
+    for row in rows:
+        birth_dt = _extract_date(row, columns, 'birth')
+        death_dt = _extract_date(row, columns, 'death')
+        if birth_dt:
+            births_recorded += 1
+        if not birth_dt or not death_dt:
+            continue
+        age_days = (death_dt - birth_dt).days
+        if age_days < 0:
+            continue
+        if age_days <= 7:
+            category = '0-7 dni'
+        elif age_days <= 30:
+            category = '8-30 dni'
+        elif age_days <= 183:
+            category = '1-6 miesięcy'
+        elif age_days <= 366:
+            category = '6-12 miesięcy'
+        else:
+            continue
+        categories[category] += 1
+        details.append({
+            'id': row['id'],
+            'name': row.get('imie_nazwisko') or row.get('name'),
+            'birth': birth_dt.date().isoformat(),
+            'death': death_dt.date().isoformat(),
+            'age_days': age_days,
+            'category': category
+        })
+
+    total_infant_deaths = sum(categories.values())
+    infant_mortality_rate = (total_infant_deaths / births_recorded * 100) if births_recorded else 0.0
+    details.sort(key=lambda item: item['age_days'])
+
+    return jsonify({
+        'labels': list(categories.keys()),
+        'data': list(categories.values()),
+        'categories': categories,
+        'total_infant_deaths': total_infant_deaths,
+        'total_births_tracked': births_recorded,
+        'infant_mortality_rate': round(infant_mortality_rate, 2),
+        'details': details[:100]
+    })
+
+
+@app.route('/api/genealogy/lifespan-by-generation')
+def get_lifespan_by_generation():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    columns = set()
+    try:
+        columns = _get_table_columns(cur, 'osoby_genealogia')
+        select_cols = ['id']
+        for col in ['birth_date', 'birthdate', 'data_urodzenia', 'death_date', 'deathdate', 'data_smierci',
+                    'birth_year', 'rok_urodzenia', 'death_year', 'rok_smierci']:
+            if col in columns:
+                select_cols.append(col)
+        cur.execute(f"SELECT {', '.join(dict.fromkeys(select_cols))} FROM osoby_genealogia;")
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    decades = {}
+    for row in rows:
+        birth_dt = _extract_date(row, columns, 'birth')
+        death_dt = _extract_date(row, columns, 'death')
+        if not birth_dt or not death_dt or death_dt <= birth_dt:
+            continue
+        decade_start = (birth_dt.year // 10) * 10
+        age_years = (death_dt - birth_dt).days / 365.2425
+        bucket = decades.setdefault(decade_start, {'sum_age': 0.0, 'count': 0})
+        bucket['sum_age'] += age_years
+        bucket['count'] += 1
+
+    decades_sorted = sorted(decades.items())
+    labels = [f"{start}-{start + 9}" for start, _ in decades_sorted]
+    data_values = [round(bucket['sum_age'] / bucket['count'], 1) for _, bucket in decades_sorted] if decades_sorted else []
+
+    return jsonify({'labels': labels, 'data': data_values})
+
+
+@app.route('/api/genealogy/seasonality')
+def get_seasonality():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    columns = set()
+    try:
+        columns = _get_table_columns(cur, 'osoby_genealogia')
+        select_cols = ['id']
+        for col in ['birth_date', 'birthdate', 'data_urodzenia', 'death_date', 'deathdate', 'data_smierci',
+                    'birth_month', 'miesiac_urodzenia', 'death_month', 'miesiac_smierci']:
+            if col in columns:
+                select_cols.append(col)
+        cur.execute(f"SELECT {', '.join(dict.fromkeys(select_cols))} FROM osoby_genealogia;")
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    births = [0] * 12
+    deaths = [0] * 12
+    for row in rows:
+        birth_dt = _extract_date(row, columns, 'birth')
+        if birth_dt:
+            births[birth_dt.month - 1] += 1
+        death_dt = _extract_date(row, columns, 'death')
+        if death_dt:
+            deaths[death_dt.month - 1] += 1
+
+    labels = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru']
+    return jsonify({'labels': labels, 'births': births, 'deaths': deaths})
+
+
+@app.route('/api/genealogy/family-structure')
+def get_family_structure():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    columns = set()
+    try:
+        columns = _get_table_columns(cur, 'osoby_genealogia')
+        select_cols = ['id']
+        for col in ['id_ojca', 'id_matki', 'household_number', 'numer_domu']:
+            if col in columns:
+                select_cols.append(col)
+        cur.execute(f"SELECT {', '.join(dict.fromkeys(select_cols))} FROM osoby_genealogia;")
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    children_counter = Counter()
+    household_counter = Counter()
+
+    for row in rows:
+        father = row.get('id_ojca') if 'id_ojca' in row else None
+        mother = row.get('id_matki') if 'id_matki' in row else None
+        if father not in (None, 0, ''):
+            try:
+                father_id = int(father)
+                children_counter[father_id] += 1
+            except Exception:
+                pass
+        if mother not in (None, 0, ''):
+            try:
+                mother_id = int(mother)
+                children_counter[mother_id] += 1
+            except Exception:
+                pass
+        household = row.get('household_number') if 'household_number' in row else row.get('numer_domu')
+        if household not in (None, ""):
+            household_counter[str(household)] += 1
+
+    distribution = {
+        '1 dziecko': 0,
+        '2 dzieci': 0,
+        '3-5 dzieci': 0,
+        '6-10 dzieci': 0,
+        '>10 dzieci': 0
+    }
+
+    for count in children_counter.values():
+        if count == 1:
+            distribution['1 dziecko'] += 1
+        elif count == 2:
+            distribution['2 dzieci'] += 1
+        elif 3 <= count <= 5:
+            distribution['3-5 dzieci'] += 1
+        elif 6 <= count <= 10:
+            distribution['6-10 dzieci'] += 1
+        elif count > 10:
+            distribution['>10 dzieci'] += 1
+
+    total_families = sum(distribution.values())
+    total_children = sum(children_counter.values())
+    avg_children = (total_children / total_families) if total_families else 0.0
+
+    household_sizes = list(household_counter.values())
+    avg_household_size = (sum(household_sizes) / len(household_sizes)) if household_sizes else 0.0
+
+    return jsonify({
+        'labels': list(distribution.keys()),
+        'data': list(distribution.values()),
+        'avg_children_per_family': round(avg_children, 2),
+        'total_families': total_families,
+        'total_children': total_children,
+        'avg_household_size': round(avg_household_size, 1)
+    })
+
 @app.route('/api/plots-for-owners', methods=['POST'])
 def get_plots_for_owners():
     """Pobiera działki dla podanych właścicieli (używane na mapie statystyk)."""
