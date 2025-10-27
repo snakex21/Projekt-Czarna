@@ -378,58 +378,107 @@
                 <!-- ZAKŁADKA: GENEALOGIA -->
                 <div class="tab-panel" id="genealogy">
                     <div class="dashboard-grid">
-                        <!-- Wskaźniki genealogiczne -->
+                        
+                        <!-- Śmiertelność niemowląt -->
                         <div class="dashboard-card">
                             <div class="card-header">
-                                <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
-                            </div>
-                            <div class="stats-grid">
-                                <div class="mini-stat">
-                                    <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
-                                    <div class="mini-data">
-                                        <span class="mini-label">Wszystkie osoby</span>
-                                        <span class="mini-value" id="stat-total-people">0</span>
-                                    </div>
+                                <h3><i class="fas fa-baby"></i> Śmiertelność niemowląt</h3>
+                                <div class="stat-summary">
+                                    <span class="stat-percentage" id="infant-mortality-rate">-</span>
                                 </div>
-                                <div class="mini-stat">
-                                    <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
-                                    <div class="mini-data">
-                                        <span class="mini-label">Mężczyźni / Kobiety</span>
-                                        <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="infant-mortality-chart"></canvas>
+                                <div class="chart-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Łączne urodzenia:</span>
+                                        <span class="detail-value" id="total-births">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Zgony niemowląt:</span>
+                                        <span class="detail-value" id="infant-deaths">-</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <!-- Ranking nazwisk -->
+
+                        <!-- Długość życia według pokoleń -->
                         <div class="dashboard-card">
-                             <div class="card-header">
-                                <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> Długość życia wg pokoleń</h3>
                             </div>
-                            <div class="ranking-list" id="top-surnames-list">
-                                <!-- Generowane dynamicznie przez JavaScript -->
+                            <div class="card-body">
+                                <canvas id="life-expectancy-chart"></canvas>
                             </div>
                         </div>
-                        <!-- Wykres urodzeń -->
-                        <!-- Wykres serii genealogicznych (urodzenia / zgony / śluby) -->
+
+                        <!-- Sezonowość urodzeń -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-calendar-alt"></i> Sezonowość urodzeń</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="birth-seasonality-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Sezonowość zgonów -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-calendar-times"></i> Sezonowość zgonów</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="death-seasonality-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Struktura rodzin -->
                         <div class="dashboard-card wide">
                             <div class="card-header">
-                                <h3><i class="fas fa-birthday-cake"></i> Ruch naturalny – wg dekad</h3>
-                                <!-- Przełącznik serii -->
-                                <div class="segmented" id="genealogy-series-toggle" role="tablist" aria-label="Seria genealogiczna">
-                                <input type="radio" name="gen-series" id="gen-series-births" value="births" checked>
-                                <label for="gen-series-births" title="Urodzenia"><i class="fas fa-baby"></i> Urodzenia</label>
-
-                                <input type="radio" name="gen-series" id="gen-series-deaths" value="deaths">
-                                <label for="gen-series-deaths" title="Zgony"><i class="fas fa-cross"></i> Zgony</label>
-
-                                <input type="radio" name="gen-series" id="gen-series-marriages" value="marriages">
-                                <label for="gen-series-marriages" title="Śluby"><i class="fas fa-ring"></i> Śluby</label>
+                                <h3><i class="fas fa-users"></i> Struktura rodzin</h3>
+                                <div class="stat-summary">
+                                    <span class="stat-number" id="avg-children">-</span>
+                                    <span class="stat-label">śr. dzieci/rodzinę</span>
                                 </div>
                             </div>
-                                <div class="card-body">
-                                    <canvas id="genealogy-births-chart"></canvas>
+                            <div class="card-body">
+                                <div class="family-stats-grid">
+                                    <div class="family-chart-container">
+                                        <canvas id="family-structure-chart"></canvas>
+                                    </div>
+                                    <div class="family-summary">
+                                        <div class="summary-item">
+                                            <div class="summary-icon">
+                                                <i class="fas fa-home"></i>
+                                            </div>
+                                            <div class="summary-data">
+                                                <div class="summary-number" id="total-families">-</div>
+                                                <div class="summary-text">Liczba rodzin</div>
+                                            </div>
+                                        </div>
+                                        <div class="summary-item">
+                                            <div class="summary-icon">
+                                                <i class="fas fa-household"></i>
+                                            </div>
+                                            <div class="summary-data">
+                                                <div class="summary-number" id="total-households">-</div>
+                                                <div class="summary-text">Gospodarstwa domowe</div>
+                                            </div>
+                                        </div>
+                                        <div class="summary-item">
+                                            <div class="summary-icon">
+                                                <i class="fas fa-users"></i>
+                                            </div>
+                                            <div class="summary-data">
+                                                <div class="summary-number" id="avg-household-size">-</div>
+                                                <div class="summary-text">Śr. wielkość gospodarstwa</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+                            </div>
                         </div>
+
                     </div>
                 </div>
 
