@@ -1489,11 +1489,297 @@ function initKeyboardShortcuts() {
     // D – przełącz tryb ciemny (jeśli fokus nie w input/textarea)
     if ((e.key === 'd' || e.key === 'D') && !e.target.matches('input, textarea')) {
       document.getElementById('theme-toggle')?.click();
-    }
-    // Esc – zamknij modal / wyszukiwarkę
-    if (e.key === 'Escape') {
+      }
+      // Esc – zamknij modal / wyszukiwarkę
+      if (e.key === 'Escape') {
       document.querySelector('.modal.active')?.classList.remove('active');
       document.getElementById('search-bar')?.classList.remove('active');
-    }
-  });
-}
+      }
+      });
+      }
+
+      /**
+      * Pobiera i wyświetla 4 nowe statystyki demograficzne.
+      */
+      async function loadGenealogyDemographicStats() {
+      try {
+      console.log('📊 Ładowanie statystyk demograficznych...');
+      const response = await fetch('/api/genealogy/demographic-stats');
+
+      if (!response.ok) {
+      throw new Error(`Błąd HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📦 Otrzymane statystyki demograficzne:', data);
+
+      // Renderowanie wszystkich 4 statystyk
+      renderInfantMortality(data.infant_mortality);
+      renderLifeExpectancy(data.life_expectancy);
+      renderSeasonality(data.seasonality);
+      renderFamilyStructure(data.family_structure);
+
+      } catch (error) {
+      console.error('❌ Błąd podczas ładowania statystyk demograficznych:', error);
+      showToast('error', 'Błąd', 'Nie udało się załadować statystyk demograficznych');
+      }
+      }
+
+      /**
+      * Renderuje wykres śmiertelności niemowląt.
+      */
+      function renderInfantMortality(data) {
+      // Aktualizacja statystyk
+      document.getElementById('infant-mortality-rate').textContent = `${data.mortality_rate}%`;
+      document.getElementById('total-births').textContent = data.total_births;
+      document.getElementById('infant-deaths').textContent = data.infant_deaths;
+
+      // Przygotowanie danych dla wykresu
+      const labels = data.by_category.map(item => item.category);
+      const counts = data.by_category.map(item => item.count);
+
+      const ctx = document.getElementById('infant-mortality-chart')?.getContext('2d');
+      if (!ctx) return;
+
+      // Niszczenie poprzedniego wykresu jeśli istnieje
+      if (charts.infantMortality) charts.infantMortality.destroy();
+
+      charts.infantMortality = new Chart(ctx, {
+      type: 'bar',
+      data: {
+      labels: labels,
+      datasets: [{
+       label: 'Liczba zgonów',
+       data: counts,
+       backgroundColor: [
+         'rgba(239, 68, 68, 0.8)',   // Czerwony
+         'rgba(245, 158, 11, 0.8)',  // Pomarańczowy
+         'rgba(251, 191, 36, 0.8)',  // Żółty
+         'rgba(163, 230, 53, 0.8)'   // Zielony
+       ],
+       borderColor: [
+         'rgb(239, 68, 68)',
+         'rgb(245, 158, 11)',
+         'rgb(251, 191, 36)',
+         'rgb(163, 230, 53)'
+       ],
+       borderWidth: 2,
+       borderRadius: 6
+      }]
+      },
+      options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+       legend: { display: false },
+       tooltip: {
+         callbacks: {
+           label: function(context) {
+             return `Zgony: ${context.parsed.y}`;
+           }
+         }
+       }
+      },
+      scales: {
+       y: {
+         beginAtZero: true,
+         title: { display: true, text: 'Liczba zgonów' }
+       },
+       x: {
+         title: { display: true, text: 'Grupa wiekowa' }
+       }
+      }
+      }
+      });
+      }
+
+      /**
+      * Renderuje wykres długości życia według pokoleń.
+      */
+      function renderLifeExpectancy(data) {
+      const labels = data.map(item => item.decade_label);
+      const ages = data.map(item => item.average_age);
+      const counts = data.map(item => item.count);
+
+      const ctx = document.getElementById('life-expectancy-chart')?.getContext('2d');
+      if (!ctx) return;
+
+      if (charts.lifeExpectancy) charts.lifeExpectancy.destroy();
+
+      charts.lifeExpectancy = new Chart(ctx, {
+      type: 'line',
+      data: {
+      labels: labels,
+      datasets: [{
+       label: 'Średnia długość życia',
+       data: ages,
+       borderColor: 'rgb(75, 192, 192)',
+       backgroundColor: 'rgba(75, 192, 192, 0.2)',
+       borderWidth: 3,
+       fill: true,
+       tension: 0.4,
+       pointRadius: 5,
+       pointHoverRadius: 8
+      }]
+      },
+      options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+       legend: { display: false },
+       tooltip: {
+         callbacks: {
+           label: function(context) {
+             return `Średni wiek: ${context.parsed.y} lat (osób: ${counts[context.dataIndex]})`;
+           }
+         }
+       }
+      },
+      scales: {
+       y: {
+         beginAtZero: false,
+         title: { display: true, text: 'Średni wiek (lata)' }
+       },
+       x: {
+         title: { display: true, text: 'Dekada urodzenia' }
+       }
+      }
+      }
+      });
+      }
+
+      /**
+      * Renderuje wykresy sezonowości urodzeń i zgonów.
+      */
+      function renderSeasonality(data) {
+      // Sezonowość urodzeń
+      const birthCtx = document.getElementById('birth-seasonality-chart')?.getContext('2d');
+      if (birthCtx) {
+      if (charts.birthSeasonality) charts.birthSeasonality.destroy();
+
+      charts.birthSeasonality = new Chart(birthCtx, {
+      type: 'bar',
+      data: {
+       labels: data.births.map(item => item.month),
+       datasets: [{
+         label: 'Liczba urodzeń',
+         data: data.births.map(item => item.count),
+         backgroundColor: 'rgba(54, 162, 235, 0.8)',
+         borderColor: 'rgb(54, 162, 235)',
+         borderWidth: 2,
+         borderRadius: 4
+       }]
+      },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+         legend: { display: false }
+       },
+       scales: {
+         y: { beginAtZero: true, title: { display: true, text: 'Liczba urodzeń' } },
+         x: { title: { display: true, text: 'Miesiąc' } }
+       }
+      }
+      });
+      }
+
+      // Sezonowość zgonów
+      const deathCtx = document.getElementById('death-seasonality-chart')?.getContext('2d');
+      if (deathCtx) {
+      if (charts.deathSeasonality) charts.deathSeasonality.destroy();
+
+      charts.deathSeasonality = new Chart(deathCtx, {
+      type: 'bar',
+      data: {
+       labels: data.deaths.map(item => item.month),
+       datasets: [{
+         label: 'Liczba zgonów',
+         data: data.deaths.map(item => item.count),
+         backgroundColor: 'rgba(255, 99, 132, 0.8)',
+         borderColor: 'rgb(255, 99, 132)',
+         borderWidth: 2,
+         borderRadius: 4
+       }]
+      },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+         legend: { display: false }
+       },
+       scales: {
+         y: { beginAtZero: true, title: { display: true, text: 'Liczba zgonów' } },
+         x: { title: { display: true, text: 'Miesiąc' } }
+       }
+      }
+      });
+      }
+      }
+
+      /**
+      * Renderuje wykres struktury rodzin i statystyki.
+      */
+      function renderFamilyStructure(data) {
+      // Aktualizacja statystyk
+      document.getElementById('avg-children').textContent = data.average_children;
+      document.getElementById('total-families').textContent = data.total_families;
+      document.getElementById('total-households').textContent = data.household_stats.total_households;
+      document.getElementById('avg-household-size').textContent = data.household_stats.average_size;
+
+      // Wykres rozkładu wielkości rodzin
+      const ctx = document.getElementById('family-structure-chart')?.getContext('2d');
+      if (!ctx) return;
+
+      const labels = data.size_distribution.map(item => item.category);
+      const counts = data.size_distribution.map(item => item.count);
+
+      if (charts.familyStructure) charts.familyStructure.destroy();
+
+      charts.familyStructure = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+      labels: labels,
+      datasets: [{
+       data: counts,
+       backgroundColor: [
+         'rgba(255, 206, 86, 0.8)',   // Żółty
+         'rgba(75, 192, 192, 0.8)',    // Zielony
+         'rgba(54, 162, 235, 0.8)',    // Niebieski
+         'rgba(153, 102, 255, 0.8)',   // Fioletowy
+         'rgba(255, 159, 64, 0.8)'     // Pomarańczowy
+       ],
+       borderColor: [
+         'rgb(255, 206, 86)',
+         'rgb(75, 192, 192)',
+         'rgb(54, 162, 235)',
+         'rgb(153, 102, 255)',
+         'rgb(255, 159, 64)'
+       ],
+       borderWidth: 2
+      }]
+      },
+      options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+       legend: {
+         position: 'bottom',
+         labels: {
+           padding: 15,
+           font: { size: 12 }
+         }
+       },
+       tooltip: {
+         callbacks: {
+           label: function(context) {
+             const total = context.dataset.data.reduce((a, b) => a + b, 0);
+             const percentage = ((context.parsed / total) * 100).toFixed(1);
+             return `${context.label}: ${context.parsed} rodzin (${percentage}%)`;
+           }
+         }
+       }
+      }
+      }
+      });
+      }
