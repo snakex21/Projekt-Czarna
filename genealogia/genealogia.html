@@ -957,11 +957,25 @@
         /**
          * Pobiera i konwertuje dane genealogiczne z serwera.
          * Obsługuje różne formaty danych (vis.js, genealogiczny).
+         * Dla dużych zbiorów (>1000 osób) używa paginacji.
          * @returns {Promise<Object>} Dane genealogiczne w ustandaryzowanym formacie
          */
         async function fetchGenealogyData() {
             try {
-                console.log('📡 Pobieranie danych genealogicznych z serwera...');
+                console.log('📡 Pobieranie statystyk genealogicznych...');
+                const statsResponse = await fetch('/api/genealogia/stats');
+                
+                if (statsResponse.ok) {
+                    const stats = await statsResponse.json();
+                    console.log(`📊 Statystyki: ${stats.total_persons} osób w bazie`);
+                    
+                    if (stats.total_persons > 1000) {
+                        console.log('🔄 Wykryto dużą bazę danych - użycie paginacji...');
+                        return await fetchGenealogyDataPaginated(stats.total_persons);
+                    }
+                }
+                
+                console.log('📡 Pobieranie pełnych danych genealogicznych z serwera...');
                 const response = await fetch('/api/genealogia/full-graph');
                 
                 if (!response.ok) {
@@ -985,6 +999,114 @@
             } catch (error) {
                 console.error('❌ Błąd podczas pobierania danych z serwera:', error);
                 throw error;
+            }
+        }
+
+        /**
+         * Pobiera dane genealogiczne w trybie paginowanym (dla dużych zbiorów).
+         * @param {number} totalPersons - Całkowita liczba osób
+         * @returns {Promise<Object>} Dane genealogiczne
+         */
+        async function fetchGenealogyDataPaginated(totalPersons) {
+            try {
+                const BATCH_SIZE = 100;
+                const allPersons = [];
+                const allMarriages = [];
+                
+                const totalBatches = Math.ceil(totalPersons / BATCH_SIZE);
+                console.log(`📦 Pobieranie danych w ${totalBatches} partiach po ${BATCH_SIZE} osób...`);
+                
+                for (let i = 0; i < totalBatches; i++) {
+                    const offset = i * BATCH_SIZE;
+                    const personsResponse = await fetch(`/api/genealogia/persons?offset=${offset}&limit=${BATCH_SIZE}`);
+                    
+                    if (!personsResponse.ok) {
+                        throw new Error(`Błąd HTTP przy pobieraniu partii ${i + 1}: ${personsResponse.status}`);
+                    }
+                    
+                    const personsData = await personsResponse.json();
+                    allPersons.push(...personsData.persons);
+                    
+                    const progress = Math.round(((i + 1) / totalBatches) * 100);
+                    console.log(`⏳ Postęp: ${progress}% (${allPersons.length}/${totalPersons} osób)`);
+                    updateLoadingProgress(progress);
+                }
+                
+                console.log('📡 Pobieranie małżeństw...');
+                const marriagesResponse = await fetch('/api/genealogia/marriages?limit=5000');
+                if (marriagesResponse.ok) {
+                    const marriagesData = await marriagesResponse.json();
+                    allMarriages.push(...marriagesData.marriages);
+                }
+                
+                console.log(`✅ Załadowano ${allPersons.length} osób i ${allMarriages.length} małżeństw`);
+                
+                enrichPersonsWithMarriages(allPersons, allMarriages);
+                
+                return { persons: allPersons };
+                
+            } catch (error) {
+                console.error('❌ Błąd podczas paginowanego pobierania danych:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * Wzbogaca dane osób o informacje o małżeństwach.
+         * @param {Array} persons - Tablica osób
+         * @param {Array} marriages - Tablica małżeństw
+         */
+        function enrichPersonsWithMarriages(persons, marriages) {
+            const personMap = new Map(persons.map(p => [p.id, p]));
+            
+            marriages.forEach(marriage => {
+                const person1 = personMap.get(marriage.person1Id);
+                const person2 = personMap.get(marriage.person2Id);
+                
+                if (person1 && person2) {
+                    if (!person1.spouses) person1.spouses = [];
+                    if (!person2.spouses) person2.spouses = [];
+                    
+                    if (!person1.spouses.includes(marriage.person2Id)) {
+                        person1.spouses.push(marriage.person2Id);
+                    }
+                    if (!person2.spouses.includes(marriage.person1Id)) {
+                        person2.spouses.push(marriage.person1Id);
+                    }
+                }
+            });
+        }
+
+        /**
+         * Aktualizuje pasek postępu ładowania.
+         * @param {number} progress - Procent postępu (0-100)
+         */
+        function updateLoadingProgress(progress) {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (!loadingOverlay) return;
+            
+            let progressBar = loadingOverlay.querySelector('.progress-bar');
+            if (!progressBar) {
+                progressBar = document.createElement('div');
+                progressBar.className = 'progress-bar';
+                progressBar.style.cssText = 'width: 300px; height: 20px; background: #e0e0e0; border-radius: 10px; margin: 20px auto; overflow: hidden;';
+                
+                const progressFill = document.createElement('div');
+                progressFill.className = 'progress-fill';
+                progressFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); transition: width 0.3s;';
+                progressBar.appendChild(progressFill);
+                
+                loadingOverlay.appendChild(progressBar);
+            }
+            
+            const progressFill = progressBar.querySelector('.progress-fill');
+            if (progressFill) {
+                progressFill.style.width = `${progress}%`;
+            }
+            
+            const loadingText = loadingOverlay.querySelector('h3');
+            if (loadingText) {
+                loadingText.textContent = `Ładowanie danych genealogicznych... ${progress}%`;
             }
         }
 
