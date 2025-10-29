@@ -900,11 +900,19 @@
          */
         document.addEventListener('DOMContentLoaded', async () => {
             console.log("🚀 Aplikacja genealogii startuje...");
-            
+
+            // Fallback timeout - jeśli ładowanie trwa dłużej niż 30 sekund
+            const loadingTimeout = setTimeout(() => {
+                console.error('⏱️ Timeout ładowania - przekroczono limit 30 sekund');
+                showError('Ładowanie trwa zbyt długo', new Error('Timeout po 30 sekundach'));
+            }, 30000);
+
             try {
                 await initializeVisualization();
+                clearTimeout(loadingTimeout);
                 console.log("✅ Aplikacja zainicjalizowana pomyślnie");
             } catch (error) {
+                clearTimeout(loadingTimeout);
                 console.error("❌ KRYTYCZNY BŁĄD podczas inicjalizacji:", error);
                 showError('Błąd podczas ładowania danych genealogicznych', error);
             }
@@ -961,31 +969,191 @@
          */
         async function fetchGenealogyData() {
             try {
-                console.log('📡 Pobieranie danych genealogicznych z serwera...');
+                // Najpierw sprawdź metadane aby zdecydować o strategii ładowania
+                console.log('📊 Sprawdzanie metadanych...');
+                const metaResponse = await fetch('/api/genealogia/metadata');
+
+                if (metaResponse.ok) {
+                    const metadata = await metaResponse.json();
+                    console.log('📦 Metadane:', metadata);
+
+                    // Jeśli ponad 1000 osób, użyj progresywnego ładowania
+                    if (metadata.total_persons > 1000) {
+                        console.log(`🚀 Progresywne ładowanie dla ${metadata.total_persons} osób...`);
+                        return await fetchGenealogyProgressively(metadata.total_persons);
+                    }
+                }
+
+                // Dla mniejszych zbiorów użyj pełnego ładowania z cache
+                console.log('📡 Pobieranie pełnych danych genealogicznych z serwera...');
                 const response = await fetch('/api/genealogia/full-graph');
-                
+
                 if (!response.ok) {
                     throw new Error(`Błąd HTTP: ${response.status}`);
                 }
-                
+
                 const data = await response.json();
                 console.log('📦 Otrzymane dane z serwera:', data);
-                
+
                 if (data.nodes && data.edges && Array.isArray(data.nodes) && Array.isArray(data.edges)) {
                     console.log('🔄 Konwersja z formatu vis.js na format genealogiczny...');
                     return convertVisJsToGenealogy(data);
                 }
-                
+
                 if (data.persons && Array.isArray(data.persons)) {
                     console.log(`✅ Użycie bezpośredniego formatu genealogicznego - ${data.persons.length} osób`);
                     return data;
                 }
-                
+
                 throw new Error('Nierozpoznany format danych z serwera');
             } catch (error) {
                 console.error('❌ Błąd podczas pobierania danych z serwera:', error);
                 throw error;
             }
+        }
+
+        /**
+         * Ładuje dane genealogiczne progresywnie w chunkach.
+         * @param {number} totalPersons - Łączna liczba osób do załadowania
+         * @returns {Object} Dane w formacie genealogicznym
+         */
+        async function fetchGenealogyProgressively(totalPersons) {
+            const chunkSize = 500;
+            const allNodes = [];
+            const allEdges = [];
+            let offset = 0;
+            let loadedCount = 0;
+            let attempts = 0;
+            const maxAttempts = Math.ceil(totalPersons / chunkSize) + 5; // Dodatkowy bufor
+
+            // Aktualizuj loading overlay z postępem
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.innerHTML = `
+                    <div class="spinner"></div>
+                    <div id="loading-text">Ładowanie drzewa genealogicznego...</div>
+                    <div id="loading-progress" style="margin-top: 10px; font-size: 14px; color: var(--text-secondary);">
+                        0 / ${totalPersons} osób (0%)
+                    </div>
+                    <div style="width: 300px; height: 4px; background: var(--border-color); border-radius: 2px; margin-top: 10px; overflow: hidden;">
+                        <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent-primary); transition: width 0.3s;"></div>
+                    </div>
+                `;
+            }
+
+            while (loadedCount < totalPersons && attempts < maxAttempts) {
+                attempts++;
+                console.log(`📥 [${attempts}/${maxAttempts}] Ładowanie chunka offset=${offset}, limit=${chunkSize}...`);
+
+                try {
+                    // Timeout dla każdego chunka (30 sekund)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                    const response = await fetch(`/api/genealogia/chunk?offset=${offset}&limit=${chunkSize}`, {
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        throw new Error(`Błąd HTTP: ${response.status}`);
+                    }
+
+                    const chunk = await response.json();
+                    console.log(`✅ Otrzymano chunk: ${chunk.returned} osób (has_more: ${chunk.has_more})`);
+
+                    // Zabezpieczenie - jeśli chunk jest pusty i to nie pierwszy request
+                    if (chunk.returned === 0 && loadedCount > 0) {
+                        console.log('⚠️ Otrzymano pusty chunk, kończę ładowanie');
+                        break;
+                    }
+
+                    // Dodaj węzły i krawędzie
+                    if (chunk.nodes && Array.isArray(chunk.nodes)) {
+                        allNodes.push(...chunk.nodes);
+                    }
+                    if (chunk.edges && Array.isArray(chunk.edges)) {
+                        allEdges.push(...chunk.edges);
+                    }
+
+                    loadedCount += chunk.returned;
+                    offset += chunk.returned;
+
+                    // Aktualizuj progress
+                    const progressPercent = Math.min(100, Math.round((loadedCount / totalPersons) * 100));
+                    const progressText = document.getElementById('loading-progress');
+                    const progressBar = document.getElementById('progress-bar');
+
+                    if (progressText) {
+                        progressText.textContent = `${loadedCount} / ${totalPersons} osób (${progressPercent}%)`;
+                    }
+                    if (progressBar) {
+                        progressBar.style.width = `${progressPercent}%`;
+                    }
+
+                    // Warunki zakończenia
+                    if (chunk.returned === 0) {
+                        console.log('✅ Brak więcej danych (returned = 0)');
+                        break;
+                    }
+
+                    if (!chunk.has_more) {
+                        console.log('✅ Brak więcej danych (has_more = false)');
+                        break;
+                    }
+
+                    if (loadedCount >= totalPersons) {
+                        console.log('✅ Załadowano wszystkie osoby');
+                        break;
+                    }
+
+                    // Małe opóźnienie między chunkami
+                    await new Promise(resolve => setTimeout(resolve, 50));
+
+                } catch (error) {
+                    console.error(`❌ Błąd podczas ładowania chunka offset=${offset}:`, error);
+
+                    // Jeśli timeout, spróbuj jeszcze raz z tym samym offsetem
+                    if (error.name === 'AbortError') {
+                        console.log('⏱️ Timeout chunka, próbuję ponownie...');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+
+                    // Dla innych błędów, jeśli mamy już jakieś dane, kontynuuj
+                    if (loadedCount > 0) {
+                        console.log(`⚠️ Błąd, ale załadowano już ${loadedCount} osób, kontynuuję...`);
+                        break;
+                    }
+
+                    throw error; // Re-throw jeśli to pierwszy chunk
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                console.warn(`⚠️ Osiągnięto maksymalną liczbę prób (${maxAttempts})`);
+            }
+
+            // Finalne ustawienie progress bara na 100%
+            const progressText = document.getElementById('loading-progress');
+            const progressBar = document.getElementById('progress-bar');
+            if (progressText) {
+                progressText.textContent = `${allNodes.length} / ${totalPersons} osób (100%)`;
+            }
+            if (progressBar) {
+                progressBar.style.width = '100%';
+            }
+
+            console.log(`✅ Załadowano ${allNodes.length} osób i ${allEdges.length} połączeń`);
+
+            // Konwertuj do formatu genealogicznego
+            const visData = {
+                nodes: allNodes,
+                edges: allEdges
+            };
+
+            return convertVisJsToGenealogy(visData);
         }
 
         /**
@@ -1219,19 +1387,30 @@
          */
         function calculateGenerations() {
             console.log('📊 Obliczanie poziomów pokoleń...');
-            
+
             allPersons.forEach(p => p.level = null);
-            
-            familyGroups.forEach(group => {
+
+            // Optymalizacja: stwórz Map dla szybszego dostępu
+            const personMap = new Map(allPersons.map(p => [p.id, p]));
+
+            let processedGroups = 0;
+            familyGroups.forEach((group, index) => {
                 const groupPersons = allPersons.filter(p => group.has(p.id));
                 const roots = findFamilyRoots(groupPersons, group);
-                
+
                 if (roots.length === 0) roots.push(groupPersons[0]);
-                
+
                 assignGenerationLevels(roots, groupPersons);
+
+                processedGroups++;
+                // Log co 100 grup dla bardzo dużych zbiorów
+                if (processedGroups % 100 === 0) {
+                    console.log(`   Przetworzono ${processedGroups}/${familyGroups.length} grup rodzinnych...`);
+                }
             });
-            
+
             normalizeGenerationLevels();
+            console.log(`✅ Obliczono pokolenia dla ${familyGroups.length} grup rodzinnych`);
         }
 
         /**
@@ -1253,32 +1432,43 @@
          * @param {Array} groupPersons - Wszystkie osoby w grupie
          */
         function assignGenerationLevels(roots, groupPersons) {
+            // Optymalizacja: używaj Map zamiast find() w pętli
+            const personMap = new Map(groupPersons.map(p => [p.id, p]));
+
             const queue = [];
-            roots.forEach(root => { 
-                root.level = 0; 
-                queue.push(root); 
+            roots.forEach(root => {
+                root.level = 0;
+                queue.push(root);
             });
-            
-            while (queue.length > 0) {
+
+            let iterations = 0;
+            const maxIterations = groupPersons.length * 10; // Zabezpieczenie przed nieskończoną pętlą
+
+            while (queue.length > 0 && iterations < maxIterations) {
+                iterations++;
                 const current = queue.shift();
-                
+
                 /* Przypisanie tego samego poziomu małżonkom */
                 (current.spouses || []).forEach(spouseId => {
-                    const spouse = groupPersons.find(p => p.id === spouseId);
+                    const spouse = personMap.get(spouseId);
                     if (spouse && spouse.level === null) {
                         spouse.level = current.level;
                         queue.push(spouse);
                     }
                 });
-                
+
                 /* Przypisanie następnego poziomu dzieciom */
                 (current.children || []).forEach(childId => {
-                    const child = groupPersons.find(p => p.id === childId);
+                    const child = personMap.get(childId);
                     if (child && (child.level === null || child.level <= current.level)) {
                         child.level = current.level + 1;
                         queue.push(child);
                     }
                 });
+            }
+
+            if (iterations >= maxIterations) {
+                console.warn(`⚠️ Osiągnięto limit iteracji (${maxIterations}) dla grupy ${groupPersons.length} osób`);
             }
         }
 
@@ -1360,10 +1550,20 @@
          * @returns {Array} Lista layoutów rodzinnych
          */
         function prepareFamilyLayouts() {
-            return familyGroups.map(group => {
-                const groupPersons = allPersons.filter(p => group.has(p.id));
+            // Optymalizacja: stwórz Map dla szybszego dostępu
+            const personMap = new Map(allPersons.map(p => [p.id, p]));
+
+            let processed = 0;
+            const layouts = familyGroups.map(group => {
+                const groupPersons = Array.from(group).map(id => personMap.get(id)).filter(p => p);
                 const familyLayout = calculateFamilyLayout(groupPersons);
-                
+
+                processed++;
+                // Log co 100 grup dla bardzo dużych zbiorów
+                if (processed % 100 === 0) {
+                    console.log(`   Obliczono layout dla ${processed}/${familyGroups.length} grup...`);
+                }
+
                 return {
                     group: group,
                     layout: familyLayout,
@@ -1371,6 +1571,9 @@
                     height: familyLayout.height
                 };
             });
+
+            console.log(`✅ Obliczono layouty dla ${familyGroups.length} grup rodzinnych`);
+            return layouts;
         }
 
         /**
@@ -1379,9 +1582,12 @@
          * @param {number} columnsCount - Liczba kolumn
          */
         function positionFamiliesInGrid(familyLayouts, columnsCount) {
+            // Optymalizacja: stwórz Map dla szybszego dostępu
+            const personMap = new Map(allPersons.map(p => [p.id, p]));
+
             let currentColumn = 0, currentRow = 0, rowMaxHeight = 0;
             let currentX = 100, currentY = 100;
-            
+
             familyLayouts.forEach((familyData) => {
                 if (currentColumn >= columnsCount) {
                     currentColumn = 0;
@@ -1390,11 +1596,11 @@
                     currentY += rowMaxHeight + CONFIG.FAMILY_GROUP_PADDING;
                     rowMaxHeight = 0;
                 }
-                
+
                 const offsetX = currentX, offsetY = currentY;
-                
-                applyFamilyOffset(familyData, offsetX, offsetY);
-                
+
+                applyFamilyOffset(familyData, offsetX, offsetY, personMap);
+
                 currentX += familyData.width + CONFIG.FAMILY_GROUP_PADDING;
                 rowMaxHeight = Math.max(rowMaxHeight, familyData.height);
                 currentColumn++;
@@ -1406,10 +1612,11 @@
          * @param {Object} familyData - Dane layoutu rodziny
          * @param {number} offsetX - Przesunięcie X
          * @param {number} offsetY - Przesunięcie Y
+         * @param {Map} personMap - Mapa osób dla szybkiego dostępu
          */
-        function applyFamilyOffset(familyData, offsetX, offsetY) {
+        function applyFamilyOffset(familyData, offsetX, offsetY, personMap) {
             familyData.group.forEach(personId => {
-                const person = allPersons.find(p => p.id === personId);
+                const person = personMap.get(personId);
                 if (person && familyData.layout.positions[personId]) {
                     const pos = familyData.layout.positions[personId];
                     person.x = pos.x + offsetX;
@@ -1551,9 +1758,12 @@
          * Oblicza połączenia rodzic-dziecko.
          */
         function calculateParentChildConnections() {
+            // Optymalizacja: stwórz Map dla szybszego dostępu
+            const personMap = new Map(allPersons.map(p => [p.id, p]));
+
             allPersons.forEach(parent => {
                 (parent.children || []).forEach(cid => {
-                    const child = allPersons.find(p => p.id === cid);
+                    const child = personMap.get(cid);
                     if (!child) return;
 
                     const connection = createParentChildConnection(parent, child);
@@ -1588,11 +1798,13 @@
          * Oblicza połączenia małżeńskie.
          */
         function calculateMarriageConnections() {
+            // Optymalizacja: stwórz Map dla szybszego dostępu
+            const personMap = new Map(allPersons.map(p => [p.id, p]));
             const seen = new Set();
-            
+
             allPersons.forEach(p => {
                 (p.spouses || []).forEach(spId => {
-                    const s = allPersons.find(x => x.id === spId);
+                    const s = personMap.get(spId);
                     if (!s) return;
 
                     const key = [String(p.id), String(s.id)].sort().join('-');
@@ -1664,13 +1876,39 @@
          */
         function createVisualization() {
             console.log('🎨 Tworzenie wizualizacji...');
-            
+
+            // Wyczyść kontener przed utworzeniem nowej wizualizacji
+            cleanupContainer();
+
             createMainSVG();
             createCanvasIfNeeded();
             createZoomBehavior();
             createMinimap();
-            
+
             console.log('✅ Wizualizacja utworzona');
+        }
+
+        /**
+         * Czyści kontener z poprzednich elementów wizualizacji.
+         */
+        function cleanupContainer() {
+            if (!container) return;
+
+            console.log('🧹 Czyszczenie kontenera...');
+
+            // Usuń wszystkie SVG, canvas i inne elementy (oprócz loading-overlay)
+            d3.select('#genealogy-network')
+                .selectAll('svg, canvas')
+                .remove();
+
+            // Resetuj zmienne
+            svg = null;
+            g = null;
+            zoom = null;
+            canvas = null;
+            ctx = null;
+            minimapSvg = null;
+            minimapG = null;
         }
 
         /**
