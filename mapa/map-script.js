@@ -71,8 +71,21 @@ function setupUIEventListeners() {
 /**
  * Konfiguruje mapę Leaflet z warstwami bazowymi i nakładkami.
  * Ustawia granice, zoom oraz kontroler warstw.
+ * Używa konfiguracji z backendu (window.MAP_CONFIG) dla poprawnej georeferentacji.
  */
 function initializeMap() {
+    /* Pobierz konfigurację z backendu */
+    const calibration = window.MAP_CONFIG?.calibration || {
+        sw: {lat: 50.0445232994271194, lng: 21.2118218969993393},
+        ne: {lat: 50.0766374787729518, lng: 21.2672168223566409}
+    };
+    const defaults = window.MAP_CONFIG?.defaults || {
+        center: {lat: 50.0605803891, lng: 21.2395193597},
+        zoom: 14
+    };
+
+    console.log("🗺️ Konfiguracja mapy:", calibration, defaults);
+
     /* Warstwy bazowe */
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -81,24 +94,25 @@ function initializeMap() {
     const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         attribution: 'Tiles &copy; Esri'
     });
-    
+
     const minimalistLayer = L.tileLayer('', {
         attribution: 'Projekt Interaktywna Mapa Katastralna'
     });
 
-    /* Warstwy nakładkowe */
+    /* Warstwy nakładkowe - używamy kalibracji z QGIS */
     const historicalBounds = [
-        [50.0414, 21.2261], // SW
-        [50.0814, 21.2661]  // NE
+        [calibration.sw.lat, calibration.sw.lng], // SW (lewy dolny róg)
+        [calibration.ne.lat, calibration.ne.lng]  // NE (prawy górny róg)
     ];
 
     historicalMapOverlay = L.imageOverlay("mapa.jpg", historicalBounds);
-    geojsonLayer = L.geoJSON(); 
+    geojsonLayer = L.geoJSON();
 
-    /* Konfiguracja mapy */
+    /* Konfiguracja mapy - maxBounds nieco większe niż historicalBounds */
+    const padding = 0.01; // Padding dla maxBounds
     const maxBounds = L.latLngBounds(
-        [50.0, 21.15], 
-        [50.12, 21.35]
+        [calibration.sw.lat - padding, calibration.sw.lng - padding],
+        [calibration.ne.lat + padding, calibration.ne.lng + padding]
     );
 
     map = L.map("map", {
@@ -106,7 +120,7 @@ function initializeMap() {
         maxBounds: maxBounds,
         minZoom: 12,
         maxZoom: 18
-    }).setView([50.0614, 21.2461], 14);
+    }).setView([defaults.center.lat, defaults.center.lng], defaults.zoom);
 
     /* Kontroler warstw */
     const baseMaps = {
