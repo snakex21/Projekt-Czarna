@@ -1033,6 +1033,21 @@ function loadGenealogyStats(data) {
       }
     });
   }
+
+  // ——— Renderowanie nowych statystyk demograficznych XIX wieku
+  // Sprawdź czy dane są dostępne (nie puste obiekty)
+  if (stats.infant_mortality && Object.keys(stats.infant_mortality).length > 0) {
+    renderInfantMortalityChart(stats.infant_mortality);
+  }
+  if (stats.lifespan_by_generation && Object.keys(stats.lifespan_by_generation).length > 0) {
+    renderLifespanChart(stats.lifespan_by_generation);
+  }
+  if (stats.death_age_distribution && Object.keys(stats.death_age_distribution).length > 0) {
+    renderDeathAgeChart(stats.death_age_distribution);
+  }
+  if (stats.family_structure && Object.keys(stats.family_structure).length > 0) {
+    renderFamilyStructureChart(stats.family_structure);
+  }
 }
 
 /**
@@ -1058,6 +1073,240 @@ function updateGenealogySeries(series) {
   chart.data.datasets[0].label = cfg.label;
   chart.data.datasets[0].borderColor = cfg.color;
   chart.update();
+}
+
+/* ==========================================================================
+   NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU
+   ========================================================================== */
+
+/**
+ * Renderuje wykres śmiertelności niemowląt.
+ * @param {Object} data - Dane z API (infant_mortality)
+ */
+function renderInfantMortalityChart(data) {
+  if (!data) return;
+
+  // Aktualizacja statystyk liczbowych
+  document.getElementById('stat-infant-deaths').textContent = data.infant_deaths || 0;
+  document.getElementById('stat-infant-mortality-rate').textContent = `${data.mortality_rate || 0}%`;
+
+  // Renderowanie wykresu słupkowego - rozkład według dekad
+  const ctx = document.getElementById('infant-mortality-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  if (charts.infantMortality) charts.infantMortality.destroy();
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, 'rgba(239,68,68,0.6)');
+  gradient.addColorStop(1, 'rgba(239,68,68,0.1)');
+
+  charts.infantMortality = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.by_decade?.labels || [],
+      datasets: [{
+        label: 'Zgony niemowląt',
+        data: data.by_decade?.data || [],
+        backgroundColor: gradient,
+        borderColor: '#ef4444',
+        borderWidth: 2,
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `Zgony niemowląt: ${context.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: 'Liczba zgonów' } },
+        x: { title: { display: true, text: 'Dekada' } }
+      }
+    }
+  });
+}
+
+/**
+ * Renderuje wykres długości życia według pokoleń.
+ * @param {Object} data - Dane z API (lifespan_by_generation)
+ */
+function renderLifespanChart(data) {
+  if (!data) return;
+
+  // Aktualizacja statystyk liczbowych
+  document.getElementById('stat-avg-lifespan').textContent = `${data.avg_lifespan || 0} lat`;
+  document.getElementById('stat-lifespan-records').textContent = data.total_records || 0;
+
+  // Renderowanie wykresu liniowego
+  const ctx = document.getElementById('lifespan-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  if (charts.lifespan) charts.lifespan.destroy();
+
+  charts.lifespan = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.labels || [],
+      datasets: [{
+        label: 'Średni wiek śmierci (lata)',
+        data: data.data || [],
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16,185,129,0.1)',
+        borderWidth: 3,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `Średni wiek: ${context.parsed.y} lat`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Wiek (lata)' },
+          suggestedMax: 80
+        },
+        x: { title: { display: true, text: 'Dekada urodzenia' } }
+      }
+    }
+  });
+}
+
+/**
+ * Renderuje wykres rozkładu zmarłych według wieku.
+ * @param {Object} data - Dane z API (death_age_distribution)
+ */
+function renderDeathAgeChart(data) {
+  if (!data) return;
+
+  // Aktualizacja statystyk liczbowych
+  document.getElementById('stat-total-deaths').textContent = data.total_deaths || 0;
+
+  // Renderowanie wykresu słupkowego poziomego
+  const ctx = document.getElementById('death-age-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  if (charts.deathAge) charts.deathAge.destroy();
+
+  const colors = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+    '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6'
+  ];
+
+  charts.deathAge = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels || [],
+      datasets: [{
+        label: 'Liczba zgonów',
+        data: data.data || [],
+        backgroundColor: colors,
+        borderColor: colors.map(c => c),
+        borderWidth: 1,
+        borderRadius: 5
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percent = ((context.parsed.x / total) * 100).toFixed(1);
+              return `Zgony: ${context.parsed.x} (${percent}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { beginAtZero: true, title: { display: true, text: 'Liczba zgonów' } },
+        y: { title: { display: true, text: 'Przedział wiekowy' } }
+      }
+    }
+  });
+}
+
+/**
+ * Renderuje wykres struktury rodzin.
+ * @param {Object} data - Dane z API (family_structure)
+ */
+function renderFamilyStructureChart(data) {
+  if (!data) return;
+
+  // Aktualizacja statystyk liczbowych
+  document.getElementById('stat-avg-children').textContent = data.avg_children_per_parent || 0;
+  document.getElementById('stat-avg-household').textContent = data.avg_household_size || 0;
+  document.getElementById('stat-total-families').textContent = data.total_families || 0;
+
+  // Renderowanie wykresu słupkowego
+  const ctx = document.getElementById('family-structure-chart')?.getContext('2d');
+  if (!ctx) return;
+
+  if (charts.familyStructure) charts.familyStructure.destroy();
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, 'rgba(139,92,246,0.6)');
+  gradient.addColorStop(1, 'rgba(139,92,246,0.1)');
+
+  charts.familyStructure = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.family_size_distribution?.labels || [],
+      datasets: [{
+        label: 'Liczba rodzin',
+        data: data.family_size_distribution?.data || [],
+        backgroundColor: gradient,
+        borderColor: '#8b5cf6',
+        borderWidth: 2,
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `Rodzin: ${context.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: 'Liczba rodzin' } },
+        x: { title: { display: true, text: 'Wielkość rodziny' } }
+      }
+    }
+  });
 }
 
 
