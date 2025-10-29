@@ -22,6 +22,43 @@ from dotenv import load_dotenv
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 from collections import Counter
+import time
+
+# =============================================================================
+# CACHE GENEALOGII - prosty cache w pamięci dla optymalizacji
+# =============================================================================
+
+# Cache dla danych genealogicznych
+GENEALOGY_CACHE = {
+    'data': None,
+    'timestamp': None,
+    'ttl': 3600  # 1 godzina cache
+}
+
+def get_cached_genealogy():
+    """Zwraca cache genealogii jeśli jest świeży, None jeśli wygasł."""
+    if GENEALOGY_CACHE['data'] is None or GENEALOGY_CACHE['timestamp'] is None:
+        return None
+
+    elapsed = time.time() - GENEALOGY_CACHE['timestamp']
+    if elapsed > GENEALOGY_CACHE['ttl']:
+        print(f"⏰ Cache genealogii wygasł ({elapsed:.1f}s > {GENEALOGY_CACHE['ttl']}s)")
+        return None
+
+    print(f"✅ Użyto cache genealogii (wiek: {elapsed:.1f}s)")
+    return GENEALOGY_CACHE['data']
+
+def set_genealogy_cache(data):
+    """Zapisuje dane genealogiczne do cache."""
+    GENEALOGY_CACHE['data'] = data
+    GENEALOGY_CACHE['timestamp'] = time.time()
+    print(f"💾 Zapisano dane genealogiczne do cache ({len(data.get('nodes', []))} osób)")
+
+def clear_genealogy_cache():
+    """Czyści cache genealogii."""
+    GENEALOGY_CACHE['data'] = None
+    GENEALOGY_CACHE['timestamp'] = None
+    print("🗑️ Cache genealogii wyczyszczony")
 
 # =============================================================================
 # KONFIGURACJA ŚRODOWISKA
@@ -105,10 +142,13 @@ def load_system_config():
 
     except Exception as e:
         print(f"❌ KRYTYCZNY BŁĄD: Nie można załadować konfiguracji z bazy danych: {e}")
-        # Ustawienie twardych wartości awaryjnych dla mapy
+        # Ustawienie twardych wartości awaryjnych dla mapy (wartości z QGIS georeferencing)
         map_config = {
-            'calibration': {"sw": {"lat": 50.0414, "lng": 21.2261}, "ne": {"lat": 50.0814, "lng": 21.2661}},
-            'defaults': {"center": {"lat": 50.0614, "lng": 21.2461}, "zoom": 14}
+            'calibration': {
+                "sw": {"lat": 50.0445232994271194, "lng": 21.2118218969993393},
+                "ne": {"lat": 50.0766374787729518, "lng": 21.2672168223566409}
+            },
+            'defaults': {"center": {"lat": 50.0605803891, "lng": 21.2395193597}, "zoom": 14}
         }
         print("⚠️  Użyto awaryjnej, domyślnej konfiguracji mapy.")
     finally:
@@ -571,6 +611,235 @@ def get_stats():
     deaths_by_decade = build_decade_series(deaths_by_decade_ctr, significance)
     marriages_by_decade = build_decade_series(marriages_by_decade_ctr, 1)  # śluby często będą rzadsze
 
+    # ——— NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU ———
+    # Zabezpieczenie: obliczenia tylko jeśli baza nie jest zbyt duża (max 10000 osób)
+
+    infant_mortality = {}
+    lifespan_by_generation = {}
+    death_age_distribution = {}
+    family_structure = {}
+
+    try:
+        # Limit bezpieczeństwa - wyłącz dla bardzo dużych zbiorów (>20000)
+        if total_people > 20000:
+            print(f"⚠️ Pominięto statystyki demograficzne - zbyt dużo osób ({total_people})")
+        else:
+            print(f"🔄 Obliczanie statystyk demograficznych dla {total_people} osób...")
+
+            # 1. Śmiertelność niemowląt (dzieci zmarłe w roku urodzenia lub w wieku 0-1 lat)
+            def calculate_infant_mortality():
+                try:
+                    # Osoby z danymi urodzenia i śmierci
+                    people_with_dates = [
+                        p for p in genealogia_raw
+                        if p.get('rok_urodzenia') and p.get('rok_smierci')
+                    ]
+
+                    # Niemowlęta zmarłe (rok śmierci = rok urodzenia lub różnica ≤ 1)
+                    infants_died = [
+                        p for p in people_with_dates
+                        if p['rok_smierci'] - p['rok_urodzenia'] <= 1
+                    ]
+
+                    total_births = len(birth_years)
+                    infant_deaths_count = len(infants_died)
+                    infant_mortality_rate = (infant_deaths_count / total_births * 100) if total_births > 0 else 0
+
+                    # Rozkład śmiertelności niemowląt według dekad
+                    infant_deaths_by_decade = Counter(
+                        (p['rok_urodzenia'] // 10) * 10
+                        for p in infants_died
+                        if p.get('rok_urodzenia')
+                    )
+
+                    # Szczegółowy rozkład wiekowy niemowląt (rok śmierci - rok urodzenia)
+                    infant_age_distribution = {
+                        '0 lat (ten sam rok)': sum(1 for p in infants_died if p['rok_smierci'] == p['rok_urodzenia']),
+                        '1 rok': sum(1 for p in infants_died if p['rok_smierci'] - p['rok_urodzenia'] == 1)
+                    }
+
+                    return {
+                        'total_births': total_births,
+                        'infant_deaths': infant_deaths_count,
+                        'mortality_rate': round(infant_mortality_rate, 2),
+                        'by_decade': build_decade_series(infant_deaths_by_decade, 1),
+                        'age_distribution': infant_age_distribution
+                    }
+                except Exception as e:
+                    print(f"❌ Błąd w calculate_infant_mortality: {e}")
+                    return {'total_births': 0, 'infant_deaths': 0, 'mortality_rate': 0, 'by_decade': {'labels': [], 'data': []}, 'age_distribution': {}}
+
+            # 2. Długość życia według pokoleń (średni wiek śmierci w dekadach XIX wieku)
+            def calculate_lifespan_by_generation():
+                try:
+                    # Osoby z pełnymi danymi urodzenia i śmierci
+                    people_with_full_dates = [
+                        {'birth': p['rok_urodzenia'], 'death': p['rok_smierci'], 'age': p['rok_smierci'] - p['rok_urodzenia']}
+                        for p in genealogia_raw
+                        if p.get('rok_urodzenia') and p.get('rok_smierci')
+                        and p['rok_smierci'] > p['rok_urodzenia']
+                    ]
+
+                    # Grupowanie według dekady urodzenia
+                    lifespan_by_birth_decade = {}
+                    for person in people_with_full_dates:
+                        birth_decade = (person['birth'] // 10) * 10
+                        if birth_decade not in lifespan_by_birth_decade:
+                            lifespan_by_birth_decade[birth_decade] = []
+                        lifespan_by_birth_decade[birth_decade].append(person['age'])
+
+                    # Obliczanie średnich
+                    decades_sorted = sorted(lifespan_by_birth_decade.keys())
+                    if not decades_sorted:
+                        return {'labels': [], 'data': [], 'avg_lifespan': 0, 'total_records': 0}
+
+                    first_decade = decades_sorted[0]
+                    last_decade = decades_sorted[-1]
+                    rng = range(first_decade, last_decade + 10, 10)
+
+                    labels = [f"{d}s" for d in rng]
+                    data = []
+                    for d in rng:
+                        ages = lifespan_by_birth_decade.get(d, [])
+                        avg = sum(ages) / len(ages) if ages else 0
+                        data.append(round(avg, 1))
+
+                    # Średnia długość życia ogółem
+                    all_ages = [p['age'] for p in people_with_full_dates]
+                    avg_lifespan = round(sum(all_ages) / len(all_ages), 1) if all_ages else 0
+
+                    return {
+                        'labels': labels,
+                        'data': data,
+                        'avg_lifespan': avg_lifespan,
+                        'total_records': len(people_with_full_dates)
+                    }
+                except Exception as e:
+                    print(f"❌ Błąd w calculate_lifespan_by_generation: {e}")
+                    return {'labels': [], 'data': [], 'avg_lifespan': 0, 'total_records': 0}
+
+            # 3. Rozkład zmarłych według wieku (histogram grup wiekowych)
+            def calculate_death_age_distribution():
+                try:
+                    # Osoby z danymi urodzenia i śmierci
+                    people_with_ages = [
+                        p['rok_smierci'] - p['rok_urodzenia']
+                        for p in genealogia_raw
+                        if p.get('rok_urodzenia') and p.get('rok_smierci')
+                        and p['rok_smierci'] >= p['rok_urodzenia']
+                    ]
+
+                    # Przedziały wiekowe
+                    age_ranges = {
+                        '0-1': 0, '1-5': 0, '5-10': 0, '10-20': 0, '20-30': 0,
+                        '30-40': 0, '40-50': 0, '50-60': 0, '60-70': 0, '70-80': 0, '80+': 0
+                    }
+
+                    for age in people_with_ages:
+                        if age <= 1:
+                            age_ranges['0-1'] += 1
+                        elif age <= 5:
+                            age_ranges['1-5'] += 1
+                        elif age <= 10:
+                            age_ranges['5-10'] += 1
+                        elif age <= 20:
+                            age_ranges['10-20'] += 1
+                        elif age <= 30:
+                            age_ranges['20-30'] += 1
+                        elif age <= 40:
+                            age_ranges['30-40'] += 1
+                        elif age <= 50:
+                            age_ranges['40-50'] += 1
+                        elif age <= 60:
+                            age_ranges['50-60'] += 1
+                        elif age <= 70:
+                            age_ranges['60-70'] += 1
+                        elif age <= 80:
+                            age_ranges['70-80'] += 1
+                        else:
+                            age_ranges['80+'] += 1
+
+                    return {
+                        'labels': list(age_ranges.keys()),
+                        'data': list(age_ranges.values()),
+                        'total_deaths': len(people_with_ages)
+                    }
+                except Exception as e:
+                    print(f"❌ Błąd w calculate_death_age_distribution: {e}")
+                    return {'labels': [], 'data': [], 'total_deaths': 0}
+
+            # 4. Struktura rodzin (średnia liczba dzieci, rozkład wielkości rodzin)
+            def calculate_family_structure():
+                try:
+                    # Pobierz dane o relacjach rodzicielskich
+                    cur.execute("""
+                        SELECT
+                            COALESCE(id_ojca, id_matki) as parent_id,
+                            COUNT(*) as children_count
+                        FROM osoby_genealogia
+                        WHERE id_ojca IS NOT NULL OR id_matki IS NOT NULL
+                        GROUP BY COALESCE(id_ojca, id_matki)
+                    """)
+                    parent_children = cur.fetchall()
+
+                    # Liczba dzieci na rodzica
+                    children_counts = [row['children_count'] for row in parent_children]
+
+                    # Rozkład wielkości rodzin
+                    family_size_distribution = {
+                        '1 dziecko': sum(1 for c in children_counts if c == 1),
+                        '2 dzieci': sum(1 for c in children_counts if c == 2),
+                        '3-5 dzieci': sum(1 for c in children_counts if 3 <= c <= 5),
+                        '6-10 dzieci': sum(1 for c in children_counts if 6 <= c <= 10),
+                        '>10 dzieci': sum(1 for c in children_counts if c > 10)
+                    }
+
+                    # Średnia liczba dzieci
+                    avg_children = round(sum(children_counts) / len(children_counts), 2) if children_counts else 0
+
+                    # Statystyki gospodarstw domowych (według numer_domu)
+                    cur.execute("""
+                        SELECT numer_domu, COUNT(*) as household_size
+                        FROM osoby_genealogia
+                        WHERE numer_domu IS NOT NULL AND numer_domu != ''
+                        GROUP BY numer_domu
+                    """)
+                    households = cur.fetchall()
+                    household_sizes = [h['household_size'] for h in households]
+                    avg_household_size = round(sum(household_sizes) / len(household_sizes), 1) if household_sizes else 0
+
+                    return {
+                        'avg_children_per_parent': avg_children,
+                        'family_size_distribution': {
+                            'labels': list(family_size_distribution.keys()),
+                            'data': list(family_size_distribution.values())
+                        },
+                        'total_families': len(children_counts),
+                        'avg_household_size': avg_household_size,
+                        'total_households': len(households)
+                    }
+                except Exception as e:
+                    print(f"❌ Błąd w calculate_family_structure: {e}")
+                    return {
+                        'avg_children_per_parent': 0,
+                        'family_size_distribution': {'labels': [], 'data': []},
+                        'total_families': 0,
+                        'avg_household_size': 0,
+                        'total_households': 0
+                    }
+
+            # Obliczanie nowych statystyk
+            infant_mortality = calculate_infant_mortality()
+            lifespan_by_generation = calculate_lifespan_by_generation()
+            death_age_distribution = calculate_death_age_distribution()
+            family_structure = calculate_family_structure()
+
+            print(f"✅ Statystyki demograficzne obliczone pomyślnie")
+
+    except Exception as e:
+        print(f"❌ BŁĄD KRYTYCZNY w statystykach demograficznych: {e}")
+        # Zwróć puste dane w przypadku błędu
+
     genealogy_stats = {
         'total_people': total_people,
         'male_count': gender_counts.get('M', 0),
@@ -578,7 +847,12 @@ def get_stats():
         'top_surnames': [{'name': name, 'count': count} for name, count in top_surnames],
         'births_by_decade': births_by_decade,
         'deaths_by_decade': deaths_by_decade,
-        'marriages_by_decade': marriages_by_decade
+        'marriages_by_decade': marriages_by_decade,
+        # Nowe statystyki demograficzne XIX wieku
+        'infant_mortality': infant_mortality,
+        'lifespan_by_generation': lifespan_by_generation,
+        'death_age_distribution': death_age_distribution,
+        'family_structure': family_structure
     }
 
     cur.close()
@@ -657,15 +931,22 @@ def get_graph_data():
 @app.route('/api/genealogia/full-graph')
 def get_full_genealogy_graph():
     """
-    Zwraca pełny graf genealogiczny:
+    Zwraca pełny graf genealogiczny z cache dla optymalizacji dużych zbiorów.
       nodes: osoby z birthDate/deathDate (obiekt {year, month?, day?} lub None)
       edges:
         - rodzic->dziecko (linia ciągła)
         - małżeństwo (linia przerywana, kolor fioletowy)
           + opcjonalnie marriageDate i label "Ślub YYYY", jeśli DB ma takie dane
-    Wersja hybrydowa: działa, gdy w DB NIE ma kolumny z datą ślubu,
-    oraz automatycznie skorzysta z niej, jeśli się pojawi.
+    Wersja z cache: pierwsze żądanie buduje cache, kolejne czytają z pamięci.
     """
+    # Sprawdź cache
+    cached = get_cached_genealogy()
+    if cached is not None:
+        return jsonify(cached)
+
+    print("🔄 Budowanie grafu genealogicznego...")
+    start_time = time.time()
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -839,7 +1120,168 @@ def get_full_genealogy_graph():
 
     cur.close()
     conn.close()
-    return jsonify({"nodes": nodes, "edges": edges})
+
+    result = {"nodes": nodes, "edges": edges}
+
+    # Zapisz do cache
+    set_genealogy_cache(result)
+
+    elapsed = time.time() - start_time
+    print(f"✅ Graf genealogiczny zbudowany w {elapsed:.2f}s ({len(nodes)} osób, {len(edges)} połączeń)")
+
+    return jsonify(result)
+
+@app.route('/api/genealogia/metadata')
+def get_genealogy_metadata():
+    """
+    Zwraca metadane grafu genealogicznego bez pełnych danych.
+    Służy do szybkiego sprawdzenia wielkości zbioru i podjęcia decyzji o strategii ładowania.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Policz osoby
+    cur.execute("SELECT COUNT(*) as total FROM osoby_genealogia")
+    total_persons = cur.fetchone()['total']
+
+    # Policz relacje rodzicielskie
+    cur.execute("""
+        SELECT COUNT(*) as total
+        FROM osoby_genealogia
+        WHERE id_ojca IS NOT NULL OR id_matki IS NOT NULL
+    """)
+    total_parent_child = cur.fetchone()['total']
+
+    # Policz małżeństwa
+    cur.execute("SELECT COUNT(*) as total FROM malzenstwa")
+    total_marriages = cur.fetchone()['total']
+
+    # Zakres lat
+    cur.execute("""
+        SELECT
+            MIN(rok_urodzenia) as min_birth,
+            MAX(rok_urodzenia) as max_birth,
+            MIN(rok_smierci) as min_death,
+            MAX(rok_smierci) as max_death
+        FROM osoby_genealogia
+        WHERE rok_urodzenia IS NOT NULL OR rok_smierci IS NOT NULL
+    """)
+    year_ranges = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        'total_persons': total_persons,
+        'total_parent_child_relations': total_parent_child,
+        'total_marriages': total_marriages,
+        'year_range': {
+            'min_birth': year_ranges['min_birth'],
+            'max_birth': year_ranges['max_birth'],
+            'min_death': year_ranges['min_death'],
+            'max_death': year_ranges['max_death']
+        },
+        'recommended_strategy': 'progressive' if total_persons > 1000 else 'full'
+    })
+
+@app.route('/api/genealogia/chunk')
+def get_genealogy_chunk():
+    """
+    Zwraca chunk (fragment) grafu genealogicznego dla progresywnego ładowania.
+    Parametry:
+    - offset: od którego rekordu zacząć (domyślnie 0)
+    - limit: ile rekordów pobrać (domyślnie 500, max 1000)
+    """
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 500))
+    limit = min(limit, 1000)  # Maksymalny chunk to 1000 osób
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    # Pobierz chunk osób
+    cur.execute("""
+        SELECT p.id, p.imie_nazwisko, p.plec, p.rok_urodzenia, p.rok_smierci,
+               p.numer_domu, p.uwagi, p.id_ojca, p.id_matki,
+               w.unikalny_klucz AS protocol_key
+        FROM osoby_genealogia p
+        LEFT JOIN wlasciciele w ON p.id_protokolu = w.id
+        ORDER BY p.id
+        LIMIT %s OFFSET %s
+    """, (limit, offset))
+    osoby = cur.fetchall()
+
+    # Zbuduj nodes dla tego chunka
+    nodes = []
+    person_ids = set()
+
+    for r in osoby:
+        person_ids.add(r['id'])
+
+        plec = (r.get("plec") or "M").upper()
+        shape = "box" if plec == "M" else "ellipse"
+        color = "#3498db" if plec == "M" else "#e91e63"
+
+        nodes.append({
+            "id": r["id"],
+            "label": r.get("imie_nazwisko") or f"Osoba {r['id']}",
+            "shape": shape,
+            "color": color,
+            "protocolKey": r.get("protocol_key"),
+            "birthYear": r.get("rok_urodzenia"),
+            "deathYear": r.get("rok_smierci"),
+            "houseNumber": r.get("numer_domu"),
+            "notes": r.get("uwagi"),
+            "fatherId": r.get("id_ojca"),
+            "motherId": r.get("id_matki")
+        })
+
+    # Pobierz edges dla tych osób
+    edges = []
+
+    # Relacje rodzicielskie - tylko te gdzie child jest w tym chunku
+    if person_ids:
+        person_ids_list = list(person_ids)
+        cur.execute("""
+            SELECT id, id_ojca, id_matki
+            FROM osoby_genealogia
+            WHERE id = ANY(%s)
+              AND (id_ojca IS NOT NULL OR id_matki IS NOT NULL)
+        """, (person_ids_list,))
+
+        for rel in cur.fetchall():
+            if rel["id_ojca"] is not None:
+                edges.append({"from": rel["id_ojca"], "to": rel["id"]})
+            if rel["id_matki"] is not None:
+                edges.append({"from": rel["id_matki"], "to": rel["id"]})
+
+        # Małżeństwa - tylko te gdzie przynajmniej jeden małżonek jest w chunku
+        cur.execute("""
+            SELECT malzonek1_id, malzonek2_id
+            FROM malzenstwa
+            WHERE malzonek1_id = ANY(%s) OR malzonek2_id = ANY(%s)
+        """, (person_ids_list, person_ids_list))
+
+        for m in cur.fetchall():
+            edges.append({
+                "from": m["malzonek1_id"],
+                "to": m["malzonek2_id"],
+                "dashes": True,
+                "color": "#9b59b6",
+                "arrows": ""
+            })
+
+    cur.close()
+    conn.close()
+
+    return jsonify({
+        'nodes': nodes,
+        'edges': edges,
+        'offset': offset,
+        'limit': limit,
+        'returned': len(nodes),
+        'has_more': len(nodes) == limit
+    })
 
 @app.route('/api/genealogia/persons-format')
 def get_genealogy_persons_format():
