@@ -482,9 +482,15 @@ body {
 }
 
 .card-body {
-  flex: 1; 
-  position: relative; 
-  min-height: 300px; 
+  flex: 1;
+  position: relative;
+  min-height: 300px;
+}
+
+.card-body canvas {
+  max-height: 400px;
+  width: 100% !important;
+  display: block;
 }
 
 .dashboard-card.wide { grid-column: span 2; }
@@ -558,6 +564,10 @@ body {
 .mini-icon.blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
 .mini-icon.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
 .mini-icon.purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.mini-icon.red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.mini-icon.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.mini-icon.indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.mini-icon.pink { background: linear-gradient(135deg, #ec4899, #db2777); }
 
 .mini-data { display: flex; flex-direction: column; }
 

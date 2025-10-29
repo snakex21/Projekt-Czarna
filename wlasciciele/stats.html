@@ -430,6 +430,112 @@
                                     <canvas id="genealogy-births-chart"></canvas>
                                 </div>
                         </div>
+
+                        <!-- NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU -->
+
+                        <!-- 1. Śmiertelność niemowląt -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-baby"></i> Śmiertelność niemowląt</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                    <div class="mini-stat">
+                                        <div class="mini-icon red"><i class="fas fa-heart-broken"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Zgony niemowląt</span>
+                                            <span class="mini-value" id="stat-infant-deaths">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <div class="mini-icon orange"><i class="fas fa-percentage"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Wskaźnik śmiertelności</span>
+                                            <span class="mini-value" id="stat-infant-mortality-rate">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas id="infant-mortality-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 2. Długość życia według pokoleń -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-hourglass-half"></i> Długość życia według pokoleń</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                    <div class="mini-stat">
+                                        <div class="mini-icon green"><i class="fas fa-clock"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Średnia długość życia</span>
+                                            <span class="mini-value" id="stat-avg-lifespan">0 lat</span>
+                                        </div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <div class="mini-icon blue"><i class="fas fa-users"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Liczba rekordów</span>
+                                            <span class="mini-value" id="stat-lifespan-records">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas id="lifespan-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 3. Rozkład zmarłych według wieku -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-bar"></i> Rozkład zmarłych według wieku</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                    <div class="mini-stat">
+                                        <div class="mini-icon purple"><i class="fas fa-users"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Łączna liczba zgonów</span>
+                                            <span class="mini-value" id="stat-total-deaths">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas id="death-age-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 4. Struktura rodzin -->
+                        <div class="dashboard-card wide">
+                            <div class="card-header">
+                                <h3><i class="fas fa-home"></i> Struktura rodzin</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                    <div class="mini-stat">
+                                        <div class="mini-icon teal"><i class="fas fa-child"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Średnia liczba dzieci</span>
+                                            <span class="mini-value" id="stat-avg-children">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <div class="mini-icon indigo"><i class="fas fa-house-user"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Średnia wielkość gospodarstwa</span>
+                                            <span class="mini-value" id="stat-avg-household">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <div class="mini-icon pink"><i class="fas fa-users"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Liczba rodzin</span>
+                                            <span class="mini-value" id="stat-total-families">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas id="family-structure-chart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
