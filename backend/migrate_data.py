@@ -230,24 +230,45 @@ try:
     # --- ETAP 4: IMPORT OBIEKTÓW GEOGRAFICZNYCH ---
     print("\n--- Etap 4: Import obiektów geograficznych ---")
 
-    objects_to_insert = []
-    for raw_num, data in parcel_data.items():
+    # Deduplikacja - jeśli są duplikaty (numer, kategoria), weź ostatni
+    objects_dict = {}
+    for raw_key, data in parcel_data.items():
+        # Parsowanie klucza: numer_kategoria (np. "50_budowlana") -> numer="50", kategoria="budowlana"
+        # Lub stary format: numer (np. "50") -> numer="50", kategoria z data
+        if '_' in raw_key:
+            # Nowy format: numer_kategoria
+            parts = raw_key.split('_', 1)  # Split tylko na pierwszym _
+            raw_num = parts[0]
+            kategoria = parts[1] if len(parts) > 1 else data.get("kategoria", "rolna")
+        else:
+            # Stary format: tylko numer
+            raw_num = raw_key
+            kategoria = data.get("kategoria") or "rolna"
+
         num_norm = norm(raw_num)
-        kategoria = data.get("kategoria") or "rolna"
         wkt = get_wkt_from_geometry(data.get("geometria"), kategoria)
-        objects_to_insert.append((num_norm, kategoria, wkt))
-    
-    # Masowe wstawianie
+
+        # Klucz deduplikacji: (numer, kategoria)
+        key = (num_norm, kategoria)
+        objects_dict[key] = (num_norm, kategoria, wkt)
+
+    # Konwersja słownika na listę
+    objects_to_insert = list(objects_dict.values())
+    total_objects = len(objects_to_insert)
+    print(f"  Obiektów do przetworzenia: {total_objects}")
+
+    # Masowe wstawianie z nadpisywaniem
     query = """
-        INSERT INTO obiekty_geograficzne (nazwa_lub_numer, kategoria, geometria) 
+        INSERT INTO obiekty_geograficzne (nazwa_lub_numer, kategoria, geometria)
         VALUES %s
-        ON CONFLICT (nazwa_lub_numer, kategoria) DO NOTHING
+        ON CONFLICT (nazwa_lub_numer, kategoria)
+        DO UPDATE SET geometria = EXCLUDED.geometria
         RETURNING id, nazwa_lub_numer, kategoria
     """
     execute_values(cur, query, objects_to_insert)
-    
+
     object_id_map = {(num, kat): obj_id for obj_id, num, kat in cur.fetchall()}
-    print(f"✔️ Wstawiono {len(object_id_map)} obiektów")
+    print(f"✔️ Przetworzono wszystkie obiekty: {total_objects}")
 
     # --- ETAP 5: POWIĄZANIA WŁAŚCICIEL-DZIAŁKA ---
     print("\n--- Etap 5: Tworzenie powiązań ---")
@@ -278,14 +299,29 @@ try:
                 if num == num_norm and cat != "budowlana":
                     return obj_id
                     
-        # Utwórz nowy obiekt
+        # Utwórz nowy obiekt lub pobierz istniejący
         cur.execute(
-            """INSERT INTO obiekty_geograficzne 
-               (nazwa_lub_numer, kategoria, geometria) 
-               VALUES (%s, %s, NULL) RETURNING id""",
+            """INSERT INTO obiekty_geograficzne
+               (nazwa_lub_numer, kategoria, geometria)
+               VALUES (%s, %s, NULL)
+               ON CONFLICT (nazwa_lub_numer, kategoria) DO NOTHING
+               RETURNING id""",
             (num_norm, wanted_cat),
         )
-        new_id = cur.fetchone()[0]
+        result = cur.fetchone()
+
+        if result:
+            # Nowy obiekt został utworzony
+            new_id = result[0]
+        else:
+            # Obiekt już istniał, pobierz jego ID
+            cur.execute(
+                """SELECT id FROM obiekty_geograficzne
+                   WHERE nazwa_lub_numer = %s AND kategoria = %s""",
+                (num_norm, wanted_cat)
+            )
+            new_id = cur.fetchone()[0]
+
         object_id_map[wanted_key] = new_id
         return new_id
 

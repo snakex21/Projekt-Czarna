@@ -1994,13 +1994,15 @@ def export_backup():
             geom_data = None
             if obj['geojson']:
                 geom = json.loads(obj['geojson'])
-                if geom['type'] == 'Point': 
+                if geom['type'] == 'Point':
                     geom_data = [geom['coordinates'][1], geom['coordinates'][0]]
-                elif geom['type'] == 'LineString': 
+                elif geom['type'] == 'LineString':
                     geom_data = [[p[1], p[0]] for p in geom['coordinates']]
-                elif geom['type'] == 'Polygon': 
+                elif geom['type'] == 'Polygon':
                     geom_data = [[p[1], p[0]] for p in geom['coordinates'][0]]
-            parcels_data[obj['nazwa_lub_numer']] = {'geometria': geom_data, 'kategoria': obj['kategoria']}
+            # Użyj formatu numer_kategoria jako klucza
+            key = f"{obj['nazwa_lub_numer']}_{obj['kategoria']}"
+            parcels_data[key] = {'geometria': geom_data, 'kategoria': obj['kategoria']}
 
         # Eksport właścicieli
         cur.execute("SELECT * FROM wlasciciele;")
