@@ -308,7 +308,8 @@ function renderMapObjects(parcels) {
             layersByCategory[kategoria].push(layer);
 
             /* Konfiguracja popup */
-            let popupContent = `<b>Typ:</b> ${props.kategoria}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
+            const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
+            let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
             if (props.wlasciciele?.length > 0) {
                 popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
             }
