@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let activeDrawingLayer = null;  // Warstwa aktualnie rysowana
   let editedLayer = null;         // Warstwa w trakcie edycji
   let currentCategory = null;     // Aktywna kategoria rysowania
+  let snapEnabled = true;         // Stan magnesu (snap)
 
   // ==========================================================================
   // INICJALIZACJA MAPY LEAFLET
@@ -83,7 +84,19 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==========================================================================
   // FUNKCJE POMOCNICZE
   // ==========================================================================
-  
+
+  /**
+   * Wyciąga numer działki z pełnego klucza (format: numer_kategoria).
+   * Przykład: "5_dom" -> "5", "123_budowlana" -> "123"
+   */
+  function getDisplayId(fullKey) {
+    const lastUnderscoreIndex = fullKey.lastIndexOf('_');
+    if (lastUnderscoreIndex > 0) {
+      return fullKey.substring(0, lastUnderscoreIndex);
+    }
+    return fullKey;
+  }
+
   /**
    * Ogranicza częstotliwość wywołań funkcji.
    */
@@ -209,15 +222,21 @@ document.addEventListener("DOMContentLoaded", function () {
          <button id="cancel-btn" class="action-cancel">Anuluj</button>`
       : `<span class="toolbar-label">Rysujesz: ${category}</span>
          <button id="undo-btn" class="action-undo">Cofnij Punkt</button>
+         <button id="snap-toggle-btn" class="action-snap ${snapEnabled ? 'active' : ''}">🧲 Magnes</button>
          <button id="finish-btn" class="action-finish">Zakończ</button>
          <button id="cancel-btn" class="action-cancel">Anuluj</button>`;
     dynamicActions.style.display = "flex";
 
     // Włączenie trybu rysowania
     if (isPoint) {
-      map.pm.enableDraw("Marker");
+      map.pm.enableDraw("Marker", {
+        snappable: snapEnabled,
+        snapDistance: 20,
+      });
     } else {
       map.pm.enableDraw("Polygon", {
+        snappable: snapEnabled,
+        snapDistance: 20,
         templineStyle: { color: "magenta", weight: 2 },
         hintlineStyle: { color: "magenta", dashArray: "5,5" },
         pathOptions: { color: "magenta" },
@@ -233,11 +252,26 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!isPoint) {
       const undoBtn = document.getElementById("undo-btn");
       const finishBtn = document.getElementById("finish-btn");
+      const snapToggleBtn = document.getElementById("snap-toggle-btn");
+
       if (undoBtn && map.pm.Draw.Polygon?._removeLastVertex) {
         undoBtn.onclick = () => map.pm.Draw.Polygon._removeLastVertex();
       }
       if (finishBtn && map.pm.Draw.Polygon?._finishShape) {
         finishBtn.onclick = () => map.pm.Draw.Polygon._finishShape();
+      }
+      if (snapToggleBtn) {
+        snapToggleBtn.onclick = () => {
+          snapEnabled = !snapEnabled;
+          snapToggleBtn.classList.toggle('active', snapEnabled);
+
+          // Zaktualizuj ustawienia snap w Leaflet.PM
+          if (map.pm.Draw.Polygon?._layer) {
+            map.pm.Draw.Polygon._layer.options.snappable = snapEnabled;
+          }
+          // Zaktualizuj snap dla bieżącego trybu
+          map.pm.setGlobalOptions({ snappable: snapEnabled, snapDistance: 20 });
+        };
       }
     }
   }
@@ -261,8 +295,11 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (currentParcelsData[parcelId]) {
-      alert(`Błąd: Działka o ID '${parcelId}' już istnieje!`);
+    // Utworzenie pełnego klucza dla sprawdzenia duplikatu
+    const fullKey = `${parcelId}_${category}`;
+
+    if (currentParcelsData[fullKey]) {
+      alert(`Błąd: Działka o ID '${parcelId}' typu '${category}' już istnieje!`);
       try { layer.remove(); } catch (err) {}
       activeDrawingLayer = null;
       exitDrawingMode();
@@ -296,11 +333,37 @@ document.addEventListener("DOMContentLoaded", function () {
     })
       .then((res) => res.json())
       .then((data) => {
-        alert(data.message);
-        if (data.status === "success") location.reload();
-        else exitDrawingMode();
+        if (data.status === "success") {
+          // Dodaj działkę do lokalnych danych
+          const savedFullKey = data.full_key || fullKey;
+          currentParcelsData[savedFullKey] = newParcel;
+
+          // Usuń tymczasową warstwę z rysowania
+          try { layer.remove(); } catch (err) {}
+
+          // Dodaj ostateczną warstwę na mapę
+          addParcelToMap(savedFullKey, newParcel);
+
+          // Pobierz aktywną zakładkę
+          const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab || "parcels";
+
+          // Zaktualizuj listę działek
+          filterAndDisplayParcels(activeTab);
+
+          // Wyjdź z trybu rysowania
+          exitDrawingMode();
+
+          // Pokaż komunikat sukcesu
+          alert(data.message);
+        } else {
+          alert(data.message);
+          exitDrawingMode();
+        }
       })
-      .catch(() => exitDrawingMode());
+      .catch((err) => {
+        alert("Błąd podczas zapisywania: " + err.message);
+        exitDrawingMode();
+      });
   }
 
   /**
@@ -351,9 +414,10 @@ document.addEventListener("DOMContentLoaded", function () {
     layer.pm.enable({ allowSelfIntersection: true });
 
     // Zmiana interfejsu
+    const displayId = getDisplayId(parcelId);
     createActions.style.display = "none";
     dynamicActions.innerHTML = `
-      <span class="toolbar-label">Edytujesz geometrię: ${parcelId}</span>
+      <span class="toolbar-label">Edytujesz geometrię: ${displayId}</span>
       <button id="save-edit-btn" class="action-save-changes">Zapisz Zmiany</button>
       <button id="cancel-edit-btn" class="action-cancel">Anuluj Edycję</button>`;
     dynamicActions.style.display = "flex";
@@ -409,11 +473,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==========================================================================
 
   /**
-   * Pobiera i renderuje działki na mapie.
+   * Zwraca obiekt ze stylami dla kategorii.
    */
-  function loadAndDrawParcels() {
-    // Style dla kategorii
-    const categoryStyles = {
+  function getCategoryStyles() {
+    return {
       budowlana: {
         color: "#e67e22",
         weight: 2,
@@ -426,14 +489,14 @@ document.addEventListener("DOMContentLoaded", function () {
         fillColor: "#27ae60",
         fillOpacity: 0.4,
       },
-      droga: { 
-        color: "#88540b", 
-        weight: 3, 
+      droga: {
+        color: "#88540b",
+        weight: 3,
         fill: false
       },
-      rzeka: { 
-        color: "#3498db", 
-        weight: 4, 
+      rzeka: {
+        color: "#3498db",
+        weight: 4,
         fill: false
       },
       las: {
@@ -467,49 +530,65 @@ document.addEventListener("DOMContentLoaded", function () {
         fillOpacity: 0.3,
       },
     };
+  }
 
+  /**
+   * Dodaje pojedynczą działkę do mapy.
+   */
+  function addParcelToMap(id, parcelData) {
+    const categoryStyles = getCategoryStyles();
+    const g = parcelData.geometria;
+    if (!g || !g.length) return null;
+
+    const POINT_CATEGORIES = ["budynek", "kapliczka", "obiekt_specjalny", "dworzec"];
+    const isPointCategory = POINT_CATEGORIES.includes(String(parcelData.kategoria || "").toLowerCase());
+    const isPointGeom = Array.isArray(g) && typeof g[0] === "number" && typeof g[1] === "number";
+    const isArrayOfPairs = Array.isArray(g) && Array.isArray(g[0]) && typeof g[0][0] === "number";
+
+    let layer;
+    const styleOptions = categoryStyles[parcelData.kategoria] || categoryStyles["default"];
+
+    // Tworzenie warstwy
+    if (isPointCategory || isPointGeom) {
+      const [lat, lng] = g;
+      layer = L.marker([lat, lng]);
+    } else if (["droga", "rzeka"].includes(String(parcelData.kategoria).toLowerCase())) {
+      const latLngs = isArrayOfPairs ? g : [];
+      layer = L.polyline(latLngs, styleOptions);
+    } else {
+      const latLngs = isArrayOfPairs ? g : [];
+      layer = L.polygon(latLngs, styleOptions);
+    }
+
+    // Metadane i popup
+    layer.parcelId = id;
+    layer.parcelCategory = parcelData.kategoria;
+    if (layer.setStyle) layer.originalStyle = styleOptions;
+
+    const displayId = getDisplayId(id);
+    layer
+      .bindPopup(`<b>ID:</b> ${displayId}<br><b>Kategoria:</b> ${parcelData.kategoria || "Brak danych"}`)
+      .addTo(parcelLayerGroup);
+
+    return layer;
+  }
+
+  /**
+   * Pobiera i renderuje działki na mapie.
+   */
+  function loadAndDrawParcels() {
     // Pobranie danych
     fetch("/api/parcels")
       .then((r) => r.json())
       .then((data) => {
         currentParcelsData = data;
         parcelLayerGroup.clearLayers();
-        
+
         // Renderowanie każdej działki
         Object.entries(data).forEach(([id, p]) => {
-          const g = p.geometria;
-          if (!g || !g.length) return;
-
-          const POINT_CATEGORIES = ["budynek", "kapliczka", "obiekt_specjalny", "dworzec"];
-          const isPointCategory = POINT_CATEGORIES.includes(String(p.kategoria || "").toLowerCase());
-          const isPointGeom = Array.isArray(g) && typeof g[0] === "number" && typeof g[1] === "number";
-          const isArrayOfPairs = Array.isArray(g) && Array.isArray(g[0]) && typeof g[0][0] === "number";
-
-          let layer;
-          const styleOptions = categoryStyles[p.kategoria] || categoryStyles["default"];
-
-          // Tworzenie warstwy
-          if (isPointCategory || isPointGeom) {
-            const [lat, lng] = g;
-            layer = L.marker([lat, lng]);
-          } else if (["droga", "rzeka"].includes(String(p.kategoria).toLowerCase())) {
-            const latLngs = isArrayOfPairs ? g : [];
-            layer = L.polyline(latLngs, styleOptions);
-          } else {
-            const latLngs = isArrayOfPairs ? g : [];
-            layer = L.polygon(latLngs, styleOptions);
-          }
-
-          // Metadane i popup
-          layer.parcelId = id;
-          layer.parcelCategory = p.kategoria;
-          if (layer.setStyle) layer.originalStyle = styleOptions;
-
-          layer
-            .bindPopup(`<b>ID:</b> ${id}<br><b>Kategoria:</b> ${p.kategoria || "Brak danych"}`)
-            .addTo(parcelLayerGroup);
+          addParcelToMap(id, p);
         });
-        
+
         filterAndDisplayParcels("parcels");
       });
   }
@@ -551,9 +630,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const li = document.createElement("li");
         li.dataset.parcelId = id;
         li.dataset.parcelCategory = p.kategoria;
+        const displayId = getDisplayId(id);
         li.innerHTML = `
           <div class="parcel-info">
-            <span class="parcel-id">${id}</span>
+            <span class="parcel-id">${displayId}</span>
             <span class="parcel-category">${p.kategoria || "-"}</span>
           </div>
           <div class="parcel-actions">
@@ -676,8 +756,9 @@ document.addEventListener("DOMContentLoaded", function () {
       .filter(cat => cat !== currentCategory)
       .join(', ');
 
+    const displayId = getDisplayId(parcelId);
     const newCategory = prompt(
-      `Zmiana typu obiektu "${parcelId}"\n` +
+      `Zmiana typu obiektu "${displayId}"\n` +
       `Obecny typ: ${currentCategory}\n\n` +
       `Możliwe typy: ${allowedOptionsString}\n\n` +
       `Wpisz nowy typ:`
@@ -713,18 +794,26 @@ document.addEventListener("DOMContentLoaded", function () {
    * Zmienia nazwę działki.
    */
   async function renameParcel(oldId) {
-    const newId = prompt(`Nowa nazwa dla "${oldId}":`, oldId);
+    const oldDisplayId = getDisplayId(oldId);
+    const newId = prompt(`Nowa nazwa dla "${oldDisplayId}":`, oldDisplayId);
 
     if (!newId || newId.trim() === "") {
       alert("Nazwa nie może być pusta.");
       return;
     }
-    
-    if (newId === oldId) return;
 
-    if (currentParcelsData[newId]) {
-      alert(`Błąd: Obiekt "${newId}" już istnieje!`);
-      return;
+    if (newId === oldDisplayId) return;
+
+    // Pobierz kategorię z istniejącej działki
+    const parcelData = currentParcelsData[oldId];
+    if (parcelData) {
+      const category = parcelData.kategoria;
+      const newFullKey = `${newId}_${category}`;
+
+      if (currentParcelsData[newFullKey]) {
+        alert(`Błąd: Obiekt "${newId}" typu "${category}" już istnieje!`);
+        return;
+      }
     }
 
     try {
@@ -746,7 +835,8 @@ document.addEventListener("DOMContentLoaded", function () {
    * Usuwa działkę po potwierdzeniu.
    */
   async function deleteParcel(parcelId) {
-    if (!confirm(`Usunąć obiekt '${parcelId}'?\n\nNieodwracalne!`))
+    const displayId = getDisplayId(parcelId);
+    if (!confirm(`Usunąć obiekt '${displayId}'?\n\nNieodwracalne!`))
       return;
 
     const response = await fetch(`/api/parcel/${parcelId}`, {

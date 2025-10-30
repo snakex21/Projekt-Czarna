@@ -85,14 +85,43 @@ def load_map_config_from_file():
 # ==========================================================================
 # FUNKCJE ZARZĄDZANIA DANYMI
 # ==========================================================================
+def migrate_data_to_new_format():
+    """Migruje dane ze starego formatu (numer) na nowy format (numer_kategoria)."""
+    global parcels_data
+
+    migrated = False
+    new_parcels_data = {}
+
+    for parcel_id, parcel_info in parcels_data.items():
+        # Sprawdź czy to stary format (klucz bez kategorii)
+        category = parcel_info.get("kategoria", "")
+
+        # Jeśli klucz nie zawiera już kategorii na końcu, migruj
+        if category and not parcel_id.endswith(f"_{category}"):
+            new_key = f"{parcel_id}_{category}"
+            new_parcels_data[new_key] = parcel_info
+            migrated = True
+            print(f"🔄 Migracja: '{parcel_id}' -> '{new_key}'")
+        else:
+            # Dane już w nowym formacie
+            new_parcels_data[parcel_id] = parcel_info
+
+    if migrated:
+        parcels_data = new_parcels_data
+        save_data_to_file()
+        print(f"✅ Migracja zakończona - zaktualizowano format danych")
+
 def load_data_from_file():
     """Wczytuje dane działek z pliku JSON."""
     global parcels_data
-    
+
     try:
         with open(DATA_FILE_PATH, "r", encoding="utf-8") as f:
             parcels_data = json.load(f)
         print(f"✅ Załadowano {len(parcels_data)} działek")
+
+        # Automatyczna migracja do nowego formatu jeśli potrzeba
+        migrate_data_to_new_format()
     except FileNotFoundError:
         parcels_data = {}
         print(f"⚠️  Brak pliku danych - utworzono nową bazę")
@@ -127,20 +156,27 @@ def add_parcel():
     if not parcel_id or not parcel_info:
         return jsonify({"status": "error", "message": "Brak wymaganych danych"}), 400
 
-    # Sprawdzenie duplikatu
-    if parcel_id in parcels_data:
+    # Pobranie kategorii z danych działki
+    category = parcel_info.get("kategoria", "")
+
+    # Utworzenie pełnego klucza: numer_kategoria
+    full_key = f"{parcel_id}_{category}"
+
+    # Sprawdzenie duplikatu - sprawdzamy tylko dla tej samej kategorii
+    if full_key in parcels_data:
         return jsonify({
             "status": "error",
-            "message": f"Działka '{parcel_id}' już istnieje"
+            "message": f"Działka '{parcel_id}' typu '{category}' już istnieje"
         }), 409
 
-    # Zapis nowej działki
-    parcels_data[parcel_id] = parcel_info
+    # Zapis nowej działki z pełnym kluczem
+    parcels_data[full_key] = parcel_info
     save_data_to_file()
-    
+
     return jsonify({
-        "status": "success", 
-        "message": f"Dodano działkę '{parcel_id}'"
+        "status": "success",
+        "message": f"Dodano działkę '{parcel_id}' typu '{category}'",
+        "full_key": full_key  # Zwracamy pełny klucz do front-endu
     })
 
 @app.route("/api/parcel/<path:parcel_id>", methods=["PUT"])
@@ -166,6 +202,8 @@ def update_parcel_geometry(parcel_id):
 @app.route("/api/parcel/<path:parcel_id>/category", methods=["PATCH"])
 def update_parcel_category(parcel_id):
     """Zmienia kategorię działki."""
+    global parcels_data
+
     if parcel_id not in parcels_data:
         return jsonify({"status": "error", "message": "Działka nie istnieje"}), 404
 
@@ -175,22 +213,66 @@ def update_parcel_category(parcel_id):
     if not new_category:
         return jsonify({"status": "error", "message": "Brak kategorii"}), 400
 
-    parcels_data[parcel_id]["kategoria"] = new_category
-    save_data_to_file()
-    
-    return jsonify({
-        "status": "success",
-        "message": f"Zmieniono kategorię '{parcel_id}' na '{new_category}'"
-    })
+    # Pobierz dane działki
+    parcel_content = parcels_data[parcel_id]
+    old_category = parcel_content.get("kategoria", "")
+
+    # Jeśli kategoria się zmienia, trzeba zmienić klucz
+    if old_category != new_category:
+        # Wyciągnij numer z pełnego klucza
+        last_underscore = parcel_id.rfind(f"_{old_category}")
+        if last_underscore > 0:
+            base_number = parcel_id[:last_underscore]
+        else:
+            base_number = parcel_id
+
+        # Utwórz nowy klucz
+        new_full_key = f"{base_number}_{new_category}"
+
+        # Sprawdź czy nowy klucz już istnieje
+        if new_full_key in parcels_data:
+            return jsonify({
+                "status": "error",
+                "message": f"Działka '{base_number}' typu '{new_category}' już istnieje"
+            }), 409
+
+        # Zaktualizuj kategorię w danych
+        parcel_content["kategoria"] = new_category
+
+        # Przenieś działkę do nowego klucza zachowując kolejność
+        items = list(parcels_data.items())
+        try:
+            index = next(i for i, (key, val) in enumerate(items) if key == parcel_id)
+            parcels_data.pop(parcel_id)
+            new_items = [(key, val) for key, val in items if key != parcel_id]
+            new_items.insert(index, (new_full_key, parcel_content))
+            parcels_data = dict(new_items)
+        except StopIteration:
+            parcels_data.pop(parcel_id)
+            parcels_data[new_full_key] = parcel_content
+
+        save_data_to_file()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Zmieniono kategorię na '{new_category}'",
+            "full_key": new_full_key
+        })
+    else:
+        # Kategoria się nie zmienia, nic nie rób
+        return jsonify({
+            "status": "success",
+            "message": f"Kategoria pozostaje '{new_category}'"
+        })
 
 @app.route("/api/parcel/rename/<path:old_id>", methods=["PATCH"])
 def rename_parcel(old_id):
     """Zmienia identyfikator działki zachowując pozycję."""
     global parcels_data
-    
+
     if old_id not in parcels_data:
         return jsonify({
-            "status": "error", 
+            "status": "error",
             "message": f"Działka '{old_id}' nie istnieje"
         }), 404
 
@@ -200,30 +282,39 @@ def rename_parcel(old_id):
     if not new_id:
         return jsonify({"status": "error", "message": "Brak nowego ID"}), 400
 
-    if new_id in parcels_data and new_id != old_id:
+    # Pobierz kategorię z istniejącej działki
+    parcel_content = parcels_data[old_id]
+    category = parcel_content.get("kategoria", "")
+
+    # Utwórz pełny klucz dla nowego ID
+    new_full_key = f"{new_id}_{category}"
+
+    # Sprawdź czy nowy klucz już istnieje
+    if new_full_key in parcels_data and new_full_key != old_id:
         return jsonify({
-            "status": "error", 
-            "message": f"ID '{new_id}' jest zajęte"
+            "status": "error",
+            "message": f"ID '{new_id}' typu '{category}' jest zajęte"
         }), 409
 
     # Zmiana ID z zachowaniem kolejności
-    if old_id != new_id:
+    if old_id != new_full_key:
         items = list(parcels_data.items())
         try:
             index = next(i for i, (key, val) in enumerate(items) if key == old_id)
-            parcel_content = parcels_data.pop(old_id)
+            parcels_data.pop(old_id)
             new_items = [(key, val) for key, val in items if key != old_id]
-            new_items.insert(index, (new_id, parcel_content))
+            new_items.insert(index, (new_full_key, parcel_content))
             parcels_data = dict(new_items)
         except StopIteration:
-            parcel_content = parcels_data.pop(old_id)
-            parcels_data[new_id] = parcel_content
+            parcels_data.pop(old_id)
+            parcels_data[new_full_key] = parcel_content
 
     save_data_to_file()
-    
+
     return jsonify({
         "status": "success",
-        "message": f"Zmieniono ID z '{old_id}' na '{new_id}'"
+        "message": f"Zmieniono ID z '{old_id}' na '{new_id}'",
+        "full_key": new_full_key  # Zwracamy pełny klucz do front-endu
     })
 
 @app.route("/api/parcels/delete_all", methods=["DELETE"])

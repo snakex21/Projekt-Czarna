@@ -163,6 +163,26 @@ body {
   border-color: #28a745;
 }
 
+/* Przycisk magnesu */
+#dynamic-actions button.action-snap {
+  background-color: #e9ecef;
+  border-color: #6c757d;
+  color: #6c757d;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+#dynamic-actions button.action-snap:not(.active) {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+#dynamic-actions button.action-snap.active {
+  background-color: #d4edda;
+  border-color: #28a745;
+  color: #28a745;
+}
+
 /* ==========================================================================
    PANEL BOCZNY
    ========================================================================== */
