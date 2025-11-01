@@ -1,0 +1,37 @@
+{
+  "general_stats": {
+    "total_owners": 150,
+    "total_plots": 450
+  },
+  "area_stats": {
+    "total_plots_with_geometry": 445,
+    "total_area_m2": 5234500.75,
+    "total_area_ha": 523.45,
+    "total_area_ares": 52345.01,
+    "avg_area_m2": 11760.34,
+    "avg_area_ha": 1.176,
+    "avg_area_ares": 117.6,
+    "min_area_m2": 125.5,
+    "max_area_m2": 85000.0
+  },
+  "rankings_real": {
+    "all_plots": [
+      {
+        "nazwa_wlasciciela": "Jan Kowalski",
+        "unikalny_klucz": "JK001",
+        "numer_protokolu": "123",
+        "plot_count": 25,
+        "total_area_m2": 125000.5,
+        "plot_numbers": ["12", "13", "14", "15", "16"]
+      },
+      {
+        "nazwa_wlasciciela": "Anna Nowak",
+        "unikalny_klucz": "AN002",
+        "numer_protokolu": "124",
+        "plot_count": 18,
+        "total_area_m2": 95000.0,
+        "plot_numbers": ["20", "21", "22", "23"]
+      }
+    ]
+  }
+}

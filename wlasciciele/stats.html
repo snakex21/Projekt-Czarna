@@ -230,6 +230,51 @@
                             </div>
                         </div>
                         
+                        <!-- Statystyki powierzchni działek -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-ruler-combined"></i> Powierzchnia działek</h3>
+                            </div>
+                            <div class="stats-grid">
+                                <div class="mini-stat">
+                                    <div class="mini-icon blue">
+                                        <i class="fas fa-map"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Łączna powierzchnia</span>
+                                        <span class="mini-value" id="stat-total-area-ha">0 ha</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon green">
+                                        <i class="fas fa-chart-area"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Średnia powierzchnia</span>
+                                        <span class="mini-value" id="stat-avg-area-ares">0 arów</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon orange">
+                                        <i class="fas fa-compress-arrows-alt"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Najmniejsza działka</span>
+                                        <span class="mini-value" id="stat-min-area-m2">0 m²</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon purple">
+                                        <i class="fas fa-expand-arrows-alt"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Największa działka</span>
+                                        <span class="mini-value" id="stat-max-area-ha">0 ha</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Mini statystyki kategorii -->
                         <div class="dashboard-card stats-grid">
                             <div class="mini-stat">
@@ -294,6 +339,15 @@
                                     <label for="own-real">Rzeczywista</label>
                                     <input type="radio" name="ownership" id="own-protocol" value="protocol">
                                     <label for="own-protocol">Protokół</label>
+                                </div>
+                            </div>
+                            <div class="filter-group">
+                                <label>Sortowanie:</label>
+                                <div class="radio-group">
+                                    <input type="radio" name="sort-by" id="sort-by-count" value="count" checked>
+                                    <label for="sort-by-count">Liczba działek</label>
+                                    <input type="radio" name="sort-by" id="sort-by-area" value="area">
+                                    <label for="sort-by-area">Powierzchnia</label>
                                 </div>
                             </div>
                             <div class="filter-group">

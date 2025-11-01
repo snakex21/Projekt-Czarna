@@ -281,6 +281,7 @@ async function loadStatistics() {
     statsData = await response.json();
 
     updateCounters(statsData.general_stats);
+    updateAreaStats(statsData.area_stats);
     createCharts(statsData);
     loadRankings(statsData);
     loadDemographics(statsData.demografia);
@@ -351,6 +352,37 @@ function updateCounters(stats) {
   if (plotsCounter) {
     plotsCounter.dataset.target = stats.total_plots;
     animateCounter(plotsCounter, stats.total_plots);
+  }
+}
+
+/**
+ * Aktualizuje statystyki powierzchni działek.
+ * @param {Object} areaStats
+ */
+function updateAreaStats(areaStats) {
+  if (!areaStats) return;
+
+  const totalHa = document.getElementById('stat-total-area-ha');
+  const avgAres = document.getElementById('stat-avg-area-ares');
+  const minM2 = document.getElementById('stat-min-area-m2');
+  const maxHa = document.getElementById('stat-max-area-ha');
+
+  if (totalHa) {
+    totalHa.textContent = `${areaStats.total_area_ha.toFixed(2)} ha`;
+  }
+  if (avgAres) {
+    avgAres.textContent = `${areaStats.avg_area_ares.toFixed(2)} arów`;
+  }
+  if (minM2) {
+    minM2.textContent = `${Math.round(areaStats.min_area_m2)} m²`;
+  }
+  if (maxHa) {
+    const maxHaValue = areaStats.max_area_m2 / 10000;
+    if (maxHaValue < 1) {
+      maxHa.textContent = `${Math.round(areaStats.max_area_m2)} m²`;
+    } else {
+      maxHa.textContent = `${maxHaValue.toFixed(2)} ha`;
+    }
   }
 }
 
@@ -447,7 +479,30 @@ function loadRankings(data) {
   document.querySelectorAll('input[name="ownership"]').forEach(r => {
     r.addEventListener('change', filterRankings);
   });
+  document.querySelectorAll('input[name="sort-by"]').forEach(r => {
+    r.addEventListener('change', filterRankings);
+  });
   document.getElementById('category-filter')?.addEventListener('change', filterRankings);
+}
+
+/**
+ * Formatuje powierzchnię dla wyświetlenia.
+ * @param {number} areaM2 - Powierzchnia w m²
+ * @returns {string}
+ */
+function formatArea(areaM2) {
+  if (!areaM2 || areaM2 === 0) return '0 m²';
+  
+  const ha = areaM2 / 10000;
+  const ares = areaM2 / 100;
+  
+  if (ha >= 1) {
+    return `${ha.toFixed(2)} ha`;
+  } else if (ares >= 1) {
+    return `${ares.toFixed(2)} arów`;
+  } else {
+    return `${Math.round(areaM2)} m²`;
+  }
 }
 
 /**
@@ -456,18 +511,33 @@ function loadRankings(data) {
  * @param {HTMLElement} container
  */
 function displayRanking(rankingData, container) {
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
+  
   container.innerHTML = (rankingData || []).slice(0, 50).map((owner, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const prot = owner.numer_protokolu ?? 'Brak';
+    const areaM2 = owner.total_area_m2 || 0;
+    const plotNumbers = owner.plot_numbers || [];
+    
+    const plotNumbersDisplay = plotNumbers.length > 0 
+      ? plotNumbers.slice(0, 5).join(', ') + (plotNumbers.length > 5 ? '...' : '')
+      : 'Brak';
+    
+    const valueDisplay = sortBy === 'area' 
+      ? `<div style="text-align: right;"><strong>${formatArea(areaM2)}</strong><br><small>${owner.plot_count} działek</small></div>`
+      : `<div style="text-align: right;"><strong>${owner.plot_count}</strong> działek<br><small>${formatArea(areaM2)}</small></div>`;
+    
     return `
       <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
           <div class="ranking-name">${owner.nazwa_wlasciciela}</div>
-          <div class="ranking-meta">Protokół nr ${prot}</div>
+          <div class="ranking-meta">
+            Protokół nr ${prot} | Działki: ${plotNumbersDisplay}
+          </div>
         </div>
-        <div class="ranking-value">${owner.plot_count}</div>
+        <div class="ranking-value">${valueDisplay}</div>
       </a>`;
   }).join('');
 }
@@ -479,11 +549,20 @@ function filterRankings() {
   if (!statsData) return;
   const ownership = document.querySelector('input[name="ownership"]:checked')?.value || 'real';
   const category = document.getElementById('category-filter')?.value || 'all';
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
   const container = document.getElementById('ranking-list');
 
   const dataSet = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
   let rankingData = category === 'all' ? dataSet.all_plots : dataSet[category];
   if (!rankingData) rankingData = [];
+
+  rankingData = [...rankingData].sort((a, b) => {
+    if (sortBy === 'area') {
+      return (b.total_area_m2 || 0) - (a.total_area_m2 || 0);
+    } else {
+      return (b.plot_count || 0) - (a.plot_count || 0);
+    }
+  });
 
   displayRanking(rankingData, container);
 
@@ -1448,7 +1527,19 @@ function shareReport() {
  */
 function getTop10Owners(ownership, category) {
   const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
-  const rankingData = category === 'all' ? data.all_plots : data[category];
+  let rankingData = category === 'all' ? data.all_plots : data[category];
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
+  
+  if (rankingData) {
+    rankingData = [...rankingData].sort((a, b) => {
+      if (sortBy === 'area') {
+        return (b.total_area_m2 || 0) - (a.total_area_m2 || 0);
+      } else {
+        return (b.plot_count || 0) - (a.plot_count || 0);
+      }
+    });
+  }
+  
   return rankingData?.slice(0, 10) || [];
 }
 

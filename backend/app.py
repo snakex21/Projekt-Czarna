@@ -482,7 +482,9 @@ def get_stats():
             category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
             query = f"""
                 SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu,
-                       COUNT(dw.obiekt_id) as plot_count
+                       COUNT(dw.obiekt_id) as plot_count,
+                       COALESCE(SUM(ST_Area(o.geometria::geography)), 0) as total_area_m2,
+                       json_agg(o.nazwa_lub_numer ORDER BY o.nazwa_lub_numer) as plot_numbers
                 FROM wlasciciele w
                 JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                 JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
@@ -523,6 +525,30 @@ def get_stats():
     """)
     category_counts_list = cur.fetchall()
     category_counts = {item['kategoria']: item['count'] for item in category_counts_list}
+
+    # ——— Statystyki powierzchni
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_plots_with_geometry,
+            COALESCE(SUM(ST_Area(geometria::geography)), 0) as total_area_m2,
+            COALESCE(AVG(ST_Area(geometria::geography)), 0) as avg_area_m2,
+            COALESCE(MIN(ST_Area(geometria::geography)), 0) as min_area_m2,
+            COALESCE(MAX(ST_Area(geometria::geography)), 0) as max_area_m2
+        FROM obiekty_geograficzne
+        WHERE geometria IS NOT NULL;
+    """)
+    area_stats_raw = cur.fetchone()
+    area_stats = {
+        'total_plots_with_geometry': area_stats_raw['total_plots_with_geometry'],
+        'total_area_m2': float(area_stats_raw['total_area_m2']),
+        'total_area_ha': float(area_stats_raw['total_area_m2']) / 10000,
+        'total_area_ares': float(area_stats_raw['total_area_m2']) / 100,
+        'avg_area_m2': float(area_stats_raw['avg_area_m2']),
+        'avg_area_ha': float(area_stats_raw['avg_area_m2']) / 10000,
+        'avg_area_ares': float(area_stats_raw['avg_area_m2']) / 100,
+        'min_area_m2': float(area_stats_raw['min_area_m2']),
+        'max_area_m2': float(area_stats_raw['max_area_m2'])
+    }
 
     # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
     cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
@@ -860,6 +886,7 @@ def get_stats():
 
     return jsonify({
         'general_stats': {'total_owners': total_owners, 'total_plots': total_plots},
+        'area_stats': area_stats,
         'protocols_per_day': protocols_per_day,
         'rankings_real': rankings_real,
         'rankings_protocol': rankings_protocol,
