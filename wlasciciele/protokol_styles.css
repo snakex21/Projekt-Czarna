@@ -340,6 +340,13 @@ body {
     margin-bottom: 0.5rem;
 }
 
+.plot-subtype {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 .plot-summary {
     font-size: 0.9rem;
     color: var(--text-secondary);
