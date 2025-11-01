@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let currentParcelsData = {};    // Wszystkie działki z serwera
   let activeDrawingLayer = null;  // Warstwa aktualnie rysowana
   let editedLayer = null;         // Warstwa w trakcie edycji
+  let originalGeometry = null;    // Oryginalna geometria przed edycją
   let currentCategory = null;     // Aktywna kategoria rysowania
   let snapEnabled = true;         // Stan magnesu (snap)
 
@@ -87,14 +88,43 @@ document.addEventListener("DOMContentLoaded", function () {
 
   /**
    * Wyciąga numer działki z pełnego klucza (format: numer_kategoria).
-   * Przykład: "5_dom" -> "5", "123_budowlana" -> "123"
+   * Przykład: "5_budynek" -> "5", "123_budowlana" -> "123", "dworzec_obiekt_specjalny" -> "dworzec"
    */
-  function getDisplayId(fullKey) {
+  function getDisplayId(fullKey, category = null) {
+    // Jeśli znamy kategorię, usuń ją z końca klucza
+    if (category) {
+      const suffix = `_${category}`;
+      if (fullKey.endsWith(suffix)) {
+        return fullKey.substring(0, fullKey.length - suffix.length);
+      }
+    }
+
+    // Jeśli nie ma kategorii, spróbuj znaleźć ją w danych
+    if (currentParcelsData[fullKey]) {
+      const cat = currentParcelsData[fullKey].kategoria;
+      if (cat) {
+        const suffix = `_${cat}`;
+        if (fullKey.endsWith(suffix)) {
+          return fullKey.substring(0, fullKey.length - suffix.length);
+        }
+      }
+    }
+
+    // Fallback - usuń od ostatniego podkreślnika
     const lastUnderscoreIndex = fullKey.lastIndexOf('_');
     if (lastUnderscoreIndex > 0) {
       return fullKey.substring(0, lastUnderscoreIndex);
     }
     return fullKey;
+  }
+
+  /**
+   * Formatuje nazwę kategorii do wyświetlania (zamienia podkreślniki na spacje).
+   * Przykład: "obiekt_specjalny" -> "obiekt specjalny"
+   */
+  function formatCategoryName(category) {
+    if (!category) return "Brak danych";
+    return category.replace(/_/g, ' ');
   }
 
   /**
@@ -203,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function () {
    */
   function enterDrawingMode(category) {
     currentCategory = category;
-    
+
     // Oznaczenie aktywnego przycisku
     if (createActions) {
       const btns = createActions.querySelectorAll('button[data-category]');
@@ -214,13 +244,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Sprawdzenie typu geometrii
     const POINT_CATEGORIES = ["budynek", "kapliczka", "obiekt_specjalny", "dworzec"];
+    const LINE_CATEGORIES = ["droga", "rzeka"];
     const isPoint = POINT_CATEGORIES.includes(String(category || "").toLowerCase());
+    const isLine = LINE_CATEGORIES.includes(String(category || "").toLowerCase());
 
-    // Konfiguracja paska akcji
+    // Konfiguracja paska akcji - wszędzie dodajemy przycisk magnetyzmu
+    const displayCategory = formatCategoryName(category);
     dynamicActions.innerHTML = isPoint
-      ? `<span class="toolbar-label">Rysujesz: ${category}</span>
+      ? `<span class="toolbar-label">Rysujesz: ${displayCategory}</span>
+         <button id="snap-toggle-btn" class="action-snap ${snapEnabled ? 'active' : ''}">🧲 Magnes</button>
          <button id="cancel-btn" class="action-cancel">Anuluj</button>`
-      : `<span class="toolbar-label">Rysujesz: ${category}</span>
+      : `<span class="toolbar-label">Rysujesz: ${displayCategory}</span>
          <button id="undo-btn" class="action-undo">Cofnij Punkt</button>
          <button id="snap-toggle-btn" class="action-snap ${snapEnabled ? 'active' : ''}">🧲 Magnes</button>
          <button id="finish-btn" class="action-finish">Zakończ</button>
@@ -232,6 +266,14 @@ document.addEventListener("DOMContentLoaded", function () {
       map.pm.enableDraw("Marker", {
         snappable: snapEnabled,
         snapDistance: 20,
+      });
+    } else if (isLine) {
+      map.pm.enableDraw("Line", {
+        snappable: snapEnabled,
+        snapDistance: 20,
+        templineStyle: { color: "magenta", weight: 2 },
+        hintlineStyle: { color: "magenta", dashArray: "5,5" },
+        pathOptions: { color: "magenta" },
       });
     } else {
       map.pm.enableDraw("Polygon", {
@@ -249,29 +291,41 @@ document.addEventListener("DOMContentLoaded", function () {
     const cancelBtn = document.getElementById("cancel-btn");
     if (cancelBtn) cancelBtn.onclick = exitDrawingMode;
 
+    const snapToggleBtn = document.getElementById("snap-toggle-btn");
+    if (snapToggleBtn) {
+      snapToggleBtn.onclick = () => {
+        snapEnabled = !snapEnabled;
+        snapToggleBtn.classList.toggle('active', snapEnabled);
+
+        // Zaktualizuj ustawienia snap w Leaflet.PM dla aktywnego trybu rysowania
+        if (isLine && map.pm.Draw.Line?._layer) {
+          map.pm.Draw.Line._layer.options.snappable = snapEnabled;
+        } else if (!isLine && !isPoint && map.pm.Draw.Polygon?._layer) {
+          map.pm.Draw.Polygon._layer.options.snappable = snapEnabled;
+        }
+        // Zaktualizuj snap dla bieżącego trybu
+        map.pm.setGlobalOptions({ snappable: snapEnabled, snapDistance: 20 });
+      };
+    }
+
     if (!isPoint) {
       const undoBtn = document.getElementById("undo-btn");
       const finishBtn = document.getElementById("finish-btn");
-      const snapToggleBtn = document.getElementById("snap-toggle-btn");
 
-      if (undoBtn && map.pm.Draw.Polygon?._removeLastVertex) {
-        undoBtn.onclick = () => map.pm.Draw.Polygon._removeLastVertex();
-      }
-      if (finishBtn && map.pm.Draw.Polygon?._finishShape) {
-        finishBtn.onclick = () => map.pm.Draw.Polygon._finishShape();
-      }
-      if (snapToggleBtn) {
-        snapToggleBtn.onclick = () => {
-          snapEnabled = !snapEnabled;
-          snapToggleBtn.classList.toggle('active', snapEnabled);
-
-          // Zaktualizuj ustawienia snap w Leaflet.PM
-          if (map.pm.Draw.Polygon?._layer) {
-            map.pm.Draw.Polygon._layer.options.snappable = snapEnabled;
-          }
-          // Zaktualizuj snap dla bieżącego trybu
-          map.pm.setGlobalOptions({ snappable: snapEnabled, snapDistance: 20 });
-        };
+      if (isLine) {
+        if (undoBtn && map.pm.Draw.Line?._removeLastVertex) {
+          undoBtn.onclick = () => map.pm.Draw.Line._removeLastVertex();
+        }
+        if (finishBtn && map.pm.Draw.Line?._finishShape) {
+          finishBtn.onclick = () => map.pm.Draw.Line._finishShape();
+        }
+      } else {
+        if (undoBtn && map.pm.Draw.Polygon?._removeLastVertex) {
+          undoBtn.onclick = () => map.pm.Draw.Polygon._removeLastVertex();
+        }
+        if (finishBtn && map.pm.Draw.Polygon?._finishShape) {
+          finishBtn.onclick = () => map.pm.Draw.Polygon._finishShape();
+        }
       }
     }
   }
@@ -285,25 +339,63 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const category = document.querySelector("#create-actions button.active")
       ?.dataset.category || "rolna";
+    const displayCategory = formatCategoryName(category);
 
-    const parcelId = prompt(`Podaj nazwę/numer dla obiektu typu "${category}":`);
+    let parcelId = null;
+    let isValidName = false;
+    let errorMessage = "";
 
-    if (!parcelId) {
-      try { layer.remove(); } catch (err) {}
-      activeDrawingLayer = null;
-      exitDrawingMode();
-      return;
-    }
+    // Grupa działek gruntowych - nie mogą mieć tego samego numeru między sobą
+    const LAND_CATEGORIES = ["rolna", "droga", "las", "pastwisko", "rzeka"];
+    const isLandCategory = LAND_CATEGORIES.includes(category);
 
-    // Utworzenie pełnego klucza dla sprawdzenia duplikatu
-    const fullKey = `${parcelId}_${category}`;
+    // Pętla pytająca o nazwę - powtarza się przy duplikatach
+    while (!isValidName) {
+      const promptMessage = parcelId === null
+        ? `Podaj nazwę/numer dla obiektu typu "${displayCategory}":`
+        : errorMessage;
 
-    if (currentParcelsData[fullKey]) {
-      alert(`Błąd: Działka o ID '${parcelId}' typu '${category}' już istnieje!`);
-      try { layer.remove(); } catch (err) {}
-      activeDrawingLayer = null;
-      exitDrawingMode();
-      return;
+      parcelId = prompt(promptMessage);
+
+      // Użytkownik anulował lub wpisał pustą nazwę
+      if (parcelId === null || parcelId.trim() === "") {
+        try { layer.remove(); } catch (err) {}
+        activeDrawingLayer = null;
+        exitDrawingMode();
+        return;
+      }
+
+      parcelId = parcelId.trim();
+
+      // Sprawdzenie dokładnego duplikatu (ta sama nazwa i kategoria)
+      const fullKey = `${parcelId}_${category}`;
+      if (currentParcelsData[fullKey]) {
+        errorMessage = `Obiekt "${parcelId}" typu "${displayCategory}" już istnieje!\n\nPodaj inną nazwę lub kliknij Anuluj, aby usunąć rysunek:`;
+        isValidName = false;
+        continue;
+      }
+
+      // Sprawdzenie krzyżowe TYLKO dla działek gruntowych
+      if (isLandCategory) {
+        let crossDuplicate = null;
+        for (const landCat of LAND_CATEGORIES) {
+          if (landCat === category) continue; // Pomiń tę samą kategorię (już sprawdzona wyżej)
+          const crossKey = `${parcelId}_${landCat}`;
+          if (currentParcelsData[crossKey]) {
+            crossDuplicate = formatCategoryName(landCat);
+            break;
+          }
+        }
+
+        if (crossDuplicate) {
+          errorMessage = `Numer "${parcelId}" jest już użyty w kategorii "${crossDuplicate}"!\n\nDziałki gruntowe (rolna, droga, las, pastwisko, rzeka) nie mogą mieć tego samego numeru.\n\nMożesz użyć np. "${parcelId}/1" lub inny numer.\nKliknij Anuluj, aby usunąć rysunek:`;
+          isValidName = false;
+          continue;
+        }
+      }
+
+      // Nazwa jest unikalna
+      isValidName = true;
     }
 
     // Przygotowanie geometrii
@@ -323,6 +415,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    const fullKey = `${parcelId}_${category}`;
     const newParcel = { kategoria: category, geometria: geometryToSave };
 
     // Zapis do serwera
@@ -372,6 +465,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function exitDrawingMode() {
     try { map.pm.disableDraw("Marker"); } catch (e) {}
     try { map.pm.disableDraw("Polygon"); } catch (e) {}
+    try { map.pm.disableDraw("Line"); } catch (e) {}
 
     map.off("pm:create", handleDrawingFinish);
 
@@ -411,19 +505,89 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!layer) return;
 
     editedLayer = layer;
+    const parcelData = currentParcelsData[parcelId];
+    const isLine = layer instanceof L.Polyline && !(layer instanceof L.Polygon);
+
+    // Zapisz oryginalną geometrię przed edycją
+    if (layer.getLatLng && !layer.getLatLngs) {
+      // Punkt
+      const ll = layer.getLatLng();
+      originalGeometry = { lat: ll.lat, lng: ll.lng };
+    } else if (layer.getLatLngs) {
+      // Linia lub wielokąt
+      const latLngs = layer.getLatLngs();
+      // Deep copy żeby zmiany nie wpłynęły na oryginał
+      originalGeometry = JSON.parse(JSON.stringify(latLngs));
+    }
+
     layer.pm.enable({ allowSelfIntersection: true });
+
+    // Dodaj obsługę prawego kliknięcia na wierzchołki
+    const setupVertexRemoval = () => {
+      const vertexMarkers = layer.pm._vertexLayers || layer.pm._markers || [];
+
+      vertexMarkers.forEach((marker, index) => {
+        // Sprawdź czy marker ma metody potrzebne do obsługi zdarzeń
+        if (!marker || typeof marker.off !== 'function' || typeof marker.on !== 'function') {
+          return;
+        }
+
+        marker.off('contextmenu'); // Usuń poprzednie handlery
+        marker.on('contextmenu', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+
+          if (isLine) {
+            // Dla linii - usuń ten punkt i wszystkie kolejne (ucięcie)
+            const coords = layer.getLatLngs();
+            if (index === 0 && coords.length === 1) {
+              alert("Nie możesz usunąć ostatniego punktu!");
+              return;
+            }
+            // Zachowaj tylko punkty od początku do klikniętego (włącznie z poprzednim)
+            const newCoords = coords.slice(0, index);
+            if (newCoords.length < 2) {
+              alert("Linia musi mieć co najmniej 2 punkty!");
+              return;
+            }
+            layer.setLatLngs(newCoords);
+          } else {
+            // Dla wielokątów - usuń tylko ten punkt
+            const coords = layer.getLatLngs()[0] || layer.getLatLngs();
+            if (coords.length <= 3) {
+              alert("Wielokąt musi mieć co najmniej 3 punkty!");
+              return;
+            }
+            coords.splice(index, 1);
+            layer.setLatLngs(coords);
+          }
+
+          // Odśwież tryb edycji aby zaktualizować markery
+          layer.pm.disable();
+          layer.pm.enable({ allowSelfIntersection: true });
+          setupVertexRemoval();
+        });
+      });
+    };
+
+    // Ustaw handlery po krótkiej chwili (aby markery były gotowe)
+    setTimeout(setupVertexRemoval, 100);
+
+    // Ponownie ustaw przy każdej zmianie geometrii
+    layer.on('pm:edit', setupVertexRemoval);
 
     // Zmiana interfejsu
     const displayId = getDisplayId(parcelId);
     createActions.style.display = "none";
     dynamicActions.innerHTML = `
       <span class="toolbar-label">Edytujesz geometrię: ${displayId}</span>
+      <span class="toolbar-hint" style="font-size: 0.85em; color: #666;">💡 Prawy klik na punkt: ${isLine ? 'ucina od tego punktu do końca' : 'usuwa punkt'}</span>
       <button id="save-edit-btn" class="action-save-changes">Zapisz Zmiany</button>
       <button id="cancel-edit-btn" class="action-cancel">Anuluj Edycję</button>`;
     dynamicActions.style.display = "flex";
 
     document.getElementById("save-edit-btn").onclick = () => saveEdit(parcelId);
-    document.getElementById("cancel-edit-btn").onclick = exitEditMode;
+    document.getElementById("cancel-edit-btn").onclick = cancelEdit;
   }
 
   /**
@@ -452,18 +616,55 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((res) => res.json())
       .then((data) => {
         alert(data.message);
+        if (data.status === "success") {
+          // Zaktualizuj dane lokalne
+          currentParcelsData[parcelId].geometria = geometryToSave;
+          // Odśwież warstwę na mapie
+          refreshLayer(parcelId, currentParcelsData[parcelId]);
+        }
         exitEditMode();
-        if (data.status === "success") location.reload();
       });
+  }
+
+  /**
+   * Anuluje edycję i przywraca oryginalną geometrię.
+   */
+  function cancelEdit() {
+    if (editedLayer && originalGeometry) {
+      // Przywróć oryginalną geometrię
+      if (editedLayer.getLatLng && !editedLayer.getLatLngs) {
+        // Punkt
+        editedLayer.setLatLng([originalGeometry.lat, originalGeometry.lng]);
+      } else if (editedLayer.getLatLngs) {
+        // Linia lub wielokąt
+        editedLayer.setLatLngs(originalGeometry);
+      }
+    }
+    exitEditMode();
   }
 
   /**
    * Wyłącza tryb edycji.
    */
   function exitEditMode() {
-    if (editedLayer) editedLayer.pm.disable();
+    if (editedLayer) {
+      // Usuń event listenery
+      editedLayer.off('pm:edit');
+
+      // Wyłącz tryb edycji
+      editedLayer.pm.disable();
+
+      // Usuń contextmenu z wierzchołków
+      const vertexMarkers = editedLayer.pm._vertexLayers || editedLayer.pm._markers || [];
+      vertexMarkers.forEach(marker => {
+        if (marker && typeof marker.off === 'function') {
+          marker.off('contextmenu');
+        }
+      });
+    }
     editedLayer = null;
-    
+    originalGeometry = null;
+
     createActions.style.display = "flex";
     dynamicActions.style.display = "none";
   }
@@ -566,8 +767,9 @@ document.addEventListener("DOMContentLoaded", function () {
     if (layer.setStyle) layer.originalStyle = styleOptions;
 
     const displayId = getDisplayId(id);
+    const displayCategory = formatCategoryName(parcelData.kategoria);
     layer
-      .bindPopup(`<b>ID:</b> ${displayId}<br><b>Kategoria:</b> ${parcelData.kategoria || "Brak danych"}`)
+      .bindPopup(`<b>ID:</b> ${displayId}<br><b>Kategoria:</b> ${displayCategory}`)
       .addTo(parcelLayerGroup);
 
     return layer;
@@ -631,10 +833,11 @@ document.addEventListener("DOMContentLoaded", function () {
         li.dataset.parcelId = id;
         li.dataset.parcelCategory = p.kategoria;
         const displayId = getDisplayId(id);
+        const displayCategory = formatCategoryName(p.kategoria);
         li.innerHTML = `
           <div class="parcel-info">
             <span class="parcel-id">${displayId}</span>
-            <span class="parcel-category">${p.kategoria || "-"}</span>
+            <span class="parcel-category">${displayCategory}</span>
           </div>
           <div class="parcel-actions">
             <button title="Edytuj geometrię" class="btn-action btn-edit-geom">📐</button>
@@ -733,6 +936,30 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   /**
+   * Odświeża pojedynczą warstwę bez przeładowania strony.
+   */
+  function refreshLayer(parcelId, newData) {
+    // Usuń starą warstwę
+    const oldLayer = findLayerById(parcelId);
+    if (oldLayer) {
+      try { oldLayer.remove(); } catch (e) {}
+    }
+
+    // Dodaj nową warstwę
+    if (newData) {
+      addParcelToMap(parcelId, newData);
+    }
+  }
+
+  /**
+   * Odświeża listę działek w panelu bocznym.
+   */
+  function refreshParcelList() {
+    const activeTab = document.querySelector(".tab-btn.active")?.dataset.tab || "parcels";
+    filterAndDisplayParcels(activeTab);
+  }
+
+  /**
    * Zmienia typ działki z walidacją geometrii.
    */
   async function changeParcelType(parcelId, currentCategory) {
@@ -754,20 +981,26 @@ document.addEventListener("DOMContentLoaded", function () {
     
     const allowedOptionsString = allowedTargetCategories
       .filter(cat => cat !== currentCategory)
+      .map(cat => formatCategoryName(cat))
       .join(', ');
 
     const displayId = getDisplayId(parcelId);
+    const displayCurrentCategory = formatCategoryName(currentCategory);
     const newCategory = prompt(
       `Zmiana typu obiektu "${displayId}"\n` +
-      `Obecny typ: ${currentCategory}\n\n` +
+      `Obecny typ: ${displayCurrentCategory}\n\n` +
       `Możliwe typy: ${allowedOptionsString}\n\n` +
       `Wpisz nowy typ:`
     );
 
     if (!newCategory || newCategory.trim() === "") return;
-    if (newCategory === currentCategory) return;
 
-    if (!allowedTargetCategories.includes(newCategory)) {
+    // Normalizuj wprowadzoną wartość (zamień spacje na podkreślniki)
+    const normalizedNewCategory = newCategory.trim().toLowerCase().replace(/\s+/g, '_');
+
+    if (normalizedNewCategory === currentCategory) return;
+
+    if (!allowedTargetCategories.includes(normalizedNewCategory)) {
       alert(
         `Błąd: Niedozwolona zmiana!\n` +
         `Dozwolone: ${allowedOptionsString}`
@@ -780,11 +1013,25 @@ document.addEventListener("DOMContentLoaded", function () {
       const response = await fetch(`/api/parcel/${encodeURIComponent(parcelId)}/category`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kategoria: newCategory }),
+        body: JSON.stringify({ kategoria: normalizedNewCategory }),
       });
       const data = await response.json();
       alert(data.message);
-      if (data.status === "success") location.reload();
+      if (data.status === "success") {
+        // Klucz się zmienił - usuń stary
+        const oldData = currentParcelsData[parcelId];
+        delete currentParcelsData[parcelId];
+
+        // Dodaj nowy
+        const newFullKey = data.full_key || `${getDisplayId(parcelId)}_${normalizedNewCategory}`;
+        const newData = { ...oldData, kategoria: normalizedNewCategory };
+        currentParcelsData[newFullKey] = newData;
+
+        // Odśwież warstwę i listę
+        refreshLayer(parcelId, null); // Usuń starą
+        refreshLayer(newFullKey, newData); // Dodaj nową
+        refreshParcelList();
+      }
     } catch (err) {
       alert("Błąd zmiany typu: " + err.message);
     }
@@ -825,7 +1072,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const data = await response.json();
       alert(data.message);
-      if (data.status === "success") location.reload();
+      if (data.status === "success") {
+        // Klucz się zmienił - przenieś dane
+        const oldData = currentParcelsData[oldId];
+        delete currentParcelsData[oldId];
+
+        const newFullKey = data.full_key || `${newId}_${parcelData.kategoria}`;
+        currentParcelsData[newFullKey] = oldData;
+
+        // Odśwież warstwę i listę
+        refreshLayer(oldId, null); // Usuń starą
+        refreshLayer(newFullKey, oldData); // Dodaj nową
+        refreshParcelList();
+      }
     } catch (err) {
       alert("Błąd sieciowy: " + err.message);
     }
