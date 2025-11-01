@@ -660,12 +660,21 @@ html, body {
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
 }
 
 .special-item:hover {
     transform: translateX(5px);
     border-color: var(--accent-color);
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.special-item-content {
+    flex: 1;
+    min-width: 0;
 }
 
 .special-item-header {
@@ -689,6 +698,30 @@ html, body {
     font-size: 0.85rem;
     color: var(--text-secondary);
     padding-left: 27px;
+}
+
+.special-show-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.special-show-btn:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.special-show-btn i {
+    font-size: 14px;
 }
 
 /* ==========================================================================

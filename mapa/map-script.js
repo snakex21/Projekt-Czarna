@@ -1853,35 +1853,72 @@ function createSpecialObjectItem(item, icon) {
     const itemEl = document.createElement('div');
     itemEl.className = 'special-item';
     itemEl.dataset.featureId = item.id;
-    
+
     const owners = item.properties.wlasciciele || [];
     const ownerNames = owners.map(o => o.nazwa).join(', ') || 'Brak właściciela';
-    
+
     itemEl.innerHTML = `
-        <div class="special-item-header">
-            <span class="special-item-icon">${icon}</span>
-            <span class="special-item-number">${item.properties.numer_obiektu || 'Bez numeru'}</span>
+        <div class="special-item-content">
+            <div class="special-item-header">
+                <span class="special-item-icon">${icon}</span>
+                <span class="special-item-number">${item.properties.numer_obiektu || 'Bez numeru'}</span>
+            </div>
+            <div class="special-item-owners">${ownerNames}</div>
         </div>
-        <div class="special-item-owners">${ownerNames}</div>
+        <button class="special-show-btn" title="Pokaż na mapie">
+            <i class="fas fa-crosshairs"></i>
+        </button>
     `;
-    
-    /* Zdarzenia */
-    itemEl.addEventListener('click', () => {
+
+    /* Przycisk "Pokaż na mapie" - zoom do obiektu */
+    const showBtn = itemEl.querySelector('.special-show-btn');
+    showBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const layer = findLayerById(item.id);
         if (layer) {
-            focusOnLayer(layer);
-            if (layer.openPopup) layer.openPopup();
+            if (layer.getBounds) {
+                map.fitBounds(layer.getBounds(), { maxZoom: 18 });
+            } else if (layer.getLatLng) {
+                map.setView(layer.getLatLng(), 18);
+            }
+            if (layer.openPopup) {
+                layer.openPopup();
+            }
         }
     });
-    
+
+    /* Kliknięcie na element - przekierowanie do protokołu właściciela */
+    itemEl.addEventListener('click', () => {
+        if (owners.length === 0) {
+            alert('Ten obiekt nie ma przypisanego właściciela.');
+            return;
+        }
+
+        if (owners.length === 1) {
+            // Bezpośrednie przekierowanie gdy jest jeden właściciel
+            const ownerKey = owners[0].unikalny_klucz;
+            if (ownerKey) {
+                window.location.href = `../wlasciciele/protokol.html?ownerId=${ownerKey}`;
+            } else {
+                alert('Brak klucza właściciela dla tego obiektu.');
+            }
+        } else {
+            // Popup wyboru gdy jest wielu właścicieli
+            const layer = findLayerById(item.id);
+            const latlng = layer ? getCenterOfLayer(layer) : map.getCenter();
+            showOwnerSelectionPopup(owners, latlng);
+        }
+    });
+
+    /* Podświetlanie przy najechaniu */
     itemEl.addEventListener('mouseenter', () => {
         findAndHighlightLayer(item.id, true, 'red');
     });
-    
+
     itemEl.addEventListener('mouseleave', () => {
         findAndHighlightLayer(item.id, false);
     });
-    
+
     return itemEl;
 }
 
