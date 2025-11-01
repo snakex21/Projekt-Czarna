@@ -265,9 +265,10 @@ try:
         DO UPDATE SET geometria = EXCLUDED.geometria
         RETURNING id, nazwa_lub_numer, kategoria
     """
-    execute_values(cur, query, objects_to_insert)
+    # execute_values z fetch=True ZWRACA wyniki bezpośrednio
+    results = execute_values(cur, query, objects_to_insert, fetch=True)
 
-    object_id_map = {(num, kat): obj_id for obj_id, num, kat in cur.fetchall()}
+    object_id_map = {(num, kat): obj_id for obj_id, num, kat in results}
     print(f"✔️ Przetworzono wszystkie obiekty: {total_objects}")
 
     # --- ETAP 5: POWIĄZANIA WŁAŚCICIEL-DZIAŁKA ---
@@ -282,24 +283,54 @@ try:
             seen.add(key)
 
     def ensure_object(num_norm: str, hint_building: bool):
-        """Zapewnia istnienie obiektu w bazie, tworzy jeśli brak."""
-        if not num_norm: 
+        """
+        Zapewnia istnienie obiektu w bazie, tworzy jeśli brak.
+
+        WAŻNE: hint_building=True -> działka BUDOWLANA (nie dom!)
+               Dom to osobna kategoria obsługiwana w sekcji powiązań domów.
+        """
+        if not num_norm:
             return None
-            
-        wanted_cat = "budowlana" if hint_building else "rolna"
-        wanted_key = (num_norm, wanted_cat)
-        
-        # Sprawdź czy istnieje
-        if wanted_key in object_id_map:
-            return object_id_map[wanted_key]
-            
-        # Dla działek rolnych - szukaj alternatyw
-        if not hint_building:
+
+        if hint_building:
+            # hint_building=True -> szukamy DZIAŁKI BUDOWLANEJ
+            # NIE mieszamy z domami - dom to osobna kategoria!
+            wanted_cat = "budowlana"
+            wanted_key = (num_norm, wanted_cat)
+
+            # Sprawdź czy działka budowlana istnieje
+            if wanted_key in object_id_map:
+                return object_id_map[wanted_key]
+
+            # Nie ma działki budowlanej - utwórz nową
+        else:
+            # hint_building=False -> szukamy działki GRUNTOWEJ (rolna, las, pastwisko, etc)
+            # Priorytet: szczegółowe kategorie przed ogólnymi
+            priority_categories = ['pastwisko', 'las', 'droga', 'rzeka', 'gruntowa']
+            generic_categories = ['rolna']
+
+            # Najpierw szukaj szczegółowych kategorii
+            for cat in priority_categories:
+                key = (num_norm, cat)
+                if key in object_id_map:
+                    return object_id_map[key]
+
+            # Potem szukaj ogólnych kategorii
+            for cat in generic_categories:
+                key = (num_norm, cat)
+                if key in object_id_map:
+                    return object_id_map[key]
+
+            # W ostateczności szukaj JAKIEJKOLWIEK kategorii gruntowej
+            # (NIE budynek, NIE dom, NIE budowlana - to są osobne rzeczy)
             for (num, cat), obj_id in object_id_map.items():
-                if num == num_norm and cat != "budowlana":
+                if num == num_norm and cat not in ['budynek', 'dom', 'budowlana', 'kapliczka', 'obiekt_specjalny']:
                     return obj_id
-                    
+
+            wanted_cat = "rolna"
+
         # Utwórz nowy obiekt lub pobierz istniejący
+        wanted_key = (num_norm, wanted_cat)
         cur.execute(
             """INSERT INTO obiekty_geograficzne
                (nazwa_lub_numer, kategoria, geometria)
@@ -330,19 +361,21 @@ try:
         owner_id = owner_id_map.get(owner_key)
         if not owner_id:
             continue
-        
+
         # Własność rzeczywista
         for key in ("realbuildingPlots", "realagriculturalPlots"):
-            for p in details.get(key, []):
-                obj_id = ensure_object(norm(p), key.startswith("realbuilding"))
-                if obj_id: 
+            plots_list = details.get(key, [])
+            for p in plots_list:
+                plot_num = norm(p)
+                obj_id = ensure_object(plot_num, key.startswith("realbuilding"))
+                if obj_id:
                     add_link(owner_id, obj_id, "własność rzeczywista")
-                
+
         # Własność z protokołu
         for key in ("buildingPlots", "agriculturalPlots"):
             for p in details.get(key, []):
                 obj_id = ensure_object(norm(p), key.startswith("building"))
-                if obj_id: 
+                if obj_id:
                     add_link(owner_id, obj_id, "własność z protokołu")
     
     # Wstaw powiązania
