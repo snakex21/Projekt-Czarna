@@ -115,11 +115,16 @@ function initializeMap() {
         [calibration.ne.lat + padding, calibration.ne.lng + padding]
     );
 
+    /* Renderer Canvas dla lepszej wydajności przy wielu obiektach */
+    const canvasRenderer = L.canvas({ padding: 0.5, tolerance: 10 });
+    
     map = L.map("map", {
         layers: [satelliteLayer, historicalMapOverlay, geojsonLayer],
         maxBounds: maxBounds,
         minZoom: 12,
-        maxZoom: 18
+        maxZoom: 18,
+        preferCanvas: true,
+        renderer: canvasRenderer
     }).setView([defaults.center.lat, defaults.center.lng], defaults.zoom);
 
     /* Kontroler warstw */
@@ -139,15 +144,42 @@ function initializeMap() {
         collapsed: true
     }).addTo(map);
 
-    /* Wyświetlanie współrzędnych kursora */
+    /* Wyświetlanie współrzędnych kursora z debouncingiem */
+    let coordsUpdateTimeout;
     map.on("mousemove", (e) => {
-        const coordsDiv = document.getElementById("mouse-coordinates");
-        if (coordsDiv) {
-            coordsDiv.innerHTML = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
-        }
+        if (coordsUpdateTimeout) clearTimeout(coordsUpdateTimeout);
+        coordsUpdateTimeout = setTimeout(() => {
+            const coordsDiv = document.getElementById("mouse-coordinates");
+            if (coordsDiv) {
+                coordsDiv.innerHTML = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+            }
+        }, 50);
     });
 
-    console.log("✅ Mapa zainicjalizowana");
+    /* Optymalizacja panning i zooming - throttling aktualizacji */
+    let moveEndTimeout;
+    map.on('movestart', () => {
+        /* Schowaj tooltips podczas ruchu dla lepszej wydajności */
+        if (geojsonLayer) {
+            geojsonLayer.eachLayer(layer => {
+                if (layer.closeTooltip) layer.closeTooltip();
+            });
+        }
+    });
+    
+    map.on('moveend', () => {
+        /* Throttling - aktualizuj po zakończeniu ruchu */
+        if (moveEndTimeout) clearTimeout(moveEndTimeout);
+        moveEndTimeout = setTimeout(() => {
+            if (map.getZoom() >= 16 && geojsonLayer) {
+                geojsonLayer.eachLayer(layer => {
+                    if (layer._updateLabel) layer._updateLabel();
+                });
+            }
+        }, 100);
+    });
+
+    console.log("✅ Mapa zainicjalizowana z optymalizacjami wydajności");
 }
 
 /* ==========================================================================
@@ -246,7 +278,14 @@ function renderMapObjects(parcels) {
         console.error("❌ Brak danych obiektów do narysowania.");
         return;
     }
-    console.log(`🗺️ Rysowanie ${parcels.length} obiektów...`);
+    
+    const parcelCount = parcels.length;
+    console.log(`🗺️ Rysowanie ${parcelCount} obiektów...`);
+    
+    /* Informacja o optymalizacjach dla dużych zbiorów */
+    if (parcelCount > 500) {
+        console.log(`⚡ Włączono optymalizacje wydajności dla ${parcelCount} obiektów`);
+    }
 
     /* Definicje stylów dla kategorii */
     const STYLES = {
@@ -290,8 +329,12 @@ function renderMapObjects(parcels) {
         map.removeLayer(geojsonLayer);
     }
 
+    /* Renderer Canvas dla lepszej wydajności */
+    const canvasRenderer = L.canvas({ padding: 0.5, tolerance: 10 });
+    
     /* Tworzenie warstwy GeoJSON */
     geojsonLayer = L.geoJSON(parcels, {
+        renderer: canvasRenderer,
         style: (feature) => STYLES[feature.properties.kategoria] || STYLES.default,
         
         pointToLayer: (feature, latlng) =>
@@ -307,28 +350,50 @@ function renderMapObjects(parcels) {
             }
             layersByCategory[kategoria].push(layer);
 
-            /* Konfiguracja popup */
-            const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
-            let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
-            if (props.wlasciciele?.length > 0) {
-                popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
-            }
-            layer.bindPopup(popupContent);
-
-            /* Dodawanie etykiet do obiektów niepunktowych */
+            /* Dodawanie etykiet do obiektów niepunktowych - tylko przy odpowiednim zoomie */
             if (props.numer_obiektu && feature.geometry.type !== 'Point') {
+                const shouldShowLabel = () => map.getZoom() >= 16;
+                
                 layer.bindTooltip(props.numer_obiektu.toString(), {
-                    permanent: true,
+                    permanent: false,
                     direction: 'center',
-                    className: 'parcel-label'
+                    className: 'parcel-label',
+                    opacity: 0.9
                 });
+                
+                /* Pokaż etykietę tylko przy wysokim zoomie - z optymalizacją */
+                let labelUpdateFrame = null;
+                const updateLabel = () => {
+                    if (labelUpdateFrame) cancelAnimationFrame(labelUpdateFrame);
+                    labelUpdateFrame = requestAnimationFrame(() => {
+                        if (shouldShowLabel() && !layer.isPopupOpen()) {
+                            layer.openTooltip();
+                        } else if (!shouldShowLabel()) {
+                            layer.closeTooltip();
+                        }
+                    });
+                };
+                
+                map.on('zoomend', updateLabel);
+                layer._updateLabel = updateLabel;
             }
 
             /* Zdarzenia interakcji */
             layer.on({
                 mouseover: (e) => handleFeatureMouseover(e, feature),
                 mouseout: (e) => handleFeatureMouseout(e),
-                click: (e) => handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng)
+                click: (e) => {
+                    /* Lazy loading popup dla wydajności */
+                    if (!e.target.getPopup()) {
+                        const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
+                        let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
+                        if (props.wlasciciele?.length > 0) {
+                            popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
+                        }
+                        e.target.bindPopup(popupContent).openPopup();
+                    }
+                    handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng);
+                }
             });
         },
     }).addTo(map);
@@ -1147,8 +1212,20 @@ function setupUniversalSearch() {
    OBSŁUGA ZDARZEŃ MAPY
    ========================================================================== */
 
+/* Cache dla elementów DOM w celu optymalizacji */
+let domElementCache = new Map();
+let mouseoverDebounceTimeout = null;
+
 /**
- * Obsługuje najechanie kursorem na obiekt mapy.
+ * Czyści cache DOM - wywołaj po modyfikacjach struktury
+ */
+function clearDOMCache() {
+    domElementCache.clear();
+    console.log("🗑️ Cache DOM wyczyszczony");
+}
+
+/**
+ * Obsługuje najechanie kursorem na obiekt mapy z debouncingiem.
  * @param {Event} e - Zdarzenie najechania
  * @param {Object} feature - Obiekt GeoJSON
  */
@@ -1157,39 +1234,64 @@ function handleFeatureMouseover(e, feature) {
         e.target.setStyle({ weight: 5, color: "red" });
     }
 
-    /* Podświetlenie w panelu działek */
-    const parcelButton = document.querySelector(`.parcelButton[data-feature-id="${feature.id}"]`);
-    if (parcelButton) {
-        parcelButton.classList.add("highlighted-by-map");
-        checkElementVisibility(parcelButton);
-    }
-
-    /* Podświetlenie właścicieli */
-    const props = feature.properties;
-    const realOwners = (props.wlasciciele || []).filter(owner => {
-        const ownerData = allOwnersData.find(o => o.id === owner.id);
-        return ownerData && (ownerData.dzialki_rzeczywiste || []).some(
-            dzialka => dzialka.id === feature.id
-        );
-    });
-
-    realOwners.forEach(owner => {
-        const ownerTile = document.querySelector(`.ownerIcon[data-owner-key="${owner.unikalny_klucz}"]`);
-        if (ownerTile) {
-            ownerTile.classList.add("highlighted-by-map");
+    /* Debouncing dla operacji DOM */
+    if (mouseoverDebounceTimeout) clearTimeout(mouseoverDebounceTimeout);
+    mouseoverDebounceTimeout = setTimeout(() => {
+        /* Podświetlenie w panelu działek z cache */
+        const cacheKey = `parcel-${feature.id}`;
+        let parcelButton = domElementCache.get(cacheKey);
+        if (!parcelButton) {
+            parcelButton = document.querySelector(`.parcelButton[data-feature-id="${feature.id}"]`);
+            if (parcelButton) domElementCache.set(cacheKey, parcelButton);
         }
-    });
+        
+        if (parcelButton) {
+            parcelButton.classList.add("highlighted-by-map");
+            checkElementVisibility(parcelButton);
+        }
+
+        /* Podświetlenie właścicieli - tylko przy niskim zoomie */
+        if (map.getZoom() < 17) {
+            const props = feature.properties;
+            const realOwners = (props.wlasciciele || []).filter(owner => {
+                const ownerData = allOwnersData.find(o => o.id === owner.id);
+                return ownerData && (ownerData.dzialki_rzeczywiste || []).some(
+                    dzialka => dzialka.id === feature.id
+                );
+            });
+
+            realOwners.forEach(owner => {
+                const ownerCacheKey = `owner-${owner.unikalny_klucz}`;
+                let ownerTile = domElementCache.get(ownerCacheKey);
+                if (!ownerTile) {
+                    ownerTile = document.querySelector(`.ownerIcon[data-owner-key="${owner.unikalny_klucz}"]`);
+                    if (ownerTile) domElementCache.set(ownerCacheKey, ownerTile);
+                }
+                if (ownerTile) {
+                    ownerTile.classList.add("highlighted-by-map");
+                }
+            });
+        }
+    }, 30);
 }
 
 /**
- * Obsługuje zjechanie kursorem z obiektu mapy.
+ * Obsługuje zjechanie kursorem z obiektu mapy (zoptymalizowane).
  * @param {Event} e - Zdarzenie zjechania
  */
 function handleFeatureMouseout(e) {
+    /* Anuluj oczekujące operacje mouseover */
+    if (mouseoverDebounceTimeout) {
+        clearTimeout(mouseoverDebounceTimeout);
+        mouseoverDebounceTimeout = null;
+    }
+    
     geojsonLayer.resetStyle(e.target);
 
-    const parcelButton = document.querySelector('.parcelButton.highlighted-by-map');
-    if (parcelButton) {
+    /* Szybsze usuwanie klas bez querySelector */
+    const parcelButtons = document.getElementsByClassName('parcelButton highlighted-by-map');
+    if (parcelButtons.length > 0) {
+        const parcelButton = parcelButtons[0];
         parcelButton.classList.remove("highlighted-by-map");
         const container = parcelButton.closest('.tab-content-right');
         if (container) {
@@ -1197,7 +1299,9 @@ function handleFeatureMouseout(e) {
         }
     }
 
-    document.querySelectorAll(".ownerIcon.highlighted-by-map").forEach(tile => {
+    /* Szybsze usuwanie klas */
+    const ownerTiles = document.getElementsByClassName('ownerIcon highlighted-by-map');
+    Array.from(ownerTiles).forEach(tile => {
         tile.classList.remove("highlighted-by-map");
     });
 }
