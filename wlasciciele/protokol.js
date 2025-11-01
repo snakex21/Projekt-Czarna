@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             acc[k] = (acc[k] || 0) + 1;
             return acc;
         }, {});
-        
+
         summaryDiv.textContent = `(w tym: ${Object.entries(categoryCounts)
             .map(([k, c]) => `${c} ${k}`).join(', ')})`;
         
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             (acc[k] = acc[k] || []).push(p);
             return acc;
         }, {});
-        
+
         detailsDiv.innerHTML = Object.entries(plotsByCat).map(([k, list]) => `
             <div class="plot-category-block">
                 <h4>${k.charAt(0).toUpperCase() + k.slice(1)} (${list.length}):</h4>
@@ -347,21 +347,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Przycisk domu na mapie
         showHouseOnMapBtn.addEventListener('click', () => {
-            if (!ownerData) return;
-            
+            if (!ownerData || !ownerData.dom_obiekt_id) return;
+
             const mapUrl = '../mapa/mapa.html';
-            const allIds = [ownerData.dom_obiekt_id];
-            
-            // Dodanie wszystkich działek
-            if (ownerData.dzialki_rzeczywiste) {
-                allIds.push(...ownerData.dzialki_rzeczywiste.map(p => p.id));
-            }
-            if (ownerData.dzialki_protokol) {
-                allIds.push(...ownerData.dzialki_protokol.map(p => p.id));
-            }
-            
-            const uniqueIds = [...new Set(allIds)].join(',');
-            window.location.href = `${mapUrl}?highlightByIds=${uniqueIds}`;
+            // Pokazujemy TYLKO dom, bez działek, i zoomujemy na nim
+            window.location.href = `${mapUrl}?highlightByIds=${ownerData.dom_obiekt_id}&zoomToFit=true`;
         });
         
         // Przełącznik widoków działek
