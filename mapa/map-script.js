@@ -258,7 +258,7 @@ function renderMapObjects(parcels) {
             fillColor: "#1abc9c",
             fillOpacity: 0.5,
         },
-        droga: { color: "#8e44ad", weight: 3 },
+        droga: { color: "#8B4513", weight: 3 },
         rzeka: { color: "#3498db", weight: 4 },
         pastwisko: {
             color: "#f1c40f",
@@ -691,18 +691,70 @@ function setupParcelPanel() {
         const item = document.createElement("div");
         item.className = "parcel-item";
         item.innerHTML = `
-            <span class="parcel-number">${parcel.properties.numer_obiektu}</span>
-            <span class="parcel-category filter-badge ${parcel.properties.kategoria}">
-                ${parcel.properties.kategoria}
-            </span>
+            <div class="parcel-info">
+                <span class="parcel-number">${parcel.properties.numer_obiektu}</span>
+                <span class="parcel-category filter-badge ${parcel.properties.kategoria}">
+                    ${parcel.properties.kategoria}
+                </span>
+            </div>
+            <button class="parcel-show-btn" title="Pokaż na mapie">
+                <i class="fas fa-crosshairs"></i>
+            </button>
         `;
         item.dataset.featureId = parcel.id;
+
+        /* Przycisk "Pokaż na mapie" */
+        const showBtn = item.querySelector('.parcel-show-btn');
+        showBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const layer = findLayerById(parcel.id);
+            if (layer) {
+                if (layer.getBounds) {
+                    map.fitBounds(layer.getBounds(), { maxZoom: 18 });
+                } else if (layer.getLatLng) {
+                    map.setView(layer.getLatLng(), 18);
+                }
+                if (layer.openPopup) {
+                    layer.openPopup();
+                }
+            }
+        });
+
         return item;
     };
 
     /* Konfiguracja listenerów */
     if (searchInput) {
-        searchInput.addEventListener("input", render);
+        searchInput.addEventListener("input", () => {
+            // Sprawdź która zakładka jest aktywna
+            const activeTab = document.querySelector('.tab-btn.active');
+            const activeTabType = activeTab?.dataset.tab;
+
+            if (activeTabType === 'special') {
+                // Dla zakładki specjalnej używaj dedykowanej funkcji
+                renderSpecialObjects(searchInput.value);
+
+                // Podświetl na mapie dokładne dopasowania
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                if (searchTerm.length > 0) {
+                    const exactMatches = allParcelsData.filter(p => {
+                        const kategoria = p.properties.kategoria;
+                        const isSpecial = ['kapliczka', 'budynek', 'obiekt_specjalny'].includes(kategoria);
+                        const numer = (p.properties.numer_obiektu || '').toLowerCase();
+                        return isSpecial && numer === searchTerm;
+                    });
+                    exactMatches.forEach(p => findAndHighlightLayer(p.id, true, "orange"));
+                } else {
+                    // Wyczyść podświetlenia gdy puste
+                    if (geojsonLayer) {
+                        geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
+                    }
+                }
+            } else {
+                // Dla innych zakładek standardowy render
+                render();
+            }
+        });
     }
     
     /* Obsługa zakładek */
@@ -710,16 +762,34 @@ function setupParcelPanel() {
         tab.addEventListener("click", () => {
             tabs.forEach(t => t.classList.remove("active"));
             document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-            
+
             tab.classList.add("active");
             const tabId = tab.dataset.tab + '-tab';
             const tabContent = document.getElementById(tabId);
             if (tabContent) {
                 tabContent.classList.add("active");
             }
-            
+
+            /* Ukryj/pokaż filtry kategorii tylko dla zakładki działek */
             if (categoryFilters) {
                 categoryFilters.style.display = tab.dataset.tab === 'parcels' ? 'flex' : 'none';
+            }
+
+            /* Wyczyść wyszukiwanie przy zmianie zakładki */
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
+            /* Wyczyść podświetlenia na mapie */
+            if (geojsonLayer) {
+                geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
+            }
+
+            /* Odśwież zakładkę specjalną jeśli została wybrana */
+            if (tab.dataset.tab === 'special') {
+                renderSpecialObjects('');
+            } else {
+                render();
             }
         });
     });
@@ -739,37 +809,61 @@ function setupParcelPanel() {
 
 /**
  * Renderuje sekcję obiektów specjalnych (kapliczki, domy, inne).
+ * @param {string} searchTerm - Fraza wyszukiwania (opcjonalna)
  */
-function renderSpecialObjects() {
+function renderSpecialObjects(searchTerm = '') {
     const specialTab = document.getElementById('special-tab');
     const specialContainer = specialTab?.querySelector('.special-objects-list');
-    
+
     if (!specialContainer) return;
-    
+
     specialContainer.innerHTML = '';
-    
+
+    const normalizedSearch = searchTerm.toLowerCase().trim();
+
     /* Kategorie obiektów specjalnych */
     const specialCategories = {
         'kapliczka': { icon: '⛪', label: 'Kapliczki', items: [] },
         'budynek': { icon: '🏠', label: 'Domy', items: [] },
         'obiekt_specjalny': { icon: '⭐', label: 'Obiekty specjalne', items: [] }
     };
-    
-    /* Grupowanie obiektów */
+
+    /* Grupowanie obiektów z filtrowaniem */
     allParcelsData.forEach(feature => {
         const kategoria = feature.properties.kategoria;
         if (specialCategories[kategoria]) {
-            specialCategories[kategoria].items.push(feature);
+            const numer = (feature.properties.numer_obiektu || '').toLowerCase();
+            const wlasciciele = (feature.properties.wlasciciele || [])
+                .map(w => w.nazwa.toLowerCase())
+                .join(' ');
+
+            // Filtruj jeśli jest wyszukiwanie
+            if (normalizedSearch === '' ||
+                numer.includes(normalizedSearch) ||
+                wlasciciele.includes(normalizedSearch)) {
+                specialCategories[kategoria].items.push(feature);
+            }
         }
     });
-    
+
     /* Renderowanie sekcji */
     Object.entries(specialCategories).forEach(([key, category]) => {
         if (category.items.length === 0) return;
-        
+
         const section = createSpecialCategorySection(category);
         specialContainer.appendChild(section);
     });
+
+    /* Komunikat gdy brak wyników */
+    const totalResults = Object.values(specialCategories).reduce((sum, cat) => sum + cat.items.length, 0);
+    if (totalResults === 0 && normalizedSearch !== '') {
+        specialContainer.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                <p>Nie znaleziono obiektów dla: "${searchTerm}"</p>
+            </div>
+        `;
+    }
 }
 
 /* ==========================================================================
@@ -797,7 +891,7 @@ function setupLegend() {
         budowlana: { color: "#e67e22" },
         rolna: { color: "#27ae60" },
         las: { fillColor: "#1abc9c" },
-        droga: { color: "#8e44ad" },
+        droga: { color: "#8B4513" },
         rzeka: { color: "#3498db" },
         budynek: { color: "#333" },
         kapliczka: { color: "#c0392b" },
@@ -1198,7 +1292,21 @@ function highlightFeaturesByIds(featureIds, color) {
 
     if (highlightedLayer.getLayers().length > 0) {
         highlightedLayer.addTo(map);
-        map.fitBounds(highlightedLayer.getBounds());
+
+        /* Sprawdź czy jest parametr zoom w URL */
+        const params = new URLSearchParams(window.location.search);
+        const customZoom = params.get('zoom');
+
+        if (customZoom) {
+            /* Użyj customowego zoom */
+            const bounds = highlightedLayer.getBounds();
+            const center = bounds.getCenter();
+            map.setView(center, parseInt(customZoom));
+        } else {
+            /* Domyślne fitBounds */
+            map.fitBounds(highlightedLayer.getBounds());
+        }
+
         document.getElementById("highlight-controls").classList.remove("hidden");
     }
 

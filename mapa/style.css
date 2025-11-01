@@ -596,6 +596,37 @@ html, body {
     font-weight: 600;
 }
 
+.parcel-info {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 1;
+}
+
+.parcel-show-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.parcel-show-btn:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.parcel-show-btn i {
+    font-size: 14px;
+}
+
 /* Obiekty specjalne */
 .special-category-section {
     margin-bottom: 20px;
