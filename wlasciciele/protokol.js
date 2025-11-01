@@ -257,11 +257,14 @@ document.addEventListener('DOMContentLoaded', () => {
             containerId === 'rzeczywistePlots' ? 'rzeczywiste-details' : 'protokol-details'
         );
         
+        // Filtrowanie działek - ukrywamy budynki w widoku protokołu właściciela
+        const filteredPlots = plots.filter(p => p.kategoria !== 'budynek' && p.kategoria !== 'dom');
+        
         // Lista numerów działek
-        numbersDiv.innerHTML = plots.map(p => generateFractionHTML(p.nazwa_lub_numer)).join(', ');
+        numbersDiv.innerHTML = filteredPlots.map(p => generateFractionHTML(p.nazwa_lub_numer)).join(', ');
         
         // Podsumowanie kategorii
-        const categoryCounts = plots.reduce((acc, p) => {
+        const categoryCounts = filteredPlots.reduce((acc, p) => {
             const k = p.kategoria || 'nieznana';
             acc[k] = (acc[k] || 0) + 1;
             return acc;
@@ -271,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .map(([k, c]) => `${c} ${k}`).join(', ')})`;
         
         // Szczegółowy podział
-        const plotsByCat = plots.reduce((acc, p) => {
+        const plotsByCat = filteredPlots.reduce((acc, p) => {
             const k = p.kategoria || 'nieznana';
             (acc[k] = acc[k] || []).push(p);
             return acc;
