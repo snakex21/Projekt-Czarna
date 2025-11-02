@@ -538,17 +538,32 @@ def get_stats():
         WHERE geometria IS NOT NULL;
     """)
     area_stats_raw = cur.fetchone()
-    area_stats = {
-        'total_plots_with_geometry': area_stats_raw['total_plots_with_geometry'],
-        'total_area_m2': float(area_stats_raw['total_area_m2']),
-        'total_area_ha': float(area_stats_raw['total_area_m2']) / 10000,
-        'total_area_ares': float(area_stats_raw['total_area_m2']) / 100,
-        'avg_area_m2': float(area_stats_raw['avg_area_m2']),
-        'avg_area_ha': float(area_stats_raw['avg_area_m2']) / 10000,
-        'avg_area_ares': float(area_stats_raw['avg_area_m2']) / 100,
-        'min_area_m2': float(area_stats_raw['min_area_m2']),
-        'max_area_m2': float(area_stats_raw['max_area_m2'])
-    }
+    
+    # Obsługa przypadku gdy nie ma żadnych geometrii
+    if area_stats_raw and area_stats_raw['total_plots_with_geometry'] > 0:
+        area_stats = {
+            'total_plots_with_geometry': area_stats_raw['total_plots_with_geometry'],
+            'total_area_m2': float(area_stats_raw['total_area_m2'] or 0),
+            'total_area_ha': float(area_stats_raw['total_area_m2'] or 0) / 10000,
+            'total_area_ares': float(area_stats_raw['total_area_m2'] or 0) / 100,
+            'avg_area_m2': float(area_stats_raw['avg_area_m2'] or 0),
+            'avg_area_ha': float(area_stats_raw['avg_area_m2'] or 0) / 10000,
+            'avg_area_ares': float(area_stats_raw['avg_area_m2'] or 0) / 100,
+            'min_area_m2': float(area_stats_raw['min_area_m2'] or 0),
+            'max_area_m2': float(area_stats_raw['max_area_m2'] or 0)
+        }
+    else:
+        area_stats = {
+            'total_plots_with_geometry': 0,
+            'total_area_m2': 0.0,
+            'total_area_ha': 0.0,
+            'total_area_ares': 0.0,
+            'avg_area_m2': 0.0,
+            'avg_area_ha': 0.0,
+            'avg_area_ares': 0.0,
+            'min_area_m2': 0.0,
+            'max_area_m2': 0.0
+        }
 
     # ——— Ranking działek według powierzchni
     def get_parcels_ranking(category=None):
@@ -591,12 +606,21 @@ def get_stats():
         WHERE kategoria = 'rzeka' AND geometria IS NOT NULL;
     """)
     rivers_stats_raw = cur.fetchone()
-    rivers_stats = {
-        'total_count': rivers_stats_raw['total_count'],
-        'max_length_m': float(rivers_stats_raw['max_length']),
-        'min_length_m': float(rivers_stats_raw['min_length']),
-        'avg_length_m': float(rivers_stats_raw['avg_length'])
-    }
+    
+    if rivers_stats_raw and rivers_stats_raw['total_count'] > 0:
+        rivers_stats = {
+            'total_count': rivers_stats_raw['total_count'],
+            'max_length_m': float(rivers_stats_raw['max_length'] or 0),
+            'min_length_m': float(rivers_stats_raw['min_length'] or 0),
+            'avg_length_m': float(rivers_stats_raw['avg_length'] or 0)
+        }
+    else:
+        rivers_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'min_length_m': 0.0,
+            'avg_length_m': 0.0
+        }
     
     # Ranking rzek
     cur.execute("""
@@ -621,12 +645,21 @@ def get_stats():
         WHERE kategoria = 'droga' AND geometria IS NOT NULL;
     """)
     roads_stats_raw = cur.fetchone()
-    roads_stats = {
-        'total_count': roads_stats_raw['total_count'],
-        'max_length_m': float(roads_stats_raw['max_length']),
-        'min_length_m': float(roads_stats_raw['min_length']),
-        'avg_length_m': float(roads_stats_raw['avg_length'])
-    }
+    
+    if roads_stats_raw and roads_stats_raw['total_count'] > 0:
+        roads_stats = {
+            'total_count': roads_stats_raw['total_count'],
+            'max_length_m': float(roads_stats_raw['max_length'] or 0),
+            'min_length_m': float(roads_stats_raw['min_length'] or 0),
+            'avg_length_m': float(roads_stats_raw['avg_length'] or 0)
+        }
+    else:
+        roads_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'min_length_m': 0.0,
+            'avg_length_m': 0.0
+        }
     
     # Ranking dróg
     cur.execute("""
