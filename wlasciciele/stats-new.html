@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centrum Analityczne | Gmina Czarna 1880</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="stats-style-new.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/vis-network@9.1.6/dist/vis-network.min.js"></script>
+</head>
+<body>
+    <!-- Nagłówek -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-brand">
+                <i class="fas fa-chart-line"></i>
+                <div>
+                    <h1>Centrum Analityczne</h1>
+                    <p>Gmina Czarna • Spis 1880</p>
+                </div>
+            </div>
+            <nav class="header-nav">
+                <a href="../index.html" class="nav-btn">
+                    <i class="fas fa-home"></i>
+                    <span>Strona główna</span>
+                </a>
+                <a href="mapa.html" class="nav-btn">
+                    <i class="fas fa-map"></i>
+                    <span>Mapa</span>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Główny kontener -->
+    <main class="main-container">
+        
+        <!-- Nawigacja zakładek -->
+        <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="overview">
+                <i class="fas fa-chart-pie"></i>
+                <span>Przegląd</span>
+            </button>
+            <button class="tab-btn" data-tab="rankings">
+                <i class="fas fa-trophy"></i>
+                <span>Rankingi</span>
+            </button>
+            <button class="tab-btn" data-tab="timeline">
+                <i class="fas fa-clock"></i>
+                <span>Oś czasu</span>
+            </button>
+            <button class="tab-btn" data-tab="demographics">
+                <i class="fas fa-users"></i>
+                <span>Demografia</span>
+            </button>
+            <button class="tab-btn" data-tab="genealogy">
+                <i class="fas fa-sitemap"></i>
+                <span>Genealogia</span>
+            </button>
+        </div>
+
+        <!-- Zakładka: Przegląd -->
+        <div class="tab-content active" id="overview">
+            <div class="content-wrapper">
+                
+                <!-- Hero stats -->
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="total-owners">0</span>
+                            <span class="stat-label">Właścicieli</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-th"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="total-plots">0</span>
+                            <span class="stat-label">Działek</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-map-marked-alt"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="total-area">0</span>
+                            <span class="stat-label">Łączna powierzchnia</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wykresy -->
+                <div class="charts-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-pie"></i> Struktura własności</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="ownershipChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-chart-bar"></i> TOP 10 Właścicieli</h3>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="top10Chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statystyki powierzchni -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-ruler-combined"></i> Powierzchnia działek</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <i class="fas fa-map stat-icon-small green"></i>
+                                <div>
+                                    <span class="stat-label-small">Łącznie</span>
+                                    <span class="stat-value-small" id="area-total">0 ha</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-chart-area stat-icon-small blue"></i>
+                                <div>
+                                    <span class="stat-label-small">Średnia</span>
+                                    <span class="stat-value-small" id="area-avg">0 arów</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-compress-arrows-alt stat-icon-small orange"></i>
+                                <div>
+                                    <span class="stat-label-small">Najmniejsza</span>
+                                    <span class="stat-value-small" id="area-min">0 m²</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-expand-arrows-alt stat-icon-small purple"></i>
+                                <div>
+                                    <span class="stat-label-small">Największa</span>
+                                    <span class="stat-value-small" id="area-max">0 ha</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rzeki i drogi -->
+                <div class="two-col-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-water"></i> Rzeki</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="stats-list">
+                                <div class="stat-row-item">
+                                    <span>Liczba rzek</span>
+                                    <strong id="rivers-count">0</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Najdłuższa</span>
+                                    <strong id="rivers-max">0 m</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Średnia długość</span>
+                                    <strong id="rivers-avg">0 m</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Najkrótsza</span>
+                                    <strong id="rivers-min">0 m</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-road"></i> Drogi</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="stats-list">
+                                <div class="stat-row-item">
+                                    <span>Liczba dróg</span>
+                                    <strong id="roads-count">0</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Najdłuższa</span>
+                                    <strong id="roads-max">0 m</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Średnia długość</span>
+                                    <strong id="roads-avg">0 m</strong>
+                                </div>
+                                <div class="stat-row-item">
+                                    <span>Najkrótsza</span>
+                                    <strong id="roads-min">0 m</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kategorie obiektów -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-layer-group"></i> Obiekty</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <i class="fas fa-home stat-icon-small orange"></i>
+                                <div>
+                                    <span class="stat-label-small">Budynki</span>
+                                    <span class="stat-value-small" id="obj-buildings">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-church stat-icon-small purple"></i>
+                                <div>
+                                    <span class="stat-label-small">Kapliczki</span>
+                                    <span class="stat-value-small" id="obj-chapels">0</span>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-cube stat-icon-small blue"></i>
+                                <div>
+                                    <span class="stat-label-small">Obiekty specjalne</span>
+                                    <span class="stat-value-small" id="obj-special">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kalendarz aktywności -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-calendar-alt"></i> Kalendarz aktywności</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="activity-calendar"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Zakładka: Rankingi -->
+        <div class="tab-content" id="rankings">
+            <div class="content-wrapper">
+                
+                <!-- Filtry -->
+                <div class="filters-bar">
+                    <div class="filter-group">
+                        <label>Typ własności</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="ownership" value="real" checked>
+                                <span>Rzeczywista</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="ownership" value="protocol">
+                                <span>Protokół</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sortowanie</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="sort" value="count" checked>
+                                <span>Liczba działek</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="sort" value="area">
+                                <span>Powierzchnia</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>Kategoria</label>
+                        <select id="category-filter" class="select-input">
+                            <option value="all">Wszystkie</option>
+                            <option value="rolna">Rolne</option>
+                            <option value="budowlana">Budowlane</option>
+                            <option value="las">Lasy</option>
+                            <option value="pastwisko">Pastwiska</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Ranking właścicieli -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-trophy"></i> Ranking właścicieli</h3>
+                        <button class="btn-secondary" id="show-on-map">
+                            <i class="fas fa-map-marked-alt"></i>
+                            Pokaż TOP 10 na mapie
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="ranking-list" id="owners-ranking"></div>
+                    </div>
+                </div>
+
+                <!-- Ranking działek -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-bar"></i> TOP 50 Największych działek</h3>
+                        <select id="parcels-category-filter" class="select-input">
+                            <option value="all">Wszystkie</option>
+                            <option value="rolna">Rolne</option>
+                            <option value="budowlana">Budowlane</option>
+                            <option value="las">Lasy</option>
+                            <option value="pastwisko">Pastwiska</option>
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        <div class="ranking-list" id="parcels-ranking"></div>
+                    </div>
+                </div>
+
+                <!-- Rankingi rzek i dróg -->
+                <div class="two-col-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-water"></i> TOP 20 Rzek</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="ranking-list compact" id="rivers-ranking"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-road"></i> TOP 20 Dróg</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="ranking-list compact" id="roads-ranking"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Zakładka: Oś czasu -->
+        <div class="tab-content" id="timeline">
+            <div class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-history"></i> Chronologia protokołów</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="timeline-container" id="timeline-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zakładka: Demografia -->
+        <div class="tab-content" id="demographics">
+            <div class="content-wrapper">
+                
+                <!-- Podsumowanie demograficzne -->
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="demo-population">0</span>
+                            <span class="stat-label">Ludność</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-baby"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="demo-births">0</span>
+                            <span class="stat-label">Urodzenia</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-cross"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="demo-deaths">0</span>
+                            <span class="stat-label">Zgony</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-ring"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="demo-marriages">0</span>
+                            <span class="stat-label">Śluby</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wykres demograficzny -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-line"></i> Ruch naturalny</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="demographicsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Karty roczne -->
+                <div class="cards-grid" id="demo-cards"></div>
+
+            </div>
+        </div>
+
+        <!-- Zakładka: Genealogia -->
+        <div class="tab-content" id="genealogy">
+            <div class="content-wrapper">
+                
+                <!-- Wskaźniki genealogiczne -->
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="gen-people">0</span>
+                            <span class="stat-label">Osoby</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-male"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="gen-men">0</span>
+                            <span class="stat-label">Mężczyźni</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-female"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-value" id="gen-women">0</span>
+                            <span class="stat-label">Kobiety</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wykresy i ranking -->
+                <div class="two-col-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-birthday-cake"></i> Ruch naturalny wg dekad</h3>
+                            <div class="segmented-control" id="gen-series-toggle">
+                                <label class="segment-label">
+                                    <input type="radio" name="gen-series" value="births" checked>
+                                    <span><i class="fas fa-baby"></i></span>
+                                </label>
+                                <label class="segment-label">
+                                    <input type="radio" name="gen-series" value="deaths">
+                                    <span><i class="fas fa-cross"></i></span>
+                                </label>
+                                <label class="segment-label">
+                                    <input type="radio" name="gen-series" value="marriages">
+                                    <span><i class="fas fa-ring"></i></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="genealogyChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3><i class="fas fa-signature"></i> TOP 10 Nazwisk</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="ranking-list compact" id="surnames-ranking"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>&copy; 2024 Gmina Czarna • Spis 1880 • Cyfrowy Rejestr Katastralny</p>
+            <div class="footer-links">
+                <a href="#"><i class="fas fa-info-circle"></i> O projekcie</a>
+                <a href="#"><i class="fas fa-envelope"></i> Kontakt</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="stats-script-new.js"></script>
+</body>
+</html>
