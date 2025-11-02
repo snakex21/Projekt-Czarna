@@ -460,13 +460,6 @@ body {
   display: block;
 }
 
-/* Zapewnienie jednolitej szerokości wszystkich zakładek */
-.tab-panel > * {
-  max-width: 1400px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -479,6 +472,9 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 1.5rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .dashboard-card {
@@ -599,6 +595,9 @@ body {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .rankings-filters {
@@ -788,6 +787,9 @@ select {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .timeline {
@@ -1177,6 +1179,9 @@ kbd {
   border-radius: 16px;
   margin-bottom: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .demo-summary h3 {
@@ -1222,6 +1227,9 @@ kbd {
   box-shadow: 0 4px 20px var(--shadow);
   margin-bottom: 2rem;
   height: 400px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Timeline wydarzeń */
@@ -1231,6 +1239,9 @@ kbd {
   border-radius: 16px;
   box-shadow: 0 4px 20px var(--shadow);
   margin-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .demo-timeline h4 {
@@ -1313,6 +1324,9 @@ kbd {
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .demo-year-card {
@@ -1515,6 +1529,9 @@ kbd {
   padding: 2rem;
   border-radius: 16px;
   box-shadow: 0 4px 20px var(--shadow);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .demo-comparison h4 {
@@ -1750,6 +1767,9 @@ kbd {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .analysis-tools {
