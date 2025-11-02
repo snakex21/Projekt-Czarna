@@ -221,6 +221,134 @@ def get_all_wlasciciele():
     zakres = cur.fetchone()
     total_owners_count = len(wlasciciele)
 
+
+    # ——— NOWE STATYSTYKI: Własność ziemi, rankingi działek i rzek/dróg ———
+    
+    # 1. Całkowita powierzchnia ziemi według właściciela (w hektarach, arach, m²)
+    cur.execute("""
+        SELECT 
+            w.nazwa_wlasciciela,
+            w.unikalny_klucz,
+            w.numer_protokolu,
+            SUM(ST_Area(o.geometria::geography)) as total_area_sqm
+        FROM wlasciciele w
+        JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
+        JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
+        WHERE o.geometria IS NOT NULL 
+            AND o.kategoria IN ('rolna', 'budowlana', 'las', 'pastwisko')
+        GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
+        HAVING SUM(ST_Area(o.geometria::geography)) > 0
+        ORDER BY total_area_sqm DESC;
+    """)
+    land_ownership_raw = cur.fetchall()
+    
+    land_ownership = []
+    for owner in land_ownership_raw:
+        sqm = float(owner['total_area_sqm'])
+        hectares = sqm / 10000
+        ares = sqm / 100
+        land_ownership.append({
+            'nazwa_wlasciciela': owner['nazwa_wlasciciela'],
+            'unikalny_klucz': owner['unikalny_klucz'],
+            'numer_protokolu': owner['numer_protokolu'],
+            'area_sqm': round(sqm, 2),
+            'area_ares': round(ares, 2),
+            'area_hectares': round(hectares, 2)
+        })
+    
+    # 2. Rankingi działek (największe działki według powierzchni)
+    cur.execute("""
+        SELECT 
+            o.id,
+            o.nazwa_lub_numer,
+            o.kategoria,
+            ST_Area(o.geometria::geography) as area_sqm,
+            (
+                SELECT string_agg(w.nazwa_wlasciciela, ', ')
+                FROM wlasciciele w
+                JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
+                WHERE dw.obiekt_id = o.id
+                LIMIT 5
+            ) as owners
+        FROM obiekty_geograficzne o
+        WHERE o.geometria IS NOT NULL 
+            AND o.kategoria IN ('rolna', 'budowlana', 'las', 'pastwisko')
+            AND ST_Area(o.geometria::geography) > 0
+        ORDER BY area_sqm DESC
+        LIMIT 100;
+    """)
+    parcel_rankings_raw = cur.fetchall()
+    
+    parcel_rankings = []
+    for parcel in parcel_rankings_raw:
+        sqm = float(parcel['area_sqm'])
+        hectares = sqm / 10000
+        parcel_rankings.append({
+            'id': parcel['id'],
+            'numer': parcel['nazwa_lub_numer'],
+            'kategoria': parcel['kategoria'],
+            'wlasciciele': parcel['owners'] or 'Brak',
+            'area_sqm': round(sqm, 2),
+            'area_hectares': round(hectares, 2)
+        })
+    
+    # 3. Statystyki rzek i dróg (długości)
+    cur.execute("""
+        SELECT 
+            kategoria,
+            nazwa_lub_numer,
+            ST_Length(geometria::geography) as length_m
+        FROM obiekty_geograficzne
+        WHERE geometria IS NOT NULL 
+            AND kategoria IN ('rzeka', 'droga')
+            AND ST_Length(geometria::geography) > 0
+        ORDER BY length_m DESC;
+    """)
+    rivers_roads_raw = cur.fetchall()
+    
+    # Przetwarzanie statystyk rzek i dróg
+    rivers = [r for r in rivers_roads_raw if r['kategoria'] == 'rzeka']
+    roads = [r for r in rivers_roads_raw if r['kategoria'] == 'droga']
+    
+    def calc_stats(items):
+        if not items:
+            return {
+                'longest': None,
+                'shortest': None,
+                'average': 0,
+                'total_count': 0,
+                'items': []
+            }
+        lengths = [float(item['length_m']) for item in items]
+        return {
+            'longest': {
+                'nazwa': items[0]['nazwa_lub_numer'],
+                'length_m': round(float(items[0]['length_m']), 2),
+                'length_km': round(float(items[0]['length_m']) / 1000, 2)
+            },
+            'shortest': {
+                'nazwa': items[-1]['nazwa_lub_numer'],
+                'length_m': round(float(items[-1]['length_m']), 2),
+                'length_km': round(float(items[-1]['length_m']) / 1000, 2)
+            },
+            'average': round(sum(lengths) / len(lengths), 2),
+            'total_count': len(items),
+            'items': [
+                {
+                    'nazwa': item['nazwa_lub_numer'],
+                    'length_m': round(float(item['length_m']), 2),
+                    'length_km': round(float(item['length_m']) / 1000, 2)
+                }
+                for item in items[:20]  # Top 20
+            ]
+        }
+    
+    rivers_roads_stats = {
+        'rivers': calc_stats(rivers),
+        'roads': calc_stats(roads)
+    }
+
+
     cur.close()
     conn.close()
 
@@ -865,7 +993,10 @@ def get_stats():
         'rankings_protocol': rankings_protocol,
         'demografia': demografia_data,
         'category_counts': category_counts,
-        'genealogy_stats': genealogy_stats
+        'genealogy_stats': genealogy_stats,
+        'land_ownership': land_ownership,
+        'parcel_rankings': parcel_rankings,
+        'rivers_roads_stats': rivers_roads_stats
     })
 
 @app.route('/api/plots-for-owners', methods=['POST'])

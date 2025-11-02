@@ -287,6 +287,9 @@ async function loadStatistics() {
     renderActivityCalendar(statsData.protocols_per_day);
     loadGenealogyStats(statsData);
     loadInsights(statsData);
+    loadLandOwnership(statsData.land_ownership);
+    loadParcelRankings(statsData.parcel_rankings);
+    loadRiversRoadsStats(statsData.rivers_roads_stats);
 
   } catch (err) {
     console.error('Błąd ładowania statystyk:', err);
@@ -1745,4 +1748,173 @@ function initKeyboardShortcuts() {
       document.getElementById('search-bar')?.classList.remove('active');
     }
   });
+}
+/* ==========================================================================
+   NOWE STATYSTYKI: WŁASNOŚĆ ZIEMI, RANKINGI DZIAŁEK, RZEKI/DROGI
+   ========================================================================== */
+
+/**
+ * Ładuje i wyświetla statystyki własności ziemi (hektary, ary, m²).
+ * @param {Array} landOwnership - Dane o własności ziemi
+ */
+function loadLandOwnership(landOwnership) {
+  const container = document.getElementById('land-ownership-list');
+  if (!container || !landOwnership || landOwnership.length === 0) {
+    if (container) container.innerHTML = '<div class="no-results-message"><p>Brak danych o własności ziemi</p></div>';
+    return;
+  }
+
+  // Funkcja renderująca listę
+  function renderLandList(unit) {
+    const getAreaValue = (owner) => {
+      if (unit === 'hectares') return `${owner.area_hectares.toLocaleString('pl-PL')} ha`;
+      if (unit === 'ares') return `${owner.area_ares.toLocaleString('pl-PL')} a`;
+      return `${owner.area_sqm.toLocaleString('pl-PL')} m²`;
+    };
+
+    container.innerHTML = landOwnership.slice(0, 50).map((owner, i) => {
+      const pos = i + 1;
+      const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+      const prot = owner.numer_protokolu ?? 'Brak';
+      return `
+        <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
+          <div class="ranking-position ${cls}">${pos}</div>
+          <div class="ranking-info">
+            <div class="ranking-name">${owner.nazwa_wlasciciela}</div>
+            <div class="ranking-meta">Protokół nr ${prot}</div>
+          </div>
+          <div class="ranking-value">${getAreaValue(owner)}</div>
+        </a>`;
+    }).join('');
+  }
+
+  // Renderowanie początkowe (hektary)
+  renderLandList('hectares');
+
+  // Obsługa przełączania jednostek
+  document.querySelectorAll('input[name="land-units"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      renderLandList(e.target.value);
+    });
+  });
+}
+
+/**
+ * Ładuje i wyświetla rankingi największych działek.
+ * @param {Array} parcelRankings - Dane o największych działkach
+ */
+function loadParcelRankings(parcelRankings) {
+  const container = document.getElementById('parcel-rankings-list');
+  if (!container || !parcelRankings || parcelRankings.length === 0) {
+    if (container) container.innerHTML = '<div class="no-results-message"><p>Brak danych o działkach</p></div>';
+    return;
+  }
+
+  container.innerHTML = parcelRankings.slice(0, 50).map((parcel, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const kategoria = parcel.kategoria || 'nieznana';
+    const icon = {
+      'rolna': 'fa-seedling',
+      'budowlana': 'fa-building',
+      'las': 'fa-tree',
+      'pastwisko': 'fa-mountain'
+    }[kategoria] || 'fa-map-marker-alt';
+
+    return `
+      <div class="ranking-item">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">
+            <i class="fas ${icon}"></i> Działka ${parcel.numer}
+          </div>
+          <div class="ranking-meta">${parcel.wlasciciele}</div>
+        </div>
+        <div class="ranking-value">${parcel.area_hectares.toLocaleString('pl-PL')} ha</div>
+      </div>`;
+  }).join('');
+
+  // Obsługa eksportu
+  const exportBtn = document.getElementById('export-parcels');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      exportToExcel(parcelRankings, 'Ranking_Działek');
+      showToast('success', 'Eksport', 'Dane działek wyeksportowane do Excel');
+    });
+  }
+}
+
+/**
+ * Ładuje i wyświetla statystyki rzek i dróg.
+ * @param {Object} riversRoadsStats - Statystyki rzek i dróg
+ */
+function loadRiversRoadsStats(riversRoadsStats) {
+  if (!riversRoadsStats) return;
+
+  // Funkcja formatowania długości
+  const formatLength = (km) => km >= 1 ? `${km.toLocaleString('pl-PL')} km` : `${(km * 1000).toFixed(0)} m`;
+
+  // RZEKI
+  const rivers = riversRoadsStats.rivers || {};
+  if (rivers.longest) {
+    document.getElementById('stat-longest-river').textContent = 
+      `${rivers.longest.nazwa} (${formatLength(rivers.longest.length_km)})`;
+  }
+  if (rivers.shortest) {
+    document.getElementById('stat-shortest-river').textContent = 
+      `${rivers.shortest.nazwa} (${formatLength(rivers.shortest.length_km)})`;
+  }
+  if (rivers.average) {
+    const avgKm = rivers.average / 1000;
+    document.getElementById('stat-avg-river').textContent = formatLength(avgKm);
+  }
+  document.getElementById('stat-count-rivers').textContent = rivers.total_count || 0;
+
+  // Lista rzek
+  const riversList = document.getElementById('rivers-list');
+  if (riversList && rivers.items && rivers.items.length > 0) {
+    riversList.innerHTML = rivers.items.map((river, i) => `
+      <div class="ranking-item">
+        <div class="ranking-position">${i + 1}</div>
+        <div class="ranking-info">
+          <div class="ranking-name"><i class="fas fa-water"></i> ${river.nazwa}</div>
+        </div>
+        <div class="ranking-value">${formatLength(river.length_km)}</div>
+      </div>
+    `).join('');
+  } else if (riversList) {
+    riversList.innerHTML = '<div class="no-results-message"><p>Brak danych o rzekach</p></div>';
+  }
+
+  // DROGI
+  const roads = riversRoadsStats.roads || {};
+  if (roads.longest) {
+    document.getElementById('stat-longest-road').textContent = 
+      `${roads.longest.nazwa} (${formatLength(roads.longest.length_km)})`;
+  }
+  if (roads.shortest) {
+    document.getElementById('stat-shortest-road').textContent = 
+      `${roads.shortest.nazwa} (${formatLength(roads.shortest.length_km)})`;
+  }
+  if (roads.average) {
+    const avgKm = roads.average / 1000;
+    document.getElementById('stat-avg-road').textContent = formatLength(avgKm);
+  }
+  document.getElementById('stat-count-roads').textContent = roads.total_count || 0;
+
+  // Lista dróg
+  const roadsList = document.getElementById('roads-list');
+  if (roadsList && roads.items && roads.items.length > 0) {
+    roadsList.innerHTML = roads.items.map((road, i) => `
+      <div class="ranking-item">
+        <div class="ranking-position">${i + 1}</div>
+        <div class="ranking-info">
+          <div class="ranking-name"><i class="fas fa-road"></i> ${road.nazwa}</div>
+        </div>
+        <div class="ranking-value">${formatLength(road.length_km)}</div>
+      </div>
+    `).join('');
+  } else if (roadsList) {
+    roadsList.innerHTML = '<div class="no-results-message"><p>Brak danych o drogach</p></div>';
+  }
 }

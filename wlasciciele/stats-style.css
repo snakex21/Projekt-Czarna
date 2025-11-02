@@ -568,6 +568,7 @@ body {
 .mini-icon.teal { background: linear-gradient(135deg, #14b8a6, #0d9488); }
 .mini-icon.indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
 .mini-icon.pink { background: linear-gradient(135deg, #ec4899, #db2777); }
+.mini-icon.yellow { background: linear-gradient(135deg, #eab308, #ca8a04); }
 
 .mini-data { display: flex; flex-direction: column; }
 

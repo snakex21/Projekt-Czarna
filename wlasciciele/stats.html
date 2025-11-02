@@ -315,6 +315,128 @@
                         <div class="ranking-list" id="ranking-list">
                             <!-- Generowane dynamicznie przez JavaScript -->
                         </div>
+                        
+                        <!-- NOWE SEKCJE: Własność ziemi, rankingi działek i rzek/dróg -->
+                        
+                        <!-- Sekcja: Całkowita powierzchnia ziemi według właściciela -->
+                        <div class="dashboard-card wide" style="margin-top: 2rem;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-chart-area"></i> Własność ziemi według właścicieli</h3>
+                                <div class="segmented" id="land-units-toggle" role="tablist" aria-label="Jednostki powierzchni">
+                                    <input type="radio" name="land-units" id="land-hectares" value="hectares" checked>
+                                    <label for="land-hectares" title="Hektary">ha</label>
+                                    
+                                    <input type="radio" name="land-units" id="land-ares" value="ares">
+                                    <label for="land-ares" title="Ary">a</label>
+                                    
+                                    <input type="radio" name="land-units" id="land-sqm" value="sqm">
+                                    <label for="land-sqm" title="Metry kwadratowe">m²</label>
+                                </div>
+                            </div>
+                            <div class="ranking-list" id="land-ownership-list">
+                                <!-- Generowane dynamicznie przez JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Sekcja: Rankingi działek -->
+                        <div class="dashboard-card wide" style="margin-top: 2rem;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-map-marked"></i> Największe działki</h3>
+                                <button class="btn-icon" id="export-parcels">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="ranking-list" id="parcel-rankings-list">
+                                <!-- Generowane dynamicznie przez JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Sekcja: Rzeki i drogi -->
+                        <div class="dashboard-grid" style="margin-top: 2rem; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
+                            <!-- Statystyki rzek -->
+                            <div class="dashboard-card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-water"></i> Statystyki rzek</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon blue"><i class="fas fa-arrows-alt-h"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Najdłuższa</span>
+                                                <span class="mini-value" id="stat-longest-river">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon teal"><i class="fas fa-compress-arrows-alt"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Najkrótsza</span>
+                                                <span class="mini-value" id="stat-shortest-river">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon purple"><i class="fas fa-chart-bar"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Średnia długość</span>
+                                                <span class="mini-value" id="stat-avg-river">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon indigo"><i class="fas fa-list-ol"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Liczba rzek</span>
+                                                <span class="mini-value" id="stat-count-rivers">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ranking-list" id="rivers-list" style="max-height: 300px; overflow-y: auto;">
+                                        <!-- Generowane dynamicznie przez JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Statystyki dróg -->
+                            <div class="dashboard-card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-road"></i> Statystyki dróg</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon orange"><i class="fas fa-arrows-alt-h"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Najdłuższa</span>
+                                                <span class="mini-value" id="stat-longest-road">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon yellow"><i class="fas fa-compress-arrows-alt"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Najkrótsza</span>
+                                                <span class="mini-value" id="stat-shortest-road">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon green"><i class="fas fa-chart-bar"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Średnia długość</span>
+                                                <span class="mini-value" id="stat-avg-road">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon red"><i class="fas fa-list-ol"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Liczba dróg</span>
+                                                <span class="mini-value" id="stat-count-roads">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ranking-list" id="roads-list" style="max-height: 300px; overflow-y: auto;">
+                                        <!-- Generowane dynamicznie przez JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
