@@ -281,15 +281,17 @@ async function loadStatistics() {
     statsData = await response.json();
 
     updateCounters(statsData.general_stats);
+    updateAreaStats(statsData.area_stats);
+    updateRiversRoadsStats(statsData.rivers_stats, statsData.roads_stats);
     createCharts(statsData);
     loadRankings(statsData);
+    loadParcelsRanking(statsData.parcels_ranking);
+    loadRiversRanking(statsData.rivers_ranking);
+    loadRoadsRanking(statsData.roads_ranking);
     loadDemographics(statsData.demografia);
     renderActivityCalendar(statsData.protocols_per_day);
     loadGenealogyStats(statsData);
     loadInsights(statsData);
-    loadLandOwnership(statsData.land_ownership);
-    loadParcelRankings(statsData.parcel_rankings);
-    loadRiversRoadsStats(statsData.rivers_roads_stats);
 
   } catch (err) {
     console.error('Błąd ładowania statystyk:', err);
@@ -354,6 +356,68 @@ function updateCounters(stats) {
   if (plotsCounter) {
     plotsCounter.dataset.target = stats.total_plots;
     animateCounter(plotsCounter, stats.total_plots);
+  }
+}
+
+/**
+ * Aktualizuje statystyki powierzchni działek.
+ * @param {Object} areaStats
+ */
+function updateAreaStats(areaStats) {
+  if (!areaStats) return;
+
+  const totalHa = document.getElementById('stat-total-area-ha');
+  const avgAres = document.getElementById('stat-avg-area-ares');
+  const minM2 = document.getElementById('stat-min-area-m2');
+  const maxHa = document.getElementById('stat-max-area-ha');
+
+  if (totalHa) {
+    totalHa.textContent = `${areaStats.total_area_ha.toFixed(2)} ha`;
+  }
+  if (avgAres) {
+    avgAres.textContent = `${areaStats.avg_area_ares.toFixed(2)} arów`;
+  }
+  if (minM2) {
+    minM2.textContent = `${Math.round(areaStats.min_area_m2)} m²`;
+  }
+  if (maxHa) {
+    const maxHaValue = areaStats.max_area_m2 / 10000;
+    if (maxHaValue < 1) {
+      maxHa.textContent = `${Math.round(areaStats.max_area_m2)} m²`;
+    } else {
+      maxHa.textContent = `${maxHaValue.toFixed(2)} ha`;
+    }
+  }
+}
+
+/**
+ * Aktualizuje statystyki rzek i dróg.
+ * @param {Object} riversStats
+ * @param {Object} roadsStats
+ */
+function updateRiversRoadsStats(riversStats, roadsStats) {
+  if (riversStats) {
+    const riversCount = document.getElementById('stat-rivers-count');
+    const riverMax = document.getElementById('stat-river-max');
+    const riverAvg = document.getElementById('stat-river-avg');
+    const riverMin = document.getElementById('stat-river-min');
+    
+    if (riversCount) riversCount.textContent = riversStats.total_count;
+    if (riverMax) riverMax.textContent = `${Math.round(riversStats.max_length_m)} m`;
+    if (riverAvg) riverAvg.textContent = `${Math.round(riversStats.avg_length_m)} m`;
+    if (riverMin) riverMin.textContent = `${Math.round(riversStats.min_length_m)} m`;
+  }
+  
+  if (roadsStats) {
+    const roadsCount = document.getElementById('stat-roads-count');
+    const roadMax = document.getElementById('stat-road-max');
+    const roadAvg = document.getElementById('stat-road-avg');
+    const roadMin = document.getElementById('stat-road-min');
+    
+    if (roadsCount) roadsCount.textContent = roadsStats.total_count;
+    if (roadMax) roadMax.textContent = `${Math.round(roadsStats.max_length_m)} m`;
+    if (roadAvg) roadAvg.textContent = `${Math.round(roadsStats.avg_length_m)} m`;
+    if (roadMin) roadMin.textContent = `${Math.round(roadsStats.min_length_m)} m`;
   }
 }
 
@@ -450,7 +514,30 @@ function loadRankings(data) {
   document.querySelectorAll('input[name="ownership"]').forEach(r => {
     r.addEventListener('change', filterRankings);
   });
+  document.querySelectorAll('input[name="sort-by"]').forEach(r => {
+    r.addEventListener('change', filterRankings);
+  });
   document.getElementById('category-filter')?.addEventListener('change', filterRankings);
+}
+
+/**
+ * Formatuje powierzchnię dla wyświetlenia.
+ * @param {number} areaM2 - Powierzchnia w m²
+ * @returns {string}
+ */
+function formatArea(areaM2) {
+  if (!areaM2 || areaM2 === 0) return '0 m²';
+  
+  const ha = areaM2 / 10000;
+  const ares = areaM2 / 100;
+  
+  if (ha >= 1) {
+    return `${ha.toFixed(2)} ha`;
+  } else if (ares >= 1) {
+    return `${ares.toFixed(2)} arów`;
+  } else {
+    return `${Math.round(areaM2)} m²`;
+  }
 }
 
 /**
@@ -459,18 +546,33 @@ function loadRankings(data) {
  * @param {HTMLElement} container
  */
 function displayRanking(rankingData, container) {
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
+  
   container.innerHTML = (rankingData || []).slice(0, 50).map((owner, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const prot = owner.numer_protokolu ?? 'Brak';
+    const areaM2 = owner.total_area_m2 || 0;
+    const plotNumbers = owner.plot_numbers || [];
+    
+    const plotNumbersDisplay = plotNumbers.length > 0 
+      ? plotNumbers.slice(0, 5).join(', ') + (plotNumbers.length > 5 ? '...' : '')
+      : 'Brak';
+    
+    const valueDisplay = sortBy === 'area' 
+      ? `<div style="text-align: right;"><strong>${formatArea(areaM2)}</strong><br><small>${owner.plot_count} działek</small></div>`
+      : `<div style="text-align: right;"><strong>${owner.plot_count}</strong> działek<br><small>${formatArea(areaM2)}</small></div>`;
+    
     return `
       <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
           <div class="ranking-name">${owner.nazwa_wlasciciela}</div>
-          <div class="ranking-meta">Protokół nr ${prot}</div>
+          <div class="ranking-meta">
+            Protokół nr ${prot} | Działki: ${plotNumbersDisplay}
+          </div>
         </div>
-        <div class="ranking-value">${owner.plot_count}</div>
+        <div class="ranking-value">${valueDisplay}</div>
       </a>`;
   }).join('');
 }
@@ -482,17 +584,166 @@ function filterRankings() {
   if (!statsData) return;
   const ownership = document.querySelector('input[name="ownership"]:checked')?.value || 'real';
   const category = document.getElementById('category-filter')?.value || 'all';
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
   const container = document.getElementById('ranking-list');
 
   const dataSet = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
   let rankingData = category === 'all' ? dataSet.all_plots : dataSet[category];
   if (!rankingData) rankingData = [];
 
+  rankingData = [...rankingData].sort((a, b) => {
+    if (sortBy === 'area') {
+      return (b.total_area_m2 || 0) - (a.total_area_m2 || 0);
+    } else {
+      return (b.plot_count || 0) - (a.plot_count || 0);
+    }
+  });
+
   displayRanking(rankingData, container);
 
   // Zachowaj aktywne filtrowanie tekstowe
   const searchQuery = document.getElementById('global-search')?.value || '';
   performGlobalSearch(searchQuery);
+}
+
+/* ==========================================================================
+   RANKING DZIAŁEK WEDŁUG POWIERZCHNI
+   ========================================================================== */
+
+/**
+ * Ładuje ranking działek według powierzchni.
+ * @param {Object} parcelsData
+ */
+function loadParcelsRanking(parcelsData) {
+  if (!parcelsData) return;
+  
+  const container = document.getElementById('parcels-ranking-list');
+  if (!container) return;
+
+  displayParcelsRanking(parcelsData.all || [], container);
+
+  const categoryFilter = document.getElementById('parcel-category-filter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', () => {
+      const category = categoryFilter.value || 'all';
+      const rankingData = category === 'all' ? parcelsData.all : parcelsData[category];
+      displayParcelsRanking(rankingData || [], container);
+    });
+  }
+}
+
+/**
+ * Wyświetla ranking działek.
+ * @param {Array} parcelsData
+ * @param {HTMLElement} container
+ */
+function displayParcelsRanking(parcelsData, container) {
+  container.innerHTML = (parcelsData || []).slice(0, 50).map((parcel, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const owner = parcel.nazwa_wlasciciela || 'Brak właściciela';
+    const areaM2 = parcel.area_m2 || 0;
+    
+    // Jeśli jest wielu właścicieli (rozdzieleni przecinkami), pokaż tylko pierwszy z linkiem
+    let ownerDisplay;
+    if (owner.includes(', ')) {
+      const firstOwner = owner.split(', ')[0];
+      const ownersCount = owner.split(', ').length;
+      ownerDisplay = parcel.unikalny_klucz 
+        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${firstOwner}</a> <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`
+        : `${firstOwner} <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`;
+    } else {
+      ownerDisplay = parcel.unikalny_klucz 
+        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
+        : owner;
+    }
+    
+    return `
+      <div class="ranking-item" style="cursor: default; pointer-events: auto;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${parcel.parcel_number}</div>
+          <div class="ranking-meta">${ownerDisplay}</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${formatArea(areaM2)}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   RANKINGI RZEK I DRÓG
+   ========================================================================== */
+
+/**
+ * Ładuje ranking rzek według długości.
+ * @param {Array} riversData
+ */
+function loadRiversRanking(riversData) {
+  const container = document.getElementById('rivers-ranking-list');
+  if (!container || !riversData) return;
+
+  container.innerHTML = riversData.slice(0, 20).map((river, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const lengthM = river.length_m || 0;
+    const lengthKm = lengthM / 1000;
+    
+    const lengthDisplay = lengthKm >= 1 
+      ? `${lengthKm.toFixed(2)} km` 
+      : `${Math.round(lengthM)} m`;
+    
+    return `
+      <div class="ranking-item" style="cursor: default;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${river.name || 'Bez nazwy'}</div>
+          <div class="ranking-meta">Rzeka</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${lengthDisplay}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * Ładuje ranking dróg według długości.
+ * @param {Array} roadsData
+ */
+function loadRoadsRanking(roadsData) {
+  const container = document.getElementById('roads-ranking-list');
+  if (!container || !roadsData) return;
+
+  container.innerHTML = roadsData.slice(0, 20).map((road, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const lengthM = road.length_m || 0;
+    const lengthKm = lengthM / 1000;
+    
+    const lengthDisplay = lengthKm >= 1 
+      ? `${lengthKm.toFixed(2)} km` 
+      : `${Math.round(lengthM)} m`;
+    
+    return `
+      <div class="ranking-item" style="cursor: default;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${road.name || 'Bez nazwy'}</div>
+          <div class="ranking-meta">Droga</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${lengthDisplay}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ==========================================================================
@@ -927,10 +1178,9 @@ function renderActivityCalendar(protocolsData) {
  */
 function loadInsights(data) {
   const counts = data.category_counts || {};
-  document.getElementById('stat-forests')  .textContent = counts.las || 0;
-  document.getElementById('stat-rivers')   .textContent = counts.rzeka || 0;
   document.getElementById('stat-buildings').textContent = counts.budynek || 0;
   document.getElementById('stat-chapels')  .textContent = counts.kapliczka || 0;
+  document.getElementById('stat-special')  .textContent = counts.obiekt_specjalny || 0;
 
   // Największy właściciel
   const first = data.rankings_real?.all_plots?.[0];
@@ -1451,7 +1701,19 @@ function shareReport() {
  */
 function getTop10Owners(ownership, category) {
   const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
-  const rankingData = category === 'all' ? data.all_plots : data[category];
+  let rankingData = category === 'all' ? data.all_plots : data[category];
+  const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
+  
+  if (rankingData) {
+    rankingData = [...rankingData].sort((a, b) => {
+      if (sortBy === 'area') {
+        return (b.total_area_m2 || 0) - (a.total_area_m2 || 0);
+      } else {
+        return (b.plot_count || 0) - (a.plot_count || 0);
+      }
+    });
+  }
+  
   return rankingData?.slice(0, 10) || [];
 }
 
@@ -1748,173 +2010,4 @@ function initKeyboardShortcuts() {
       document.getElementById('search-bar')?.classList.remove('active');
     }
   });
-}
-/* ==========================================================================
-   NOWE STATYSTYKI: WŁASNOŚĆ ZIEMI, RANKINGI DZIAŁEK, RZEKI/DROGI
-   ========================================================================== */
-
-/**
- * Ładuje i wyświetla statystyki własności ziemi (hektary, ary, m²).
- * @param {Array} landOwnership - Dane o własności ziemi
- */
-function loadLandOwnership(landOwnership) {
-  const container = document.getElementById('land-ownership-list');
-  if (!container || !landOwnership || landOwnership.length === 0) {
-    if (container) container.innerHTML = '<div class="no-results-message"><p>Brak danych o własności ziemi</p></div>';
-    return;
-  }
-
-  // Funkcja renderująca listę
-  function renderLandList(unit) {
-    const getAreaValue = (owner) => {
-      if (unit === 'hectares') return `${owner.area_hectares.toLocaleString('pl-PL')} ha`;
-      if (unit === 'ares') return `${owner.area_ares.toLocaleString('pl-PL')} a`;
-      return `${owner.area_sqm.toLocaleString('pl-PL')} m²`;
-    };
-
-    container.innerHTML = landOwnership.slice(0, 50).map((owner, i) => {
-      const pos = i + 1;
-      const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
-      const prot = owner.numer_protokolu ?? 'Brak';
-      return `
-        <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
-          <div class="ranking-position ${cls}">${pos}</div>
-          <div class="ranking-info">
-            <div class="ranking-name">${owner.nazwa_wlasciciela}</div>
-            <div class="ranking-meta">Protokół nr ${prot}</div>
-          </div>
-          <div class="ranking-value">${getAreaValue(owner)}</div>
-        </a>`;
-    }).join('');
-  }
-
-  // Renderowanie początkowe (hektary)
-  renderLandList('hectares');
-
-  // Obsługa przełączania jednostek
-  document.querySelectorAll('input[name="land-units"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      renderLandList(e.target.value);
-    });
-  });
-}
-
-/**
- * Ładuje i wyświetla rankingi największych działek.
- * @param {Array} parcelRankings - Dane o największych działkach
- */
-function loadParcelRankings(parcelRankings) {
-  const container = document.getElementById('parcel-rankings-list');
-  if (!container || !parcelRankings || parcelRankings.length === 0) {
-    if (container) container.innerHTML = '<div class="no-results-message"><p>Brak danych o działkach</p></div>';
-    return;
-  }
-
-  container.innerHTML = parcelRankings.slice(0, 50).map((parcel, i) => {
-    const pos = i + 1;
-    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
-    const kategoria = parcel.kategoria || 'nieznana';
-    const icon = {
-      'rolna': 'fa-seedling',
-      'budowlana': 'fa-building',
-      'las': 'fa-tree',
-      'pastwisko': 'fa-mountain'
-    }[kategoria] || 'fa-map-marker-alt';
-
-    return `
-      <div class="ranking-item">
-        <div class="ranking-position ${cls}">${pos}</div>
-        <div class="ranking-info">
-          <div class="ranking-name">
-            <i class="fas ${icon}"></i> Działka ${parcel.numer}
-          </div>
-          <div class="ranking-meta">${parcel.wlasciciele}</div>
-        </div>
-        <div class="ranking-value">${parcel.area_hectares.toLocaleString('pl-PL')} ha</div>
-      </div>`;
-  }).join('');
-
-  // Obsługa eksportu
-  const exportBtn = document.getElementById('export-parcels');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', () => {
-      exportToExcel(parcelRankings, 'Ranking_Działek');
-      showToast('success', 'Eksport', 'Dane działek wyeksportowane do Excel');
-    });
-  }
-}
-
-/**
- * Ładuje i wyświetla statystyki rzek i dróg.
- * @param {Object} riversRoadsStats - Statystyki rzek i dróg
- */
-function loadRiversRoadsStats(riversRoadsStats) {
-  if (!riversRoadsStats) return;
-
-  // Funkcja formatowania długości
-  const formatLength = (km) => km >= 1 ? `${km.toLocaleString('pl-PL')} km` : `${(km * 1000).toFixed(0)} m`;
-
-  // RZEKI
-  const rivers = riversRoadsStats.rivers || {};
-  if (rivers.longest) {
-    document.getElementById('stat-longest-river').textContent = 
-      `${rivers.longest.nazwa} (${formatLength(rivers.longest.length_km)})`;
-  }
-  if (rivers.shortest) {
-    document.getElementById('stat-shortest-river').textContent = 
-      `${rivers.shortest.nazwa} (${formatLength(rivers.shortest.length_km)})`;
-  }
-  if (rivers.average) {
-    const avgKm = rivers.average / 1000;
-    document.getElementById('stat-avg-river').textContent = formatLength(avgKm);
-  }
-  document.getElementById('stat-count-rivers').textContent = rivers.total_count || 0;
-
-  // Lista rzek
-  const riversList = document.getElementById('rivers-list');
-  if (riversList && rivers.items && rivers.items.length > 0) {
-    riversList.innerHTML = rivers.items.map((river, i) => `
-      <div class="ranking-item">
-        <div class="ranking-position">${i + 1}</div>
-        <div class="ranking-info">
-          <div class="ranking-name"><i class="fas fa-water"></i> ${river.nazwa}</div>
-        </div>
-        <div class="ranking-value">${formatLength(river.length_km)}</div>
-      </div>
-    `).join('');
-  } else if (riversList) {
-    riversList.innerHTML = '<div class="no-results-message"><p>Brak danych o rzekach</p></div>';
-  }
-
-  // DROGI
-  const roads = riversRoadsStats.roads || {};
-  if (roads.longest) {
-    document.getElementById('stat-longest-road').textContent = 
-      `${roads.longest.nazwa} (${formatLength(roads.longest.length_km)})`;
-  }
-  if (roads.shortest) {
-    document.getElementById('stat-shortest-road').textContent = 
-      `${roads.shortest.nazwa} (${formatLength(roads.shortest.length_km)})`;
-  }
-  if (roads.average) {
-    const avgKm = roads.average / 1000;
-    document.getElementById('stat-avg-road').textContent = formatLength(avgKm);
-  }
-  document.getElementById('stat-count-roads').textContent = roads.total_count || 0;
-
-  // Lista dróg
-  const roadsList = document.getElementById('roads-list');
-  if (roadsList && roads.items && roads.items.length > 0) {
-    roadsList.innerHTML = roads.items.map((road, i) => `
-      <div class="ranking-item">
-        <div class="ranking-position">${i + 1}</div>
-        <div class="ranking-info">
-          <div class="ranking-name"><i class="fas fa-road"></i> ${road.nazwa}</div>
-        </div>
-        <div class="ranking-value">${formatLength(road.length_km)}</div>
-      </div>
-    `).join('');
-  } else if (roadsList) {
-    roadsList.innerHTML = '<div class="no-results-message"><p>Brak danych o drogach</p></div>';
-  }
 }
