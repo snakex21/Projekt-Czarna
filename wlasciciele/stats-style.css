@@ -413,9 +413,9 @@ body {
    SYSTEM ZAKŁADEK
    ========================================================================== */
 .tabs-container {
-  max-width: 1400px;
+  max-width: min(885px, 90vw);
   margin: 0 auto;
-  padding: 0 2rem 3rem;
+  padding: 0 1.5rem 3rem;
 }
 
 .tabs-header {
@@ -470,9 +470,9 @@ body {
    ========================================================================== */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 1.5rem;
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -595,7 +595,7 @@ body {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -787,7 +787,7 @@ select {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1179,7 +1179,7 @@ kbd {
   border-radius: 16px;
   margin-bottom: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1227,7 +1227,7 @@ kbd {
   box-shadow: 0 4px 20px var(--shadow);
   margin-bottom: 2rem;
   height: 400px;
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1239,7 +1239,7 @@ kbd {
   border-radius: 16px;
   box-shadow: 0 4px 20px var(--shadow);
   margin-bottom: 2rem;
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1324,7 +1324,7 @@ kbd {
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1529,7 +1529,7 @@ kbd {
   padding: 2rem;
   border-radius: 16px;
   box-shadow: 0 4px 20px var(--shadow);
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1767,7 +1767,7 @@ kbd {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px var(--shadow);
-  max-width: 1200px;
+  max-width: 885px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -1825,6 +1825,20 @@ kbd {
 /* ==========================================================================
    RESPONSYWNOŚĆ
    ========================================================================== */
+@media (max-width: 900px) {
+  .tabs-container {
+    padding: 0 1rem 2rem;
+  }
+  
+  .dashboard-grid { 
+    grid-template-columns: 1fr; 
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .header-content {
     flex-direction: column;
@@ -1870,5 +1884,15 @@ kbd {
   .timeline-event {
     font-size: 0.875rem;
     padding: 0.4rem 0.8rem;
+  }
+  
+  .tabs-header {
+    overflow-x: auto;
+    gap: 0.25rem;
+  }
+  
+  .tab-button {
+    padding: 0.6rem 1rem;
+    font-size: 0.875rem;
   }
 }

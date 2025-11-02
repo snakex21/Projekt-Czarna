@@ -399,20 +399,24 @@ function updateRiversRoadsStats(riversStats, roadsStats) {
   if (riversStats) {
     const riversCount = document.getElementById('stat-rivers-count');
     const riverMax = document.getElementById('stat-river-max');
+    const riverAvg = document.getElementById('stat-river-avg');
     const riverMin = document.getElementById('stat-river-min');
     
     if (riversCount) riversCount.textContent = riversStats.total_count;
     if (riverMax) riverMax.textContent = `${Math.round(riversStats.max_length_m)} m`;
+    if (riverAvg) riverAvg.textContent = `${Math.round(riversStats.avg_length_m)} m`;
     if (riverMin) riverMin.textContent = `${Math.round(riversStats.min_length_m)} m`;
   }
   
   if (roadsStats) {
     const roadsCount = document.getElementById('stat-roads-count');
     const roadMax = document.getElementById('stat-road-max');
+    const roadAvg = document.getElementById('stat-road-avg');
     const roadMin = document.getElementById('stat-road-min');
     
     if (roadsCount) roadsCount.textContent = roadsStats.total_count;
     if (roadMax) roadMax.textContent = `${Math.round(roadsStats.max_length_m)} m`;
+    if (roadAvg) roadAvg.textContent = `${Math.round(roadsStats.avg_length_m)} m`;
     if (roadMin) roadMin.textContent = `${Math.round(roadsStats.min_length_m)} m`;
   }
 }
@@ -1174,10 +1178,9 @@ function renderActivityCalendar(protocolsData) {
  */
 function loadInsights(data) {
   const counts = data.category_counts || {};
-  document.getElementById('stat-forests')  .textContent = counts.las || 0;
-  document.getElementById('stat-rivers')   .textContent = counts.rzeka || 0;
   document.getElementById('stat-buildings').textContent = counts.budynek || 0;
   document.getElementById('stat-chapels')  .textContent = counts.kapliczka || 0;
+  document.getElementById('stat-special')  .textContent = counts.obiekt_specjalny || 0;
 
   // Największy właściciel
   const first = data.rankings_real?.all_plots?.[0];
