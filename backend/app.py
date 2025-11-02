@@ -928,7 +928,7 @@ def get_stats():
 
     cur.execute("""
         SELECT 
-            nazwa_lub_numer as river_name,
+            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Rzeka ' || id) as river_name,
             ST_Length(ST_Transform(geometria, 32634)) as length_m
         FROM obiekty_geograficzne
         WHERE kategoria = 'rzeka' AND geometria IS NOT NULL
@@ -957,7 +957,7 @@ def get_stats():
 
     cur.execute("""
         SELECT 
-            nazwa_lub_numer as road_name,
+            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Droga ' || id) as road_name,
             ST_Length(ST_Transform(geometria, 32634)) as length_m
         FROM obiekty_geograficzne
         WHERE kategoria = 'droga' AND geometria IS NOT NULL
