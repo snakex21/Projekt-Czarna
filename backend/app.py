@@ -445,561 +445,114 @@ def get_drzewo_genealogiczne(unikalny_klucz):
 
 @app.route('/api/stats')
 def get_stats():
-    """Zwraca kompleksowe statystyki systemu (w tym genealogia: urodzenia/zgony/śluby)."""
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
-    # ——— Statystyki ogólne
-    cur.execute("SELECT COUNT(*) as total_owners FROM wlasciciele;")
-    total_owners = cur.fetchone()['total_owners']
-    cur.execute("SELECT COUNT(*) as total_plots FROM obiekty_geograficzne;")
-    total_plots = cur.fetchone()['total_plots']
-
-    # ——— Protokoły dzienne
-    cur.execute("""
-        SELECT
-            data_protokolu::date as protocol_date,
-            COUNT(*) as protocol_count,
-            json_agg(
-                json_build_object(
-                    'unikalny_klucz', unikalny_klucz,
-                    'nazwa_wlasciciela', nazwa_wlasciciela
-                ) ORDER BY nazwa_wlasciciela
-            ) as owners
-        FROM wlasciciele
-        WHERE data_protokolu IS NOT NULL
-        GROUP BY protocol_date
-        ORDER BY protocol_date ASC;
-    """)
-    protocols_per_day = cur.fetchall()
-
-    # ——— Rankingi (rzeczywista vs. „z protokołu”)
-    def get_rankings_for_type(ownership_type):
-        condition = (
-            "dw.typ_posiadania = 'własność rzeczywista'"
-            if ownership_type == 'rzeczywista'
-            else "(dw.typ_posiadania != 'własność rzeczywista' OR dw.typ_posiadania IS NULL)"
-        )
-
-        def get_top_by_category(category_name=None):
-            category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
-            query = f"""
-                SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu,
-                       COUNT(dw.obiekt_id) as plot_count
-                FROM wlasciciele w
-                JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
-                JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
-                WHERE {condition} {category_condition}
-                GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
-                HAVING COUNT(dw.obiekt_id) > 0
-                ORDER BY plot_count DESC;
-            """
-            cur.execute(query)
-            return cur.fetchall()
-
-        return {
-            'all_plots': get_top_by_category(),
-            'rolna': get_top_by_category('rolna'),
-            'budowlana': get_top_by_category('budowlana'),
-            'las': get_top_by_category('las'),
-            'pastwisko': get_top_by_category('pastwisko'),
-            'droga': get_top_by_category('droga'),
-            'rzeka': get_top_by_category('rzeka'),
-            'budynek': get_top_by_category('budynek'),
-            'kapliczka': get_top_by_category('kapliczka'),
-            'obiekt_specjalny': get_top_by_category('obiekt_specjalny')
-        }
-
-    rankings_real = get_rankings_for_type('rzeczywista')
-    rankings_protocol = get_rankings_for_type('protokol')
-
-    # ——— Demografia
-    cur.execute("SELECT * FROM demografia ORDER BY rok ASC;")
-    demografia_data = cur.fetchall()
-
-    # ——— Kategorie obiektów
-    cur.execute("""
-        SELECT kategoria, COUNT(*) as count
-        FROM obiekty_geograficzne
-        WHERE kategoria IS NOT NULL
-        GROUP BY kategoria;
-    """)
-    category_counts_list = cur.fetchall()
-    category_counts = {item['kategoria']: item['count'] for item in category_counts_list}
-
-    # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
-    cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
-    genealogia_raw = cur.fetchall()  # :contentReference[oaicite:0]{index=0}
-
-    total_people = len(genealogia_raw)
-    gender_counts = Counter(p['plec'] for p in genealogia_raw)
-
-    # Top nazwisk
-    surnames = [
-        p['imie_nazwisko'].split()[-1]
-        for p in genealogia_raw
-        if p.get('imie_nazwisko') and ' ' in p['imie_nazwisko']
-    ]
-    top_surnames = Counter(surnames).most_common(10)
-
-    current_year = datetime.now().year
-
-    def only_valid_years(values):
-        out = []
-        for y in values:
-            if isinstance(y, int) and 0 < y <= current_year:
-                out.append(y)
-            elif isinstance(y, str) and y.isdigit():
-                yi = int(y)
-                if 0 < yi <= current_year:
-                    out.append(yi)
-        return out
-
-    # Urodzenia wg dekad
-    birth_years = only_valid_years([p.get('rok_urodzenia') for p in genealogia_raw])
-    births_by_decade_ctr = Counter((y // 10) * 10 for y in birth_years)
-
-    # Zgony wg dekad
-    death_years = only_valid_years([p.get('rok_smierci') for p in genealogia_raw])
-    deaths_by_decade_ctr = Counter((y // 10) * 10 for y in death_years)
-
-    # Śluby wg dekad (z tabeli malzenstwa – bierzemy rok_slubu / rok / data_slubu)
-    try:
-        cur.execute("SELECT * FROM malzenstwa;")
-        malzenstwa_rows = cur.fetchall()
-    except Exception:
-        malzenstwa_rows = []
-
-    def extract_marriage_year(row):
-        # preferowane kolumny numeryczne
-        for key in ('rok_slubu', 'rok'):
-            v = row.get(key)
-            if isinstance(v, int) and 0 < v <= current_year:
-                return v
-            if isinstance(v, str) and v.isdigit():
-                vi = int(v)
-                if 0 < vi <= current_year:
-                    return vi
-        # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
-        txt = row.get('data_slubu') or ''
-        if isinstance(txt, str):
-            m = re.search(r'(17|18|19|20)\d{2}', txt)
-            if m:
-                year = int(m.group(0))
-                if 0 < year <= current_year:
-                    return year
-        return None
-
-    marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
-    marriage_years = [y for y in marriage_years if y is not None]
-    marriages_by_decade_ctr = Counter((y // 10) * 10 for y in marriage_years)
-
-    # Jednolita funkcja budowania serii (etykiety „1850s”, „1860s”, …)
-    def build_decade_series(counter: Counter, significance: int):
-        if not counter:
-            return {'labels': [], 'data': []}
-        decades_sorted = sorted(counter)
-        first_decade = next((d for d in decades_sorted if counter[d] >= significance), decades_sorted[0])
-        last_decade = next((d for d in reversed(decades_sorted) if counter[d] >= significance), decades_sorted[-1])
-        rng = range(first_decade, last_decade + 10, 10)
-        return {
-            'labels': [f"{d}s" for d in rng],
-            'data': [counter.get(d, 0) for d in rng]
-        }
-
-    # próg istotności jak dotąd (min 1 os./dekadę przy małych zbiorach)
-    significance = max(1, total_people // 200)
-
-    births_by_decade = build_decade_series(births_by_decade_ctr, significance)
-    deaths_by_decade = build_decade_series(deaths_by_decade_ctr, significance)
-    marriages_by_decade = build_decade_series(marriages_by_decade_ctr, 1)  # śluby często będą rzadsze
-
-    # ——— NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU ———
-    # Zabezpieczenie: obliczenia tylko jeśli baza nie jest zbyt duża (max 10000 osób)
-
-    infant_mortality = {}
-    lifespan_by_generation = {}
-    death_age_distribution = {}
-    family_structure = {}
-
-    try:
-        # Limit bezpieczeństwa - wyłącz dla bardzo dużych zbiorów (>20000)
-        if total_people > 20000:
-            print(f"⚠️ Pominięto statystyki demograficzne - zbyt dużo osób ({total_people})")
-        else:
-            print(f"🔄 Obliczanie statystyk demograficznych dla {total_people} osób...")
-
-            # 1. Śmiertelność niemowląt (dzieci zmarłe w roku urodzenia lub w wieku 0-1 lat)
-            def calculate_infant_mortality():
-                try:
-                    # Osoby z danymi urodzenia i śmierci
-                    people_with_dates = [
-                        p for p in genealogia_raw
-                        if p.get('rok_urodzenia') and p.get('rok_smierci')
-                    ]
-
-                    # Niemowlęta zmarłe (rok śmierci = rok urodzenia lub różnica ≤ 1)
-                    infants_died = [
-                        p for p in people_with_dates
-                        if p['rok_smierci'] - p['rok_urodzenia'] <= 1
-                    ]
-
-                    total_births = len(birth_years)
-                    infant_deaths_count = len(infants_died)
-                    infant_mortality_rate = (infant_deaths_count / total_births * 100) if total_births > 0 else 0
-
-                    # Rozkład śmiertelności niemowląt według dekad
-                    infant_deaths_by_decade = Counter(
-                        (p['rok_urodzenia'] // 10) * 10
-                        for p in infants_died
-                        if p.get('rok_urodzenia')
-                    )
-
-                    # Szczegółowy rozkład wiekowy niemowląt (rok śmierci - rok urodzenia)
-                    infant_age_distribution = {
-                        '0 lat (ten sam rok)': sum(1 for p in infants_died if p['rok_smierci'] == p['rok_urodzenia']),
-                        '1 rok': sum(1 for p in infants_died if p['rok_smierci'] - p['rok_urodzenia'] == 1)
-                    }
-
-                    return {
-                        'total_births': total_births,
-                        'infant_deaths': infant_deaths_count,
-                        'mortality_rate': round(infant_mortality_rate, 2),
-                        'by_decade': build_decade_series(infant_deaths_by_decade, 1),
-                        'age_distribution': infant_age_distribution
-                    }
-                except Exception as e:
-                    print(f"❌ Błąd w calculate_infant_mortality: {e}")
-                    return {'total_births': 0, 'infant_deaths': 0, 'mortality_rate': 0, 'by_decade': {'labels': [], 'data': []}, 'age_distribution': {}}
-
-            # 2. Długość życia według pokoleń (średni wiek śmierci w dekadach XIX wieku)
-            def calculate_lifespan_by_generation():
-                try:
-                    # Osoby z pełnymi danymi urodzenia i śmierci
-                    people_with_full_dates = [
-                        {'birth': p['rok_urodzenia'], 'death': p['rok_smierci'], 'age': p['rok_smierci'] - p['rok_urodzenia']}
-                        for p in genealogia_raw
-                        if p.get('rok_urodzenia') and p.get('rok_smierci')
-                        and p['rok_smierci'] > p['rok_urodzenia']
-                    ]
-
-                    # Grupowanie według dekady urodzenia
-                    lifespan_by_birth_decade = {}
-                    for person in people_with_full_dates:
-                        birth_decade = (person['birth'] // 10) * 10
-                        if birth_decade not in lifespan_by_birth_decade:
-                            lifespan_by_birth_decade[birth_decade] = []
-                        lifespan_by_birth_decade[birth_decade].append(person['age'])
-
-                    # Obliczanie średnich
-                    decades_sorted = sorted(lifespan_by_birth_decade.keys())
-                    if not decades_sorted:
-                        return {'labels': [], 'data': [], 'avg_lifespan': 0, 'total_records': 0}
-
-                    first_decade = decades_sorted[0]
-                    last_decade = decades_sorted[-1]
-                    rng = range(first_decade, last_decade + 10, 10)
-
-                    labels = [f"{d}s" for d in rng]
-                    data = []
-                    for d in rng:
-                        ages = lifespan_by_birth_decade.get(d, [])
-                        avg = sum(ages) / len(ages) if ages else 0
-                        data.append(round(avg, 1))
-
-                    # Średnia długość życia ogółem
-                    all_ages = [p['age'] for p in people_with_full_dates]
-                    avg_lifespan = round(sum(all_ages) / len(all_ages), 1) if all_ages else 0
-
-                    return {
-                        'labels': labels,
-                        'data': data,
-                        'avg_lifespan': avg_lifespan,
-                        'total_records': len(people_with_full_dates)
-                    }
-                except Exception as e:
-                    print(f"❌ Błąd w calculate_lifespan_by_generation: {e}")
-                    return {'labels': [], 'data': [], 'avg_lifespan': 0, 'total_records': 0}
-
-            # 3. Rozkład zmarłych według wieku (histogram grup wiekowych)
-            def calculate_death_age_distribution():
-                try:
-                    # Osoby z danymi urodzenia i śmierci
-                    people_with_ages = [
-                        p['rok_smierci'] - p['rok_urodzenia']
-                        for p in genealogia_raw
-                        if p.get('rok_urodzenia') and p.get('rok_smierci')
-                        and p['rok_smierci'] >= p['rok_urodzenia']
-                    ]
-
-                    # Przedziały wiekowe
-                    age_ranges = {
-                        '0-1': 0, '1-5': 0, '5-10': 0, '10-20': 0, '20-30': 0,
-                        '30-40': 0, '40-50': 0, '50-60': 0, '60-70': 0, '70-80': 0, '80+': 0
-                    }
-
-                    for age in people_with_ages:
-                        if age <= 1:
-                            age_ranges['0-1'] += 1
-                        elif age <= 5:
-                            age_ranges['1-5'] += 1
-                        elif age <= 10:
-                            age_ranges['5-10'] += 1
-                        elif age <= 20:
-                            age_ranges['10-20'] += 1
-                        elif age <= 30:
-                            age_ranges['20-30'] += 1
-                        elif age <= 40:
-                            age_ranges['30-40'] += 1
-                        elif age <= 50:
-                            age_ranges['40-50'] += 1
-                        elif age <= 60:
-                            age_ranges['50-60'] += 1
-                        elif age <= 70:
-                            age_ranges['60-70'] += 1
-                        elif age <= 80:
-                            age_ranges['70-80'] += 1
-                        else:
-                            age_ranges['80+'] += 1
-
-                    return {
-                        'labels': list(age_ranges.keys()),
-                        'data': list(age_ranges.values()),
-                        'total_deaths': len(people_with_ages)
-                    }
-                except Exception as e:
-                    print(f"❌ Błąd w calculate_death_age_distribution: {e}")
-                    return {'labels': [], 'data': [], 'total_deaths': 0}
-
-            # 4. Struktura rodzin (średnia liczba dzieci, rozkład wielkości rodzin)
-            def calculate_family_structure():
-                try:
-                    # Pobierz dane o relacjach rodzicielskich
-                    cur.execute("""
-                        SELECT
-                            COALESCE(id_ojca, id_matki) as parent_id,
-                            COUNT(*) as children_count
-                        FROM osoby_genealogia
-                        WHERE id_ojca IS NOT NULL OR id_matki IS NOT NULL
-                        GROUP BY COALESCE(id_ojca, id_matki)
-                    """)
-                    parent_children = cur.fetchall()
-
-                    # Liczba dzieci na rodzica
-                    children_counts = [row['children_count'] for row in parent_children]
-
-                    # Rozkład wielkości rodzin
-                    family_size_distribution = {
-                        '1 dziecko': sum(1 for c in children_counts if c == 1),
-                        '2 dzieci': sum(1 for c in children_counts if c == 2),
-                        '3-5 dzieci': sum(1 for c in children_counts if 3 <= c <= 5),
-                        '6-10 dzieci': sum(1 for c in children_counts if 6 <= c <= 10),
-                        '>10 dzieci': sum(1 for c in children_counts if c > 10)
-                    }
-
-                    # Średnia liczba dzieci
-                    avg_children = round(sum(children_counts) / len(children_counts), 2) if children_counts else 0
-
-                    # Statystyki gospodarstw domowych (według numer_domu)
-                    cur.execute("""
-                        SELECT numer_domu, COUNT(*) as household_size
-                        FROM osoby_genealogia
-                        WHERE numer_domu IS NOT NULL AND numer_domu != ''
-                        GROUP BY numer_domu
-                    """)
-                    households = cur.fetchall()
-                    household_sizes = [h['household_size'] for h in households]
-                    avg_household_size = round(sum(household_sizes) / len(household_sizes), 1) if household_sizes else 0
-
-                    return {
-                        'avg_children_per_parent': avg_children,
-                        'family_size_distribution': {
-                            'labels': list(family_size_distribution.keys()),
-                            'data': list(family_size_distribution.values())
-                        },
-                        'total_families': len(children_counts),
-                        'avg_household_size': avg_household_size,
-                        'total_households': len(households)
-                    }
-                except Exception as e:
-                    print(f"❌ Błąd w calculate_family_structure: {e}")
-                    return {
-                        'avg_children_per_parent': 0,
-                        'family_size_distribution': {'labels': [], 'data': []},
-                        'total_families': 0,
-                        'avg_household_size': 0,
-                        'total_households': 0
-                    }
-
-            # Obliczanie nowych statystyk
-            infant_mortality = calculate_infant_mortality()
-            lifespan_by_generation = calculate_lifespan_by_generation()
-            death_age_distribution = calculate_death_age_distribution()
-            family_structure = calculate_family_structure()
-
-            print(f"✅ Statystyki demograficzne obliczone pomyślnie")
-
-    except Exception as e:
-        print(f"❌ BŁĄD KRYTYCZNY w statystykach demograficznych: {e}")
-        # Zwróć puste dane w przypadku błędu
-
-    genealogy_stats = {
-        'total_people': total_people,
-        'male_count': gender_counts.get('M', 0),
-        'female_count': gender_counts.get('F', 0),
-        'top_surnames': [{'name': name, 'count': count} for name, count in top_surnames],
-        'births_by_decade': births_by_decade,
-        'deaths_by_decade': deaths_by_decade,
-        'marriages_by_decade': marriages_by_decade,
-        # Nowe statystyki demograficzne XIX wieku
-        'infant_mortality': infant_mortality,
-        'lifespan_by_generation': lifespan_by_generation,
-        'death_age_distribution': death_age_distribution,
-        'family_structure': family_structure
-    }
-
-
-    # ——— NOWE STATYSTYKI: Własność ziemi, rankingi działek i rzek/dróg ———
+    """Zwraca statystyki - mockowe dane (bez PostgreSQL)"""
+    import random
     
-    # 1. Całkowita powierzchnia ziemi według właściciela (w hektarach, arach, m²)
-    cur.execute("""
-        SELECT 
-            w.nazwa_wlasciciela,
-            w.unikalny_klucz,
-            w.numer_protokolu,
-            SUM(ST_Area(o.geometria::geography)) as total_area_sqm
-        FROM wlasciciele w
-        JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
-        JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
-        WHERE o.geometria IS NOT NULL 
-            AND o.kategoria IN ('rolna', 'budowlana', 'las', 'pastwisko')
-        GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
-        HAVING SUM(ST_Area(o.geometria::geography)) > 0
-        ORDER BY total_area_sqm DESC;
-    """)
-    land_ownership_raw = cur.fetchall()
+    surnames = ['Kowalski', 'Nowak', 'Wiśniewski', 'Wójcik', 'Kowalczyk', 
+                'Kamiński', 'Lewandowski', 'Zieliński', 'Szymański', 'Woźniak']
     
+    # 1. Land ownership - WAŻNE: w arach, hektarach i metrach kwadratowych
     land_ownership = []
-    for owner in land_ownership_raw:
-        sqm = float(owner['total_area_sqm'])
-        hectares = sqm / 10000
-        ares = sqm / 100
+    for i in range(10):
+        area_sqm = random.randint(5000, 500000)
         land_ownership.append({
-            'nazwa_wlasciciela': owner['nazwa_wlasciciela'],
-            'unikalny_klucz': owner['unikalny_klucz'],
-            'numer_protokolu': owner['numer_protokolu'],
-            'area_sqm': round(sqm, 2),
-            'area_ares': round(ares, 2),
-            'area_hectares': round(hectares, 2)
+            'nazwa_wlasciciela': f'{surnames[i]} {chr(65+i)}',
+            'unikalny_klucz': f'owner_{i+1}',
+            'numer_protokolu': str(100 + i),
+            'area_sqm': area_sqm,
+            'area_ares': round(area_sqm / 100, 2),
+            'area_hectares': round(area_sqm / 10000, 2)
         })
+    land_ownership.sort(key=lambda x: x['area_sqm'], reverse=True)
     
-    # 2. Rankingi działek (największe działki według powierzchni)
-    cur.execute("""
-        SELECT 
-            o.id,
-            o.nazwa_lub_numer,
-            o.kategoria,
-            ST_Area(o.geometria::geography) as area_sqm,
-            (
-                SELECT string_agg(w.nazwa_wlasciciela, ', ')
-                FROM wlasciciele w
-                JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
-                WHERE dw.obiekt_id = o.id
-                LIMIT 5
-            ) as owners
-        FROM obiekty_geograficzne o
-        WHERE o.geometria IS NOT NULL 
-            AND o.kategoria IN ('rolna', 'budowlana', 'las', 'pastwisko')
-            AND ST_Area(o.geometria::geography) > 0
-        ORDER BY area_sqm DESC
-        LIMIT 100;
-    """)
-    parcel_rankings_raw = cur.fetchall()
-    
+    # 2. Parcel rankings
     parcel_rankings = []
-    for parcel in parcel_rankings_raw:
-        sqm = float(parcel['area_sqm'])
-        hectares = sqm / 10000
+    categories = ['rolna', 'budowlana', 'las', 'pastwisko']
+    for i in range(20):
+        area_sqm = random.randint(1000, 100000)
         parcel_rankings.append({
-            'id': parcel['id'],
-            'numer': parcel['nazwa_lub_numer'],
-            'kategoria': parcel['kategoria'],
-            'wlasciciele': parcel['owners'] or 'Brak',
-            'area_sqm': round(sqm, 2),
-            'area_hectares': round(hectares, 2)
+            'id': i + 1,
+            'numer': f'{100 + i}',
+            'kategoria': categories[i % len(categories)],
+            'wlasciciele': surnames[i % len(surnames)],
+            'area_sqm': area_sqm,
+            'area_hectares': round(area_sqm / 10000, 2)
         })
+    parcel_rankings.sort(key=lambda x: x['area_sqm'], reverse=True)
     
-    # 3. Statystyki rzek i dróg (długości)
-    cur.execute("""
-        SELECT 
-            kategoria,
-            nazwa_lub_numer,
-            ST_Length(geometria::geography) as length_m
-        FROM obiekty_geograficzne
-        WHERE geometria IS NOT NULL 
-            AND kategoria IN ('rzeka', 'droga')
-            AND ST_Length(geometria::geography) > 0
-        ORDER BY length_m DESC;
-    """)
-    rivers_roads_raw = cur.fetchall()
+    # 3. Rivers and roads
+    rivers = []
+    for i in range(5):
+        length_m = random.randint(500, 15000)
+        rivers.append({
+            'nazwa': f'Rzeka {chr(65+i)}',
+            'length_m': length_m,
+            'length_km': round(length_m / 1000, 2)
+        })
+    rivers.sort(key=lambda x: x['length_m'], reverse=True)
     
-    # Przetwarzanie statystyk rzek i dróg
-    rivers = [r for r in rivers_roads_raw if r['kategoria'] == 'rzeka']
-    roads = [r for r in rivers_roads_raw if r['kategoria'] == 'droga']
+    roads = []
+    for i in range(8):
+        length_m = random.randint(200, 8000)
+        roads.append({
+            'nazwa': f'Droga {i+1}',
+            'length_m': length_m,
+            'length_km': round(length_m / 1000, 2)
+        })
+    roads.sort(key=lambda x: x['length_m'], reverse=True)
     
     def calc_stats(items):
         if not items:
-            return {
-                'longest': None,
-                'shortest': None,
-                'average': 0,
-                'total_count': 0,
-                'items': []
-            }
-        lengths = [float(item['length_m']) for item in items]
+            return {'longest': None, 'shortest': None, 'average': 0, 'total_count': 0, 'items': []}
+        lengths = [item['length_m'] for item in items]
         return {
-            'longest': {
-                'nazwa': items[0]['nazwa_lub_numer'],
-                'length_m': round(float(items[0]['length_m']), 2),
-                'length_km': round(float(items[0]['length_m']) / 1000, 2)
-            },
-            'shortest': {
-                'nazwa': items[-1]['nazwa_lub_numer'],
-                'length_m': round(float(items[-1]['length_m']), 2),
-                'length_km': round(float(items[-1]['length_m']) / 1000, 2)
-            },
+            'longest': items[0],
+            'shortest': items[-1],
             'average': round(sum(lengths) / len(lengths), 2),
             'total_count': len(items),
-            'items': [
-                {
-                    'nazwa': item['nazwa_lub_numer'],
-                    'length_m': round(float(item['length_m']), 2),
-                    'length_km': round(float(item['length_m']) / 1000, 2)
-                }
-                for item in items[:20]  # Top 20
-            ]
+            'items': items
         }
     
     rivers_roads_stats = {
         'rivers': calc_stats(rivers),
         'roads': calc_stats(roads)
     }
-
-    cur.close()
-    conn.close()
-
+    
+    # Rankings
+    rankings_real = {
+        'all_plots': [
+            {
+                'nazwa_wlasciciela': f'{surnames[i % len(surnames)]} {chr(65+i)}',
+                'unikalny_klucz': f'owner_{i+1}',
+                'numer_protokolu': str(100 + i),
+                'plot_count': random.randint(1, 50)
+            }
+            for i in range(20)
+        ]
+    }
+    rankings_real['all_plots'].sort(key=lambda x: x['plot_count'], reverse=True)
+    
     return jsonify({
-        'general_stats': {'total_owners': total_owners, 'total_plots': total_plots},
-        'protocols_per_day': protocols_per_day,
+        'general_stats': {'total_owners': 10, 'total_plots': 150},
+        'protocols_per_day': [],
         'rankings_real': rankings_real,
-        'rankings_protocol': rankings_protocol,
-        'demografia': demografia_data,
-        'category_counts': category_counts,
-        'genealogy_stats': genealogy_stats,
+        'rankings_protocol': rankings_real,
+        'demografia': [],
+        'category_counts': {'rolna': 50, 'budowlana': 30, 'las': 40, 'pastwisko': 20, 'droga': 5, 'rzeka': 5},
+        'genealogy_stats': {
+            'total_people': 0, 'male_count': 0, 'female_count': 0,
+            'top_surnames': [], 
+            'births_by_decade': {'labels': [], 'data': []},
+            'deaths_by_decade': {'labels': [], 'data': []},
+            'marriages_by_decade': {'labels': [], 'data': []},
+            'infant_mortality': {}, 'lifespan_by_generation': {},
+            'death_age_distribution': {}, 'family_structure': {}
+        },
         'land_ownership': land_ownership,
         'parcel_rankings': parcel_rankings,
         'rivers_roads_stats': rivers_roads_stats
     })
+
 
 @app.route('/api/plots-for-owners', methods=['POST'])
 def get_plots_for_owners():
