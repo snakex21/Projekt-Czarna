@@ -550,6 +550,34 @@ def get_stats():
         'max_area_m2': float(area_stats_raw['max_area_m2'])
     }
 
+    # ——— Ranking działek według powierzchni
+    def get_parcels_ranking(category=None):
+        category_condition = f"AND o.kategoria = '{category}'" if category else ""
+        query = f"""
+            SELECT 
+                o.nazwa_lub_numer as parcel_number,
+                o.kategoria,
+                COALESCE(ST_Area(o.geometria::geography), 0) as area_m2,
+                w.nazwa_wlasciciela,
+                w.unikalny_klucz
+            FROM obiekty_geograficzne o
+            LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
+            LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
+            WHERE o.geometria IS NOT NULL {category_condition}
+            ORDER BY area_m2 DESC
+            LIMIT 100;
+        """
+        cur.execute(query)
+        return cur.fetchall()
+    
+    parcels_ranking = {
+        'all': get_parcels_ranking(),
+        'rolna': get_parcels_ranking('rolna'),
+        'budowlana': get_parcels_ranking('budowlana'),
+        'las': get_parcels_ranking('las'),
+        'pastwisko': get_parcels_ranking('pastwisko')
+    }
+
     # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
     cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
     genealogia_raw = cur.fetchall()  # :contentReference[oaicite:0]{index=0}
@@ -887,6 +915,7 @@ def get_stats():
     return jsonify({
         'general_stats': {'total_owners': total_owners, 'total_plots': total_plots},
         'area_stats': area_stats,
+        'parcels_ranking': parcels_ranking,
         'protocols_per_day': protocols_per_day,
         'rankings_real': rankings_real,
         'rankings_protocol': rankings_protocol,

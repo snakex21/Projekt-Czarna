@@ -631,6 +631,14 @@ body {
   color: white;
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 /* ========================================================================== 
    Przełącznik serii genealogicznych (segmented control)                      
    ========================================================================== */

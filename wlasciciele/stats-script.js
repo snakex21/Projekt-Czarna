@@ -284,6 +284,7 @@ async function loadStatistics() {
     updateAreaStats(statsData.area_stats);
     createCharts(statsData);
     loadRankings(statsData);
+    loadParcelsRanking(statsData.parcels_ranking);
     loadDemographics(statsData.demografia);
     renderActivityCalendar(statsData.protocols_per_day);
     loadGenealogyStats(statsData);
@@ -569,6 +570,63 @@ function filterRankings() {
   // Zachowaj aktywne filtrowanie tekstowe
   const searchQuery = document.getElementById('global-search')?.value || '';
   performGlobalSearch(searchQuery);
+}
+
+/* ==========================================================================
+   RANKING DZIAŁEK WEDŁUG POWIERZCHNI
+   ========================================================================== */
+
+/**
+ * Ładuje ranking działek według powierzchni.
+ * @param {Object} parcelsData
+ */
+function loadParcelsRanking(parcelsData) {
+  if (!parcelsData) return;
+  
+  const container = document.getElementById('parcels-ranking-list');
+  if (!container) return;
+
+  displayParcelsRanking(parcelsData.all || [], container);
+
+  const categoryFilter = document.getElementById('parcel-category-filter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', () => {
+      const category = categoryFilter.value || 'all';
+      const rankingData = category === 'all' ? parcelsData.all : parcelsData[category];
+      displayParcelsRanking(rankingData || [], container);
+    });
+  }
+}
+
+/**
+ * Wyświetla ranking działek.
+ * @param {Array} parcelsData
+ * @param {HTMLElement} container
+ */
+function displayParcelsRanking(parcelsData, container) {
+  container.innerHTML = (parcelsData || []).slice(0, 50).map((parcel, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const owner = parcel.nazwa_wlasciciela || 'Brak właściciela';
+    const areaM2 = parcel.area_m2 || 0;
+    const ownerLink = parcel.unikalny_klucz 
+      ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
+      : owner;
+    
+    return `
+      <div class="ranking-item" style="cursor: default; pointer-events: auto;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${parcel.parcel_number}</div>
+          <div class="ranking-meta">${ownerLink}</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${formatArea(areaM2)}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 /* ==========================================================================
