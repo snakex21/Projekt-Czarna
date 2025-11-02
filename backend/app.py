@@ -482,7 +482,9 @@ def get_stats():
             category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
             query = f"""
                 SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu,
-                       COUNT(dw.obiekt_id) as plot_count
+                       COUNT(dw.obiekt_id) as plot_count,
+                       COALESCE(SUM(ST_Area(o.geometria::geography)), 0) as total_area_m2,
+                       json_agg(o.nazwa_lub_numer ORDER BY o.nazwa_lub_numer) as plot_numbers
                 FROM wlasciciele w
                 JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                 JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
@@ -523,6 +525,153 @@ def get_stats():
     """)
     category_counts_list = cur.fetchall()
     category_counts = {item['kategoria']: item['count'] for item in category_counts_list}
+
+    # ——— Statystyki powierzchni
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_plots_with_geometry,
+            COALESCE(SUM(ST_Area(geometria::geography)), 0) as total_area_m2,
+            COALESCE(AVG(ST_Area(geometria::geography)), 0) as avg_area_m2,
+            COALESCE(MIN(ST_Area(geometria::geography)), 0) as min_area_m2,
+            COALESCE(MAX(ST_Area(geometria::geography)), 0) as max_area_m2
+        FROM obiekty_geograficzne
+        WHERE geometria IS NOT NULL;
+    """)
+    area_stats_raw = cur.fetchone()
+    
+    # Obsługa przypadku gdy nie ma żadnych geometrii
+    if area_stats_raw and area_stats_raw['total_plots_with_geometry'] > 0:
+        area_stats = {
+            'total_plots_with_geometry': area_stats_raw['total_plots_with_geometry'],
+            'total_area_m2': float(area_stats_raw['total_area_m2'] or 0),
+            'total_area_ha': float(area_stats_raw['total_area_m2'] or 0) / 10000,
+            'total_area_ares': float(area_stats_raw['total_area_m2'] or 0) / 100,
+            'avg_area_m2': float(area_stats_raw['avg_area_m2'] or 0),
+            'avg_area_ha': float(area_stats_raw['avg_area_m2'] or 0) / 10000,
+            'avg_area_ares': float(area_stats_raw['avg_area_m2'] or 0) / 100,
+            'min_area_m2': float(area_stats_raw['min_area_m2'] or 0),
+            'max_area_m2': float(area_stats_raw['max_area_m2'] or 0)
+        }
+    else:
+        area_stats = {
+            'total_plots_with_geometry': 0,
+            'total_area_m2': 0.0,
+            'total_area_ha': 0.0,
+            'total_area_ares': 0.0,
+            'avg_area_m2': 0.0,
+            'avg_area_ha': 0.0,
+            'avg_area_ares': 0.0,
+            'min_area_m2': 0.0,
+            'max_area_m2': 0.0
+        }
+
+    # ——— Ranking działek według powierzchni
+    def get_parcels_ranking(category=None):
+        category_condition = f"AND o.kategoria = '{category}'" if category else ""
+        query = f"""
+            SELECT 
+                o.nazwa_lub_numer as parcel_number,
+                o.kategoria,
+                COALESCE(ST_Area(o.geometria::geography), 0) as area_m2,
+                STRING_AGG(DISTINCT w.nazwa_wlasciciela, ', ') as nazwa_wlasciciela,
+                MIN(w.unikalny_klucz) as unikalny_klucz
+            FROM obiekty_geograficzne o
+            LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
+            LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
+            WHERE o.geometria IS NOT NULL {category_condition}
+            GROUP BY o.id, o.nazwa_lub_numer, o.kategoria, o.geometria
+            ORDER BY area_m2 DESC
+            LIMIT 100;
+        """
+        cur.execute(query)
+        return cur.fetchall()
+    
+    parcels_ranking = {
+        'all': get_parcels_ranking(),
+        'rolna': get_parcels_ranking('rolna'),
+        'budowlana': get_parcels_ranking('budowlana'),
+        'las': get_parcels_ranking('las'),
+        'pastwisko': get_parcels_ranking('pastwisko')
+    }
+
+    # ——— Statystyki rzek i dróg
+    # Rzeki
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(geometria::geography)), 0) as max_length,
+            COALESCE(MIN(ST_Length(geometria::geography)), 0) as min_length,
+            COALESCE(AVG(ST_Length(geometria::geography)), 0) as avg_length
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'rzeka' AND geometria IS NOT NULL;
+    """)
+    rivers_stats_raw = cur.fetchone()
+    
+    if rivers_stats_raw and rivers_stats_raw['total_count'] > 0:
+        rivers_stats = {
+            'total_count': rivers_stats_raw['total_count'],
+            'max_length_m': float(rivers_stats_raw['max_length'] or 0),
+            'min_length_m': float(rivers_stats_raw['min_length'] or 0),
+            'avg_length_m': float(rivers_stats_raw['avg_length'] or 0)
+        }
+    else:
+        rivers_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'min_length_m': 0.0,
+            'avg_length_m': 0.0
+        }
+    
+    # Ranking rzek
+    cur.execute("""
+        SELECT 
+            o.nazwa_lub_numer as name,
+            COALESCE(ST_Length(o.geometria::geography), 0) as length_m
+        FROM obiekty_geograficzne o
+        WHERE o.kategoria = 'rzeka' AND o.geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 50;
+    """)
+    rivers_ranking = cur.fetchall()
+    
+    # Drogi
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(geometria::geography)), 0) as max_length,
+            COALESCE(MIN(ST_Length(geometria::geography)), 0) as min_length,
+            COALESCE(AVG(ST_Length(geometria::geography)), 0) as avg_length
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'droga' AND geometria IS NOT NULL;
+    """)
+    roads_stats_raw = cur.fetchone()
+    
+    if roads_stats_raw and roads_stats_raw['total_count'] > 0:
+        roads_stats = {
+            'total_count': roads_stats_raw['total_count'],
+            'max_length_m': float(roads_stats_raw['max_length'] or 0),
+            'min_length_m': float(roads_stats_raw['min_length'] or 0),
+            'avg_length_m': float(roads_stats_raw['avg_length'] or 0)
+        }
+    else:
+        roads_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'min_length_m': 0.0,
+            'avg_length_m': 0.0
+        }
+    
+    # Ranking dróg
+    cur.execute("""
+        SELECT 
+            o.nazwa_lub_numer as name,
+            COALESCE(ST_Length(o.geometria::geography), 0) as length_m
+        FROM obiekty_geograficzne o
+        WHERE o.kategoria = 'droga' AND o.geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 50;
+    """)
+    roads_ranking = cur.fetchall()
 
     # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
     cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
@@ -860,6 +1009,12 @@ def get_stats():
 
     return jsonify({
         'general_stats': {'total_owners': total_owners, 'total_plots': total_plots},
+        'area_stats': area_stats,
+        'parcels_ranking': parcels_ranking,
+        'rivers_stats': rivers_stats,
+        'rivers_ranking': rivers_ranking,
+        'roads_stats': roads_stats,
+        'roads_ranking': roads_ranking,
         'protocols_per_day': protocols_per_day,
         'rankings_real': rankings_real,
         'rankings_protocol': rankings_protocol,
