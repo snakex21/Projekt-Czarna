@@ -482,7 +482,9 @@ def get_stats():
             category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
             query = f"""
                 SELECT w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu,
-                       COUNT(dw.obiekt_id) as plot_count
+                       COUNT(dw.obiekt_id) as plot_count,
+                       COALESCE(SUM(ST_Area(ST_Transform(o.geometria, 32634))), 0) as total_area_m2,
+                       array_agg(o.nazwa_lub_numer ORDER BY o.nazwa_lub_numer) as plot_numbers
                 FROM wlasciciele w
                 JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                 JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
@@ -855,6 +857,115 @@ def get_stats():
         'family_structure': family_structure
     }
 
+
+    # ——— Statystyki powierzchni działek
+    cur.execute("""
+        SELECT 
+            COALESCE(SUM(ST_Area(ST_Transform(geometria, 32634))), 0) / 10000 as total_area_ha,
+            COALESCE(AVG(ST_Area(ST_Transform(geometria, 32634))), 0) / 100 as avg_area_ares,
+            COALESCE(MIN(ST_Area(ST_Transform(geometria, 32634))), 0) as min_area_m2,
+            COALESCE(MAX(ST_Area(ST_Transform(geometria, 32634))), 0) as max_area_m2
+        FROM obiekty_geograficzne
+        WHERE geometria IS NOT NULL 
+        AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny');
+    """)
+    area_stats_row = cur.fetchone()
+    area_stats = {
+        'total_area_ha': float(area_stats_row['total_area_ha'] or 0),
+        'avg_area_ares': float(area_stats_row['avg_area_ares'] or 0),
+        'min_area_m2': float(area_stats_row['min_area_m2'] or 0),
+        'max_area_m2': float(area_stats_row['max_area_m2'] or 0)
+    }
+
+    # ——— Ranking działek według powierzchni
+    def get_parcels_ranking_by_category(category_name=None):
+        category_condition = f"AND o.kategoria = '{category_name}'" if category_name else ""
+        query = f"""
+            SELECT 
+                o.nazwa_lub_numer as parcel_number,
+                o.kategoria,
+                ST_Area(ST_Transform(o.geometria, 32634)) as area_m2,
+                string_agg(DISTINCT w.nazwa_wlasciciela, ', ' ORDER BY w.nazwa_wlasciciela) as nazwa_wlasciciela,
+                (array_agg(DISTINCT w.unikalny_klucz))[1] as unikalny_klucz
+            FROM obiekty_geograficzne o
+            LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
+            LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
+            WHERE o.geometria IS NOT NULL 
+            AND o.kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny')
+            {category_condition}
+            GROUP BY o.id, o.nazwa_lub_numer, o.kategoria, o.geometria
+            ORDER BY area_m2 DESC
+            LIMIT 50;
+        """
+        cur.execute(query)
+        return cur.fetchall()
+
+    parcels_ranking = {
+        'all': get_parcels_ranking_by_category(),
+        'rolna': get_parcels_ranking_by_category('rolna'),
+        'budowlana': get_parcels_ranking_by_category('budowlana'),
+        'las': get_parcels_ranking_by_category('las'),
+        'pastwisko': get_parcels_ranking_by_category('pastwisko')
+    }
+
+    # ——— Statystyki i ranking rzek
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(ST_Transform(geometria, 32634))), 0) as max_length_m,
+            COALESCE(AVG(ST_Length(ST_Transform(geometria, 32634))), 0) as avg_length_m,
+            COALESCE(MIN(ST_Length(ST_Transform(geometria, 32634))), 0) as min_length_m
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'rzeka' AND geometria IS NOT NULL;
+    """)
+    rivers_stats_row = cur.fetchone()
+    rivers_stats = {
+        'total_count': int(rivers_stats_row['total_count'] or 0),
+        'max_length_m': float(rivers_stats_row['max_length_m'] or 0),
+        'avg_length_m': float(rivers_stats_row['avg_length_m'] or 0),
+        'min_length_m': float(rivers_stats_row['min_length_m'] or 0)
+    }
+
+    cur.execute("""
+        SELECT 
+            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Rzeka ' || id) as river_name,
+            ST_Length(ST_Transform(geometria, 32634)) as length_m
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'rzeka' AND geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 20;
+    """)
+    rivers_ranking = cur.fetchall()
+
+    # ——— Statystyki i ranking dróg
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(ST_Transform(geometria, 32634))), 0) as max_length_m,
+            COALESCE(AVG(ST_Length(ST_Transform(geometria, 32634))), 0) as avg_length_m,
+            COALESCE(MIN(ST_Length(ST_Transform(geometria, 32634))), 0) as min_length_m
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'droga' AND geometria IS NOT NULL;
+    """)
+    roads_stats_row = cur.fetchone()
+    roads_stats = {
+        'total_count': int(roads_stats_row['total_count'] or 0),
+        'max_length_m': float(roads_stats_row['max_length_m'] or 0),
+        'avg_length_m': float(roads_stats_row['avg_length_m'] or 0),
+        'min_length_m': float(roads_stats_row['min_length_m'] or 0)
+    }
+
+    cur.execute("""
+        SELECT 
+            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Droga ' || id) as road_name,
+            ST_Length(ST_Transform(geometria, 32634)) as length_m
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'droga' AND geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 20;
+    """)
+    roads_ranking = cur.fetchall()
+
     cur.close()
     conn.close()
 
@@ -865,7 +976,13 @@ def get_stats():
         'rankings_protocol': rankings_protocol,
         'demografia': demografia_data,
         'category_counts': category_counts,
-        'genealogy_stats': genealogy_stats
+        'genealogy_stats': genealogy_stats,
+        'area_stats': area_stats,
+        'parcels_ranking': parcels_ranking,
+        'rivers_stats': rivers_stats,
+        'rivers_ranking': rivers_ranking,
+        'roads_stats': roads_stats,
+        'roads_ranking': roads_ranking
     })
 
 @app.route('/api/plots-for-owners', methods=['POST'])
