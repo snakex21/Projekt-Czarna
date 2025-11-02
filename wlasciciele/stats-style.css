@@ -413,7 +413,7 @@ body {
    SYSTEM ZAKŁADEK
    ========================================================================== */
 .tabs-container {
-  max-width: 1400px;
+  max-width: 885px;
   margin: 0 auto;
   padding: 0 2rem 3rem;
 }
@@ -468,7 +468,7 @@ body {
    ========================================================================== */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px));
   gap: 1.5rem;
 }
 
@@ -629,6 +629,14 @@ body {
 .radio-group input[type="radio"]:checked + label {
   background: var(--gradient-primary);
   color: white;
+}
+
+.dashboard-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 /* ========================================================================== 
