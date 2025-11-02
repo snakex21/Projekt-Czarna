@@ -609,16 +609,27 @@ function displayParcelsRanking(parcelsData, container) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const owner = parcel.nazwa_wlasciciela || 'Brak właściciela';
     const areaM2 = parcel.area_m2 || 0;
-    const ownerLink = parcel.unikalny_klucz 
-      ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
-      : owner;
+    
+    // Jeśli jest wielu właścicieli (rozdzieleni przecinkami), pokaż tylko pierwszy z linkiem
+    let ownerDisplay;
+    if (owner.includes(', ')) {
+      const firstOwner = owner.split(', ')[0];
+      const ownersCount = owner.split(', ').length;
+      ownerDisplay = parcel.unikalny_klucz 
+        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${firstOwner}</a> <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`
+        : `${firstOwner} <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`;
+    } else {
+      ownerDisplay = parcel.unikalny_klucz 
+        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
+        : owner;
+    }
     
     return `
       <div class="ranking-item" style="cursor: default; pointer-events: auto;">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
           <div class="ranking-name">${parcel.parcel_number}</div>
-          <div class="ranking-meta">${ownerLink}</div>
+          <div class="ranking-meta">${ownerDisplay}</div>
         </div>
         <div class="ranking-value">
           <div style="text-align: right;">

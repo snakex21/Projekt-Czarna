@@ -558,12 +558,13 @@ def get_stats():
                 o.nazwa_lub_numer as parcel_number,
                 o.kategoria,
                 COALESCE(ST_Area(o.geometria::geography), 0) as area_m2,
-                w.nazwa_wlasciciela,
-                w.unikalny_klucz
+                STRING_AGG(DISTINCT w.nazwa_wlasciciela, ', ') as nazwa_wlasciciela,
+                MIN(w.unikalny_klucz) as unikalny_klucz
             FROM obiekty_geograficzne o
             LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
             LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
             WHERE o.geometria IS NOT NULL {category_condition}
+            GROUP BY o.id, o.nazwa_lub_numer, o.kategoria, o.geometria
             ORDER BY area_m2 DESC
             LIMIT 100;
         """
