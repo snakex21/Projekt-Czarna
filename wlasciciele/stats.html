@@ -275,6 +275,78 @@
                             </div>
                         </div>
                         
+                        <!-- Statystyki rzek -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-water"></i> Rzeki</h3>
+                            </div>
+                            <div class="stats-grid">
+                                <div class="mini-stat">
+                                    <div class="mini-icon blue">
+                                        <i class="fas fa-water"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Liczba rzek</span>
+                                        <span class="mini-value" id="stat-rivers-count">0</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon green">
+                                        <i class="fas fa-arrows-alt-h"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Najdłuższa rzeka</span>
+                                        <span class="mini-value" id="stat-river-max">0 m</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon orange">
+                                        <i class="fas fa-compress-alt"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Najkrótsza rzeka</span>
+                                        <span class="mini-value" id="stat-river-min">0 m</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Statystyki dróg -->
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-road"></i> Drogi</h3>
+                            </div>
+                            <div class="stats-grid">
+                                <div class="mini-stat">
+                                    <div class="mini-icon purple">
+                                        <i class="fas fa-road"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Liczba dróg</span>
+                                        <span class="mini-value" id="stat-roads-count">0</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon green">
+                                        <i class="fas fa-arrows-alt-h"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Najdłuższa droga</span>
+                                        <span class="mini-value" id="stat-road-max">0 m</span>
+                                    </div>
+                                </div>
+                                <div class="mini-stat">
+                                    <div class="mini-icon orange">
+                                        <i class="fas fa-compress-alt"></i>
+                                    </div>
+                                    <div class="mini-data">
+                                        <span class="mini-label">Najkrótsza droga</span>
+                                        <span class="mini-value" id="stat-road-min">0 m</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <!-- Mini statystyki kategorii -->
                         <div class="dashboard-card stats-grid">
                             <div class="mini-stat">
@@ -385,6 +457,26 @@
                                 </div>
                             </div>
                             <div class="ranking-list" id="parcels-ranking-list">
+                                <!-- Generowane dynamicznie przez JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Ranking rzek według długości -->
+                        <div class="dashboard-card" style="margin-top: 2rem;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-water"></i> TOP 20 Najdłuższych Rzek</h3>
+                            </div>
+                            <div class="ranking-list" id="rivers-ranking-list">
+                                <!-- Generowane dynamicznie przez JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Ranking dróg według długości -->
+                        <div class="dashboard-card" style="margin-top: 2rem;">
+                            <div class="card-header">
+                                <h3><i class="fas fa-road"></i> TOP 20 Najdłuższych Dróg</h3>
+                            </div>
+                            <div class="ranking-list" id="roads-ranking-list">
                                 <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
                         </div>

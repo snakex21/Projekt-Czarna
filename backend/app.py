@@ -579,6 +579,67 @@ def get_stats():
         'pastwisko': get_parcels_ranking('pastwisko')
     }
 
+    # ——— Statystyki rzek i dróg
+    # Rzeki
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(geometria::geography)), 0) as max_length,
+            COALESCE(MIN(ST_Length(geometria::geography)), 0) as min_length,
+            COALESCE(AVG(ST_Length(geometria::geography)), 0) as avg_length
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'rzeka' AND geometria IS NOT NULL;
+    """)
+    rivers_stats_raw = cur.fetchone()
+    rivers_stats = {
+        'total_count': rivers_stats_raw['total_count'],
+        'max_length_m': float(rivers_stats_raw['max_length']),
+        'min_length_m': float(rivers_stats_raw['min_length']),
+        'avg_length_m': float(rivers_stats_raw['avg_length'])
+    }
+    
+    # Ranking rzek
+    cur.execute("""
+        SELECT 
+            o.nazwa_lub_numer as name,
+            COALESCE(ST_Length(o.geometria::geography), 0) as length_m
+        FROM obiekty_geograficzne o
+        WHERE o.kategoria = 'rzeka' AND o.geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 50;
+    """)
+    rivers_ranking = cur.fetchall()
+    
+    # Drogi
+    cur.execute("""
+        SELECT 
+            COUNT(*) as total_count,
+            COALESCE(MAX(ST_Length(geometria::geography)), 0) as max_length,
+            COALESCE(MIN(ST_Length(geometria::geography)), 0) as min_length,
+            COALESCE(AVG(ST_Length(geometria::geography)), 0) as avg_length
+        FROM obiekty_geograficzne
+        WHERE kategoria = 'droga' AND geometria IS NOT NULL;
+    """)
+    roads_stats_raw = cur.fetchone()
+    roads_stats = {
+        'total_count': roads_stats_raw['total_count'],
+        'max_length_m': float(roads_stats_raw['max_length']),
+        'min_length_m': float(roads_stats_raw['min_length']),
+        'avg_length_m': float(roads_stats_raw['avg_length'])
+    }
+    
+    # Ranking dróg
+    cur.execute("""
+        SELECT 
+            o.nazwa_lub_numer as name,
+            COALESCE(ST_Length(o.geometria::geography), 0) as length_m
+        FROM obiekty_geograficzne o
+        WHERE o.kategoria = 'droga' AND o.geometria IS NOT NULL
+        ORDER BY length_m DESC
+        LIMIT 50;
+    """)
+    roads_ranking = cur.fetchall()
+
     # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
     cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
     genealogia_raw = cur.fetchall()  # :contentReference[oaicite:0]{index=0}
@@ -917,6 +978,10 @@ def get_stats():
         'general_stats': {'total_owners': total_owners, 'total_plots': total_plots},
         'area_stats': area_stats,
         'parcels_ranking': parcels_ranking,
+        'rivers_stats': rivers_stats,
+        'rivers_ranking': rivers_ranking,
+        'roads_stats': roads_stats,
+        'roads_ranking': roads_ranking,
         'protocols_per_day': protocols_per_day,
         'rankings_real': rankings_real,
         'rankings_protocol': rankings_protocol,

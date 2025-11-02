@@ -631,7 +631,7 @@ body {
   color: white;
 }
 
-.card-header {
+.dashboard-card .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;

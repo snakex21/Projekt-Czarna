@@ -282,9 +282,12 @@ async function loadStatistics() {
 
     updateCounters(statsData.general_stats);
     updateAreaStats(statsData.area_stats);
+    updateRiversRoadsStats(statsData.rivers_stats, statsData.roads_stats);
     createCharts(statsData);
     loadRankings(statsData);
     loadParcelsRanking(statsData.parcels_ranking);
+    loadRiversRanking(statsData.rivers_ranking);
+    loadRoadsRanking(statsData.roads_ranking);
     loadDemographics(statsData.demografia);
     renderActivityCalendar(statsData.protocols_per_day);
     loadGenealogyStats(statsData);
@@ -384,6 +387,33 @@ function updateAreaStats(areaStats) {
     } else {
       maxHa.textContent = `${maxHaValue.toFixed(2)} ha`;
     }
+  }
+}
+
+/**
+ * Aktualizuje statystyki rzek i dróg.
+ * @param {Object} riversStats
+ * @param {Object} roadsStats
+ */
+function updateRiversRoadsStats(riversStats, roadsStats) {
+  if (riversStats) {
+    const riversCount = document.getElementById('stat-rivers-count');
+    const riverMax = document.getElementById('stat-river-max');
+    const riverMin = document.getElementById('stat-river-min');
+    
+    if (riversCount) riversCount.textContent = riversStats.total_count;
+    if (riverMax) riverMax.textContent = `${Math.round(riversStats.max_length_m)} m`;
+    if (riverMin) riverMin.textContent = `${Math.round(riversStats.min_length_m)} m`;
+  }
+  
+  if (roadsStats) {
+    const roadsCount = document.getElementById('stat-roads-count');
+    const roadMax = document.getElementById('stat-road-max');
+    const roadMin = document.getElementById('stat-road-min');
+    
+    if (roadsCount) roadsCount.textContent = roadsStats.total_count;
+    if (roadMax) roadMax.textContent = `${Math.round(roadsStats.max_length_m)} m`;
+    if (roadMin) roadMin.textContent = `${Math.round(roadsStats.min_length_m)} m`;
   }
 }
 
@@ -634,6 +664,78 @@ function displayParcelsRanking(parcelsData, container) {
         <div class="ranking-value">
           <div style="text-align: right;">
             <strong>${formatArea(areaM2)}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   RANKINGI RZEK I DRÓG
+   ========================================================================== */
+
+/**
+ * Ładuje ranking rzek według długości.
+ * @param {Array} riversData
+ */
+function loadRiversRanking(riversData) {
+  const container = document.getElementById('rivers-ranking-list');
+  if (!container || !riversData) return;
+
+  container.innerHTML = riversData.slice(0, 20).map((river, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const lengthM = river.length_m || 0;
+    const lengthKm = lengthM / 1000;
+    
+    const lengthDisplay = lengthKm >= 1 
+      ? `${lengthKm.toFixed(2)} km` 
+      : `${Math.round(lengthM)} m`;
+    
+    return `
+      <div class="ranking-item" style="cursor: default;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${river.name || 'Bez nazwy'}</div>
+          <div class="ranking-meta">Rzeka</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${lengthDisplay}</strong>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/**
+ * Ładuje ranking dróg według długości.
+ * @param {Array} roadsData
+ */
+function loadRoadsRanking(roadsData) {
+  const container = document.getElementById('roads-ranking-list');
+  if (!container || !roadsData) return;
+
+  container.innerHTML = roadsData.slice(0, 20).map((road, i) => {
+    const pos = i + 1;
+    const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
+    const lengthM = road.length_m || 0;
+    const lengthKm = lengthM / 1000;
+    
+    const lengthDisplay = lengthKm >= 1 
+      ? `${lengthKm.toFixed(2)} km` 
+      : `${Math.round(lengthM)} m`;
+    
+    return `
+      <div class="ranking-item" style="cursor: default;">
+        <div class="ranking-position ${cls}">${pos}</div>
+        <div class="ranking-info">
+          <div class="ranking-name">${road.name || 'Bez nazwy'}</div>
+          <div class="ranking-meta">Droga</div>
+        </div>
+        <div class="ranking-value">
+          <div style="text-align: right;">
+            <strong>${lengthDisplay}</strong>
           </div>
         </div>
       </div>`;
