@@ -1,0 +1,43 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║                   STATYSTYKI - QUICK START                        ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+🌐 OTWÓRZ W PRZEGLĄDARCE:
+
+    → http://127.0.0.1:8000/wlasciciele/stats.html
+
+📊 CO TESTOWAĆ:
+    
+    1. Kliknij zakładkę "Rankingi" (🏆)
+    2. Przewiń w dół
+    3. Sprawdź 3 nowe sekcje:
+       • Własność ziemi (przełączniki: ha/a/m²)
+       • Największe działki
+       • Rzeki i drogi
+
+✅ STATUS SERWERÓW:
+
+    Backend:  http://127.0.0.1:5000  ✓
+    Frontend: http://127.0.0.1:8000  ✓
+
+🔄 RESTART SERWERÓW:
+
+    cd /home/engine/project
+    ./start_test_servers.sh
+
+🛑 STOP SERWERÓW:
+
+    pkill -f 'python3 test_server.py'
+    pkill -f 'python3 -m http.server'
+
+📚 DOKUMENTACJA:
+
+    JAK_OTWORZYC_STATYSTYKI.md   - instrukcja otwarcia
+    TESTOWANIE_STATYSTYK.md      - pełny przewodnik
+    IMPLEMENTATION_SUMMARY.md    - szczegóły techniczne
+
+═══════════════════════════════════════════════════════════════════
+
+💡 Używane są mockowe dane - nie potrzeba bazy danych PostgreSQL
+
+═══════════════════════════════════════════════════════════════════
