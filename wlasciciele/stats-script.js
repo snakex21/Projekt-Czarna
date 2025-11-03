@@ -75,6 +75,7 @@ function applyTheme(theme) {
  */
 function initUI() {
   initTabs();
+  initRankingTypeSelector();
   initSearch();
   initActionButtons();
   initHelpModal();
@@ -105,6 +106,41 @@ function initTabs() {
       }
     });
   });
+}
+
+/**
+ * Przełącznik typów rankingów (Właściciele/Działki/Infrastruktura)
+ */
+function initRankingTypeSelector() {
+  const rankingTypeInputs = document.querySelectorAll('input[name="ranking-type"]');
+
+  rankingTypeInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      switchRankingView(input.value);
+    });
+  });
+}
+
+/**
+ * Przełącza widoczne widoki rankingów
+ * @param {'owners'|'parcels'|'infrastructure'} type
+ */
+function switchRankingView(type) {
+  const views = {
+    'owners': document.getElementById('ranking-view-owners'),
+    'parcels': document.getElementById('ranking-view-parcels'),
+    'infrastructure': document.getElementById('ranking-view-infrastructure')
+  };
+
+  // Ukryj wszystkie widoki
+  Object.values(views).forEach(view => {
+    if (view) view.style.display = 'none';
+  });
+
+  // Pokaż wybrany widok
+  if (views[type]) {
+    views[type].style.display = 'block';
+  }
 }
 
 /**
@@ -691,16 +727,16 @@ function loadRiversRanking(riversData) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = river.length_m || 0;
     const lengthKm = lengthM / 1000;
-    
-    const lengthDisplay = lengthKm >= 1 
-      ? `${lengthKm.toFixed(2)} km` 
+
+    const lengthDisplay = lengthKm >= 1
+      ? `${lengthKm.toFixed(2)} km`
       : `${Math.round(lengthM)} m`;
-    
+
     return `
       <div class="ranking-item" style="cursor: default;">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
-          <div class="ranking-name">${river.name || 'Bez nazwy'}</div>
+          <div class="ranking-name">${river.river_name || 'Bez nazwy'}</div>
           <div class="ranking-meta">Rzeka</div>
         </div>
         <div class="ranking-value">
@@ -725,16 +761,16 @@ function loadRoadsRanking(roadsData) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = road.length_m || 0;
     const lengthKm = lengthM / 1000;
-    
-    const lengthDisplay = lengthKm >= 1 
-      ? `${lengthKm.toFixed(2)} km` 
+
+    const lengthDisplay = lengthKm >= 1
+      ? `${lengthKm.toFixed(2)} km`
       : `${Math.round(lengthM)} m`;
-    
+
     return `
       <div class="ranking-item" style="cursor: default;">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
-          <div class="ranking-name">${road.name || 'Bez nazwy'}</div>
+          <div class="ranking-name">${road.road_name || 'Bez nazwy'}</div>
           <div class="ranking-meta">Droga</div>
         </div>
         <div class="ranking-value">

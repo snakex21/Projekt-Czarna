@@ -446,14 +446,41 @@
                 <!-- ZAKŁADKA: RANKINGI -->
                 <div class="tab-panel" id="rankings">
 
-                    <!-- Sekcja: Ranking właścicieli -->
+                    <!-- Główny przełącznik typu rankingu -->
                     <div class="stats-section">
                         <div class="section-header">
-                            <h2><i class="fas fa-trophy"></i> Ranking właścicieli</h2>
-                            <p>Największe posiadłości według różnych kryteriów</p>
+                            <h2><i class="fas fa-trophy"></i> Rankingi</h2>
+                            <p>Wybierz typ rankingu do wyświetlenia</p>
                         </div>
+
+                        <!-- Przełącznik typu rankingu -->
+                        <div class="ranking-type-selector">
+                            <div class="ranking-type-buttons">
+                                <input type="radio" name="ranking-type" id="ranking-owners" value="owners" checked>
+                                <label for="ranking-owners">
+                                    <i class="fas fa-users"></i>
+                                    <span>Właściciele</span>
+                                </label>
+
+                                <input type="radio" name="ranking-type" id="ranking-parcels" value="parcels">
+                                <label for="ranking-parcels">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                    <span>Działki</span>
+                                </label>
+
+                                <input type="radio" name="ranking-type" id="ranking-infrastructure" value="infrastructure">
+                                <label for="ranking-infrastructure">
+                                    <i class="fas fa-road"></i>
+                                    <span>Infrastruktura</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WIDOK: Ranking właścicieli -->
+                    <div class="stats-section ranking-view" id="ranking-view-owners">
                         <div class="dashboard-card">
-                            <!-- Panel filtrów -->
+                            <!-- Panel filtrów dla właścicieli -->
                             <div class="rankings-filters">
                                 <div class="filter-group">
                                     <label>Typ własności:</label>
@@ -495,12 +522,8 @@
                         </div>
                     </div>
 
-                    <!-- Sekcja: Ranking działek -->
-                    <div class="stats-section">
-                        <div class="section-header">
-                            <h2><i class="fas fa-chart-bar"></i> Największe działki</h2>
-                            <p>TOP 50 działek według powierzchni</p>
-                        </div>
+                    <!-- WIDOK: Ranking działek -->
+                    <div class="stats-section ranking-view" id="ranking-view-parcels" style="display: none;">
                         <div class="dashboard-card">
                             <div class="card-header">
                                 <h3><i class="fas fa-filter"></i> Filtruj według kategorii</h3>
@@ -520,12 +543,8 @@
                         </div>
                     </div>
 
-                    <!-- Sekcja: Rankingi infrastruktury -->
-                    <div class="stats-section">
-                        <div class="section-header">
-                            <h2><i class="fas fa-water"></i> Infrastruktura naturalna i transportowa</h2>
-                            <p>Najdłuższe rzeki i drogi</p>
-                        </div>
+                    <!-- WIDOK: Infrastruktura -->
+                    <div class="stats-section ranking-view" id="ranking-view-infrastructure" style="display: none;">
                         <div class="dashboard-grid">
                             <!-- Ranking rzek według długości -->
                             <div class="dashboard-card">
