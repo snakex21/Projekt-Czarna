@@ -12,19 +12,20 @@ document.addEventListener("DOMContentLoaded", initializeApp);
    ========================================================================== */
 
 /* Instancje głównych obiektów */
-let map = null;                    
-let allOwnersData = [];            
-let allParcelsData = [];           
+let map = null;
+let allOwnersData = [];
+let allParcelsData = [];
 let geojsonLayer = null;
-let historicalMapOverlay = null;           
-let layersByCategory = {};         
+let historicalMapOverlay = null;
+let layersByCategory = {};
+let markerClusterGroup = null;
 
 /* Stan interfejsu */
-let isInCompareMode = false;       
-let selectedForCompare = [];       
+let isInCompareMode = false;
+let selectedForCompare = [];
 
 /* Warstwy podświetleń */
-let highlightedLayer = null;       
+let highlightedLayer = null;
 let ownerHighlightLayer = null;    
 
 /* Paleta kolorów dla właścicieli */
@@ -119,7 +120,9 @@ function initializeMap() {
         layers: [satelliteLayer, historicalMapOverlay, geojsonLayer],
         maxBounds: maxBounds,
         minZoom: 12,
-        maxZoom: 18
+        maxZoom: 18,
+        preferCanvas: true, // Użyj Canvas zamiast SVG dla lepszej wydajności
+        renderer: L.canvas({ padding: 0.5, tolerance: 10 })
     }).setView([defaults.center.lat, defaults.center.lng], defaults.zoom);
 
     /* Kontroler warstw */
@@ -290,17 +293,31 @@ function renderMapObjects(parcels) {
         map.removeLayer(geojsonLayer);
     }
 
-    /* Tworzenie warstwy GeoJSON */
-    geojsonLayer = L.geoJSON(parcels, {
+    if (markerClusterGroup) {
+        map.removeLayer(markerClusterGroup);
+    }
+
+    /* Inicjalizacja MarkerClusterGroup dla punktów */
+    markerClusterGroup = L.markerClusterGroup({
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        disableClusteringAtZoom: 17
+    });
+
+    /* Przygotowanie danych - podział na punkty i nie-punkty */
+    const pointFeatures = parcels.filter(f => f.geometry.type === 'Point');
+    const nonPointFeatures = parcels.filter(f => f.geometry.type !== 'Point');
+
+    /* Tworzenie warstwy GeoJSON dla poligonów i linii */
+    geojsonLayer = L.geoJSON(nonPointFeatures, {
         style: (feature) => STYLES[feature.properties.kategoria] || STYLES.default,
-        
-        pointToLayer: (feature, latlng) =>
-            L.marker(latlng, { icon: ICONS[feature.properties.kategoria] }),
-        
+
         onEachFeature: (feature, layer) => {
             const props = feature.properties;
             const kategoria = props.kategoria || "default";
-            
+
             /* Grupowanie warstw według kategorii */
             if (!layersByCategory[kategoria]) {
                 layersByCategory[kategoria] = [];
@@ -315,8 +332,8 @@ function renderMapObjects(parcels) {
             }
             layer.bindPopup(popupContent);
 
-            /* Dodawanie etykiet do obiektów niepunktowych */
-            if (props.numer_obiektu && feature.geometry.type !== 'Point') {
+            /* Dodawanie etykiet - zawsze widocznych */
+            if (props.numer_obiektu) {
                 layer.bindTooltip(props.numer_obiektu.toString(), {
                     permanent: true,
                     direction: 'center',
@@ -332,6 +349,55 @@ function renderMapObjects(parcels) {
             });
         },
     }).addTo(map);
+
+    /* Tworzenie warstwy dla punktów z clusteringiem */
+    const pointLayer = L.geoJSON(pointFeatures, {
+        pointToLayer: (feature, latlng) => {
+            const marker = L.marker(latlng, { icon: ICONS[feature.properties.kategoria] });
+
+            const props = feature.properties;
+            const kategoria = props.kategoria || "default";
+
+            /* Grupowanie warstw według kategorii */
+            if (!layersByCategory[kategoria]) {
+                layersByCategory[kategoria] = [];
+            }
+            layersByCategory[kategoria].push(marker);
+
+            /* Konfiguracja popup */
+            const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
+            let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
+            if (props.wlasciciele?.length > 0) {
+                popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
+            }
+            marker.bindPopup(popupContent);
+
+            /* Dodawanie etykiet z numerami - zawsze widocznych */
+            if (props.numer_obiektu) {
+                marker.bindTooltip(props.numer_obiektu.toString(), {
+                    permanent: true,
+                    direction: 'bottom',
+                    className: 'parcel-label point-label',
+                    offset: [0, 10]
+                });
+            }
+
+            /* Dodaj feature do markera dla późniejszego dostępu */
+            marker.feature = feature;
+
+            /* Zdarzenia interakcji */
+            marker.on({
+                mouseover: (e) => handleFeatureMouseover(e, feature),
+                mouseout: (e) => handleFeatureMouseout(e),
+                click: (e) => handleObjectClick(feature.properties.wlasciciele, latlng)
+            });
+
+            return marker;
+        }
+    });
+
+    markerClusterGroup.addLayer(pointLayer);
+    map.addLayer(markerClusterGroup);
 
     console.log("✅ Zakończono rysowanie obiektów");
 }
@@ -423,7 +489,7 @@ function setupOwnerPanel() {
             btnRzeczywiste.onclick = (e) => {
                 e.stopPropagation();
                 const ids = owner.dzialki_rzeczywiste.map(p => p.id);
-                highlightFeaturesByIds(ids, 'fuchsia');
+                highlightFeaturesByIds(ids, 'fuchsia', owner.nazwa_wlasciciela, 'Rzeczywiste');
             };
         } else {
             btnRzeczywiste.style.display = "none";
@@ -433,7 +499,7 @@ function setupOwnerPanel() {
             btnProtokol.onclick = (e) => {
                 e.stopPropagation();
                 const ids = owner.dzialki_protokol.map(p => p.id);
-                highlightFeaturesByIds(ids, '#ffc107');
+                highlightFeaturesByIds(ids, '#ffc107', owner.nazwa_wlasciciela, 'Wg Protokołu');
             };
         } else {
             btnProtokol.style.display = "none";
@@ -463,21 +529,39 @@ function setupOwnerPanel() {
      * @param {boolean} highlight - Czy podświetlić
      */
     const highlightOwnerParcels = (owner, highlight) => {
-        if (!geojsonLayer) return;
-        
-        geojsonLayer.eachLayer(layer => {
+        /* Funkcja pomocnicza do podświetlenia warstwy */
+        const highlightLayer = (layer) => {
+            if (!layer.feature) return;
+
             const ownersOnParcel = layer.feature.properties.wlasciciele;
             const isOwnerMatch = ownersOnParcel?.some(o => o.id === owner.id);
-            
-            if (isOwnerMatch && layer.setStyle) {
-                if (highlight) {
-                    layer.setStyle({ weight: 5, color: "lime" });
-                    layer.bringToFront();
-                } else {
-                    geojsonLayer.resetStyle(layer);
+
+            if (isOwnerMatch) {
+                if (layer.setStyle) {
+                    if (highlight) {
+                        layer.setStyle({ weight: 5, color: "lime" });
+                        layer.bringToFront();
+                    } else {
+                        geojsonLayer.resetStyle(layer);
+                    }
+                } else if (layer instanceof L.Marker) {
+                    /* Dla markerów w clusterze możemy zmienić opacity */
+                    if (highlight) {
+                        layer.setOpacity(1);
+                    } else {
+                        layer.setOpacity(1);
+                    }
                 }
             }
-        });
+        };
+
+        if (geojsonLayer) {
+            geojsonLayer.eachLayer(highlightLayer);
+        }
+
+        if (markerClusterGroup) {
+            markerClusterGroup.eachLayer(highlightLayer);
+        }
     };
 
     /**
@@ -1256,8 +1340,10 @@ if (clearHighlightBtn) {
  * Podświetla obiekty na mapie według ID.
  * @param {Array} featureIds - Tablica ID obiektów
  * @param {string} color - Kolor podświetlenia
+ * @param {string} ownerName - Opcjonalna nazwa właściciela
+ * @param {string} ownershipType - Opcjonalny typ własności
  */
-function highlightFeaturesByIds(featureIds, color) {
+function highlightFeaturesByIds(featureIds, color, ownerName = null, ownershipType = null) {
     if (highlightedLayer) {
         map.removeLayer(highlightedLayer);
     }
@@ -1271,24 +1357,34 @@ function highlightFeaturesByIds(featureIds, color) {
         fillOpacity: 0.5,
     };
 
-    /* Tworzenie warstw podświetleń */
-    geojsonLayer.eachLayer(layer => {
-        if (featureIds.includes(layer.feature.id)) {
-            let clonedLayer;
-            
-            if (layer instanceof L.Polygon) {
-                clonedLayer = L.polygon(layer.getLatLngs(), highlightStyle);
-            } else if (layer instanceof L.Polyline) {
-                clonedLayer = L.polyline(layer.getLatLngs(), { ...highlightStyle, fill: false });
-            } else if (layer instanceof L.Marker) {
-                clonedLayer = L.circleMarker(layer.getLatLng(), { radius: 10, ...highlightStyle });
-            }
-            
-            if (clonedLayer) {
-                highlightedLayer.addLayer(clonedLayer);
-            }
+    /* Funkcja pomocnicza do tworzenia podświetlenia */
+    const createHighlight = (layer) => {
+        if (!featureIds.includes(layer.feature.id)) return;
+
+        let clonedLayer;
+
+        if (layer instanceof L.Polygon) {
+            clonedLayer = L.polygon(layer.getLatLngs(), highlightStyle);
+        } else if (layer instanceof L.Polyline) {
+            clonedLayer = L.polyline(layer.getLatLngs(), { ...highlightStyle, fill: false });
+        } else if (layer instanceof L.Marker) {
+            clonedLayer = L.circleMarker(layer.getLatLng(), { radius: 15, ...highlightStyle });
         }
-    });
+
+        if (clonedLayer) {
+            highlightedLayer.addLayer(clonedLayer);
+        }
+    };
+
+    /* Tworzenie warstw podświetleń - z geojsonLayer */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(createHighlight);
+    }
+
+    /* Tworzenie warstw podświetleń - z markerClusterGroup */
+    if (markerClusterGroup) {
+        markerClusterGroup.eachLayer(createHighlight);
+    }
 
     if (highlightedLayer.getLayers().length > 0) {
         highlightedLayer.addTo(map);
@@ -1308,6 +1404,11 @@ function highlightFeaturesByIds(featureIds, color) {
         }
 
         document.getElementById("highlight-controls").classList.remove("hidden");
+
+        /* Dodaj wpis właściciela do legendy jeśli podano */
+        if (ownerName) {
+            addOwnerToLegend(ownerName, color, ownershipType);
+        }
     }
 
     document.getElementById('selected-count').textContent = highlightedLayer.getLayers().length;
@@ -1322,23 +1423,30 @@ function highlightAndColorOwners(uniqueOwnerKeys, ownershipType = 'wszystkie') {
     if (ownerHighlightLayer) {
         map.removeLayer(ownerHighlightLayer);
     }
-    
-    const ownerHighlightLegend = document.getElementById("owner-highlight-legend");
-    ownerHighlightLegend.classList.add("hidden");
 
-    if (uniqueOwnerKeys.length === 0 || !geojsonLayer) return;
+    if (uniqueOwnerKeys.length === 0) return;
 
     const ownerColorMap = assignColorsToOwners(uniqueOwnerKeys, ownershipType);
     ownerHighlightLayer = new L.FeatureGroup();
 
-    geojsonLayer.eachLayer(layer => {
-        processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
-    });
-    
+    /* Przetwarzanie warstw z geojsonLayer */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(layer => {
+            processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+        });
+    }
+
+    /* Przetwarzanie warstw z markerClusterGroup */
+    if (markerClusterGroup) {
+        markerClusterGroup.eachLayer(layer => {
+            processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+        });
+    }
+
     if (ownerHighlightLayer.getLayers().length > 0) {
         ownerHighlightLayer.addTo(map);
         map.fitBounds(ownerHighlightLayer.getBounds());
-        createOwnerHighlightLegend(uniqueOwnerKeys, ownerColorMap, ownerHighlightLegend);
+        createOwnerHighlightLegend(uniqueOwnerKeys, ownerColorMap);
         document.getElementById("highlight-controls").classList.remove("hidden");
     }
 }
@@ -1351,14 +1459,23 @@ function clearAllHighlights() {
         map.removeLayer(highlightedLayer);
         highlightedLayer = null;
     }
-    
+
     if (ownerHighlightLayer) {
         map.removeLayer(ownerHighlightLayer);
         ownerHighlightLayer = null;
     }
 
     document.getElementById("highlight-controls")?.classList.add("hidden");
-    document.getElementById("owner-highlight-legend")?.classList.add("hidden");
+
+    /* Usuń dynamiczne wpisy właścicieli z legendy */
+    const mainLegend = document.getElementById("legend");
+    if (mainLegend) {
+        const legendList = mainLegend.querySelector(".legend-list");
+        if (legendList) {
+            legendList.querySelectorAll('.legend-item-owner').forEach(item => item.remove());
+            legendList.querySelector('.legend-separator')?.remove();
+        }
+    }
 
     if (geojsonLayer) {
         geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
@@ -1536,44 +1653,53 @@ function whenGeoJSONIsReady(maxTries = 30, delayMs = 150) {
  * @returns {boolean} Czy znaleziono obiekt
  */
 function focusFeatureById(objectId, popupHtml) {
-    let found = false;
-    
-    map.eachLayer(layer => {
-        if (!layer || !layer.feature) return;
-        
-        if (String(layer.feature.id) === String(objectId)) {
-            found = true;
-            
-            try {
-                /* Ustawienie widoku */
-                if (layer.getBounds) {
-                    map.fitBounds(layer.getBounds(), { maxZoom: 19, padding: [20, 20] });
-                } else if (layer.getLatLng) {
-                    map.setView(layer.getLatLng(), 19);
+    const layer = findLayerById(parseInt(objectId));
+
+    if (!layer) return false;
+
+    try {
+        /* Jeśli marker jest w clusterze, najpierw go pokaż */
+        if (markerClusterGroup && markerClusterGroup.hasLayer(layer)) {
+            markerClusterGroup.zoomToShowLayer(layer, () => {
+                /* Po rozpakowaniu clustera, przybliż i otwórz popup */
+                if (layer.getLatLng) {
+                    map.setView(layer.getLatLng(), 18);
                 }
-                
-                /* Stylizacja */
-                if (layer.setStyle && layer.feature.geometry?.type !== 'Point') {
-                    layer.setStyle({ 
-                        color: 'fuchsia', 
-                        weight: 4, 
-                        fillColor: 'fuchsia', 
-                        fillOpacity: 0.35 
-                    });
-                    if (layer.bringToFront) layer.bringToFront();
-                }
-                
-                /* Popup */
+
                 if (popupHtml) {
                     layer.bindPopup(popupHtml, { maxWidth: 320 }).openPopup();
                 }
-            } catch (e) {
-                console.warn('Nie udało się podświetlić obiektu:', e);
+            });
+        } else {
+            /* Dla poligonów i linii */
+            if (layer.getBounds) {
+                map.fitBounds(layer.getBounds(), { maxZoom: 19, padding: [20, 20] });
+            } else if (layer.getLatLng) {
+                map.setView(layer.getLatLng(), 18);
+            }
+
+            /* Stylizacja dla poligonów */
+            if (layer.setStyle && layer.feature.geometry?.type !== 'Point') {
+                layer.setStyle({
+                    color: 'fuchsia',
+                    weight: 4,
+                    fillColor: 'fuchsia',
+                    fillOpacity: 0.35
+                });
+                if (layer.bringToFront) layer.bringToFront();
+            }
+
+            /* Popup */
+            if (popupHtml) {
+                layer.bindPopup(popupHtml, { maxWidth: 320 }).openPopup();
             }
         }
-    });
-    
-    return found;
+
+        return true;
+    } catch (e) {
+        console.warn('Nie udało się podświetlić obiektu:', e);
+        return false;
+    }
 }
 
 /**
@@ -1585,10 +1711,11 @@ function focusFeatureById(objectId, popupHtml) {
  */
 function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
     let match = null;
-    
-    map.eachLayer(layer => {
-        if (!layer || !layer.feature) return;
-        
+
+    /* Funkcja pomocnicza do sprawdzenia warstwy */
+    const checkLayer = (layer) => {
+        if (!layer || !layer.feature) return false;
+
         const f = layer.feature;
         const p = f.properties || {};
         const isHouseCat = (p.kategoria === 'budynek' || p.kategoria === 'dom');
@@ -1598,9 +1725,21 @@ function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
 
         if (isHouseCat && sameNumber && (hasOwner || owners.length === 0)) {
             match = f.id;
+            return true;
         }
-    });
-    
+        return false;
+    };
+
+    /* Szukaj w geojsonLayer */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(checkLayer);
+    }
+
+    /* Szukaj w markerClusterGroup */
+    if (!match && markerClusterGroup) {
+        markerClusterGroup.eachLayer(checkLayer);
+    }
+
     if (match != null) {
         const html = `
             <div>
@@ -1609,7 +1748,7 @@ function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
             </div>`;
         return focusFeatureById(match, html);
     }
-    
+
     return false;
 }
 
@@ -1660,15 +1799,25 @@ function getCenterOfFeature(feature) {
  */
 function findLayerById(featureId) {
     let foundLayer = null;
-    
+
+    /* Szukaj w warstwie GeoJSON (poligony i linie) */
     if (geojsonLayer) {
         geojsonLayer.eachLayer(layer => {
-            if (layer.feature.id === featureId) {
+            if (layer.feature && layer.feature.id === featureId) {
                 foundLayer = layer;
             }
         });
     }
-    
+
+    /* Jeśli nie znaleziono, szukaj w clusterze (punkty) */
+    if (!foundLayer && markerClusterGroup) {
+        markerClusterGroup.eachLayer(layer => {
+            if (layer.feature && layer.feature.id === featureId) {
+                foundLayer = layer;
+            }
+        });
+    }
+
     return foundLayer;
 }
 
@@ -1980,13 +2129,24 @@ function createLegendItem(kategoria, label, style) {
     /* Obsługa przełączania warstw */
     checkbox.addEventListener("change", () => {
         const layers = layersByCategory[kategoria];
-        
+
         if (layers) {
+            /* Kategorie punktowe są w markerClusterGroup */
+            const isPointCategory = ['budynek', 'kapliczka', 'obiekt_specjalny'].includes(kategoria);
+
             if (checkbox.checked) {
-                layers.forEach(layer => map.addLayer(layer));
+                if (isPointCategory && markerClusterGroup) {
+                    layers.forEach(layer => markerClusterGroup.addLayer(layer));
+                } else {
+                    layers.forEach(layer => map.addLayer(layer));
+                }
                 li.classList.remove("inactive");
             } else {
-                layers.forEach(layer => map.removeLayer(layer));
+                if (isPointCategory && markerClusterGroup) {
+                    layers.forEach(layer => markerClusterGroup.removeLayer(layer));
+                } else {
+                    layers.forEach(layer => map.removeLayer(layer));
+                }
                 li.classList.add("inactive");
             }
         }
@@ -2077,40 +2237,123 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
 }
 
 /**
- * Tworzy legendę podświetlonych właścicieli.
+ * Dodaje pojedynczego właściciela do legendy.
+ * @param {string} ownerName - Nazwa właściciela
+ * @param {string} color - Kolor podświetlenia
+ * @param {string} ownershipType - Typ własności
+ */
+function addOwnerToLegend(ownerName, color, ownershipType = null) {
+    const mainLegend = document.getElementById("legend");
+    if (!mainLegend) return;
+
+    const legendList = mainLegend.querySelector(".legend-list");
+    if (!legendList) return;
+
+    /* Usuń poprzednie dynamiczne wpisy właścicieli */
+    legendList.querySelectorAll('.legend-item-owner').forEach(item => item.remove());
+
+    /* Dodaj separator jeśli jeszcze nie istnieje */
+    let separator = legendList.querySelector('.legend-separator');
+    if (!separator) {
+        separator = document.createElement("hr");
+        separator.className = "legend-separator";
+        separator.style.margin = "10px 0";
+        separator.style.border = "none";
+        separator.style.borderTop = "1px solid var(--border-color)";
+        legendList.appendChild(separator);
+    }
+
+    /* Stwórz etykietę */
+    let label = `Działki - ${ownerName}`;
+    if (ownershipType) {
+        label += ` (${ownershipType})`;
+    }
+
+    const li = createOwnerLegendItem(label, color);
+    legendList.appendChild(li);
+}
+
+/**
+ * Tworzy legendę podświetlonych właścicieli w głównej legendzie.
  * @param {Array} ownerKeys - Klucze właścicieli
  * @param {Object} colorMap - Mapa kolorów
- * @param {HTMLElement} legendElement - Element legendy
  */
-function createOwnerHighlightLegend(ownerKeys, colorMap, legendElement) {
-    const legendList = legendElement.querySelector("ul");
-    legendList.innerHTML = "";
+function createOwnerHighlightLegend(ownerKeys, colorMap) {
+    const mainLegend = document.getElementById("legend");
+    if (!mainLegend) return;
 
+    const legendList = mainLegend.querySelector(".legend-list");
+    if (!legendList) return;
+
+    /* Usuń poprzednie dynamiczne wpisy właścicieli */
+    legendList.querySelectorAll('.legend-item-owner').forEach(item => item.remove());
+
+    /* Dodaj separator jeśli jeszcze nie istnieje */
+    let separator = legendList.querySelector('.legend-separator');
+    if (!separator && ownerKeys.length > 0) {
+        separator = document.createElement("hr");
+        separator.className = "legend-separator";
+        separator.style.margin = "10px 0";
+        separator.style.border = "none";
+        separator.style.borderTop = "1px solid var(--border-color)";
+        legendList.appendChild(separator);
+    }
+
+    /* Dodaj wpisy właścicieli */
     ownerKeys.forEach(ownerKey => {
         const owner = allOwnersData.find(o => o.unikalny_klucz === ownerKey);
         if (!owner) return;
-        
+
         const colorData = colorMap[ownerKey];
         if (typeof colorData === "object") {
-            legendList.innerHTML += `
-                <li>
-                    <span class="legend-color-box" style="background-color: ${colorData.rzeczywista};"></span>
-                    <span>${owner.nazwa_wlasciciela} (Rzeczywiste)</span>
-                </li>
-                <li>
-                    <span class="legend-color-box" style="background-color: ${colorData.protokol};"></span>
-                    <span>${owner.nazwa_wlasciciela} (Wg Protokołu)</span>
-                </li>`;
+            /* Rzeczywista */
+            const li1 = createOwnerLegendItem(
+                owner.nazwa_wlasciciela + " (Rzeczywiste)",
+                colorData.rzeczywista
+            );
+            legendList.appendChild(li1);
+
+            /* Protokół */
+            const li2 = createOwnerLegendItem(
+                owner.nazwa_wlasciciela + " (Wg Protokołu)",
+                colorData.protokol
+            );
+            legendList.appendChild(li2);
         } else {
-            legendList.innerHTML += `
-                <li>
-                    <span class="legend-color-box" style="background-color: ${colorData};"></span>
-                    <span>${owner.nazwa_wlasciciela}</span>
-                </li>`;
+            const li = createOwnerLegendItem(
+                owner.nazwa_wlasciciela,
+                colorData
+            );
+            legendList.appendChild(li);
         }
     });
+}
 
-    legendElement.classList.remove("hidden");
+/**
+ * Tworzy element legendy dla właściciela.
+ * @param {string} label - Etykieta właściciela
+ * @param {string} color - Kolor podświetlenia
+ * @returns {HTMLElement} Element legendy
+ */
+function createOwnerLegendItem(label, color) {
+    const li = document.createElement("li");
+    li.className = "legend-item legend-item-owner";
+    li.style.opacity = "1";
+
+    const colorBox = document.createElement("span");
+    colorBox.className = "legend-color-box";
+    colorBox.style.backgroundColor = color;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "legend-label";
+    labelSpan.textContent = label;
+    labelSpan.style.fontWeight = "600";
+    labelSpan.style.color = "var(--accent-color)";
+
+    li.appendChild(colorBox);
+    li.appendChild(labelSpan);
+
+    return li;
 }
 
 /* ==========================================================================

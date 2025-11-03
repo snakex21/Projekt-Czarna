@@ -26,6 +26,9 @@
     <!-- Leaflet - framework mapowy -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css">
+    <!-- Leaflet MarkerCluster - grupowanie markerów -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
     
     <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -176,15 +179,7 @@
                         <i class="fas fa-times"></i> Wyczyść zaznaczenie
                     </button>
                 </div>
-                
-                <!-- Legenda wyrównenionych właścicieli -->
-                <div id="owner-highlight-legend" class="map-overlay bottom-right hidden">
-                    <div class="legend-header">
-                        <h3><i class="fas fa-users"></i> Wyróżnieni właściciele</h3>
-                    </div>
-                    <ul class="legend-list"></ul>
-                </div>
-                
+
                 <!-- Wyświetlacz współrzędnych -->
                 <div class="coordinates-display map-overlay top-right">
                     <i class="fas fa-crosshairs"></i>
@@ -403,6 +398,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Rozszerzenie Leaflet Draw -->
     <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+    <!-- Leaflet MarkerCluster -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <!-- Główny skrypt aplikacji -->
     <script src="map-script.js"></script>
 </body>
