@@ -880,12 +880,21 @@ def get_stats():
         AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny');
     """)
     area_stats_row = cur.fetchone()
-    area_stats = {
-        'total_area_ha': float(area_stats_row['total_area_ha'] or 0),
-        'avg_area_ares': float(area_stats_row['avg_area_ares'] or 0),
-        'min_area_m2': float(area_stats_row['min_area_m2'] or 0),
-        'max_area_m2': float(area_stats_row['max_area_m2'] or 0)
-    }
+    if area_stats_row:
+        area_stats = {
+            'total_area_ha': float(area_stats_row['total_area_ha'] or 0),
+            'avg_area_ares': float(area_stats_row['avg_area_ares'] or 0),
+            'min_area_m2': float(area_stats_row['min_area_m2'] or 0),
+            'max_area_m2': float(area_stats_row['max_area_m2'] or 0)
+        }
+    else:
+        # Wartości domyślne gdy brak danych (np. w testach lub pustej bazie)
+        area_stats = {
+            'total_area_ha': 0.0,
+            'avg_area_ares': 0.0,
+            'min_area_m2': 0.0,
+            'max_area_m2': 0.0
+        }
 
     # ——— Ranking działek według powierzchni
     def get_parcels_ranking_by_category(category_name=None):
@@ -929,12 +938,20 @@ def get_stats():
         WHERE kategoria = 'rzeka' AND geometria IS NOT NULL;
     """)
     rivers_stats_row = cur.fetchone()
-    rivers_stats = {
-        'total_count': int(rivers_stats_row['total_count'] or 0),
-        'max_length_m': float(rivers_stats_row['max_length_m'] or 0),
-        'avg_length_m': float(rivers_stats_row['avg_length_m'] or 0),
-        'min_length_m': float(rivers_stats_row['min_length_m'] or 0)
-    }
+    if rivers_stats_row:
+        rivers_stats = {
+            'total_count': int(rivers_stats_row['total_count'] or 0),
+            'max_length_m': float(rivers_stats_row['max_length_m'] or 0),
+            'avg_length_m': float(rivers_stats_row['avg_length_m'] or 0),
+            'min_length_m': float(rivers_stats_row['min_length_m'] or 0)
+        }
+    else:
+        rivers_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'avg_length_m': 0.0,
+            'min_length_m': 0.0
+        }
 
     cur.execute("""
         SELECT 
@@ -958,12 +975,20 @@ def get_stats():
         WHERE kategoria = 'droga' AND geometria IS NOT NULL;
     """)
     roads_stats_row = cur.fetchone()
-    roads_stats = {
-        'total_count': int(roads_stats_row['total_count'] or 0),
-        'max_length_m': float(roads_stats_row['max_length_m'] or 0),
-        'avg_length_m': float(roads_stats_row['avg_length_m'] or 0),
-        'min_length_m': float(roads_stats_row['min_length_m'] or 0)
-    }
+    if roads_stats_row:
+        roads_stats = {
+            'total_count': int(roads_stats_row['total_count'] or 0),
+            'max_length_m': float(roads_stats_row['max_length_m'] or 0),
+            'avg_length_m': float(roads_stats_row['avg_length_m'] or 0),
+            'min_length_m': float(roads_stats_row['min_length_m'] or 0)
+        }
+    else:
+        roads_stats = {
+            'total_count': 0,
+            'max_length_m': 0.0,
+            'avg_length_m': 0.0,
+            'min_length_m': 0.0
+        }
 
     cur.execute("""
         SELECT 
