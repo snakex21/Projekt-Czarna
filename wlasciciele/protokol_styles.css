@@ -1249,3 +1249,146 @@ body {
         border-radius: 3px;
     }
 }
+/* ==========================================================================
+   STATYSTYKI POWIERZCHNI DZIAŁEK
+   ========================================================================== */
+
+/* Karta podsumowania powierzchni */
+.area-summary-card {
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover effect dla kart działek */
+.plot-item-card {
+    transition: all 0.2s ease !important;
+}
+
+.plot-item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress bar animation */
+.area-category-item {
+    animation: slideIn 0.4s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Blok kategorii działek */
+.plot-category-block {
+    animation: fadeIn 0.3s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.plot-category-block:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive dla małych ekranów */
+@media (max-width: 768px) {
+    .area-summary-card {
+        padding: 0.75rem !important;
+    }
+
+    .area-summary-card > div:first-child {
+        flex-direction: column;
+        text-align: center;
+        gap: 0.5rem !important;
+    }
+
+    .plot-item-card {
+        font-size: 0.8em !important;
+        padding: 0.3rem 0.5rem !important;
+    }
+
+    .area-category-item {
+        margin-bottom: 0.4rem !important;
+    }
+
+    .plot-category-block {
+        padding: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+}
+
+/* Dark mode support */
+body.dark-mode .area-summary-card {
+    background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%) !important;
+    border-color: #667eea50 !important;
+}
+
+body.dark-mode .plot-item-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark-mode .plot-category-block {
+    filter: brightness(0.9);
+}
+
+/* Optymalizacja dla PDF */
+@media print {
+    .area-summary-card {
+        padding: 0.75rem !important;
+        margin-bottom: 0.75rem !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .plot-category-block {
+        padding: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .area-category-item {
+        margin-bottom: 0.3rem !important;
+    }
+
+    .plot-item-card {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.85em !important;
+    }
+
+    /* Usuń animacje w PDF */
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    /* Zmniejsz shadow dla oszczędności tuszu */
+    .plot-item-card, .area-summary-card {
+        box-shadow: none !important;
+    }
+}

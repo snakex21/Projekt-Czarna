@@ -245,49 +245,200 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     /**
+     * Formatuje powierzchnię w odpowiednich jednostkach
+     */
+    const formatArea = (areaM2) => {
+        if (!areaM2 || areaM2 === 0) return '—';
+
+        if (areaM2 >= 10000) {
+            // Hektary (ha) dla dużych powierzchni
+            return `${(areaM2 / 10000).toFixed(2)} ha`;
+        } else if (areaM2 >= 100) {
+            // Ary (a) dla średnich powierzchni
+            return `${(areaM2 / 100).toFixed(2)} a`;
+        } else {
+            // Metry kwadratowe dla małych powierzchni
+            return `${areaM2.toFixed(2)} m²`;
+        }
+    };
+
+    /**
+     * Formatuje długość w odpowiednich jednostkach (dla dróg i rzek)
+     */
+    const formatLength = (lengthM) => {
+        if (!lengthM || lengthM === 0) return '—';
+
+        if (lengthM >= 1000) {
+            // Kilometry dla długich odcinków
+            return `${(lengthM / 1000).toFixed(2)} km`;
+        } else {
+            // Metry dla krótkich odcinków
+            return `${lengthM.toFixed(2)} m`;
+        }
+    };
+
+    /**
+     * Zwraca ikonę i kolor dla kategorii działki
+     */
+    const getCategoryStyle = (category) => {
+        const styles = {
+            'rolna': { icon: 'fa-seedling', color: '#48bb78', bgColor: '#f0fff4' },
+            'las': { icon: 'fa-tree', color: '#38a169', bgColor: '#e6fffa' },
+            'pastwisko': { icon: 'fa-horse', color: '#ed8936', bgColor: '#fffaf0' },
+            'łąka': { icon: 'fa-spa', color: '#68d391', bgColor: '#f0fff4' },
+            'budowlana': { icon: 'fa-building', color: '#4299e1', bgColor: '#ebf8ff' },
+            'ogród': { icon: 'fa-leaf', color: '#9f7aea', bgColor: '#faf5ff' },
+            'sad': { icon: 'fa-apple-alt', color: '#f56565', bgColor: '#fff5f5' },
+            'droga': { icon: 'fa-road', color: '#805ad5', bgColor: '#faf5ff' },
+            'rzeka': { icon: 'fa-water', color: '#3182ce', bgColor: '#ebf8ff' },
+            'nieznana': { icon: 'fa-question-circle', color: '#a0aec0', bgColor: '#f7fafc' }
+        };
+        return styles[category] || styles['nieznana'];
+    };
+
+    /**
      * Aktualizuje pojedynczą sekcję działek
      */
     const updatePlotSection = (containerId, plots) => {
         const container = document.getElementById(containerId);
         if (!container || !plots || plots.length === 0) return;
-        
+
         const numbersDiv = container.querySelector('.plot-numbers');
         const summaryDiv = container.querySelector('.plot-summary');
         const detailsDiv = document.getElementById(
             containerId === 'rzeczywistePlots' ? 'rzeczywiste-details' : 'protokol-details'
         );
-        
+
         // Filtrowanie działek - ukrywamy budynki w widoku protokołu właściciela
         const filteredPlots = plots.filter(p => p.kategoria !== 'budynek' && p.kategoria !== 'dom');
-        
-        // Lista numerów działek
+
+        // Lista numerów działek - PROSTY FORMAT
         numbersDiv.innerHTML = filteredPlots.map(p => generateFractionHTML(p.nazwa_lub_numer)).join(', ');
-        
-        // Podsumowanie kategorii
-        const categoryCounts = filteredPlots.reduce((acc, p) => {
+
+        // Obliczanie łącznej powierzchni (bez dróg i rzek)
+        const plotsWithArea = filteredPlots.filter(p => !['droga', 'rzeka'].includes(p.kategoria));
+        const roadsAndRivers = filteredPlots.filter(p => ['droga', 'rzeka'].includes(p.kategoria));
+        const totalArea = plotsWithArea.reduce((sum, p) => sum + (p.powierzchnia_m2 || 0), 0);
+
+        // Podsumowanie kategorii z powierzchnią/długością
+        const categoryStats = filteredPlots.reduce((acc, p) => {
             const k = p.kategoria || 'nieznana';
-            acc[k] = (acc[k] || 0) + 1;
+            const isRoadOrRiver = ['droga', 'rzeka'].includes(k);
+
+            if (!acc[k]) {
+                acc[k] = { count: 0, area: 0, length: 0, plots: [] };
+            }
+            acc[k].count += 1;
+
+            if (isRoadOrRiver) {
+                acc[k].length += (p.dlugosc_m || 0);
+            } else {
+                acc[k].area += (p.powierzchnia_m2 || 0);
+            }
+
+            acc[k].plots.push(p);
             return acc;
         }, {});
 
-        summaryDiv.textContent = `(w tym: ${Object.entries(categoryCounts)
-            .map(([k, c]) => `${c} ${k}`).join(', ')})`;
-        
-        // Szczegółowy podział
-        const plotsByCat = filteredPlots.reduce((acc, p) => {
-            const k = p.kategoria || 'nieznana';
-            (acc[k] = acc[k] || []).push(p);
-            return acc;
-        }, {});
+        // PROSTY TEKST przed rozwinięciem z łączną powierzchnią i procentami
+        const summaryParts = Object.entries(categoryStats)
+            .map(([category, stats]) => {
+                const isRoadOrRiver = ['droga', 'rzeka'].includes(category);
+                const measurement = isRoadOrRiver ? formatLength(stats.length) : formatArea(stats.area);
+                const percentage = !isRoadOrRiver && totalArea > 0
+                    ? `, ${((stats.area / totalArea) * 100).toFixed(1)}%`
+                    : '';
+                return `${stats.count} ${category} (${measurement}${percentage})`;
+            })
+            .join(', ');
 
-        detailsDiv.innerHTML = Object.entries(plotsByCat).map(([k, list]) => `
-            <div class="plot-category-block">
-                <h4>${k.charAt(0).toUpperCase() + k.slice(1)} (${list.length}):</h4>
-                <div class="plot-numbers">
-                    ${list.map(p => generateFractionHTML(p.nazwa_lub_numer)).join(', ')}
+        const areaCount = plotsWithArea.length;
+        const roadCount = roadsAndRivers.length;
+        const countText = roadCount > 0
+            ? `${areaCount} ${areaCount === 1 ? 'działka' : areaCount < 5 ? 'działki' : 'działek'} + ${roadCount} ${roadCount === 1 ? 'droga' : 'drogi'}`
+            : `${areaCount} ${areaCount === 1 ? 'działka' : areaCount < 5 ? 'działki' : 'działek'}`;
+
+        summaryDiv.innerHTML = `
+            <div style="margin-bottom: 0.5rem; font-weight: 600; color: var(--primary-color);">
+                Łączna powierzchnia: ${formatArea(totalArea)} (${countText})
+            </div>
+            <div style="color: var(--text-secondary);">
+                (w tym: ${summaryParts})
+            </div>
+        `;
+
+        // ŁADNE KARTY w szczegółach (po rozwinięciu) z progress barami
+        const categoriesHTML = Object.entries(categoryStats)
+            .sort((a, b) => b[1].area - a[1].area)
+            .map(([category, stats]) => {
+                const style = getCategoryStyle(category);
+                const isRoadOrRiver = ['droga', 'rzeka'].includes(category);
+                const percentage = !isRoadOrRiver && totalArea > 0 ? ((stats.area / totalArea) * 100).toFixed(1) : 0;
+
+                // Dla dróg/rzek liczymy łączną długość, dla reszty powierzchnię
+                const categoryTotal = isRoadOrRiver ? stats.length : stats.area;
+                const formattedTotal = isRoadOrRiver ? formatLength(categoryTotal) : formatArea(categoryTotal);
+
+                return `
+                    <div class="area-category-item" style="margin-bottom: 0.75rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fas ${style.icon}" style="color: ${style.color}; font-size: 1rem;"></i>
+                                <span style="font-weight: 600; text-transform: capitalize;">${category}</span>
+                                <span style="color: var(--text-secondary); font-size: 0.9em;">(${stats.count})</span>
+                            </div>
+                            <span style="font-weight: 700; color: ${style.color};">${formattedTotal}</span>
+                        </div>
+                        ${!isRoadOrRiver ? `
+                            <div style="background: #e2e8f0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 0.3rem;">
+                                <div style="background: ${style.color}; width: ${percentage}%; height: 100%; border-radius: 8px; transition: width 0.5s ease;"></div>
+                            </div>
+                            <div style="text-align: right; font-size: 0.8em; color: var(--text-secondary);">
+                                ${percentage}%
+                            </div>
+                        ` : '<div style="text-align: right; font-size: 0.8em; color: var(--text-secondary); font-style: italic;">długość</div>'}
+                    </div>
+                    <div class="plot-category-block" style="background: ${style.bgColor}; border-left: 3px solid ${style.color}; padding: 0.75rem; border-radius: 6px; margin-bottom: 1rem;">
+                        <div class="plot-numbers" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                            ${stats.plots.map(p => {
+                                const isRR = ['droga', 'rzeka'].includes(p.kategoria);
+                                const measurement = isRR ? formatLength(p.dlugosc_m) : formatArea(p.powierzchnia_m2);
+
+                                return `
+                                    <div class="plot-item-card" style="background: white; border: 1px solid ${style.color}40; border-radius: 5px; padding: 0.35rem 0.6rem; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s ease; cursor: default;">
+                                        <span style="font-weight: 600; color: ${style.color}; font-size: 0.9rem;">${generateFractionHTML(p.nazwa_lub_numer)}</span>
+                                        <span style="color: var(--text-secondary); font-size: 0.8em; border-left: 1px solid #e2e8f0; padding-left: 0.4rem;">
+                                            ${measurement}
+                                        </span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        detailsDiv.innerHTML = `
+            <div class="area-summary-card" style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 2px solid #667eea30; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+                        <i class="fas fa-chart-area" style="color: white; font-size: 1.4rem;"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Łączna powierzchnia</div>
+                        <div style="font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2;">
+                            ${formatArea(totalArea)}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                            ${countText}
+                        </div>
+                    </div>
+                </div>
+                <div class="category-breakdown">
+                    ${categoriesHTML}
                 </div>
             </div>
-        `).join('');
+        `;
     };
     
     /**
