@@ -303,11 +303,21 @@ def get_wlasciciel_by_key(unikalny_klucz):
     # Pobranie działek z sortowaniem numerycznym
     cur.execute("""
         SELECT
-            json_agg(json_build_object('id', o.id, 'nazwa_lub_numer', o.nazwa_lub_numer, 'kategoria', o.kategoria)
+            json_agg(json_build_object(
+                'id', o.id,
+                'nazwa_lub_numer', o.nazwa_lub_numer,
+                'kategoria', o.kategoria,
+                'powierzchnia_m2', ST_Area(ST_Transform(o.geometria, 32634))
+            )
                 ORDER BY (regexp_split_to_array(o.nazwa_lub_numer, E'[^0-9]+'))[1]::integer,
                 COALESCE((regexp_split_to_array(o.nazwa_lub_numer, E'[^0-9]+'))[2]::integer, 0))
                 FILTER (WHERE dw.typ_posiadania != 'własność rzeczywista' OR dw.typ_posiadania IS NULL) as dzialki_protokol,
-            json_agg(json_build_object('id', o.id, 'nazwa_lub_numer', o.nazwa_lub_numer, 'kategoria', o.kategoria)
+            json_agg(json_build_object(
+                'id', o.id,
+                'nazwa_lub_numer', o.nazwa_lub_numer,
+                'kategoria', o.kategoria,
+                'powierzchnia_m2', ST_Area(ST_Transform(o.geometria, 32634))
+            )
                 ORDER BY (regexp_split_to_array(o.nazwa_lub_numer, E'[^0-9]+'))[1]::integer,
                 COALESCE((regexp_split_to_array(o.nazwa_lub_numer, E'[^0-9]+'))[2]::integer, 0))
                 FILTER (WHERE dw.typ_posiadania = 'własność rzeczywista') as dzialki_rzeczywiste
