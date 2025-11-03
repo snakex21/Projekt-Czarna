@@ -910,27 +910,6 @@ html, body {
     font-size: 0.9rem;
 }
 
-/* Legenda właścicieli */
-#owner-highlight-legend {
-    padding: 15px;
-    min-width: 250px;
-}
-
-#owner-highlight-legend.hidden {
-    display: none !important;
-}
-
-#owner-highlight-legend ul {
-    list-style: none;
-}
-
-#owner-highlight-legend li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 0;
-}
-
 /* Kontrolka przezroczystości mapy historycznej */
 .opacity-control {
     padding: 15px;
@@ -1531,12 +1510,26 @@ input:checked + .slider:before {
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
-    text-shadow: 
-        -1px -1px 0 #000,  
+    text-shadow:
+        -1px -1px 0 #000,
          1px -1px 0 #000,
         -1px  1px 0 #000,
          1px  1px 0 #000;
     pointer-events: none;
+}
+
+/* Etykiety dla punktów (domy, kapliczki, obiekty specjalne) */
+.point-label {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 4px !important;
+    padding: 2px 6px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5) !important;
+    color: white !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-shadow: none !important;
+    white-space: nowrap !important;
 }
 
 /* ==========================================================================
@@ -1634,4 +1627,66 @@ a:focus-visible {
     .search-universal { width: 180px; }
     .nav-link span { display: none; }
     .map-overlay.bottom-left, .map-overlay.bottom-right { bottom: 70px; }
+}
+
+/* ==========================================================================
+   MARKER CLUSTERS
+   ========================================================================== */
+
+.marker-cluster-small {
+    background-color: rgba(102, 126, 234, 0.6);
+}
+
+.marker-cluster-small div {
+    background-color: rgba(102, 126, 234, 0.8);
+    color: white;
+    font-weight: 600;
+}
+
+.marker-cluster-medium {
+    background-color: rgba(118, 75, 162, 0.6);
+}
+
+.marker-cluster-medium div {
+    background-color: rgba(118, 75, 162, 0.8);
+    color: white;
+    font-weight: 600;
+}
+
+.marker-cluster-large {
+    background-color: rgba(230, 25, 75, 0.6);
+}
+
+.marker-cluster-large div {
+    background-color: rgba(230, 25, 75, 0.8);
+    color: white;
+    font-weight: 700;
+}
+
+.marker-cluster {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.dark-mode .marker-cluster-small {
+    background-color: rgba(144, 158, 226, 0.7);
+}
+
+.dark-mode .marker-cluster-small div {
+    background-color: rgba(144, 158, 226, 0.9);
+}
+
+.dark-mode .marker-cluster-medium {
+    background-color: rgba(138, 108, 172, 0.7);
+}
+
+.dark-mode .marker-cluster-medium div {
+    background-color: rgba(138, 108, 172, 0.9);
+}
+
+.dark-mode .marker-cluster-large {
+    background-color: rgba(250, 112, 154, 0.7);
+}
+
+.dark-mode .marker-cluster-large div {
+    background-color: rgba(250, 112, 154, 0.9);
 }
