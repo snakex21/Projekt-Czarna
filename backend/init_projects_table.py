@@ -75,6 +75,11 @@ def create_projects_table():
             jezyk_zrodel VARCHAR(100),
             uwagi TEXT,
             status VARCHAR(50) DEFAULT 'aktywny',
+            html_title_mapa TEXT,
+            html_title_wlasciciele TEXT,
+            html_title_genealogia TEXT,
+            html_title_stats TEXT,
+            html_opis_strony_glownej TEXT,
             data_utworzenia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ostatnia_modyfikacja TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT check_status CHECK (status IN ('aktywny', 'archiwum'))
@@ -113,10 +118,17 @@ def migrate_czarna_data():
     """Migruje istniejące dane Czarnej do nowej struktury projektów."""
     print("\n🔄 Migracja danych projektu Czarna...")
     
-    # Utwórz folder projektu
-    czarna_path = create_project_folders("czarna")
+    # Utwórz folder projektu i backup
+    czarna_project_path = create_project_folders("czarna")
+    czarna_backup_path = BASE_DIR / "backup" / "czarna"
     
-    # Skopiuj pliki z backup/ do projects/czarna/data/
+    # Utwórz strukturę backup/czarna/
+    for subdir in ['data', 'geojson', 'backups']:
+        (czarna_backup_path / subdir).mkdir(parents=True, exist_ok=True)
+    
+    print(f"   ✓ Utworzono backup/czarna/")
+    
+    # Skopiuj pliki z backup/ do backup/czarna/data/ i projects/czarna/data/
     files_to_copy = [
         ("owner_data_to_import.json", "database.json"),
         ("demografia.json", "demografia.json"),
@@ -127,17 +139,24 @@ def migrate_czarna_data():
     print("\n📋 Kopiowanie plików danych...")
     for src_name, dest_name in files_to_copy:
         src = BACKUP_DIR / src_name
-        dest = czarna_path / "data" / dest_name
+        dest_project = czarna_project_path / "data" / dest_name
+        dest_backup = czarna_backup_path / "data" / dest_name
         
         if src.exists():
-            shutil.copy2(src, dest)
-            print(f"   ✓ {src_name} → {dest_name}")
+            # Kopiuj do projects/czarna/data/
+            shutil.copy2(src, dest_project)
+            # Kopiuj też do backup/czarna/data/
+            shutil.copy2(src, dest_backup)
+            print(f"   ✓ {src_name} → {dest_name} (projects + backup)")
         else:
             print(f"   ⚠️ Plik {src_name} nie istnieje, tworzę pusty plik")
             # Utwórz pusty plik JSON
             if dest_name.endswith('.json'):
-                with open(dest, 'w', encoding='utf-8') as f:
-                    json.dump({} if dest_name != "demografia.json" else [], f, indent=2)
+                empty_data = {} if dest_name != "demografia.json" else []
+                with open(dest_project, 'w', encoding='utf-8') as f:
+                    json.dump(empty_data, f, indent=2)
+                with open(dest_backup, 'w', encoding='utf-8') as f:
+                    json.dump(empty_data, f, indent=2)
     
     print("✅ Migracja plików zakończona")
 
