@@ -61,6 +61,241 @@ ICONS_SCAN_FOLDERS = [
     os.path.join(ASSETS_FOLDER, "icons"),
 ]
 
+# =============================================================================
+# ZARZĄDZANIE MIEJSCOWOŚCIAMI - definicje funkcji przed get_data_files()
+# =============================================================================
+def init_locations_db():
+    """Inicjalizuje bazę danych miejscowości."""
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            powiat TEXT,
+            region TEXT,
+            active INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def get_all_locations():
+    """Zwraca wszystkie miejscowości z bazy danych."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations ORDER BY name")
+    locations = cursor.fetchall()
+    conn.close()
+    return locations
+
+def get_active_location():
+    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active)."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations WHERE active = 1")
+    location = cursor.fetchone()
+    conn.close()
+    return location
+
+def get_active_location_name():
+    """Zwraca nazwę aktywnej miejscowości lub None."""
+    location = get_active_location()
+    return location[1] if location else None
+
+def set_active_location(location_id):
+    """Ustawia miejscowość jako aktywną."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    # Wyłącz wszystkie inne miejscowości
+    cursor.execute("UPDATE locations SET active = 0")
+    # Ustaw wybraną jako aktywną
+    cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
+    conn.commit()
+    conn.close()
+
+def add_location(name, full_name, powiat="", region=""):
+    """Dodaje nową miejscowość do bazy danych i tworzy folder."""
+    init_locations_db()
+
+    # Utwórz folder dla miejscowości
+    location_folder = os.path.join(BACKUP_FOLDER, name)
+    os.makedirs(location_folder, exist_ok=True)
+
+    # Utwórz domyślny plik .env
+    env_path = os.path.join(location_folder, ".env")
+    if not os.path.exists(env_path):
+        default_env = """# Konfiguracja bazy danych PostgreSQL
+DB_HOST=localhost
+DB_NAME=mapa_czarna_db
+DB_USER=postgres
+DB_PASSWORD=1234
+DB_PORT=5432
+
+# Konfiguracja serwera Flask
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+FLASK_DEBUG=True
+FLASK_SECRET_KEY=change-me-once
+
+# Ustawienia bezpieczeństwa
+ADMIN_AUTH_ENABLED=0
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=
+"""
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.write(default_env)
+
+    # Dodaj do bazy danych
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active) VALUES (?, ?, ?, ?, 0)",
+                      (name, full_name, powiat, region))
+        conn.commit()
+        location_id = cursor.lastrowid
+        conn.close()
+        return location_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Miejscowość '{name}' już istnieje")
+
+def update_location(location_id, name, full_name, powiat, region):
+    """Aktualizuje dane miejscowości."""
+    init_locations_db()
+
+    # Pobierz starą nazwę
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM locations WHERE id = ?", (location_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        raise ValueError("Miejscowość nie istnieje")
+
+    old_name = result[0]
+
+    # Zmień nazwę folderu jeśli nazwa się zmieniła
+    if old_name != name:
+        old_folder = os.path.join(BACKUP_FOLDER, old_name)
+        new_folder = os.path.join(BACKUP_FOLDER, name)
+        if os.path.exists(old_folder):
+            os.rename(old_folder, new_folder)
+
+    # Zaktualizuj bazę danych
+    try:
+        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ? WHERE id = ?",
+                      (name, full_name, powiat, region, location_id))
+        conn.commit()
+        conn.close()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Miejscowość '{name}' już istnieje")
+
+def delete_location(location_id):
+    """Usuwa miejscowość z bazy danych i folder."""
+    init_locations_db()
+
+    # Pobierz nazwę miejscowości
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, active FROM locations WHERE id = ?", (location_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        raise ValueError("Miejscowość nie istnieje")
+
+    name, active = result
+
+    if active:
+        conn.close()
+        raise ValueError("Nie można usunąć aktywnej miejscowości")
+
+    # Usuń folder
+    location_folder = os.path.join(BACKUP_FOLDER, name)
+    if os.path.exists(location_folder):
+        shutil.rmtree(location_folder)
+
+    # Usuń z bazy danych
+    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
+    conn.commit()
+    conn.close()
+
+def get_location_env_path(location_name=None):
+    """Zwraca ścieżkę do pliku .env dla danej miejscowości."""
+    if location_name is None:
+        location_name = get_active_location_name()
+
+    if location_name:
+        return os.path.join(BACKUP_FOLDER, location_name, ".env")
+    else:
+        return os.path.join(BACKEND_DIR, ".env")
+
+def migrate_old_backup_structure():
+    """Migruje starą strukturę backup/ do nowej struktury z miejscowościami."""
+    init_locations_db()
+
+    # Sprawdź czy już są miejscowości
+    locations = get_all_locations()
+    if locations:
+        # Już zmigrowano
+        return
+
+    print("🔄 Migracja struktury folderów backup...")
+
+    # Sprawdź czy są stare pliki w backup/
+    old_files = [
+        "owner_data_to_import.json",
+        "parcels_data.json",
+        "demografia.json",
+        "genealogia.json",
+        "map_config.json"
+    ]
+
+    has_old_files = any(os.path.exists(os.path.join(BACKUP_FOLDER, f)) for f in old_files)
+
+    if not has_old_files:
+        print("ℹ️ Brak starych plików do migracji")
+        return
+
+    # Utwórz domyślną miejscowość "Czarna"
+    default_location_name = "Czarna"
+    default_location_folder = os.path.join(BACKUP_FOLDER, default_location_name)
+
+    try:
+        # Utwórz folder dla miejscowości
+        os.makedirs(default_location_folder, exist_ok=True)
+
+        # Przenieś stare pliki
+        for filename in old_files:
+            old_path = os.path.join(BACKUP_FOLDER, filename)
+            if os.path.exists(old_path):
+                new_path = os.path.join(default_location_folder, filename)
+                shutil.move(old_path, new_path)
+                print(f"✅ Przeniesiono: {filename}")
+
+        # Przenieś plik .env jeśli istnieje
+        old_env_path = os.path.join(BACKEND_DIR, ".env")
+        if os.path.exists(old_env_path):
+            new_env_path = os.path.join(default_location_folder, ".env")
+            shutil.copy2(old_env_path, new_env_path)
+            print(f"✅ Skopiowano: .env")
+
+        # Dodaj miejscowość do bazy danych
+        add_location(default_location_name, "Czarna", "", "")
+        set_active_location(1)  # Ustaw jako aktywną (pierwsze ID to 1)
+
+        print(f"✅ Migracja zakończona! Utworzono miejscowość: {default_location_name}")
+
+    except Exception as e:
+        print(f"❌ Błąd podczas migracji: {e}")
+        import traceback
+        traceback.print_exc()
+
 def get_data_files(location_name=None):
     """Zwraca słownik ścieżek plików danych dla danej miejscowości."""
     if location_name is None:
@@ -321,241 +556,6 @@ def get_flask_config():
         'host': env_config.get('FLASK_HOST', '127.0.0.1'),
         'port': env_config.get('FLASK_PORT', '5000')
     }
-
-# =============================================================================
-# ZARZĄDZANIE MIEJSCOWOŚCIAMI
-# =============================================================================
-def init_locations_db():
-    """Inicjalizuje bazę danych miejscowości."""
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS locations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            powiat TEXT,
-            region TEXT,
-            active INTEGER DEFAULT 0
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-def get_all_locations():
-    """Zwraca wszystkie miejscowości z bazy danych."""
-    init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations ORDER BY name")
-    locations = cursor.fetchall()
-    conn.close()
-    return locations
-
-def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active)."""
-    init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations WHERE active = 1")
-    location = cursor.fetchone()
-    conn.close()
-    return location
-
-def get_active_location_name():
-    """Zwraca nazwę aktywnej miejscowości lub None."""
-    location = get_active_location()
-    return location[1] if location else None
-
-def set_active_location(location_id):
-    """Ustawia miejscowość jako aktywną."""
-    init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    # Wyłącz wszystkie inne miejscowości
-    cursor.execute("UPDATE locations SET active = 0")
-    # Ustaw wybraną jako aktywną
-    cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
-    conn.commit()
-    conn.close()
-
-def add_location(name, full_name, powiat="", region=""):
-    """Dodaje nową miejscowość do bazy danych i tworzy folder."""
-    init_locations_db()
-
-    # Utwórz folder dla miejscowości
-    location_folder = os.path.join(BACKUP_FOLDER, name)
-    os.makedirs(location_folder, exist_ok=True)
-
-    # Utwórz domyślny plik .env
-    env_path = os.path.join(location_folder, ".env")
-    if not os.path.exists(env_path):
-        default_env = """# Konfiguracja bazy danych PostgreSQL
-DB_HOST=localhost
-DB_NAME=mapa_czarna_db
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_PORT=5432
-
-# Konfiguracja serwera Flask
-FLASK_HOST=127.0.0.1
-FLASK_PORT=5000
-FLASK_DEBUG=True
-FLASK_SECRET_KEY=change-me-once
-
-# Ustawienia bezpieczeństwa
-ADMIN_AUTH_ENABLED=0
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD_HASH=
-"""
-        with open(env_path, 'w', encoding='utf-8') as f:
-            f.write(default_env)
-
-    # Dodaj do bazy danych
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active) VALUES (?, ?, ?, ?, 0)",
-                      (name, full_name, powiat, region))
-        conn.commit()
-        location_id = cursor.lastrowid
-        conn.close()
-        return location_id
-    except sqlite3.IntegrityError:
-        conn.close()
-        raise ValueError(f"Miejscowość '{name}' już istnieje")
-
-def update_location(location_id, name, full_name, powiat, region):
-    """Aktualizuje dane miejscowości."""
-    init_locations_db()
-
-    # Pobierz starą nazwę
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        raise ValueError("Miejscowość nie istnieje")
-
-    old_name = result[0]
-
-    # Zmień nazwę folderu jeśli nazwa się zmieniła
-    if old_name != name:
-        old_folder = os.path.join(BACKUP_FOLDER, old_name)
-        new_folder = os.path.join(BACKUP_FOLDER, name)
-        if os.path.exists(old_folder):
-            os.rename(old_folder, new_folder)
-
-    # Zaktualizuj bazę danych
-    try:
-        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ? WHERE id = ?",
-                      (name, full_name, powiat, region, location_id))
-        conn.commit()
-        conn.close()
-    except sqlite3.IntegrityError:
-        conn.close()
-        raise ValueError(f"Miejscowość '{name}' już istnieje")
-
-def delete_location(location_id):
-    """Usuwa miejscowość z bazy danych i folder."""
-    init_locations_db()
-
-    # Pobierz nazwę miejscowości
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, active FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        raise ValueError("Miejscowość nie istnieje")
-
-    name, active = result
-
-    if active:
-        conn.close()
-        raise ValueError("Nie można usunąć aktywnej miejscowości")
-
-    # Usuń folder
-    location_folder = os.path.join(BACKUP_FOLDER, name)
-    if os.path.exists(location_folder):
-        shutil.rmtree(location_folder)
-
-    # Usuń z bazy danych
-    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
-    conn.commit()
-    conn.close()
-
-def get_location_env_path(location_name=None):
-    """Zwraca ścieżkę do pliku .env dla danej miejscowości."""
-    if location_name is None:
-        location_name = get_active_location_name()
-
-    if location_name:
-        return os.path.join(BACKUP_FOLDER, location_name, ".env")
-    else:
-        return os.path.join(BACKEND_DIR, ".env")
-
-def migrate_old_backup_structure():
-    """Migruje starą strukturę backup/ do nowej struktury z miejscowościami."""
-    init_locations_db()
-
-    # Sprawdź czy już są miejscowości
-    locations = get_all_locations()
-    if locations:
-        # Już zmigrowano
-        return
-
-    print("🔄 Migracja struktury folderów backup...")
-
-    # Sprawdź czy są stare pliki w backup/
-    old_files = [
-        "owner_data_to_import.json",
-        "parcels_data.json",
-        "demografia.json",
-        "genealogia.json",
-        "map_config.json"
-    ]
-
-    has_old_files = any(os.path.exists(os.path.join(BACKUP_FOLDER, f)) for f in old_files)
-
-    if not has_old_files:
-        print("ℹ️ Brak starych plików do migracji")
-        return
-
-    # Utwórz domyślną miejscowość "Czarna"
-    default_location_name = "Czarna"
-    default_location_folder = os.path.join(BACKUP_FOLDER, default_location_name)
-
-    try:
-        # Utwórz folder dla miejscowości
-        os.makedirs(default_location_folder, exist_ok=True)
-
-        # Przenieś stare pliki
-        for filename in old_files:
-            old_path = os.path.join(BACKUP_FOLDER, filename)
-            if os.path.exists(old_path):
-                new_path = os.path.join(default_location_folder, filename)
-                shutil.move(old_path, new_path)
-                print(f"✅ Przeniesiono: {filename}")
-
-        # Przenieś plik .env jeśli istnieje
-        old_env_path = os.path.join(BACKEND_DIR, ".env")
-        if os.path.exists(old_env_path):
-            new_env_path = os.path.join(default_location_folder, ".env")
-            shutil.copy2(old_env_path, new_env_path)
-            print(f"✅ Skopiowano: .env")
-
-        # Dodaj miejscowość do bazy danych
-        add_location(default_location_name, "Czarna", "", "")
-        set_active_location(1)  # Ustaw jako aktywną (pierwsze ID to 1)
-
-        print(f"✅ Migracja zakończona! Utworzono miejscowość: {default_location_name}")
-
-    except Exception as e:
-        print(f"❌ Błąd podczas migracji: {e}")
-        import traceback
-        traceback.print_exc()
 
 # =============================================================================
 # GŁÓWNA KLASA APLIKACJI
