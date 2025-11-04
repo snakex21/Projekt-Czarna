@@ -606,8 +606,8 @@ class AppLauncher(tk.Tk):
             btn.configure(command=lambda u=url: webbrowser.open_new_tab(u))
 
     def get_env_mtime(self):
-        """Zwraca czas modyfikacji pliku backend/.env."""
-        env_path = os.path.join(BACKEND_DIR, ".env")
+        """Zwraca czas modyfikacji pliku .env aktywnej miejscowości."""
+        env_path = get_active_town_env_path()
         try:
             return os.path.getmtime(env_path)
         except OSError:
@@ -698,8 +698,8 @@ class AppLauncher(tk.Tk):
         MapCalibrator(self)
 
     def open_env_editor(self):
-        """Otwiera edytor konfiguracji .env."""
-        env_path = os.path.join(BACKEND_DIR, ".env")
+        """Otwiera edytor konfiguracji .env aktywnej miejscowości."""
+        env_path = get_active_town_env_path()
         
         if not os.path.exists(env_path):
             if not check_env_configuration():
@@ -1066,6 +1066,12 @@ if __name__ == '__main__':
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
         
+        
+        # Skopiuj plik .env aktywnej miejscowości do backend/.env
+        active_env = get_active_town_env_path()
+        backend_env = os.path.join(BACKEND_DIR, ".env")
+        if os.path.exists(active_env):
+            shutil.copy2(active_env, backend_env)
         env_config = read_env_config()
         env.update(env_config)
         
@@ -1949,10 +1955,25 @@ class BackupManager(tk.Toplevel):
         create_frame = ttk.LabelFrame(main_frame, text="➕ Stwórz Nową Kopię Zapasową", padding="10")
         create_frame.pack(fill=tk.X, pady=(0, 10))
         
+        # Wybór miejscowości
+        town_frame = ttk.Frame(create_frame)
+        town_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        ttk.Label(town_frame, text="Miejscowość:").pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.town_var = tk.StringVar()
+        towns = load_towns()
+        town_options = ["Aktywna miejscowość"] + [t['nazwa'] for t in towns] + ["Wszystkie miejscowości"]
+        self.town_combo = ttk.Combobox(town_frame, textvariable=self.town_var, values=town_options, state="readonly", width=25)
+        self.town_combo.current(0)
+        self.town_combo.pack(side=tk.LEFT, padx=5)
+        
         # Checkboxy
-        self.backup_vars = {key: tk.BooleanVar(value=True) for key in DATA_FILES}
+        data_files = get_data_files()
+        self.backup_vars = {key: tk.BooleanVar(value=True) for key in data_files}
         self.backup_vars["scans"] = tk.BooleanVar(value=True)
         self.backup_vars["config"] = tk.BooleanVar(value=True)
+        self.backup_vars["env"] = tk.BooleanVar(value=True)
         
         content_frame = ttk.Frame(create_frame)
         content_frame.pack(fill=tk.X)
@@ -1977,6 +1998,7 @@ class BackupManager(tk.Toplevel):
         
         ttk.Checkbutton(col2, text="🌳 Genealogia", variable=self.backup_vars["genealogy"]).pack(anchor="w", pady=2)
         ttk.Checkbutton(col2, text="📄 Skany Protokołów", variable=self.backup_vars["scans"]).pack(anchor="w", pady=2)
+        ttk.Checkbutton(col2, text="⚙️ Konfiguracja .env", variable=self.backup_vars["env"]).pack(anchor="w", pady=2)
         
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
@@ -2109,24 +2131,61 @@ class BackupManager(tk.Toplevel):
     def _perform_backup(self, progress_callback, components):
         """Wykonuje tworzenie kopii zapasowej."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"pelny_backup_projektu_{timestamp}.zip"
-        backup_path = os.path.join(BACKUP_FOLDER, backup_filename)
+        town_selection = self.town_var.get()
         
         files_to_zip = []
+        towns_to_backup = []
         
-        # Zbieranie plików
-        if self.backup_vars["config"].get():
-            map_config_path = os.path.join(BACKUP_FOLDER, "map_config.json")
-            if os.path.exists(map_config_path):
-                files_to_zip.append((map_config_path, "map_config.json"))
+        if town_selection == "Wszystkie miejscowości":
+            towns_to_backup = load_towns()
+            backup_filename = f"backup_wszystkie_{timestamp}.zip"
+        elif town_selection == "Aktywna miejscowość":
+            active_town = get_active_town()
+            if active_town:
+                towns_to_backup = [active_town]
+                backup_filename = f"backup_{active_town['nazwa']}_{timestamp}.zip"
+            else:
+                backup_filename = f"backup_{timestamp}.zip"
+        else:
+            towns = load_towns()
+            town = next((t for t in towns if t['nazwa'] == town_selection), None)
+            if town:
+                towns_to_backup = [town]
+                backup_filename = f"backup_{town['nazwa']}_{timestamp}.zip"
+            else:
+                backup_filename = f"backup_{timestamp}.zip"
         
-        for key in ["owners", "parcels", "genealogy"]:
-            if self.backup_vars[key].get():
-                if os.path.exists(DATA_FILES[key]["path"]):
-                    files_to_zip.append((DATA_FILES[key]["path"], os.path.basename(DATA_FILES[key]["path"])))
-                for related_path in DATA_FILES[key].get("related", []):
-                    if os.path.exists(related_path):
-                        files_to_zip.append((related_path, os.path.basename(related_path)))
+        backup_path = os.path.join(BACKUP_FOLDER, backup_filename)
+        
+        for town in towns_to_backup:
+            town_folder = os.path.join(BACKUP_FOLDER, town['nazwa'])
+            if not os.path.exists(town_folder):
+                continue
+            
+            if self.backup_vars["config"].get():
+                map_config_path = os.path.join(town_folder, "map_config.json")
+                if os.path.exists(map_config_path):
+                    files_to_zip.append((map_config_path, os.path.join(town['nazwa'], "map_config.json")))
+            
+            data_files = get_data_files() if town.get('aktywna') else {
+                "owners": {"path": os.path.join(town_folder, "owner_data_to_import.json"), "related": [os.path.join(town_folder, "demografia.json")]},
+                "parcels": {"path": os.path.join(town_folder, "parcels_data.json"), "related": []},
+                "genealogy": {"path": os.path.join(town_folder, "genealogia.json"), "related": []},
+            }
+            
+            for key in ["owners", "parcels", "genealogy"]:
+                if self.backup_vars[key].get():
+                    file_path = data_files[key]["path"]
+                    if os.path.exists(file_path):
+                        files_to_zip.append((file_path, os.path.join(town['nazwa'], os.path.basename(file_path))))
+                    for related_path in data_files[key].get("related", []):
+                        if os.path.exists(related_path):
+                            files_to_zip.append((related_path, os.path.join(town['nazwa'], os.path.basename(related_path))))
+            
+            if self.backup_vars.get("env", tk.BooleanVar()).get():
+                env_path = os.path.join(town_folder, ".env")
+                if os.path.exists(env_path):
+                    files_to_zip.append((env_path, os.path.join(town['nazwa'], ".env")))
         
         if self.backup_vars["scans"].get() and os.path.exists(PROTOKOLY_FOLDER):
             for root, _, files in os.walk(PROTOKOLY_FOLDER):
@@ -2135,7 +2194,6 @@ class BackupManager(tk.Toplevel):
                     arcname = os.path.relpath(file_path, BASE_DIR)
                     files_to_zip.append((file_path, arcname))
         
-        # Tworzenie archiwum
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, (file_path, arcname) in enumerate(files_to_zip):
                 progress_callback(i + 1, len(files_to_zip), f"Pakowanie: {os.path.basename(arcname)}")
@@ -2671,6 +2729,286 @@ class SecurityManager(tk.Toplevel):
         x = (sw - w) // 2
         y = (sh - h) // 2
         self.geometry(f"+{x}+{y}")
+
+# =============================================================================
+# KLASA ZARZĄDZANIA MIEJSCOWOŚCIAMI
+# =============================================================================
+class TownManager(tk.Toplevel):
+    """Okno dialogowe do zarządzania miejscowościami."""
+    
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title("🏘️ Zarządzaj Miejscowościami")
+        self.geometry("900x600")
+        self.grab_set()
+        
+        self.create_widgets()
+        self.refresh_list()
+    
+    def create_widgets(self):
+        """Tworzy interfejs zarządzania miejscowościami."""
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("id", "nazwa", "pelna_nazwa", "powiat", "region", "aktywna")
+        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=15)
+        
+        self.tree.heading("id", text="ID")
+        self.tree.heading("nazwa", text="Nazwa")
+        self.tree.heading("pelna_nazwa", text="Pełna Nazwa")
+        self.tree.heading("powiat", text="Powiat")
+        self.tree.heading("region", text="Region")
+        self.tree.heading("aktywna", text="Aktywna")
+        
+        self.tree.column("id", width=50, anchor="center")
+        self.tree.column("nazwa", width=120)
+        self.tree.column("pelna_nazwa", width=200)
+        self.tree.column("powiat", width=120)
+        self.tree.column("region", width=120)
+        self.tree.column("aktywna", width=80, anchor="center")
+        
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        btn_frame = ttk.Frame(self, padding="10")
+        btn_frame.pack(fill=tk.X)
+        
+        ttk.Button(btn_frame, text="➕ Dodaj nową miejscowość", command=self.add_town,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="✏️ Edytuj", command=self.edit_town,
+                  style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="🗑️ Usuń", command=self.delete_town,
+                  style="Danger.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="⭐ Ustaw jako aktywną", command=self.set_active,
+                  style="Warning.TButton").pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="🔄 Odśwież", command=self.refresh_list).pack(side=tk.LEFT, padx=2)
+    
+    def refresh_list(self):
+        """Odświeża listę miejscowości."""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        towns = load_towns()
+        for town in towns:
+            self.tree.insert("", "end", values=(
+                town.get("id", ""),
+                town.get("nazwa", ""),
+                town.get("pelna_nazwa", ""),
+                town.get("powiat", ""),
+                town.get("region", ""),
+                "✓" if town.get("aktywna", False) else ""
+            ))
+    
+    def add_town(self):
+        """Dodaje nową miejscowość."""
+        dialog = TownEditDialog(self, "Dodaj miejscowość")
+        self.wait_window(dialog)
+        
+        if dialog.result:
+            towns = load_towns()
+            new_id = max([t.get("id", 0) for t in towns], default=0) + 1
+            
+            new_town = {
+                "id": new_id,
+                "nazwa": dialog.result["nazwa"],
+                "pelna_nazwa": dialog.result["pelna_nazwa"],
+                "powiat": dialog.result["powiat"],
+                "region": dialog.result["region"],
+                "aktywna": len(towns) == 0
+            }
+            
+            town_folder = os.path.join(BACKUP_FOLDER, new_town["nazwa"])
+            os.makedirs(town_folder, exist_ok=True)
+            
+            towns.append(new_town)
+            save_towns(towns)
+            
+            if new_town["aktywna"]:
+                check_env_configuration()
+            
+            messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {new_town['nazwa']}", parent=self)
+            self.refresh_list()
+    
+    def edit_town(self):
+        """Edytuje wybraną miejscowość."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Zaznacz miejscowość do edycji.", parent=self)
+            return
+        
+        item = self.tree.item(selected[0])
+        values = item["values"]
+        town_id = values[0]
+        
+        towns = load_towns()
+        town = next((t for t in towns if t["id"] == town_id), None)
+        
+        if not town:
+            return
+        
+        old_name = town["nazwa"]
+        
+        dialog = TownEditDialog(self, "Edytuj miejscowość", town)
+        self.wait_window(dialog)
+        
+        if dialog.result:
+            town["nazwa"] = dialog.result["nazwa"]
+            town["pelna_nazwa"] = dialog.result["pelna_nazwa"]
+            town["powiat"] = dialog.result["powiat"]
+            town["region"] = dialog.result["region"]
+            
+            if old_name != town["nazwa"]:
+                old_folder = os.path.join(BACKUP_FOLDER, old_name)
+                new_folder = os.path.join(BACKUP_FOLDER, town["nazwa"])
+                if os.path.exists(old_folder):
+                    os.rename(old_folder, new_folder)
+            
+            save_towns(towns)
+            messagebox.showinfo("✅ Sukces", f"Zaktualizowano miejscowość: {town['nazwa']}", parent=self)
+            self.refresh_list()
+    
+    def delete_town(self):
+        """Usuwa wybraną miejscowość."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Zaznacz miejscowość do usunięcia.", parent=self)
+            return
+        
+        item = self.tree.item(selected[0])
+        values = item["values"]
+        town_id = values[0]
+        town_name = values[1]
+        
+        if not messagebox.askyesno("🗑️ Potwierdzenie", 
+                                   f"Czy na pewno usunąć miejscowość '{town_name}'?\n\n"
+                                   "To usunie folder miejscowości wraz ze wszystkimi danymi!",
+                                   icon="warning", parent=self):
+            return
+        
+        towns = load_towns()
+        town = next((t for t in towns if t["id"] == town_id), None)
+        
+        if not town:
+            return
+        
+        town_folder = os.path.join(BACKUP_FOLDER, town["nazwa"])
+        if os.path.exists(town_folder):
+            shutil.rmtree(town_folder)
+        
+        towns = [t for t in towns if t["id"] != town_id]
+        
+        if town.get("aktywna", False) and towns:
+            towns[0]["aktywna"] = True
+        
+        save_towns(towns)
+        messagebox.showinfo("✅ Sukces", f"Usunięto miejscowość: {town_name}", parent=self)
+        self.refresh_list()
+    
+    def set_active(self):
+        """Ustawia wybraną miejscowość jako aktywną."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Zaznacz miejscowość.", parent=self)
+            return
+        
+        item = self.tree.item(selected[0])
+        values = item["values"]
+        town_id = values[0]
+        
+        towns = load_towns()
+        
+        for town in towns:
+            town["aktywna"] = (town["id"] == town_id)
+        
+        save_towns(towns)
+        
+        global DATA_FILES
+        DATA_FILES = get_data_files()
+        
+        check_backup_folder_files()
+        check_env_configuration()
+        
+        messagebox.showinfo("✅ Sukces", "Ustawiono aktywną miejscowość.", parent=self)
+        self.refresh_list()
+
+
+class TownEditDialog(tk.Toplevel):
+    """Dialog do dodawania/edycji miejscowości."""
+    
+    def __init__(self, parent, title, town=None):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title(title)
+        self.geometry("400x250")
+        self.grab_set()
+        
+        self.result = None
+        self.town = town or {}
+        
+        self.create_widgets()
+        
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+    
+    def create_widgets(self):
+        """Tworzy interfejs dialogu."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        fields = [
+            ("Nazwa (folder):", "nazwa"),
+            ("Pełna nazwa:", "pelna_nazwa"),
+            ("Powiat:", "powiat"),
+            ("Region:", "region")
+        ]
+        
+        self.entries = {}
+        
+        for i, (label_text, key) in enumerate(fields):
+            ttk.Label(main_frame, text=label_text).grid(row=i, column=0, sticky="w", pady=5)
+            entry = ttk.Entry(main_frame, width=30)
+            entry.grid(row=i, column=1, sticky="ew", pady=5)
+            entry.insert(0, self.town.get(key, ""))
+            self.entries[key] = entry
+        
+        main_frame.columnconfigure(1, weight=1)
+        
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.grid(row=len(fields), column=0, columnspan=2, pady=(20, 0))
+        
+        ttk.Button(btn_frame, text="✅ Zapisz", command=self.save,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="❌ Anuluj", command=self.cancel).pack(side=tk.LEFT, padx=5)
+    
+    def save(self):
+        """Zapisuje dane."""
+        result = {}
+        for key, entry in self.entries.items():
+            value = entry.get().strip()
+            if not value:
+                messagebox.showwarning("⚠️ Brak danych", f"Pole '{key}' nie może być puste.", parent=self)
+                return
+            result[key] = value
+        
+        if not result["nazwa"].replace("_", "").replace("-", "").isalnum():
+            messagebox.showwarning("⚠️ Nieprawidłowa nazwa",
+                                 "Nazwa może zawierać tylko litery, cyfry, _ i -",
+                                 parent=self)
+            return
+        
+        self.result = result
+        self.destroy()
+    
+    def cancel(self):
+        """Anuluje dialog."""
+        self.destroy()
+
 
 # =============================================================================
 # PUNKT WEJŚCIA APLIKACJI
