@@ -455,8 +455,37 @@ class AppLauncher(tk.Tk):
             style="Heading.TLabel", font=("Segoe UI", self.base_font_size + 4, "bold")
         ).pack(side=tk.LEFT)
         
-        ttk.Label(header_frame, text="Status: Gotowy", foreground=COLORS['success']).pack(side=tk.RIGHT, padx=10)
+        # Sekcja wyboru miejscowości (prawa strona)
+        project_frame = ttk.Frame(header_frame)
+        project_frame.pack(side=tk.RIGHT, padx=10)
         
+        ttk.Label(project_frame, text="📁 Miejscowość:", font=("Segoe UI", self.base_font_size, "bold")).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Dropdown wyboru miejscowości
+        self.project_var = tk.StringVar()
+        self.project_combo = ttk.Combobox(project_frame, textvariable=self.project_var, 
+                                         width=18, state='readonly', font=("Segoe UI", self.base_font_size))
+        self.project_combo.pack(side=tk.LEFT, padx=(0, 8))
+        self.project_combo.bind('<<ComboboxSelected>>', self.on_project_selected)
+        
+        # Przyciski zarządzania projektami
+        btn_frame = ttk.Frame(project_frame)
+        btn_frame.pack(side=tk.LEFT)
+        
+        ttk.Button(btn_frame, text="➕", width=3,
+                  command=self.add_new_project,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=2)
+        
+        ttk.Button(btn_frame, text="✏️", width=3,
+                  command=self.edit_current_project,
+                  style="Primary.TButton").pack(side=tk.LEFT, padx=2)
+        
+        ttk.Button(btn_frame, text="🗑️", width=3,
+                  command=self.delete_current_project,
+                  style="Danger.TButton").pack(side=tk.LEFT, padx=2)
+        
+        # Załaduj listę projektów
+        self.load_projects_list()
         # Sekcja operacji głównych
         operations_frame = ttk.LabelFrame(main_frame, text="⚙️ Operacje Główne", padding="10")
         operations_frame.pack(fill=tk.X, pady=5)
@@ -1080,6 +1109,150 @@ if __name__ == '__main__':
             if key == "genealogy_editor":
                 command.append("--launched-by-gui")
             return command
+
+    
+    def load_projects_list(self):
+        """Ładuje listę projektów do dropdown."""
+        try:
+            db_cfg = get_db_config_from_env()
+            conn = psycopg2.connect(**db_cfg)
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    SELECT short_code, nazwa 
+                    FROM projects 
+                    WHERE status = 'aktywny'
+                    ORDER BY nazwa ASC
+                """)
+                projects = cur.fetchall()
+            conn.close()
+            
+            # Aktualizuj dropdown
+            project_names = [f"{p['short_code']} - {p['nazwa']}" for p in projects]
+            self.project_combo['values'] = project_names
+            
+            # Ustaw aktywny projekt
+            active = self.get_active_project_code()
+            for i, p in enumerate(projects):
+                if p['short_code'] == active:
+                    self.project_combo.current(i)
+                    break
+            
+        except Exception as e:
+            print(f"⚠️ Błąd ładowania projektów: {e}")
+            # Fallback
+            self.project_combo['values'] = ["czarna - Czarna"]
+            self.project_combo.current(0)
+    
+    def get_active_project_code(self):
+        """Pobiera kod aktywnego projektu."""
+        active_project_file = os.path.join(BACKEND_DIR, '.active_project')
+        if os.path.exists(active_project_file):
+            with open(active_project_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        return 'czarna'
+    
+    def on_project_selected(self, event=None):
+        """Obsługuje wybór projektu z dropdown."""
+        selected = self.project_combo.get()
+        if not selected:
+            return
+        
+        # Wyciągnij kod projektu (przed " - ")
+        project_code = selected.split(' - ')[0]
+        current_code = self.get_active_project_code()
+        
+        if project_code == current_code:
+            return  # Nie zmieniono projektu
+        
+        # Sprawdź czy serwer jest uruchomiony
+        if "backend" in self.managed_processes:
+            if messagebox.askyesno(
+                "Serwer uruchomiony",
+                f"Aby przełączyć projekt na '{project_code}', należy zrestartować serwer.\n\n"
+                "Czy chcesz przełączyć projekt teraz?\n"
+                "(Serwer zostanie automatycznie zatrzymany)"
+            ):
+                # Zatrzymaj serwer
+                self.stop_managed_process("backend")
+                # Przełącz projekt
+                self.switch_to_project(project_code)
+        else:
+            if messagebox.askyesno(
+                "Przełączenie projektu",
+                f"Czy przełączyć na projekt '{project_code}'?\n\n"
+                "Uruchom serwer ponownie, aby zmiany zostały zastosowane."
+            ):
+                self.switch_to_project(project_code)
+    
+    def switch_to_project(self, project_code):
+        """Przełącza aktywny projekt."""
+        active_project_file = os.path.join(BACKEND_DIR, '.active_project')
+        try:
+            with open(active_project_file, 'w', encoding='utf-8') as f:
+                f.write(project_code)
+            
+            self.log(f"✅ Przełączono na projekt: {project_code}\n")
+            messagebox.showinfo("Sukces", f"Projekt przełączony na: {project_code}\n\nUruchom serwer, aby zastosować zmiany.")
+            
+        except Exception as e:
+            self.log(f"❌ Błąd przełączania projektu: {e}\n")
+            messagebox.showerror("Błąd", f"Nie udało się przełączyć projektu:\n{e}")
+    
+    def add_new_project(self):
+        """Otwiera dialog dodawania nowego projektu."""
+        ProjectEditor(self, None, self.on_project_saved)
+    
+    def edit_current_project(self):
+        """Edytuje aktualnie wybrany projekt."""
+        selected = self.project_combo.get()
+        if not selected:
+            messagebox.showwarning("Uwaga", "Nie wybrano żadnego projektu")
+            return
+        
+        project_code = selected.split(' - ')[0]
+        ProjectEditor(self, project_code, self.on_project_saved)
+    
+    def delete_current_project(self):
+        """Usuwa aktualnie wybrany projekt."""
+        selected = self.project_combo.get()
+        if not selected:
+            messagebox.showwarning("Uwaga", "Nie wybrano żadnego projektu")
+            return
+        
+        project_code = selected.split(' - ')[0]
+        active_code = self.get_active_project_code()
+        
+        if project_code == active_code:
+            messagebox.showerror("Błąd", "Nie można usunąć aktywnego projektu.\nPierw przełącz się na inny projekt.")
+            return
+        
+        if not messagebox.askyesno(
+            "Potwierdzenie",
+            f"Czy na pewno usunąć projekt '{project_code}'?\n\n"
+            "UWAGA: Ta operacja jest nieodwracalna!"
+        ):
+            return
+        
+        try:
+            db_cfg = get_db_config_from_env()
+            conn = psycopg2.connect(**db_cfg)
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM projects WHERE short_code = %s", (project_code,))
+                conn.commit()
+            conn.close()
+            
+            self.log(f"✅ Usunięto projekt: {project_code}\n")
+            messagebox.showinfo("Sukces", f"Projekt '{project_code}' został usunięty.")
+            self.load_projects_list()
+            
+        except Exception as e:
+            self.log(f"❌ Błąd usuwania projektu: {e}\n")
+            messagebox.showerror("Błąd", f"Nie udało się usunąć projektu:\n{e}")
+    
+    def on_project_saved(self):
+        """Callback wywoływany po zapisaniu projektu."""
+        self.load_projects_list()
+        self.log("✅ Lista projektów odświeżona\n")
 
 # =============================================================================
 # KLASY OKIEN DIALOGOWYCH
@@ -2671,6 +2844,283 @@ class SecurityManager(tk.Toplevel):
         x = (sw - w) // 2
         y = (sh - h) // 2
         self.geometry(f"+{x}+{y}")
+
+
+
+class ProjectEditor(tk.Toplevel):
+    """Okno edycji/tworzenia projektu z możliwością edycji tekstów HTML."""
+    
+    def __init__(self, parent, project_code=None, on_save_callback=None):
+        super().__init__(parent)
+        self.project_code = project_code
+        self.on_save_callback = on_save_callback
+        self.is_new = project_code is None
+        
+        self.title("➕ Nowy Projekt" if self.is_new else f"✏️ Edycja Projektu: {project_code}")
+        self.geometry("750x850")
+        self.transient(parent)
+        self.grab_set()
+        
+        self.vars = {}
+        self.create_widgets()
+        
+        if not self.is_new:
+            self.load_project_data()
+        
+        self.center_window()
+    
+    def create_widgets(self):
+        """Tworzy interfejs edytora projektu."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Scroll
+        canvas = tk.Canvas(main_frame)
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Podstawowe
+        basic_frame = ttk.LabelFrame(scrollable_frame, text="📋 Podstawowe Informacje", padding="10")
+        basic_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.add_field(basic_frame, "short_code", "Kod projektu (short_code)", 0, readonly=not self.is_new)
+        self.add_field(basic_frame, "nazwa", "Nazwa", 1)
+        self.add_field(basic_frame, "pelna_nazwa", "Pełna nazwa", 2)
+        self.add_text_field(basic_frame, "opis", "Opis krótki", 3, height=3)
+        
+        # Kontekst czasowy
+        time_frame = ttk.LabelFrame(scrollable_frame, text="📅 Kontekst Czasowy", padding="10")
+        time_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.add_field(time_frame, "kontekst_czasowy", "Wiek/Epoka (np. XIX wiek)", 0)
+        self.add_field(time_frame, "rok_zrodlowy", "Rok źródłowy", 1)
+        self.add_field(time_frame, "okres_danych", "Okres danych (np. 1850-1900)", 2)
+        
+        # Geograficzne
+        geo_frame = ttk.LabelFrame(scrollable_frame, text="🗺️ Lokalizacja", padding="10")
+        geo_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.add_field(geo_frame, "region", "Region", 0)
+        self.add_field(geo_frame, "wojewodztwo", "Województwo", 1)
+        
+        # Dodatkowe
+        extra_frame = ttk.LabelFrame(scrollable_frame, text="📝 Dodatkowe Informacje", padding="10")
+        extra_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.add_field(extra_frame, "jezyk_zrodel", "Język źródeł", 0)
+        self.add_text_field(extra_frame, "uwagi", "Uwagi", 1, height=3)
+        
+        # === SEKCJA: Teksty HTML ===
+        html_frame = ttk.LabelFrame(scrollable_frame, text="🌐 Teksty na Stronach HTML", padding="10")
+        html_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(html_frame, text="Dostosuj teksty wyświetlane na różnych stronach systemu:",
+                 font=("Segoe UI", 9, "italic"), foreground="#666").grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        
+        self.add_text_field(html_frame, "html_title_mapa", "Tytuł strony mapy", 1, height=1)
+        self.add_text_field(html_frame, "html_title_wlasciciele", "Tytuł str. właścicieli", 2, height=1)
+        self.add_text_field(html_frame, "html_title_genealogia", "Tytuł str. genealogii", 3, height=1)
+        self.add_text_field(html_frame, "html_title_stats", "Tytuł str. statystyk", 4, height=1)
+        self.add_text_field(html_frame, "html_opis_strony_glownej", "Opis na stronie głównej", 5, height=4)
+        
+        # Status
+        status_frame = ttk.LabelFrame(scrollable_frame, text="⚙️ Status Projektu", padding="10")
+        status_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.vars['status'] = tk.StringVar(value='aktywny')
+        ttk.Radiobutton(status_frame, text="✅ Aktywny", variable=self.vars['status'], 
+                       value='aktywny').pack(side=tk.LEFT, padx=10)
+        ttk.Radiobutton(status_frame, text="📦 Archiwum", variable=self.vars['status'],
+                       value='archiwum').pack(side=tk.LEFT, padx=10)
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Przyciski
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        ttk.Button(button_frame, text="💾 Zapisz",
+                  command=self.save_project,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        
+        ttk.Button(button_frame, text="❌ Anuluj",
+                  command=self.destroy).pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+    
+    def add_field(self, parent, key, label, row, readonly=False):
+        """Dodaje pole tekstowe."""
+        ttk.Label(parent, text=f"{label}:").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+        self.vars[key] = tk.StringVar()
+        entry = ttk.Entry(parent, textvariable=self.vars[key], width=55)
+        entry.grid(row=row, column=1, sticky=tk.EW, pady=5)
+        if readonly:
+            entry.config(state='readonly')
+        parent.columnconfigure(1, weight=1)
+    
+    def add_text_field(self, parent, key, label, row, height=3):
+        """Dodaje pole tekstowe wieloliniowe."""
+        ttk.Label(parent, text=f"{label}:").grid(row=row, column=0, sticky=tk.NW, pady=5, padx=(0, 10))
+        self.vars[key] = tk.Text(parent, height=height, width=55, wrap=tk.WORD)
+        self.vars[key].grid(row=row, column=1, sticky=tk.EW, pady=5)
+        parent.columnconfigure(1, weight=1)
+    
+    def load_project_data(self):
+        """Ładuje dane projektu z bazy."""
+        try:
+            db_cfg = get_db_config_from_env()
+            conn = psycopg2.connect(**db_cfg)
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT * FROM projects WHERE short_code = %s", (self.project_code,))
+                project = cur.fetchone()
+            
+            conn.close()
+            
+            if project:
+                for key, var in self.vars.items():
+                    value = project.get(key, '')
+                    if value is None:
+                        value = ''
+                    
+                    if isinstance(var, tk.StringVar):
+                        var.set(str(value))
+                    elif isinstance(var, tk.Text):
+                        var.delete('1.0', tk.END)
+                        var.insert('1.0', str(value))
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się załadować danych projektu:\n{e}")
+    
+    def save_project(self):
+        """Zapisuje projekt do bazy danych."""
+        # Walidacja
+        if self.is_new:
+            code = self.vars['short_code'].get().strip()
+            if not code:
+                messagebox.showerror("Błąd", "Kod projektu jest wymagany")
+                return
+            if not code.replace('_', '').isalnum():
+                messagebox.showerror("Błąd", "Kod projektu może zawierać tylko litery, cyfry i podkreślenia")
+                return
+        
+        nazwa = self.vars['nazwa'].get().strip()
+        if not nazwa:
+            messagebox.showerror("Błąd", "Nazwa projektu jest wymagana")
+            return
+        
+        # Zbierz dane
+        data = {}
+        for key, var in self.vars.items():
+            if isinstance(var, tk.StringVar):
+                value = var.get().strip()
+            elif isinstance(var, tk.Text):
+                value = var.get('1.0', tk.END).strip()
+            else:
+                value = ''
+            
+            # Konwersja roku na int
+            if key == 'rok_zrodlowy' and value:
+                try:
+                    value = int(value)
+                except ValueError:
+                    value = None
+            
+            data[key] = value if value else None
+        
+        try:
+            db_cfg = get_db_config_from_env()
+            conn = psycopg2.connect(**db_cfg)
+            with conn.cursor() as cur:
+                if self.is_new:
+                    # Utwórz nowy projekt
+                    cur.execute("""
+                        INSERT INTO projects (
+                            short_code, nazwa, pelna_nazwa, opis, kontekst_czasowy,
+                            rok_zrodlowy, okres_danych, region, wojewodztwo,
+                            jezyk_zrodel, uwagi, status,
+                            html_title_mapa, html_title_wlasciciele, html_title_genealogia,
+                            html_title_stats, html_opis_strony_glownej
+                        ) VALUES (
+                            %(short_code)s, %(nazwa)s, %(pelna_nazwa)s, %(opis)s, %(kontekst_czasowy)s,
+                            %(rok_zrodlowy)s, %(okres_danych)s, %(region)s, %(wojewodztwo)s,
+                            %(jezyk_zrodel)s, %(uwagi)s, %(status)s,
+                            %(html_title_mapa)s, %(html_title_wlasciciele)s, %(html_title_genealogia)s,
+                            %(html_title_stats)s, %(html_opis_strony_glownej)s
+                        )
+                    """, data)
+                    
+                    # Utwórz strukturę folderów
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    project_path = os.path.join(base_dir, 'projects', data['short_code'])
+                    backup_path = os.path.join(base_dir, 'backup', data['short_code'])
+                    
+                    for path in [project_path, backup_path]:
+                        for subdir in ['data', 'geojson', 'backups']:
+                            os.makedirs(os.path.join(path, subdir), exist_ok=True)
+                    
+                    # Utwórz puste pliki JSON w projects i backup
+                    for base in [project_path, backup_path]:
+                        for filename in ['database.json', 'demografia.json', 'genealogia.json', 'parcels.json']:
+                            filepath = os.path.join(base, 'data', filename)
+                            if not os.path.exists(filepath):
+                                with open(filepath, 'w', encoding='utf-8') as f:
+                                    json.dump({} if filename != 'demografia.json' else [], f, indent=2)
+                    
+                else:
+                    # Aktualizuj istniejący projekt
+                    cur.execute("""
+                        UPDATE projects SET
+                            nazwa = %(nazwa)s,
+                            pelna_nazwa = %(pelna_nazwa)s,
+                            opis = %(opis)s,
+                            kontekst_czasowy = %(kontekst_czasowy)s,
+                            rok_zrodlowy = %(rok_zrodlowy)s,
+                            okres_danych = %(okres_danych)s,
+                            region = %(region)s,
+                            wojewodztwo = %(wojewodztwo)s,
+                            jezyk_zrodel = %(jezyk_zrodel)s,
+                            uwagi = %(uwagi)s,
+                            status = %(status)s,
+                            html_title_mapa = %(html_title_mapa)s,
+                            html_title_wlasciciele = %(html_title_wlasciciele)s,
+                            html_title_genealogia = %(html_title_genealogia)s,
+                            html_title_stats = %(html_title_stats)s,
+                            html_opis_strony_glownej = %(html_opis_strony_glownej)s,
+                            ostatnia_modyfikacja = CURRENT_TIMESTAMP
+                        WHERE short_code = %(short_code)s
+                    """, {**data, 'short_code': self.project_code})
+                
+                conn.commit()
+            
+            conn.close()
+            
+            messagebox.showinfo("Sukces", "Projekt zapisany pomyślnie!")
+            
+            if self.on_save_callback:
+                self.on_save_callback()
+            
+            self.destroy()
+            
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się zapisać projektu:\n{e}")
+    
+    def center_window(self):
+        """Wyśrodkowuje okno."""
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        self.geometry(f"+{x}+{y}")
+
 
 # =============================================================================
 # PUNKT WEJŚCIA APLIKACJI
