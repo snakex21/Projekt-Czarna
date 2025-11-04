@@ -362,7 +362,15 @@ def get_local_ip():
 
 def check_env_configuration():
     """Sprawdza i konfiguruje plik .env dla aktywnej miejscowości."""
-    env_path = get_location_env_path()
+    # Najpierw sprawdź czy jest aktywna miejscowość
+    active_location = get_active_location()
+
+    if not active_location:
+        # Brak miejscowości - użyj domyślnej lokalizacji backend/.env
+        env_path = os.path.join(BACKEND_DIR, ".env")
+    else:
+        env_path = get_location_env_path()
+
     env_example_path = os.path.join(BACKEND_DIR, ".env.example")
 
     if os.path.exists(env_path):
@@ -518,7 +526,15 @@ def check_backup_folder_files():
 
 def read_env_config(key_prefix=None):
     """Odczytuje konfigurację z pliku .env aktywnej miejscowości."""
-    env_path = get_location_env_path()
+    # Sprawdź czy jest aktywna miejscowość
+    active_location = get_active_location()
+
+    if not active_location:
+        # Brak miejscowości - użyj domyślnej lokalizacji backend/.env
+        env_path = os.path.join(BACKEND_DIR, ".env")
+    else:
+        env_path = get_location_env_path()
+
     config = {}
 
     if not os.path.exists(env_path):
