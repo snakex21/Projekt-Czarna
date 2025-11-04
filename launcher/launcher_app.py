@@ -1096,7 +1096,7 @@ class MapCalibrator(tk.Toplevel):
         self.resizable(False, False)
         
         self.parent_app = parent
-        self.config_path = os.path.join(BACKUP_FOLDER, "map_config.json")
+        self.config_path = os.path.join(get_active_town_folder(), "map_config.json")
         self.vars = {
             'sw_lat': tk.StringVar(), 'sw_lng': tk.StringVar(),
             'ne_lat': tk.StringVar(), 'ne_lng': tk.StringVar(),
