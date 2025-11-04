@@ -23,6 +23,7 @@ import tkinter.font as tkfont
 import ctypes
 import filecmp
 import json
+import sqlite3
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -54,28 +55,39 @@ TOOLS_DIR = os.path.join(BASE_DIR, "tools")
 ASSETS_FOLDER = os.path.join(BASE_DIR, "assets")
 PROTOKOLY_FOLDER = os.path.join(ASSETS_FOLDER, "protokoly")
 SITE_ASSETS_FOLDER = os.path.join(ASSETS_FOLDER, "site")
+LOCATIONS_DB_PATH = os.path.join(BASE_DIR, "launcher", "locations.db")
 ICONS_SCAN_FOLDERS = [
     os.path.join(BASE_DIR, "icons"),
     os.path.join(ASSETS_FOLDER, "icons"),
 ]
 
-DATA_FILES = {
-    "owners": {
-        "path": os.path.join(BACKUP_FOLDER, "owner_data_to_import.json"),
-        "name": "Właściciele i Demografia",
-        "related": [os.path.join(BACKUP_FOLDER, "demografia.json")],
-    },
-    "parcels": {
-        "path": os.path.join(BACKUP_FOLDER, "parcels_data.json"),
-        "name": "Działki (Geometria)",
-        "related": [],
-    },
-    "genealogy": {
-        "path": os.path.join(BACKUP_FOLDER, "genealogia.json"),
-        "name": "Genealogia",
-        "related": [],
-    },
-}
+def get_data_files(location_name=None):
+    """Zwraca słownik ścieżek plików danych dla danej miejscowości."""
+    if location_name is None:
+        location_name = get_active_location_name()
+
+    location_folder = os.path.join(BACKUP_FOLDER, location_name) if location_name else BACKUP_FOLDER
+
+    return {
+        "owners": {
+            "path": os.path.join(location_folder, "owner_data_to_import.json"),
+            "name": "Właściciele i Demografia",
+            "related": [os.path.join(location_folder, "demografia.json")],
+        },
+        "parcels": {
+            "path": os.path.join(location_folder, "parcels_data.json"),
+            "name": "Działki (Geometria)",
+            "related": [],
+        },
+        "genealogy": {
+            "path": os.path.join(location_folder, "genealogia.json"),
+            "name": "Genealogia",
+            "related": [],
+        },
+    }
+
+# Dla kompatybilności wstecznej
+DATA_FILES = get_data_files()
 
 URLS = {
     "strona_glowna": "http://127.0.0.1:5000/strona_glowna/index.html",
@@ -114,22 +126,24 @@ def get_local_ip():
         return "127.0.0.1"
 
 def check_env_configuration():
-    """Sprawdza i konfiguruje plik .env dla backendu."""
-    env_path = os.path.join(BACKEND_DIR, ".env")
+    """Sprawdza i konfiguruje plik .env dla aktywnej miejscowości."""
+    env_path = get_location_env_path()
     env_example_path = os.path.join(BACKEND_DIR, ".env.example")
-    
+
     if os.path.exists(env_path):
         return True
-        
+
     if os.path.exists(env_example_path):
         try:
+            # Upewnij się, że folder istnieje
+            os.makedirs(os.path.dirname(env_path), exist_ok=True)
             shutil.copy(env_example_path, env_path)
             print("✅ Utworzono plik .env z przykładowej konfiguracji")
             return True
         except Exception as e:
             print(f"⚠️ Nie można utworzyć pliku .env: {e}")
             return False
-    
+
     try:
         default_env = """# Konfiguracja bazy danych PostgreSQL
 DB_HOST=localhost
@@ -149,6 +163,8 @@ ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=
 """
+        # Upewnij się, że folder istnieje
+        os.makedirs(os.path.dirname(env_path), exist_ok=True)
         with open(env_path, 'w', encoding='utf-8') as f:
             f.write(default_env)
         print("✅ Utworzono domyślny plik .env")
@@ -234,7 +250,14 @@ def _save_favicon_to_database(filename):
         pass
 
 def check_backup_folder_files():
-    """Sprawdza folder backup i tworzy brakujące pliki JSON."""
+    """Sprawdza folder aktywnej miejscowości i tworzy brakujące pliki JSON."""
+    location_name = get_active_location_name()
+    if not location_name:
+        print("ℹ️ Brak aktywnej miejscowości, pomijam tworzenie plików danych")
+        return
+
+    location_folder = os.path.join(BACKUP_FOLDER, location_name)
+
     files_to_check = {
         "map_config.json": {
             "calibration": {"sw": {"lat": 50.0414, "lng": 21.2261}, "ne": {"lat": 50.0814, "lng": 21.2661}},
@@ -245,11 +268,11 @@ def check_backup_folder_files():
         "demografia.json": [],
         "genealogia.json": {"persons": []}
     }
-    
-    os.makedirs(BACKUP_FOLDER, exist_ok=True)
-    
+
+    os.makedirs(location_folder, exist_ok=True)
+
     for filename, default_content in files_to_check.items():
-        path = os.path.join(BACKUP_FOLDER, filename)
+        path = os.path.join(location_folder, filename)
         if not os.path.exists(path):
             try:
                 with open(path, 'w', encoding='utf-8') as f:
@@ -259,13 +282,13 @@ def check_backup_folder_files():
                 print(f"⚠️ Nie można utworzyć pliku {filename}: {e}")
 
 def read_env_config(key_prefix=None):
-    """Odczytuje konfigurację z pliku .env."""
-    env_path = os.path.join(BACKEND_DIR, ".env")
+    """Odczytuje konfigurację z pliku .env aktywnej miejscowości."""
+    env_path = get_location_env_path()
     config = {}
-    
+
     if not os.path.exists(env_path):
         return config
-        
+
     try:
         with open(env_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -277,7 +300,7 @@ def read_env_config(key_prefix=None):
                         config[key] = value
     except Exception as e:
         print(f"Błąd odczytu .env: {e}")
-    
+
     return config
 
 def get_db_config_from_env():
@@ -300,6 +323,241 @@ def get_flask_config():
     }
 
 # =============================================================================
+# ZARZĄDZANIE MIEJSCOWOŚCIAMI
+# =============================================================================
+def init_locations_db():
+    """Inicjalizuje bazę danych miejscowości."""
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            powiat TEXT,
+            region TEXT,
+            active INTEGER DEFAULT 0
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def get_all_locations():
+    """Zwraca wszystkie miejscowości z bazy danych."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations ORDER BY name")
+    locations = cursor.fetchall()
+    conn.close()
+    return locations
+
+def get_active_location():
+    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active)."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations WHERE active = 1")
+    location = cursor.fetchone()
+    conn.close()
+    return location
+
+def get_active_location_name():
+    """Zwraca nazwę aktywnej miejscowości lub None."""
+    location = get_active_location()
+    return location[1] if location else None
+
+def set_active_location(location_id):
+    """Ustawia miejscowość jako aktywną."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    # Wyłącz wszystkie inne miejscowości
+    cursor.execute("UPDATE locations SET active = 0")
+    # Ustaw wybraną jako aktywną
+    cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
+    conn.commit()
+    conn.close()
+
+def add_location(name, full_name, powiat="", region=""):
+    """Dodaje nową miejscowość do bazy danych i tworzy folder."""
+    init_locations_db()
+
+    # Utwórz folder dla miejscowości
+    location_folder = os.path.join(BACKUP_FOLDER, name)
+    os.makedirs(location_folder, exist_ok=True)
+
+    # Utwórz domyślny plik .env
+    env_path = os.path.join(location_folder, ".env")
+    if not os.path.exists(env_path):
+        default_env = """# Konfiguracja bazy danych PostgreSQL
+DB_HOST=localhost
+DB_NAME=mapa_czarna_db
+DB_USER=postgres
+DB_PASSWORD=1234
+DB_PORT=5432
+
+# Konfiguracja serwera Flask
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+FLASK_DEBUG=True
+FLASK_SECRET_KEY=change-me-once
+
+# Ustawienia bezpieczeństwa
+ADMIN_AUTH_ENABLED=0
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=
+"""
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.write(default_env)
+
+    # Dodaj do bazy danych
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active) VALUES (?, ?, ?, ?, 0)",
+                      (name, full_name, powiat, region))
+        conn.commit()
+        location_id = cursor.lastrowid
+        conn.close()
+        return location_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Miejscowość '{name}' już istnieje")
+
+def update_location(location_id, name, full_name, powiat, region):
+    """Aktualizuje dane miejscowości."""
+    init_locations_db()
+
+    # Pobierz starą nazwę
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM locations WHERE id = ?", (location_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        raise ValueError("Miejscowość nie istnieje")
+
+    old_name = result[0]
+
+    # Zmień nazwę folderu jeśli nazwa się zmieniła
+    if old_name != name:
+        old_folder = os.path.join(BACKUP_FOLDER, old_name)
+        new_folder = os.path.join(BACKUP_FOLDER, name)
+        if os.path.exists(old_folder):
+            os.rename(old_folder, new_folder)
+
+    # Zaktualizuj bazę danych
+    try:
+        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ? WHERE id = ?",
+                      (name, full_name, powiat, region, location_id))
+        conn.commit()
+        conn.close()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Miejscowość '{name}' już istnieje")
+
+def delete_location(location_id):
+    """Usuwa miejscowość z bazy danych i folder."""
+    init_locations_db()
+
+    # Pobierz nazwę miejscowości
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, active FROM locations WHERE id = ?", (location_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        raise ValueError("Miejscowość nie istnieje")
+
+    name, active = result
+
+    if active:
+        conn.close()
+        raise ValueError("Nie można usunąć aktywnej miejscowości")
+
+    # Usuń folder
+    location_folder = os.path.join(BACKUP_FOLDER, name)
+    if os.path.exists(location_folder):
+        shutil.rmtree(location_folder)
+
+    # Usuń z bazy danych
+    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
+    conn.commit()
+    conn.close()
+
+def get_location_env_path(location_name=None):
+    """Zwraca ścieżkę do pliku .env dla danej miejscowości."""
+    if location_name is None:
+        location_name = get_active_location_name()
+
+    if location_name:
+        return os.path.join(BACKUP_FOLDER, location_name, ".env")
+    else:
+        return os.path.join(BACKEND_DIR, ".env")
+
+def migrate_old_backup_structure():
+    """Migruje starą strukturę backup/ do nowej struktury z miejscowościami."""
+    init_locations_db()
+
+    # Sprawdź czy już są miejscowości
+    locations = get_all_locations()
+    if locations:
+        # Już zmigrowano
+        return
+
+    print("🔄 Migracja struktury folderów backup...")
+
+    # Sprawdź czy są stare pliki w backup/
+    old_files = [
+        "owner_data_to_import.json",
+        "parcels_data.json",
+        "demografia.json",
+        "genealogia.json",
+        "map_config.json"
+    ]
+
+    has_old_files = any(os.path.exists(os.path.join(BACKUP_FOLDER, f)) for f in old_files)
+
+    if not has_old_files:
+        print("ℹ️ Brak starych plików do migracji")
+        return
+
+    # Utwórz domyślną miejscowość "Czarna"
+    default_location_name = "Czarna"
+    default_location_folder = os.path.join(BACKUP_FOLDER, default_location_name)
+
+    try:
+        # Utwórz folder dla miejscowości
+        os.makedirs(default_location_folder, exist_ok=True)
+
+        # Przenieś stare pliki
+        for filename in old_files:
+            old_path = os.path.join(BACKUP_FOLDER, filename)
+            if os.path.exists(old_path):
+                new_path = os.path.join(default_location_folder, filename)
+                shutil.move(old_path, new_path)
+                print(f"✅ Przeniesiono: {filename}")
+
+        # Przenieś plik .env jeśli istnieje
+        old_env_path = os.path.join(BACKEND_DIR, ".env")
+        if os.path.exists(old_env_path):
+            new_env_path = os.path.join(default_location_folder, ".env")
+            shutil.copy2(old_env_path, new_env_path)
+            print(f"✅ Skopiowano: .env")
+
+        # Dodaj miejscowość do bazy danych
+        add_location(default_location_name, "Czarna", "", "")
+        set_active_location(1)  # Ustaw jako aktywną (pierwsze ID to 1)
+
+        print(f"✅ Migracja zakończona! Utworzono miejscowość: {default_location_name}")
+
+    except Exception as e:
+        print(f"❌ Błąd podczas migracji: {e}")
+        import traceback
+        traceback.print_exc()
+
+# =============================================================================
 # GŁÓWNA KLASA APLIKACJI
 # =============================================================================
 class AppLauncher(tk.Tk):
@@ -314,7 +572,10 @@ class AppLauncher(tk.Tk):
         self.managed_processes = {}
         self.event_queue = queue.Queue()
         self.setup_styles()
-        
+
+        # Migracja starych danych
+        migrate_old_backup_structure()
+
         check_env_configuration()
         check_backup_folder_files()
         _auto_sync_site_icon()
@@ -456,7 +717,29 @@ class AppLauncher(tk.Tk):
         ).pack(side=tk.LEFT)
         
         ttk.Label(header_frame, text="Status: Gotowy", foreground=COLORS['success']).pack(side=tk.RIGHT, padx=10)
-        
+
+        # Sekcja wyboru miejscowości
+        location_frame = ttk.LabelFrame(main_frame, text="📍 Miejscowość", padding="10")
+        location_frame.pack(fill=tk.X, pady=5)
+
+        location_controls = ttk.Frame(location_frame)
+        location_controls.pack(fill=tk.X)
+
+        ttk.Label(location_controls, text="Aktywna miejscowość:", font=("Segoe UI", self.base_font_size)).pack(side=tk.LEFT, padx=5)
+
+        self.location_var = tk.StringVar()
+        self.location_combo = ttk.Combobox(location_controls, textvariable=self.location_var, state="readonly", width=30)
+        self.location_combo.pack(side=tk.LEFT, padx=5)
+        self.location_combo.bind("<<ComboboxSelected>>", self.on_location_selected)
+
+        ttk.Button(location_controls, text="🔄 Odśwież", command=self.refresh_locations,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
+                  style="Primary.TButton").pack(side=tk.LEFT, padx=5)
+
+        self.refresh_locations()
+
         # Sekcja operacji głównych
         operations_frame = ttk.LabelFrame(main_frame, text="⚙️ Operacje Główne", padding="10")
         operations_frame.pack(fill=tk.X, pady=5)
@@ -675,6 +958,49 @@ class AppLauncher(tk.Tk):
         
         add_cmd = f'netsh advfirewall firewall add rule name="{rule_name}" dir=in action=allow protocol=TCP localport={port} enable=yes profile=any'
         subprocess.run(add_cmd, shell=True)
+
+    def refresh_locations(self):
+        """Odświeża listę miejscowości w menu rozwijanym."""
+        locations = get_all_locations()
+        location_names = [loc[1] for loc in locations]  # loc[1] to name
+        self.location_combo['values'] = location_names
+
+        # Ustaw aktywną miejscowość
+        active_location = get_active_location()
+        if active_location:
+            self.location_var.set(active_location[1])  # active_location[1] to name
+        elif location_names:
+            # Jeśli brak aktywnej, ale są miejscowości, ustaw pierwszą
+            self.location_var.set(location_names[0])
+            # I ustaw ją jako aktywną w bazie
+            set_active_location(locations[0][0])
+        else:
+            self.location_var.set("(brak miejscowości)")
+
+    def on_location_selected(self, event=None):
+        """Obsługuje zmianę wybranej miejscowości."""
+        selected_name = self.location_var.get()
+        if not selected_name or selected_name == "(brak miejscowości)":
+            return
+
+        # Znajdź ID wybranej miejscowości
+        locations = get_all_locations()
+        for loc in locations:
+            if loc[1] == selected_name:  # loc[1] to name
+                set_active_location(loc[0])  # loc[0] to id
+                messagebox.showinfo("✅ Zmieniono miejscowość",
+                                   f"Aktywna miejscowość: {selected_name}\n\n"
+                                   "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
+                # Odśwież DATA_FILES
+                global DATA_FILES
+                DATA_FILES = get_data_files()
+                break
+
+    def open_location_manager(self):
+        """Otwiera okno zarządzania miejscowościami."""
+        manager = LocationManager(self)
+        self.wait_window(manager)
+        self.refresh_locations()
 
     def open_backup_manager(self):
         """Otwiera okno menedżera kopii zapasowych."""
@@ -1084,6 +1410,239 @@ if __name__ == '__main__':
 # =============================================================================
 # KLASY OKIEN DIALOGOWYCH
 # =============================================================================
+
+class LocationManager(tk.Toplevel):
+    """Okno dialogowe do zarządzania miejscowościami."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title("⚙️ Zarządzaj Miejscowościami")
+
+        # Automatyczne dostosowanie do ekranu
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        w, h = min(int(sw * 0.6), 900), min(int(sh * 0.7), 600)
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.minsize(700, 500)
+        self.grab_set()
+
+        self.create_widgets()
+        self.refresh_table()
+
+    def create_widgets(self):
+        """Tworzy interfejs menedżera miejscowości."""
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Tabelka
+        table_frame = ttk.LabelFrame(main_frame, text="📋 Lista Miejscowości", padding="10")
+        table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Kolumny: ID, Nazwa, Pełna Nazwa, Powiat, Region, Aktywna
+        columns = ("id", "name", "full_name", "powiat", "region", "active")
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
+
+        self.tree.heading("id", text="ID")
+        self.tree.heading("name", text="Nazwa")
+        self.tree.heading("full_name", text="Pełna Nazwa")
+        self.tree.heading("powiat", text="Powiat")
+        self.tree.heading("region", text="Region")
+        self.tree.heading("active", text="Aktywna")
+
+        self.tree.column("id", width=50, anchor="center")
+        self.tree.column("name", width=120)
+        self.tree.column("full_name", width=200)
+        self.tree.column("powiat", width=120)
+        self.tree.column("region", width=120)
+        self.tree.column("active", width=80, anchor="center")
+
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Przyciski akcji
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill=tk.X)
+
+        ttk.Button(buttons_frame, text="➕ Dodaj Nową Miejscowość", command=self.add_location,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(buttons_frame, text="✏️ Edytuj", command=self.edit_location,
+                  style="Primary.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(buttons_frame, text="🗑️ Usuń", command=self.delete_location,
+                  style="Danger.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(buttons_frame, text="✅ Ustaw jako Aktywną", command=self.set_active,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(buttons_frame, text="🔄 Odśwież", command=self.refresh_table,
+                  style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
+
+    def refresh_table(self):
+        """Odświeża tabelkę z miejscowościami."""
+        # Wyczyść tabelę
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        # Pobierz dane
+        locations = get_all_locations()
+
+        # Wypełnij tabelę
+        for loc in locations:
+            loc_id, name, full_name, powiat, region, active = loc
+            active_str = "✓" if active else ""
+            self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, active_str))
+
+    def add_location(self):
+        """Dodaje nową miejscowość."""
+        dialog = AddEditLocationDialog(self, "Dodaj Nową Miejscowość")
+        self.wait_window(dialog)
+
+        if hasattr(dialog, 'result') and dialog.result:
+            name, full_name, powiat, region = dialog.result
+            try:
+                add_location(name, full_name, powiat, region)
+                messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
+                self.refresh_table()
+            except ValueError as e:
+                messagebox.showerror("❌ Błąd", str(e), parent=self)
+
+    def edit_location(self):
+        """Edytuje wybraną miejscowość."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Wybierz miejscowość do edycji", parent=self)
+            return
+
+        values = self.tree.item(selected[0], "values")
+        loc_id, name, full_name, powiat, region = values[:5]
+
+        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region)
+        self.wait_window(dialog)
+
+        if hasattr(dialog, 'result') and dialog.result:
+            new_name, new_full_name, new_powiat, new_region = dialog.result
+            try:
+                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region)
+                messagebox.showinfo("✅ Sukces", f"Zaktualizowano miejscowość: {new_name}", parent=self)
+                self.refresh_table()
+            except ValueError as e:
+                messagebox.showerror("❌ Błąd", str(e), parent=self)
+
+    def delete_location(self):
+        """Usuwa wybraną miejscowość."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Wybierz miejscowość do usunięcia", parent=self)
+            return
+
+        values = self.tree.item(selected[0], "values")
+        loc_id, name = values[0], values[1]
+
+        if not messagebox.askyesno("⚠️ Potwierdzenie",
+                                   f"Czy na pewno chcesz usunąć miejscowość '{name}'?\n\n"
+                                   "Zostanie usunięty cały folder z danymi!",
+                                   parent=self):
+            return
+
+        try:
+            delete_location(int(loc_id))
+            messagebox.showinfo("✅ Sukces", f"Usunięto miejscowość: {name}", parent=self)
+            self.refresh_table()
+        except ValueError as e:
+            messagebox.showerror("❌ Błąd", str(e), parent=self)
+
+    def set_active(self):
+        """Ustawia wybraną miejscowość jako aktywną."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Wybierz miejscowość do aktywacji", parent=self)
+            return
+
+        values = self.tree.item(selected[0], "values")
+        loc_id, name = values[0], values[1]
+
+        set_active_location(int(loc_id))
+        messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}", parent=self)
+        self.refresh_table()
+
+
+class AddEditLocationDialog(tk.Toplevel):
+    """Dialog do dodawania/edytowania miejscowości."""
+
+    def __init__(self, parent, title, name="", full_name="", powiat="", region=""):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title(title)
+        self.grab_set()
+
+        self.result = None
+
+        # Rozmiar
+        w, h = 500, 300
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.resizable(False, False)
+
+        # Pola formularza
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text="Nazwa (folder):").grid(row=0, column=0, sticky="w", pady=5)
+        self.name_entry = ttk.Entry(main_frame, width=40)
+        self.name_entry.insert(0, name)
+        self.name_entry.grid(row=0, column=1, pady=5, padx=10)
+
+        ttk.Label(main_frame, text="Pełna nazwa:").grid(row=1, column=0, sticky="w", pady=5)
+        self.full_name_entry = ttk.Entry(main_frame, width=40)
+        self.full_name_entry.insert(0, full_name)
+        self.full_name_entry.grid(row=1, column=1, pady=5, padx=10)
+
+        ttk.Label(main_frame, text="Powiat:").grid(row=2, column=0, sticky="w", pady=5)
+        self.powiat_entry = ttk.Entry(main_frame, width=40)
+        self.powiat_entry.insert(0, powiat)
+        self.powiat_entry.grid(row=2, column=1, pady=5, padx=10)
+
+        ttk.Label(main_frame, text="Region:").grid(row=3, column=0, sticky="w", pady=5)
+        self.region_entry = ttk.Entry(main_frame, width=40)
+        self.region_entry.insert(0, region)
+        self.region_entry.grid(row=3, column=1, pady=5, padx=10)
+
+        # Przyciski
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.grid(row=4, column=0, columnspan=2, pady=20)
+
+        ttk.Button(buttons_frame, text="✅ Zapisz", command=self.save,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="❌ Anuluj", command=self.destroy,
+                  style="Danger.TButton").pack(side=tk.LEFT, padx=5)
+
+    def save(self):
+        """Zapisuje dane i zamyka okno."""
+        name = self.name_entry.get().strip()
+        full_name = self.full_name_entry.get().strip()
+        powiat = self.powiat_entry.get().strip()
+        region = self.region_entry.get().strip()
+
+        if not name:
+            messagebox.showerror("❌ Błąd", "Nazwa jest wymagana!", parent=self)
+            return
+
+        if not full_name:
+            messagebox.showerror("❌ Błąd", "Pełna nazwa jest wymagana!", parent=self)
+            return
+
+        self.result = (name, full_name, powiat, region)
+        self.destroy()
+
 
 class MapCalibrator(tk.Toplevel):
     """Okno do kalibracji współrzędnych mapy."""
@@ -1948,36 +2507,52 @@ class BackupManager(tk.Toplevel):
         # Sekcja tworzenia kopii
         create_frame = ttk.LabelFrame(main_frame, text="➕ Stwórz Nową Kopię Zapasową", padding="10")
         create_frame.pack(fill=tk.X, pady=(0, 10))
-        
+
+        # Wybór miejscowości
+        location_select_frame = ttk.Frame(create_frame)
+        location_select_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(location_select_frame, text="Miejscowość do skopiowania:").pack(side=tk.LEFT, padx=5)
+
+        self.location_backup_var = tk.StringVar(value="Aktywna miejscowość")
+        self.location_backup_combo = ttk.Combobox(location_select_frame, textvariable=self.location_backup_var,
+                                                  state="readonly", width=30)
+        self.location_backup_combo.pack(side=tk.LEFT, padx=5)
+
+        # Wypełnij listę miejscowości
+        locations = get_all_locations()
+        location_choices = ["Aktywna miejscowość", "Wszystkie miejscowości"] + [loc[1] for loc in locations]
+        self.location_backup_combo['values'] = location_choices
+
         # Checkboxy
         self.backup_vars = {key: tk.BooleanVar(value=True) for key in DATA_FILES}
         self.backup_vars["scans"] = tk.BooleanVar(value=True)
         self.backup_vars["config"] = tk.BooleanVar(value=True)
-        
+
         content_frame = ttk.Frame(create_frame)
         content_frame.pack(fill=tk.X)
-        
+
         checkbox_frame = ttk.Frame(content_frame)
         checkbox_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+
         col1 = ttk.Frame(checkbox_frame)
         col1.pack(side=tk.LEFT, padx=10)
-        
+
         checkboxes = [
             ("📋 Właściciele i Demografia", "owners"),
             ("🗺️ Działki (geometria)", "parcels"),
             ("📍 Konfiguracja Mapy", "config")
         ]
-        
+
         for text, var_key in checkboxes:
             ttk.Checkbutton(col1, text=text, variable=self.backup_vars[var_key]).pack(anchor="w", pady=2)
-        
+
         col2 = ttk.Frame(checkbox_frame)
         col2.pack(side=tk.LEFT, padx=10)
-        
+
         ttk.Checkbutton(col2, text="🌳 Genealogia", variable=self.backup_vars["genealogy"]).pack(anchor="w", pady=2)
         ttk.Checkbutton(col2, text="📄 Skany Protokołów", variable=self.backup_vars["scans"]).pack(anchor="w", pady=2)
-        
+
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
         
@@ -2023,17 +2598,21 @@ class BackupManager(tk.Toplevel):
         """Wczytuje listę plików kopii zapasowych."""
         for item in self.tree.get_children():
             self.tree.delete(item)
-        
+
         try:
-            files = [f for f in os.listdir(BACKUP_FOLDER) 
-                    if f.startswith("pelny_backup_projektu_") and f.endswith(".zip")]
+            files = [f for f in os.listdir(BACKUP_FOLDER)
+                    if f.startswith("backup_") and f.endswith(".zip")]
+            # Dodaj również stare kopie dla kompatybilności wstecznej
+            old_backups = [f for f in os.listdir(BACKUP_FOLDER)
+                          if f.startswith("pelny_backup_projektu_") and f.endswith(".zip")]
+            files.extend(old_backups)
             files.sort(reverse=True)
-            
+
             for filename in files:
                 self.tree.insert("", "end", iid=filename, values=(filename,))
         except FileNotFoundError:
             pass
-        
+
         self.on_select()
 
     def on_select(self, event=None):
@@ -2099,48 +2678,88 @@ class BackupManager(tk.Toplevel):
     def create_backup(self):
         """Tworzy nową kopię zapasową."""
         components = [key for key, var in self.backup_vars.items() if var.get()]
-        
+
         if not components:
             messagebox.showwarning("⚠️ Nic nie wybrano", "Zaznacz co najmniej jeden element.", parent=self)
             return
-        
+
         ProgressDialog(self, self._perform_backup, components)
 
     def _perform_backup(self, progress_callback, components):
         """Wykonuje tworzenie kopii zapasowej."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_filename = f"pelny_backup_projektu_{timestamp}.zip"
+        location_choice = self.location_backup_var.get()
+
+        # Określ jakie miejscowości kopiować
+        locations_to_backup = []
+        if location_choice == "Aktywna miejscowość":
+            active_loc = get_active_location()
+            if active_loc:
+                locations_to_backup = [active_loc[1]]  # nazwa miejscowości
+            backup_filename = f"backup_{timestamp}.zip"
+        elif location_choice == "Wszystkie miejscowości":
+            all_locs = get_all_locations()
+            locations_to_backup = [loc[1] for loc in all_locs]
+            backup_filename = f"backup_wszystkie_{timestamp}.zip"
+        else:
+            # Konkretna miejscowość
+            locations_to_backup = [location_choice]
+            backup_filename = f"backup_{location_choice}_{timestamp}.zip"
+
+        if not locations_to_backup:
+            raise Exception("Brak miejscowości do skopiowania")
+
         backup_path = os.path.join(BACKUP_FOLDER, backup_filename)
-        
+
         files_to_zip = []
-        
-        # Zbieranie plików
-        if self.backup_vars["config"].get():
-            map_config_path = os.path.join(BACKUP_FOLDER, "map_config.json")
-            if os.path.exists(map_config_path):
-                files_to_zip.append((map_config_path, "map_config.json"))
-        
-        for key in ["owners", "parcels", "genealogy"]:
-            if self.backup_vars[key].get():
-                if os.path.exists(DATA_FILES[key]["path"]):
-                    files_to_zip.append((DATA_FILES[key]["path"], os.path.basename(DATA_FILES[key]["path"])))
-                for related_path in DATA_FILES[key].get("related", []):
-                    if os.path.exists(related_path):
-                        files_to_zip.append((related_path, os.path.basename(related_path)))
-        
+
+        # Zbieranie plików dla każdej miejscowości
+        for location_name in locations_to_backup:
+            location_folder = os.path.join(BACKUP_FOLDER, location_name)
+
+            if not os.path.exists(location_folder):
+                continue
+
+            # Dodaj plik .env
+            env_path = os.path.join(location_folder, ".env")
+            if os.path.exists(env_path):
+                arcname = os.path.join(location_name, ".env")
+                files_to_zip.append((env_path, arcname))
+
+            # Zbieranie plików danych
+            data_files_for_location = get_data_files(location_name)
+
+            if self.backup_vars["config"].get():
+                map_config_path = os.path.join(location_folder, "map_config.json")
+                if os.path.exists(map_config_path):
+                    arcname = os.path.join(location_name, "map_config.json")
+                    files_to_zip.append((map_config_path, arcname))
+
+            for key in ["owners", "parcels", "genealogy"]:
+                if self.backup_vars[key].get():
+                    file_path = data_files_for_location[key]["path"]
+                    if os.path.exists(file_path):
+                        arcname = os.path.join(location_name, os.path.basename(file_path))
+                        files_to_zip.append((file_path, arcname))
+                    for related_path in data_files_for_location[key].get("related", []):
+                        if os.path.exists(related_path):
+                            arcname = os.path.join(location_name, os.path.basename(related_path))
+                            files_to_zip.append((related_path, arcname))
+
+        # Skany protokołów (wspólne dla wszystkich miejscowości)
         if self.backup_vars["scans"].get() and os.path.exists(PROTOKOLY_FOLDER):
             for root, _, files in os.walk(PROTOKOLY_FOLDER):
                 for file in files:
                     file_path = os.path.join(root, file)
                     arcname = os.path.relpath(file_path, BASE_DIR)
                     files_to_zip.append((file_path, arcname))
-        
+
         # Tworzenie archiwum
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, (file_path, arcname) in enumerate(files_to_zip):
                 progress_callback(i + 1, len(files_to_zip), f"Pakowanie: {os.path.basename(arcname)}")
                 zf.write(file_path, arcname)
-        
+
         return backup_filename
 
     def delete_backup(self):
