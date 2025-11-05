@@ -321,6 +321,85 @@ def migrate_old_backup_structure():
         import traceback
         traceback.print_exc()
 
+# ==================== Funkcje zarządzania szablonami strony głównej ====================
+
+HOMEPAGE_DIR = os.path.join(BASE_DIR, "strona_glowna")
+TEMPLATES_DIR = os.path.join(HOMEPAGE_DIR, "szablony")
+
+def get_available_templates():
+    """Zwraca listę dostępnych szablonów strony głównej."""
+    templates = []
+    if os.path.exists(TEMPLATES_DIR):
+        for item in os.listdir(TEMPLATES_DIR):
+            template_path = os.path.join(TEMPLATES_DIR, item)
+            if os.path.isdir(template_path):
+                index_path = os.path.join(template_path, "index.html")
+                if os.path.exists(index_path):
+                    templates.append(item)
+    return templates
+
+def apply_homepage_template(template_name):
+    """
+    Aplikuje wybrany szablon strony głównej.
+
+    Args:
+        template_name: Nazwa szablonu (np. 'standardowy', 'praca_inzynierska')
+
+    Returns:
+        True jeśli sukces, False w przeciwnym razie
+    """
+    template_path = os.path.join(TEMPLATES_DIR, template_name, "index.html")
+    target_path = os.path.join(HOMEPAGE_DIR, "index.html")
+
+    if not os.path.exists(template_path):
+        print(f"❌ Szablon '{template_name}' nie istnieje")
+        return False
+
+    try:
+        # Dla szablonu standardowego - zastąp placeholdery danymi miejscowości
+        if template_name == "standardowy":
+            active_location = get_active_location()
+            if not active_location:
+                print("❌ Brak aktywnej miejscowości")
+                return False
+
+            # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active)
+            location_name = active_location[1]
+            location_full_name = active_location[2] or location_name
+            location_powiat = active_location[3] or "Powiat"
+            location_region = active_location[4] or "Region"
+
+            # Wczytaj szablon
+            with open(template_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Zastąp placeholdery
+            content = content.replace('{{MIEJSCOWOSC}}', location_name)
+            content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
+            content = content.replace('{{POWIAT}}', location_powiat)
+            content = content.replace('{{REGION}}', location_region)
+
+            # Zapisz
+            with open(target_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+
+            print(f"✅ Zastosowano szablon 'standardowy' dla miejscowości: {location_full_name}")
+
+        else:
+            # Dla innych szablonów - po prostu skopiuj
+            shutil.copy2(template_path, target_path)
+            print(f"✅ Zastosowano szablon: {template_name}")
+
+        return True
+
+    except Exception as e:
+        print(f"❌ Błąd podczas aplikowania szablonu: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# ==================== Koniec funkcji zarządzania szablonami ====================
+
 def get_data_files(location_name=None):
     """Zwraca słownik ścieżek plików danych dla danej miejscowości."""
     if location_name is None:
@@ -777,6 +856,9 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
                   style="Primary.TButton").pack(side=tk.LEFT, padx=5)
 
+        ttk.Button(location_controls, text="🎨 Szablon Strony", command=self.open_template_selector,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
+
         self.refresh_locations()
 
         # Sekcja operacji głównych
@@ -1040,6 +1122,10 @@ class AppLauncher(tk.Tk):
         manager = LocationManager(self)
         self.wait_window(manager)
         self.refresh_locations()
+
+    def open_template_selector(self):
+        """Otwiera okno wyboru szablonu strony głównej."""
+        TemplateSelector(self)
 
     def open_backup_manager(self):
         """Otwiera okno menedżera kopii zapasowych."""
@@ -1453,6 +1539,127 @@ if __name__ == '__main__':
 # =============================================================================
 # KLASY OKIEN DIALOGOWYCH
 # =============================================================================
+
+class TemplateSelector(tk.Toplevel):
+    """Okno wyboru szablonu strony głównej."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("🎨 Wybór Szablonu Strony Głównej")
+        self.transient(parent)
+        self.grab_set()
+        self.parent_app = parent
+
+        self.geometry("600x400")
+        self.minsize(500, 350)
+        self.center_window()
+
+        self.create_widgets()
+
+    def center_window(self):
+        """Centruje okno na ekranie."""
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
+        self.geometry(f"{w}x{h}+{x}+{y}")
+
+    def create_widgets(self):
+        """Tworzy interfejs wyboru szablonu."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Nagłówek
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 15))
+
+        ttk.Label(header_frame, text="Wybierz szablon strony głównej",
+                 font=("Segoe UI", 14, "bold")).pack(anchor=tk.W)
+
+        ttk.Label(header_frame, text="Szablon określa wygląd i treść strony index.html",
+                 foreground="#666666").pack(anchor=tk.W, pady=(5, 0))
+
+        # Lista szablonów
+        templates_frame = ttk.LabelFrame(main_frame, text="Dostępne szablony", padding="10")
+        templates_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        # Szablon 1: Praca inżynierska
+        template1_frame = ttk.Frame(templates_frame)
+        template1_frame.pack(fill=tk.X, pady=5)
+
+        self.template_var = tk.StringVar(value="praca_inzynierska")
+
+        ttk.Radiobutton(template1_frame, text="🎓 Praca Inżynierska",
+                       variable=self.template_var, value="praca_inzynierska").pack(anchor=tk.W)
+
+        ttk.Label(template1_frame, text="Oryginalna strona dla projektu studenckiego o gminie Czarna.\n"
+                                        "Zawiera informacje o Akademii Tarnowskiej i opiekunie projektu.",
+                 foreground="#666666", wraplength=500).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
+
+        # Separator
+        ttk.Separator(templates_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Szablon 2: Standardowy
+        template2_frame = ttk.Frame(templates_frame)
+        template2_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Radiobutton(template2_frame, text="📍 Standardowy",
+                       variable=self.template_var, value="standardowy").pack(anchor=tk.W)
+
+        ttk.Label(template2_frame, text="Uniwersalny szablon dostosowany do różnych miejscowości.\n"
+                                        "Automatycznie używa nazwy, powiatu i regionu aktywnej miejscowości.",
+                 foreground="#666666", wraplength=500).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
+
+        # Informacja o aktywnej miejscowości
+        active_location = get_active_location()
+        if active_location:
+            location_info = ttk.Frame(template2_frame)
+            location_info.pack(anchor=tk.W, padx=(25, 0), pady=(5, 0))
+
+            ttk.Label(location_info, text="Aktywna miejscowość:",
+                     foreground="#999999", font=("Segoe UI", 9)).pack(side=tk.LEFT)
+
+            location_text = f"{active_location[2] or active_location[1]}"
+            if active_location[3]:  # powiat
+                location_text += f" • {active_location[3]}"
+            if active_location[4]:  # region
+                location_text += f" • {active_location[4]}"
+
+            ttk.Label(location_info, text=location_text,
+                     foreground="#0066cc", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Przyciski
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill=tk.X)
+
+        ttk.Button(buttons_frame, text="Anuluj", command=self.destroy,
+                  style="Secondary.TButton").pack(side=tk.RIGHT, padx=(5, 0))
+
+        ttk.Button(buttons_frame, text="✅ Zastosuj Szablon", command=self.apply_template,
+                  style="Success.TButton").pack(side=tk.RIGHT)
+
+    def apply_template(self):
+        """Aplikuje wybrany szablon."""
+        template_name = self.template_var.get()
+
+        if messagebox.askyesno("Potwierdzenie",
+                              f"Czy na pewno chcesz zastosować szablon '{template_name}'?\n\n"
+                              f"Obecny plik index.html zostanie nadpisany.",
+                              parent=self):
+            success = apply_homepage_template(template_name)
+
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"Szablon '{template_name}' został zastosowany pomyślnie!\n\n"
+                                   f"Odśwież stronę w przeglądarce aby zobaczyć zmiany.",
+                                   parent=self)
+                self.destroy()
+            else:
+                messagebox.showerror("❌ Błąd",
+                                    "Nie udało się zastosować szablonu.\n"
+                                    "Sprawdź logi aby uzyskać więcej informacji.",
+                                    parent=self)
 
 class LocationManager(tk.Toplevel):
     """Okno dialogowe do zarządzania miejscowościami."""
