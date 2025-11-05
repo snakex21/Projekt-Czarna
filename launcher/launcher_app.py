@@ -132,7 +132,30 @@ CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
     FOR EACH ROW EXECUTE FUNCTION ensure_single_active_location();
 """
 
+# SQL do usuwania tabel w bazie launcher
+LAUNCHER_DROP_TABLES = """
+-- Usuń wyzwalacze
+DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
+DROP TRIGGER IF EXISTS single_active_location ON locations;
+
+-- Usuń tabele
+DROP TABLE IF EXISTS history_photos CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;
+
+-- Usuń funkcje
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+DROP FUNCTION IF EXISTS ensure_single_active_location() CASCADE;
+"""
+
 # Schemat bazy danych dla miejscowości (mapa_*_db) - tabele mapy, właścicieli, genealogii, itp.
+# SQL do usuwania tabel
+LOCATION_DROP_TABLES = """
+DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele,
+                     wlasciciele, obiekty_geograficzne, demografia, login_attempts,
+                     blocked_ips, konfiguracja_systemu CASCADE;
+"""
+
+# Pełny schemat z DROP + CREATE
 LOCATION_DB_SCHEMA = """
 -- Czyszczenie istniejących tabel (jeśli istnieją)
 DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele,
@@ -3394,16 +3417,29 @@ class DatabaseWizard(tk.Toplevel):
         actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
         actions_frame.pack(fill=tk.X)
 
-        self.action_var = tk.StringVar(value="full_setup")
+        self.action_var = tk.StringVar(value="create_launcher_db")
 
-        ttk.Radiobutton(actions_frame, text="🚀 Pełna instalacja (wszystko od zera)",
-                       variable=self.action_var, value="full_setup").pack(anchor=tk.W, pady=5)
-        ttk.Radiobutton(actions_frame, text="🔧 Tylko baza launcher (mapa_launcher_db)",
-                       variable=self.action_var, value="launcher_only").pack(anchor=tk.W, pady=5)
-        ttk.Radiobutton(actions_frame, text="♻️ Resetuj tabele launcher (usuń i odtwórz)",
-                       variable=self.action_var, value="reset_launcher").pack(anchor=tk.W, pady=5)
-        ttk.Radiobutton(actions_frame, text="📦 Utwórz/zresetuj bazę miejscowości",
-                       variable=self.action_var, value="init_location_db").pack(anchor=tk.W, pady=5)
+        # Opcje dla bazy launcher (mapa_launcher_db)
+        ttk.Label(actions_frame, text="Baza launcher:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę launcher (CREATE DATABASE + tables)",
+                       variable=self.action_var, value="create_launcher_db").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="❌ Usuń tabele launcher (DROP TABLES)",
+                       variable=self.action_var, value="drop_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele launcher (DROP + CREATE)",
+                       variable=self.action_var, value="recreate_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
+
+        ttk.Separator(actions_frame, orient='horizontal').pack(fill='x', pady=10)
+
+        # Opcje dla bazy miejscowości
+        ttk.Label(actions_frame, text="Baza miejscowości:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę miejscowości (CREATE DATABASE + tables)",
+                       variable=self.action_var, value="create_location_db").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="❌ Usuń tabele miejscowości (DROP TABLES)",
+                       variable=self.action_var, value="drop_location_tables").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele miejscowości (DROP + CREATE)",
+                       variable=self.action_var, value="recreate_location_tables").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
+                       variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
@@ -3548,14 +3584,20 @@ class DatabaseWizard(tk.Toplevel):
         self.log("🚀 Rozpoczynam...\n")
 
         try:
-            if action == "full_setup":
-                self.full_setup()
-            elif action == "launcher_only":
-                self.launcher_only_setup()
-            elif action == "reset_launcher":
-                self.reset_launcher_tables()
-            elif action == "init_location_db":
-                self.init_location_db_action()
+            if action == "create_launcher_db":
+                self.create_launcher_database()
+            elif action == "drop_launcher_tables":
+                self.drop_launcher_tables()
+            elif action == "recreate_launcher_tables":
+                self.recreate_launcher_tables()
+            elif action == "create_location_db":
+                self.create_location_database()
+            elif action == "drop_location_tables":
+                self.drop_location_tables()
+            elif action == "recreate_location_tables":
+                self.recreate_location_tables()
+            elif action == "drop_location_database":
+                self.drop_location_database()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -3566,113 +3608,189 @@ class DatabaseWizard(tk.Toplevel):
         finally:
             self.progress.stop()
 
-    def full_setup(self):
-        """Pełna instalacja"""
-        self.log("=== Pełna instalacja ===\n")
+    # === FUNKCJE DLA BAZY LAUNCHER ===
 
-        # Launcher DB
-        self.log("1. Tworzę mapa_launcher_db...")
+    def create_launcher_database(self):
+        """Utwórz bazę launcher (CREATE DATABASE + tables)"""
+        self.log("=== Tworzenie bazy launcher ===\n")
+
+        self.log("1. Tworzę bazę mapa_launcher_db...")
         success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
         self.log(f"   {msg}")
-
-        self.log("2. Tworzę strukturę...")
-        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
-        self.log(f"   {msg}")
-
-        self.log("\n✅ Instalacja zakończona!")
-
-    def launcher_only_setup(self):
-        """Tylko launcher"""
-        self.log("=== Baza launcher ===\n")
-
-        self.log("1. Tworzę mapa_launcher_db...")
-        success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
-        self.log(f"   {msg}")
-
-        self.log("2. Tworzę strukturę...")
-        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
-        self.log(f"   {msg}")
-
-        self.log("\n✅ Gotowe!")
-
-    def reset_launcher_tables(self):
-        """Resetuj tabele w bazie launcher"""
-        self.log("=== Resetowanie tabel launcher ===\n")
-
-        # Sprawdź czy baza istnieje
-        if not postgres_database_exists(**self.config, db_name='mapa_launcher_db'):
-            self.log("❌ Baza mapa_launcher_db nie istnieje!")
-            self.log("   Użyj opcji 'Pełna instalacja' lub 'Tylko baza launcher'")
-            raise Exception("Baza mapa_launcher_db nie istnieje")
-
-        self.log("1. Usuwam stare wyzwalacze, funkcje i tabele...")
-
-        # SQL do usunięcia wszystkiego w odpowiedniej kolejności
-        drop_sql = """
-        -- Usuń wyzwalacze
-        DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
-        DROP TRIGGER IF EXISTS single_active_location ON locations;
-
-        -- Usuń tabele (CASCADE usuwa też zależności)
-        DROP TABLE IF EXISTS history_photos CASCADE;
-        DROP TABLE IF EXISTS locations CASCADE;
-
-        -- Funkcje można zostawić (są nadpisywane przez CREATE OR REPLACE)
-        -- ale dla czystości można je usunąć:
-        DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
-        DROP FUNCTION IF EXISTS ensure_single_active_location() CASCADE;
-        """
-
-        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=drop_sql)
-        self.log(f"   {msg}")
-
         if not success:
-            raise Exception(f"Błąd usuwania tabel: {msg}")
+            raise Exception(msg)
+
+        self.log("2. Tworzę tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        global LOCATIONS_DB_INITIALIZED
+        LOCATIONS_DB_INITIALIZED = False
+
+    def drop_launcher_tables(self):
+        """Usuń tabele launcher (DROP TABLES)"""
+        self.log("=== Usuwanie tabel launcher ===\n")
+
+        if not postgres_database_exists(**self.config, db_name='mapa_launcher_db'):
+            raise Exception("Baza mapa_launcher_db nie istnieje!")
+
+        self.log("Usuwam tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DROP_TABLES)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("\n⚠️ Wszystkie dane usunięte!")
+
+        global LOCATIONS_DB_INITIALIZED
+        LOCATIONS_DB_INITIALIZED = False
+
+    def recreate_launcher_tables(self):
+        """Odtwórz tabele launcher (DROP + CREATE)"""
+        self.log("=== Odtwarzanie tabel launcher ===\n")
+
+        if not postgres_database_exists(**self.config, db_name='mapa_launcher_db'):
+            raise Exception("Baza mapa_launcher_db nie istnieje!")
+
+        self.log("1. Usuwam stare tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DROP_TABLES)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
 
         self.log("2. Tworzę nowe tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
         self.log(f"   {msg}")
-
         if not success:
-            raise Exception(f"Błąd tworzenia tabel: {msg}")
+            raise Exception(msg)
 
-        self.log("\n✅ Tabele zostały zresetowane!")
-        self.log("⚠️ UWAGA: Wszystkie dane miejscowości zostały usunięte!")
+        self.log("\n⚠️ Wszystkie dane usunięte i tabele odtworzone!")
 
-        # Wyczyść cache inicjalizacji aby przy następnym użyciu schemat został ponownie wykonany
         global LOCATIONS_DB_INITIALIZED
         LOCATIONS_DB_INITIALIZED = False
 
-    def init_location_db_action(self):
-        """Utwórz/zresetuj bazę danych miejscowości"""
-        self.log("=== Tworzenie/resetowanie bazy miejscowości ===\n")
+    # === FUNKCJE DLA BAZY MIEJSCOWOŚCI ===
 
-        # Pobierz wybraną miejscowość
+    def _get_selected_location_db(self):
+        """Pobiera nazwę bazy wybranej miejscowości"""
         selected_index = self.location_combo.current()
         if selected_index < 0 or not hasattr(self, 'location_data') or not self.location_data:
-            self.log("❌ Nie wybrano miejscowości!")
-            raise Exception("Wybierz miejscowość z listy")
+            raise Exception("Wybierz miejscowość z listy!")
 
         display_name, db_name = self.location_data[selected_index]
-
         if not db_name:
-            self.log("❌ Wybrana miejscowość nie ma przypisanej bazy danych!")
-            self.log("   Edytuj miejscowość i przypisz bazę PostgreSQL.")
-            raise Exception("Brak przypisanej bazy danych")
+            raise Exception("Wybrana miejscowość nie ma przypisanej bazy danych!")
 
-        self.log(f"📦 Baza: {db_name}\n")
+        return db_name
 
-        # Wywołaj funkcję inicjalizacji
-        self.log(f"1. Sprawdzam/tworzę bazę {db_name}...")
-        success, msg = init_location_database(db_name)
+    def create_location_database(self):
+        """Utwórz bazę miejscowości (CREATE DATABASE + tables)"""
+        self.log("=== Tworzenie bazy miejscowości ===\n")
 
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        self.log("1. Tworzę bazę...")
+        success, msg = postgres_create_database(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
         if not success:
-            self.log(f"   ❌ {msg}")
             raise Exception(msg)
 
-        self.log(f"   ✓ {msg}")
-        self.log("\n✅ Baza miejscowości gotowa do użycia!")
-        self.log("⚠️ Tabele zostały utworzone/zresetowane (wszystkie dane usunięte)")
+        self.log("2. Tworzę tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+    def drop_location_tables(self):
+        """Usuń tabele miejscowości (DROP TABLES)"""
+        self.log("=== Usuwanie tabel miejscowości ===\n")
+
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        if not postgres_database_exists(**self.config, db_name=db_name):
+            raise Exception(f"Baza {db_name} nie istnieje!")
+
+        self.log("Usuwam tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DROP_TABLES)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("\n⚠️ Wszystkie dane usunięte!")
+
+    def recreate_location_tables(self):
+        """Odtwórz tabele miejscowości (DROP + CREATE)"""
+        self.log("=== Odtwarzanie tabel miejscowości ===\n")
+
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        if not postgres_database_exists(**self.config, db_name=db_name):
+            raise Exception(f"Baza {db_name} nie istnieje!")
+
+        self.log("1. Usuwam stare tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DROP_TABLES)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("2. Tworzę nowe tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("\n⚠️ Wszystkie dane usunięte i tabele odtworzone!")
+
+    def drop_location_database(self):
+        """Usuń całą bazę miejscowości (DROP DATABASE)"""
+        self.log("=== Usuwanie całej bazy miejscowości ===\n")
+
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        if not postgres_database_exists(**self.config, db_name=db_name):
+            raise Exception(f"Baza {db_name} nie istnieje!")
+
+        # Potwierdzenie
+        confirm = messagebox.askyesno(
+            "⚠️ UWAGA",
+            f"Czy na pewno chcesz CAŁKOWICIE USUNĄĆ bazę {db_name}?\n\n"
+            "Wszystkie dane zostaną bezpowrotnie utracone!",
+            icon='warning',
+            parent=self
+        )
+
+        if not confirm:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log("Usuwam bazę danych...")
+
+        # DROP DATABASE
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=self.config['host'],
+                port=self.config['port'],
+                user=self.config['user'],
+                password=self.config['password'],
+                database='postgres'
+            )
+            conn.autocommit = True
+            cursor = conn.cursor()
+            cursor.execute(f"DROP DATABASE IF EXISTS {db_name}")
+            cursor.close()
+            conn.close()
+
+            self.log(f"   ✓ Baza {db_name} została usunięta")
+        except Exception as e:
+            raise Exception(f"Błąd usuwania bazy: {e}")
+
+        self.log("\n⚠️ Baza całkowicie usunięta!")
 
     def finish(self):
         """Zakończ"""
