@@ -133,9 +133,10 @@ CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
 """
 
 
-# Zmienna globalna - czy PostgreSQL jest dostępny
+# Zmienne globalne
 POSTGRES_AVAILABLE = None
 POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "launcher", ".postgres.env")
+LOCATIONS_DB_INITIALIZED = False  # Cache - czy baza została już zainicjalizowana
 
 
 def get_postgres_config():
@@ -349,6 +350,12 @@ def init_postgres_locations_db():
     Returns:
         bool: True jeśli sukces, False jeśli błąd
     """
+    global LOCATIONS_DB_INITIALIZED
+
+    # Jeśli już zainicjalizowana, pomiń
+    if LOCATIONS_DB_INITIALIZED:
+        return True
+
     config = get_postgres_config()
 
     # Sprawdź czy baza istnieje
@@ -363,13 +370,16 @@ def init_postgres_locations_db():
             return False
         print(f"✓ {msg}")
 
-    # Wykonaj schemat
+    # Wykonaj schemat (tylko raz!)
     success, msg = postgres_execute_schema(config['host'], config['port'],
                                             config['user'], config['password'],
                                             'mapa_launcher_db', LAUNCHER_DB_SCHEMA)
     if not success:
         print(f"❌ Błąd wykonywania schematu: {msg}")
         return False
+
+    # Oznacz jako zainicjalizowane
+    LOCATIONS_DB_INITIALIZED = True
 
     print(f"✓ Baza mapa_launcher_db jest gotowa")
     return True
@@ -3399,6 +3409,10 @@ class DatabaseWizard(tk.Toplevel):
 
         self.log("\n✅ Tabele zostały zresetowane!")
         self.log("⚠️ UWAGA: Wszystkie dane miejscowości zostały usunięte!")
+
+        # Wyczyść cache inicjalizacji aby przy następnym użyciu schemat został ponownie wykonany
+        global LOCATIONS_DB_INITIALIZED
+        LOCATIONS_DB_INITIALIZED = False
 
     def finish(self):
         """Zakończ"""
