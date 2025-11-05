@@ -161,6 +161,56 @@ def set_active_location(location_id):
     # Automatycznie aplikuj szablon dla tej miejscowości
     apply_homepage_template(template)
 
+    # Wygeneruj plik JS z danymi miejscowości
+    generate_location_config_js()
+
+def generate_location_config_js():
+    """
+    Generuje plik JavaScript z konfiguracją aktywnej miejscowości.
+    Ten plik jest ładowany przez strony HTML i dynamicznie wstawia dane.
+    """
+    active_location = get_active_location()
+    if not active_location:
+        print("⚠️ Brak aktywnej miejscowości - nie można wygenerować location-config.js")
+        return False
+
+    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
+    location_name = active_location[1] or ""
+    location_full_name = active_location[2] or location_name
+    location_powiat = active_location[3] or ""
+    location_region = active_location[4] or ""
+    location_year = active_location[7] if len(active_location) > 7 else "1882"
+    location_century = active_location[8] if len(active_location) > 8 else "XIX"
+
+    # Ścieżka do pliku JS
+    js_path = os.path.join(os.path.dirname(BASE_DIR), "assets", "js", "location-config.js")
+
+    # Stwórz folder jeśli nie istnieje
+    os.makedirs(os.path.dirname(js_path), exist_ok=True)
+
+    # Wygeneruj zawartość pliku JS
+    js_content = f"""// Konfiguracja aktualnej miejscowości
+// Ten plik jest automatycznie generowany przez launcher
+window.LOCATION_CONFIG = {{
+    name: "{location_name}",
+    fullName: "{location_full_name}",
+    powiat: "{location_powiat}",
+    region: "{location_region}",
+    year: "{location_year}",
+    century: "{location_century}"
+}};
+"""
+
+    # Zapisz plik
+    try:
+        with open(js_path, 'w', encoding='utf-8') as f:
+            f.write(js_content)
+        print(f"✓ Wygenerowano location-config.js dla miejscowości: {location_full_name}")
+        return True
+    except Exception as e:
+        print(f"❌ Błąd podczas generowania location-config.js: {e}")
+        return False
+
 def set_location_template(location_id, template_name):
     """Ustawia szablon strony głównej dla danej miejscowości."""
     init_locations_db()
@@ -390,86 +440,6 @@ def get_available_templates():
                     templates.append(item)
     return templates
 
-def apply_placeholders_to_file(file_path, location_data):
-    """
-    Zastępuje placeholdery w pliku HTML danymi miejscowości.
-
-    Args:
-        file_path: Ścieżka do pliku HTML
-        location_data: Krotka z danymi miejscowości (name, full_name, powiat, region, year, century)
-
-    Returns:
-        True jeśli sukces, False w przeciwnym razie
-    """
-    if not os.path.exists(file_path):
-        return False
-
-    try:
-        location_name, location_full_name, location_powiat, location_region, location_year, location_century = location_data
-
-        # Wczytaj plik
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Zastąp placeholdery - tylko jeśli wartość nie jest pusta
-        if location_name:
-            content = content.replace('{{MIEJSCOWOSC}}', location_name)
-        if location_full_name:
-            content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
-        if location_powiat:
-            content = content.replace('{{POWIAT}}', location_powiat)
-        if location_region:
-            content = content.replace('{{REGION}}', location_region)
-        if location_year:
-            content = content.replace('{{YEAR}}', location_year)
-        if location_century:
-            content = content.replace('{{WIEK}}', location_century)
-
-        # Zapisz
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-
-        return True
-    except Exception as e:
-        print(f"❌ Błąd podczas przetwarzania {file_path}: {e}")
-        return False
-
-def apply_placeholders_to_all_pages():
-    """
-    Aplikuje placeholdery do wszystkich stron HTML w projekcie.
-    Wywołuje się automatycznie po zmianie aktywnej miejscowości.
-    """
-    active_location = get_active_location()
-    if not active_location:
-        return False
-
-    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
-    location_name = active_location[1]
-    location_full_name = active_location[2] or location_name
-    location_powiat = active_location[3] or "Powiat"
-    location_region = active_location[4] or "Region"
-    location_year = active_location[7] if len(active_location) > 7 else "1882"
-    location_century = active_location[8] if len(active_location) > 8 else "XIX w."
-
-    location_data = (location_name, location_full_name, location_powiat, location_region, location_year, location_century)
-
-    # Lista plików do przetworzenia
-    files_to_process = [
-        os.path.join(HOMEPAGE_DIR, "historia.html"),
-        os.path.join(os.path.dirname(BASE_DIR), "mapa", "mapa.html"),
-        os.path.join(os.path.dirname(BASE_DIR), "wlasciciele", "stats.html"),
-    ]
-
-    success_count = 0
-    for file_path in files_to_process:
-        if apply_placeholders_to_file(file_path, location_data):
-            success_count += 1
-
-    if success_count > 0:
-        print(f"✅ Zaktualizowano placeholdery w {success_count} plikach HTML")
-
-    return success_count == len(files_to_process)
-
 def apply_homepage_template(template_name):
     """
     Aplikuje wybrany szablon strony głównej.
@@ -531,9 +501,6 @@ def apply_homepage_template(template_name):
             # Dla innych szablonów - po prostu skopiuj
             shutil.copy2(template_path, target_path)
             print(f"✅ Zastosowano szablon: {template_name}")
-
-        # Aplikuj placeholdery do pozostałych stron
-        apply_placeholders_to_all_pages()
 
         return True
 
@@ -1226,16 +1193,20 @@ class AppLauncher(tk.Tk):
         subprocess.run(add_cmd, shell=True)
 
     def refresh_html_pages(self):
-        """Automatycznie odświeża wszystkie strony HTML z aktualnymi danymi miejscowości."""
+        """Automatycznie odświeża dane miejscowości poprzez wygenerowanie pliku JS."""
         try:
             active_location = get_active_location()
             if active_location:
-                # Pobierz aktualny szablon i wymuś jego zastosowanie
+                # Wygeneruj plik JS z danymi miejscowości
+                generate_location_config_js()
+
+                # Pobierz aktualny szablon i zastosuj go (dla strony głównej)
                 template = active_location[6] if len(active_location) > 6 else "standardowy"
                 apply_homepage_template(template)
-                print(f"✓ Automatycznie zaktualizowano strony HTML dla miejscowości: {active_location[1]}")
+
+                print(f"✓ Automatycznie zaktualizowano dane miejscowości: {active_location[1]}")
         except Exception as e:
-            print(f"⚠️ Nie udało się automatycznie zaktualizować stron HTML: {e}")
+            print(f"⚠️ Nie udało się automatycznie zaktualizować danych miejscowości: {e}")
 
     def refresh_locations(self):
         """Odświeża listę miejscowości w menu rozwijanym."""
@@ -1841,10 +1812,10 @@ class LocationManager(tk.Toplevel):
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century)
 
-                # Jeśli edytowana miejscowość jest aktywna, zaktualizuj placeholdery w HTML
+                # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
                 if active_location and active_location[0] == int(loc_id):
-                    apply_placeholders_to_all_pages()
+                    generate_location_config_js()
                     # Zaktualizuj również stronę główną
                     template = active_location[6] if len(active_location) > 6 else "standardowy"
                     apply_homepage_template(template)
