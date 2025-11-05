@@ -225,15 +225,40 @@ def delete_location(location_id):
     conn.commit()
     conn.close()
 
+def ensure_default_location_exists():
+    """Upewnia się, że istnieje domyślna miejscowość."""
+    init_locations_db()
+
+    # Sprawdź czy są jakiekolwiek miejscowości
+    locations = get_all_locations()
+    if locations:
+        # Jeśli są miejscowości, sprawdź czy któraś jest aktywna
+        active_location = get_active_location()
+        if not active_location:
+            # Ustaw pierwszą miejscowość jako aktywną
+            set_active_location(locations[0][0])
+        return
+
+    # Utwórz domyślną miejscowość "Czarna"
+    default_name = "Czarna"
+    try:
+        location_id = add_location(default_name, "Czarna", "", "")
+        set_active_location(location_id)
+        print(f"✓ Utworzono domyślną miejscowość: {default_name}")
+    except Exception as e:
+        print(f"⚠ Błąd tworzenia domyślnej miejscowości: {e}")
+
 def get_location_env_path(location_name=None):
     """Zwraca ścieżkę do pliku .env dla danej miejscowości."""
     if location_name is None:
+        # Upewnij się, że istnieje domyślna miejscowość
+        ensure_default_location_exists()
         location_name = get_active_location_name()
 
-    if location_name:
-        return os.path.join(BACKUP_FOLDER, location_name, ".env")
-    else:
-        return os.path.join(BACKEND_DIR, ".env")
+    if not location_name:
+        raise ValueError("Brak aktywnej miejscowości")
+
+    return os.path.join(BACKUP_FOLDER, location_name, ".env")
 
 def migrate_old_backup_structure():
     """Migruje starą strukturę backup/ do nowej struktury z miejscowościami."""
