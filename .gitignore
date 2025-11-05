@@ -30,6 +30,7 @@ Thumbs.db
 # Environment
 .env
 *.env.local
+.postgres.env
 
 # Logs
 *.log
