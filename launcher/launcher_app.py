@@ -62,6 +62,206 @@ ICONS_SCAN_FOLDERS = [
 ]
 
 # =============================================================================
+# POSTGRESQL - FUNKCJE POMOCNICZE I SCHEMA
+# =============================================================================
+
+# SQL Schema dla mapa_launcher_db (baza konfiguracyjna zamiast SQLite)
+LAUNCHER_DB_SCHEMA = """
+-- Tabela miejscowości
+CREATE TABLE IF NOT EXISTS locations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    full_name VARCHAR(200),
+    powiat VARCHAR(100),
+    region VARCHAR(100),
+    active BOOLEAN DEFAULT FALSE,
+    homepage_template VARCHAR(50) DEFAULT 'standardowy',
+    year VARCHAR(10) DEFAULT '1882',
+    century VARCHAR(20) DEFAULT 'XIX w.',
+    homepage_description TEXT,
+    history_paragraph1 TEXT,
+    history_paragraph2 TEXT,
+    history_paragraph3 TEXT,
+    postgres_db_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabela zdjęć historycznych
+CREATE TABLE IF NOT EXISTS history_photos (
+    id SERIAL PRIMARY KEY,
+    location_id INTEGER REFERENCES locations(id) ON DELETE CASCADE,
+    filename VARCHAR(255) NOT NULL,
+    caption TEXT,
+    order_index INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indeksy
+CREATE INDEX IF NOT EXISTS idx_location_active ON locations(active);
+CREATE INDEX IF NOT EXISTS idx_location_name ON locations(name);
+CREATE INDEX IF NOT EXISTS idx_photos_location ON history_photos(location_id);
+CREATE INDEX IF NOT EXISTS idx_photos_order ON history_photos(location_id, order_index);
+
+-- Trigger do aktualizacji updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Upewnij się że zawsze tylko jedna miejscowość jest aktywna
+CREATE OR REPLACE FUNCTION ensure_single_active_location()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.active = TRUE THEN
+        UPDATE locations SET active = FALSE WHERE id != NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION ensure_single_active_location();
+"""
+
+
+def get_postgres_config():
+    """Zwraca konfigurację PostgreSQL (domyślną lub z .env)"""
+    # TODO: Wczytać z głównego .env jeśli istnieje
+    return {
+        'host': 'localhost',
+        'port': 5432,
+        'user': 'postgres',
+        'password': ''  # Użytkownik poda w kreatorze
+    }
+
+
+def test_postgres_connection(host, port, user, password):
+    """
+    Testuje połączenie z PostgreSQL.
+    Zwraca (success: bool, message: str)
+    """
+    try:
+        from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+        conn = psycopg2.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database='postgres'
+        )
+        conn.close()
+        return True, "Połączenie udane"
+    except psycopg2.OperationalError as e:
+        return False, f"Błąd połączenia: {str(e)}"
+    except Exception as e:
+        return False, f"Nieznany błąd: {str(e)}"
+
+
+def postgres_database_exists(host, port, user, password, db_name):
+    """Sprawdza czy baza danych istnieje w PostgreSQL"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database='postgres'
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+        exists = cursor.fetchone() is not None
+        cursor.close()
+        conn.close()
+        return exists
+    except Exception as e:
+        print(f"Błąd sprawdzania bazy: {e}")
+        return False
+
+
+def postgres_create_database(host, port, user, password, db_name):
+    """
+    Tworzy nową bazę PostgreSQL.
+    Zwraca (success: bool, message: str)
+    """
+    try:
+        from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database='postgres'
+        )
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor()
+        cursor.execute(f'CREATE DATABASE "{db_name}"')
+        cursor.close()
+        conn.close()
+        return True, f"Baza '{db_name}' utworzona"
+    except psycopg2.errors.DuplicateDatabase:
+        return True, f"Baza '{db_name}' już istnieje"
+    except Exception as e:
+        return False, f"Błąd tworzenia bazy: {str(e)}"
+
+
+def postgres_enable_postgis(host, port, user, password, db_name):
+    """Włącza PostGIS w bazie"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database=db_name
+        )
+        cursor = conn.cursor()
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True, "PostGIS włączony"
+    except Exception as e:
+        return False, f"Błąd PostGIS: {str(e)}"
+
+
+def postgres_execute_schema(host, port, user, password, db_name, schema_sql):
+    """Wykonuje SQL schema w bazie"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database=db_name
+        )
+        cursor = conn.cursor()
+        cursor.execute(schema_sql)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True, "Schema wykonana pomyślnie"
+    except Exception as e:
+        return False, f"Błąd wykonywania schema: {str(e)}"
+
+
+def postgres_list_databases(host, port, user, password):
+    """Zwraca listę baz (bez systemowych)"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database='postgres'
+        )
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT datname FROM pg_database
+            WHERE datistemplate = false
+            AND datname NOT IN ('postgres', 'template0', 'template1')
+            ORDER BY datname
+        """)
+        databases = [row[0] for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        return databases
+    except Exception:
+        return []
+
+
+# =============================================================================
 # ZARZĄDZANIE MIEJSCOWOŚCIAMI - definicje funkcji przed get_data_files()
 # =============================================================================
 def init_locations_db():
@@ -1119,6 +1319,9 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
                   style="Primary.TButton").pack(side=tk.LEFT, padx=5)
 
+        ttk.Button(location_controls, text="🔧 Kreator Bazy Danych", command=self.open_database_wizard,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
+
         self.refresh_locations()
 
         # Sekcja operacji głównych
@@ -1397,6 +1600,13 @@ class AppLauncher(tk.Tk):
         """Otwiera okno zarządzania miejscowościami."""
         manager = LocationManager(self)
         self.wait_window(manager)
+        self.refresh_locations()
+
+    def open_database_wizard(self):
+        """Otwiera kreator konfiguracji bazy danych PostgreSQL."""
+        wizard = DatabaseWizard(self)
+        self.wait_window(wizard)
+        # Po zamknięciu kreatora odśwież listę miejscowości (w razie nowej konfiguracji)
         self.refresh_locations()
 
     def open_backup_manager(self):
@@ -2173,6 +2383,247 @@ class TemplateChangeDialog(tk.Toplevel):
                                f"Zostanie zastosowany gdy aktywujesz tę miejscowość.",
                                parent=self)
 
+        self.destroy()
+
+
+class DatabaseWizard(tk.Toplevel):
+    """Kreator konfiguracji bazy danych PostgreSQL"""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("🔧 Kreator Bazy Danych")
+        self.geometry("700x550")
+        self.transient(parent)
+        self.grab_set()
+
+        # Wycentruj
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (700 // 2)
+        y = (self.winfo_screenheight() // 2) - (550 // 2)
+        self.geometry(f"700x550+{x}+{y}")
+
+        self.result = None
+        self.config = get_postgres_config()
+
+        # Notebook (kroki)
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Kroki
+        self.create_step1_connection()
+        self.create_step2_action()
+        self.create_step3_progress()
+
+        # Nawigacja
+        nav_frame = ttk.Frame(self)
+        nav_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        ttk.Button(nav_frame, text="◀ Wstecz", command=self.prev_step).pack(side=tk.LEFT, padx=5)
+        ttk.Button(nav_frame, text="Dalej ▶", command=self.next_step).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(nav_frame, text="Anuluj", command=self.destroy).pack(side=tk.RIGHT, padx=5)
+
+    def create_step1_connection(self):
+        """Krok 1: Połączenie"""
+        frame = ttk.Frame(self.notebook, padding="20")
+        self.notebook.add(frame, text="1. Połączenie")
+
+        ttk.Label(frame, text="Konfiguracja PostgreSQL", font=('Arial', 14, 'bold')).pack(pady=(0, 10))
+        ttk.Label(frame, text="Podaj parametry połączenia.\nDomyślne: localhost:5432, użytkownik postgres",
+                  foreground="gray").pack(pady=(0, 20))
+
+        form = ttk.Frame(frame)
+        form.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(form, text="Host:").grid(row=0, column=0, sticky="w", pady=5, padx=5)
+        self.host_entry = ttk.Entry(form, width=30)
+        self.host_entry.insert(0, self.config['host'])
+        self.host_entry.grid(row=0, column=1, sticky="ew", pady=5, padx=5)
+
+        ttk.Label(form, text="Port:").grid(row=1, column=0, sticky="w", pady=5, padx=5)
+        self.port_entry = ttk.Entry(form, width=30)
+        self.port_entry.insert(0, str(self.config['port']))
+        self.port_entry.grid(row=1, column=1, sticky="ew", pady=5, padx=5)
+
+        ttk.Label(form, text="Użytkownik:").grid(row=2, column=0, sticky="w", pady=5, padx=5)
+        self.user_entry = ttk.Entry(form, width=30)
+        self.user_entry.insert(0, self.config['user'])
+        self.user_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=5)
+
+        ttk.Label(form, text="Hasło:").grid(row=3, column=0, sticky="w", pady=5, padx=5)
+        self.password_entry = ttk.Entry(form, width=30, show="*")
+        self.password_entry.insert(0, self.config['password'])
+        self.password_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=5)
+
+        form.columnconfigure(1, weight=1)
+
+        ttk.Button(form, text="🔍 Testuj", command=self.test_connection).grid(row=4, column=0, columnspan=2, pady=20)
+
+        self.connection_status = ttk.Label(form, text="", foreground="gray")
+        self.connection_status.grid(row=5, column=0, columnspan=2)
+
+    def create_step2_action(self):
+        """Krok 2: Akcja"""
+        frame = ttk.Frame(self.notebook, padding="20")
+        self.notebook.add(frame, text="2. Akcja")
+
+        ttk.Label(frame, text="Co chcesz zrobić?", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
+
+        # Status
+        self.db_status_frame = ttk.LabelFrame(frame, text="Status", padding="10")
+        self.db_status_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+
+        self.db_status_text = scrolledtext.ScrolledText(self.db_status_frame, height=8, wrap=tk.WORD, font=('Courier', 9))
+        self.db_status_text.pack(fill=tk.BOTH, expand=True)
+
+        # Akcje
+        actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
+        actions_frame.pack(fill=tk.X)
+
+        self.action_var = tk.StringVar(value="full_setup")
+
+        ttk.Radiobutton(actions_frame, text="🚀 Pełna instalacja (wszystko od zera)",
+                       variable=self.action_var, value="full_setup").pack(anchor=tk.W, pady=5)
+        ttk.Radiobutton(actions_frame, text="🔧 Tylko baza launcher (mapa_launcher_db)",
+                       variable=self.action_var, value="launcher_only").pack(anchor=tk.W, pady=5)
+
+        ttk.Button(frame, text="🔄 Odśwież status", command=self.refresh_status).pack(pady=10)
+
+    def create_step3_progress(self):
+        """Krok 3: Wykonanie"""
+        frame = ttk.Frame(self.notebook, padding="20")
+        self.notebook.add(frame, text="3. Wykonanie")
+
+        ttk.Label(frame, text="Instalacja...", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
+
+        self.progress = ttk.Progressbar(frame, mode='indeterminate')
+        self.progress.pack(fill=tk.X, pady=10)
+
+        log_frame = ttk.LabelFrame(frame, text="Log", padding="10")
+        log_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, wrap=tk.WORD, font=('Courier', 9))
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+
+        self.finish_button = ttk.Button(frame, text="✅ Zakończ", command=self.finish, state=tk.DISABLED)
+        self.finish_button.pack(pady=10)
+
+    def test_connection(self):
+        """Test połączenia"""
+        self.config['host'] = self.host_entry.get().strip()
+        self.config['port'] = int(self.port_entry.get().strip())
+        self.config['user'] = self.user_entry.get().strip()
+        self.config['password'] = self.password_entry.get()
+
+        success, msg = test_postgres_connection(**self.config)
+
+        if success:
+            self.connection_status.config(text="✓ Połączenie OK!", foreground="green")
+            messagebox.showinfo("Sukces", "Połączenie działa!", parent=self)
+        else:
+            self.connection_status.config(text=f"✗ {msg}", foreground="red")
+            messagebox.showerror("Błąd", msg, parent=self)
+
+    def refresh_status(self):
+        """Odśwież status baz"""
+        self.db_status_text.delete('1.0', tk.END)
+
+        databases = postgres_list_databases(**self.config)
+
+        self.db_status_text.insert(tk.END, "=== Bazy danych ===\n\n")
+
+        launcher_exists = postgres_database_exists(**self.config, db_name='mapa_launcher_db')
+        if launcher_exists:
+            self.db_status_text.insert(tk.END, "✓ mapa_launcher_db (konfiguracja)\n")
+        else:
+            self.db_status_text.insert(tk.END, "✗ mapa_launcher_db - BRAK\n")
+
+        self.db_status_text.insert(tk.END, "\n=== Miejscowości ===\n\n")
+
+        location_dbs = [db for db in databases if db.startswith('mapa_') and db != 'mapa_launcher_db']
+        if location_dbs:
+            for db in location_dbs:
+                self.db_status_text.insert(tk.END, f"  • {db}\n")
+        else:
+            self.db_status_text.insert(tk.END, "  Brak\n")
+
+    def next_step(self):
+        """Następny krok"""
+        current = self.notebook.index(self.notebook.select())
+
+        if current == 0:
+            if not self.config.get('password'):
+                messagebox.showwarning("Uwaga", "Przetestuj połączenie!", parent=self)
+                return
+            self.refresh_status()
+            self.notebook.select(1)
+        elif current == 1:
+            self.notebook.select(2)
+            self.execute_action()
+
+    def prev_step(self):
+        """Poprzedni krok"""
+        current = self.notebook.index(self.notebook.select())
+        if current > 0:
+            self.notebook.select(current - 1)
+
+    def log(self, msg):
+        """Log"""
+        self.log_text.insert(tk.END, msg + "\n")
+        self.log_text.see(tk.END)
+        self.log_text.update()
+
+    def execute_action(self):
+        """Wykonaj akcję"""
+        action = self.action_var.get()
+        self.progress.start()
+        self.log("🚀 Rozpoczynam...\n")
+
+        try:
+            if action == "full_setup":
+                self.full_setup()
+            elif action == "launcher_only":
+                self.launcher_only_setup()
+
+            self.log("\n✅ Gotowe!")
+            self.result = True
+            self.finish_button.config(state=tk.NORMAL)
+        except Exception as e:
+            self.log(f"\n❌ Błąd: {e}")
+            messagebox.showerror("Błąd", str(e), parent=self)
+        finally:
+            self.progress.stop()
+
+    def full_setup(self):
+        """Pełna instalacja"""
+        self.log("=== Pełna instalacja ===\n")
+
+        # Launcher DB
+        self.log("1. Tworzę mapa_launcher_db...")
+        success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+
+        self.log("2. Tworzę strukturę...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+        self.log(f"   {msg}")
+
+        self.log("\n✅ Instalacja zakończona!")
+
+    def launcher_only_setup(self):
+        """Tylko launcher"""
+        self.log("=== Baza launcher ===\n")
+
+        self.log("1. Tworzę mapa_launcher_db...")
+        success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+
+        self.log("2. Tworzę strukturę...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+        self.log(f"   {msg}")
+
+        self.log("\n✅ Gotowe!")
+
+    def finish(self):
+        """Zakończ"""
         self.destroy()
 
 
