@@ -112,6 +112,29 @@ def init_locations_db():
     if updated_rows > 0:
         print(f"✓ Zaktualizowano {updated_rows} rekordów z pustym wiekiem na 'XIX w.'")
 
+    # Migracja: dodaj kolumny dla edytowalnych tekstów
+    text_columns = [
+        ('homepage_description', 'TEXT', 'Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.'),
+        ('history_paragraph1', 'TEXT', 'Miejscowość Czarna znajduje się pomiędzy miastami: Tarnów, Dębica, Pilzno, Radomyśl Wielki, została utworzona najprawdopodobniej w XVI wieku. Jak dotąd pasjonatom historii tej ziemi nie udało się odnaleźć dokumentu o utworzeniu tej wsi. Ale sądząc z utworzenia sąsiednich miejscowości: Jaźwiny 1364 r, Borowa 1404r., Głowaczowa 1418, Żdżary(w latach 1407-1416), itd., mogło to być trochę wcześniej, bo wyznaczone zostały ich granice. Przez Czarną płynie rzeka w dawnych wiekach o tej samej nazwie, obecnie „Czarny potok". Wspomniane miejscowości powstały po wykarczowaniu drzew Puszczy Sandomierskiej. Czarna słabo się rozwijała ze względu na niskiej klasy gleby (piaszczyste), a także z powodu braku stałego koryta przepływającej rzeki Czarna, były to poważne bariery.'),
+        ('history_paragraph2', 'TEXT', 'Tutejsi ludzie oprócz rolnictwa, zajmowali się „wypalaniem węgla drzewnego do celów kowalskich oraz pozyskiwaniem drzew i wywozili do miast i osiedli okolicznych, stąd prawdopodobnie też nazwa miejscowości Czarna". Tutejsi rolnicy zajmowali się chowem bydła, wołów, których używali do pracy na roli i wywozem wspomnianego węgla i drzewa do miast okolicznych. Być może taki stan długo by jeszcze trwał, gdyby nie budowa kolei żelaznych w połowie XIX wieku. Pierwotne plany przewidywały przebieg szlaku kolejowego przez Pilzno, ale przy braku zgody włodarzy tego miasta, na budowę przez ich terytorium, wytyczono przez Czarną. Po wybudowaniu przez zaborcę austriackiego kolei relacji Kraków – Dębica w 1856 roku, Czarna uzyskała okno na świat, otworzyła się szansa na pracę poza rolnictwem. Spowodowało to również napływ ludzi z zewnątrz, którzy tutaj kupowali grunty jako inwestycję swoich pieniędzy. Ale też istniał inny problem, uporządkowanie własności w księgach gruntowych po uwłaszczeniu chłopów. Dla ludzi nie interesujących się historią zapewne będzie sporym zaskoczeniem, że każda miejscowość w minionych wiekach była prywatną własnością. W XIX wieku właścicielką Czarnej była między innymi hrabina Henryka Kuczkowska z domu Ankwicz (znana jako wielka miłość Adama Mickiewicza) mająca swój dwór w pobliskiej Machowej.'),
+        ('history_paragraph3', 'TEXT', 'W roku 1882 Czarna liczyła 555 mieszkańców, dla porównania przed uruchomieniem kolei było to tylko 442, a wiec przyrost 113 osób. Ale nasza praca dotyczy roku 1882, kiedy to dokonano komisyjnego przeglądu, kto jakie parcele posiada i jak wszedł w ich posiadanie.'),
+        ('photo1_path', 'TEXT', 'assets_index/dworzec_czarna.png'),
+        ('photo1_caption', 'TEXT', 'Historyczne zdjęcie dworca kolejowego w Czarnej, kluczowego dla rozwoju wsi w XIX wieku.'),
+        ('photo2_path', 'TEXT', 'assets_index/protokol.jpg'),
+        ('photo2_caption', 'TEXT', 'Fragment dokumentacji katastralnej.')
+    ]
+
+    for col_name, col_type, default_value in text_columns:
+        try:
+            cursor.execute(f"SELECT {col_name} FROM locations LIMIT 1")
+        except sqlite3.OperationalError:
+            # Kolumna nie istnieje, dodaj ją
+            cursor.execute(f"ALTER TABLE locations ADD COLUMN {col_name} {col_type}")
+            print(f"✓ Dodano kolumnę {col_name} do tabeli locations")
+            # Ustaw domyślne wartości dla istniejących rekordów
+            cursor.execute(f"UPDATE locations SET {col_name} = ? WHERE {col_name} IS NULL OR {col_name} = ''", (default_value,))
+            print(f"✓ Ustawiono domyślną wartość dla {col_name}")
+
     conn.commit()
     conn.close()
 
@@ -120,17 +143,23 @@ def get_all_locations():
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year, century FROM locations ORDER BY name")
+    cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                      photo1_path, photo1_caption, photo2_path, photo2_caption
+                      FROM locations ORDER BY name""")
     locations = cursor.fetchall()
     conn.close()
     return locations
 
 def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template, year, century)."""
+    """Zwraca aktywną miejscowość jako tuple z wszystkimi polami."""
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year, century FROM locations WHERE active = 1")
+    cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                      photo1_path, photo1_caption, photo2_path, photo2_caption
+                      FROM locations WHERE active = 1""")
     location = cursor.fetchone()
     conn.close()
     return location
@@ -195,14 +224,30 @@ def generate_location_config_js():
         location_region = "Region"
         location_year = "1882"
         location_century = "XIX"
+        homepage_description = "Odkryj historię zapisaną w ziemi."
+        history_p1 = ""
+        history_p2 = ""
+        history_p3 = ""
+        photo1_path = "assets_index/dworzec_czarna.png"
+        photo1_caption = "Historyczne zdjęcie."
+        photo2_path = "assets_index/protokol.jpg"
+        photo2_caption = "Fragment dokumentacji."
     else:
-        # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
+        # Pobierz dane miejscowości z wszystkimi polami
         location_name = active_location[1] or "Miejscowość"
         location_full_name = active_location[2] or location_name
         location_powiat = active_location[3] or "Powiat"
         location_region = active_location[4] or "Region"
         location_year = active_location[7] if len(active_location) > 7 else "1882"
         location_century = active_location[8] if len(active_location) > 8 else "XIX"
+        homepage_description = active_location[9] if len(active_location) > 9 else "Odkryj historię zapisaną w ziemi."
+        history_p1 = active_location[10] if len(active_location) > 10 else ""
+        history_p2 = active_location[11] if len(active_location) > 11 else ""
+        history_p3 = active_location[12] if len(active_location) > 12 else ""
+        photo1_path = active_location[13] if len(active_location) > 13 else "assets_index/dworzec_czarna.png"
+        photo1_caption = active_location[14] if len(active_location) > 14 else "Historyczne zdjęcie."
+        photo2_path = active_location[15] if len(active_location) > 15 else "assets_index/protokol.jpg"
+        photo2_caption = active_location[16] if len(active_location) > 16 else "Fragment dokumentacji."
 
     # Ścieżka do pliku JS - BASE_DIR to już główny folder projektu
     js_path = os.path.join(BASE_DIR, "assets", "js", "location-config.js")
@@ -213,16 +258,30 @@ def generate_location_config_js():
     # Stwórz folder jeśli nie istnieje
     os.makedirs(os.path.dirname(js_path), exist_ok=True)
 
+    # Pomocnicza funkcja do escapowania cudzysłowów w JS
+    def escape_js_string(s):
+        if not s:
+            return ""
+        return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
+
     # Wygeneruj zawartość pliku JS
     js_content = f"""// Konfiguracja aktualnej miejscowości
 // Ten plik jest automatycznie generowany przez launcher
 window.LOCATION_CONFIG = {{
-    name: "{location_name}",
-    fullName: "{location_full_name}",
-    powiat: "{location_powiat}",
-    region: "{location_region}",
-    year: "{location_year}",
-    century: "{location_century}"
+    name: "{escape_js_string(location_name)}",
+    fullName: "{escape_js_string(location_full_name)}",
+    powiat: "{escape_js_string(location_powiat)}",
+    region: "{escape_js_string(location_region)}",
+    year: "{escape_js_string(location_year)}",
+    century: "{escape_js_string(location_century)}",
+    homepageDescription: "{escape_js_string(homepage_description)}",
+    historyParagraph1: "{escape_js_string(history_p1)}",
+    historyParagraph2: "{escape_js_string(history_p2)}",
+    historyParagraph3: "{escape_js_string(history_p3)}",
+    photo1Path: "{escape_js_string(photo1_path)}",
+    photo1Caption: "{escape_js_string(photo1_caption)}",
+    photo2Path: "{escape_js_string(photo2_path)}",
+    photo2Caption: "{escape_js_string(photo2_caption)}"
 }};
 """
 
@@ -249,7 +308,11 @@ def set_location_template(location_id, template_name):
     conn.commit()
     conn.close()
 
-def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w."):
+def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
+                homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
+                history_paragraph1="", history_paragraph2="", history_paragraph3="",
+                photo1_path="assets_index/dworzec_czarna.png", photo1_caption="Historyczne zdjęcie dworca.",
+                photo2_path="assets_index/protokol.jpg", photo2_caption="Fragment dokumentacji katastralnej."):
     """Dodaje nową miejscowość do bazy danych i tworzy folder."""
     init_locations_db()
 
@@ -285,8 +348,13 @@ ADMIN_PASSWORD_HASH=
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
-                      (name, full_name, powiat, region, homepage_template, year, century))
+        cursor.execute("""INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century,
+                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                          photo1_path, photo1_caption, photo2_path, photo2_caption)
+                          VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                      (name, full_name, powiat, region, homepage_template, year, century,
+                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                       photo1_path, photo1_caption, photo2_path, photo2_caption))
         conn.commit()
         location_id = cursor.lastrowid
         conn.close()
@@ -295,7 +363,9 @@ ADMIN_PASSWORD_HASH=
         conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
 
-def update_location(location_id, name, full_name, powiat, region, year, century):
+def update_location(location_id, name, full_name, powiat, region, year, century,
+                   homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
+                   photo1_path="", photo1_caption="", photo2_path="", photo2_caption=""):
     """Aktualizuje dane miejscowości."""
     init_locations_db()
 
@@ -319,8 +389,13 @@ def update_location(location_id, name, full_name, powiat, region, year, century)
 
     # Zaktualizuj bazę danych
     try:
-        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ? WHERE id = ?",
-                      (name, full_name, powiat, region, year, century, location_id))
+        cursor.execute("""UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ?,
+                          homepage_description = ?, history_paragraph1 = ?, history_paragraph2 = ?, history_paragraph3 = ?,
+                          photo1_path = ?, photo1_caption = ?, photo2_path = ?, photo2_caption = ?
+                          WHERE id = ?""",
+                      (name, full_name, powiat, region, year, century,
+                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                       photo1_path, photo1_caption, photo2_path, photo2_caption, location_id))
         conn.commit()
         conn.close()
     except sqlite3.IntegrityError:
@@ -1796,7 +1871,8 @@ class LocationManager(tk.Toplevel):
 
         # Wypełnij tabelę
         for loc in locations:
-            loc_id, name, full_name, powiat, region, active, template, year, century = loc
+            # Rozpakuj wszystkie pola (ignorujemy tekst content)
+            loc_id, name, full_name, powiat, region, active, template, year, century = loc[:9]
             active_str = "✓" if active else ""
             template_display = template_names.get(template, template)
             self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, template_display, active_str))
@@ -1807,9 +1883,15 @@ class LocationManager(tk.Toplevel):
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            name, full_name, powiat, region, year, century = dialog.result
+            (name, full_name, powiat, region, year, century,
+             homepage_desc, history_p1, history_p2, history_p3,
+             photo1_path, photo1_caption, photo2_path, photo2_caption) = dialog.result
             try:
-                add_location(name, full_name, powiat, region, year=year, century=century)
+                add_location(name, full_name, powiat, region, year=year, century=century,
+                           homepage_description=homepage_desc, history_paragraph1=history_p1,
+                           history_paragraph2=history_p2, history_paragraph3=history_p3,
+                           photo1_path=photo1_path, photo1_caption=photo1_caption,
+                           photo2_path=photo2_path, photo2_caption=photo2_caption)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -1829,7 +1911,10 @@ class LocationManager(tk.Toplevel):
         # Pobierz pełne dane z bazy danych
         conn = sqlite3.connect(LOCATIONS_DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, full_name, powiat, region, year, century FROM locations WHERE id = ?", (loc_id,))
+        cursor.execute("""SELECT name, full_name, powiat, region, year, century,
+                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                          photo1_path, photo1_caption, photo2_path, photo2_caption
+                          FROM locations WHERE id = ?""", (loc_id,))
         result = cursor.fetchone()
         conn.close()
 
@@ -1837,17 +1922,35 @@ class LocationManager(tk.Toplevel):
             messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
             return
 
-        name, full_name, powiat, region, year, century = result
-        year = year or "1882"  # Domyślna wartość jeśli None
-        century = century or "XIX w."  # Domyślna wartość jeśli None
+        (name, full_name, powiat, region, year, century,
+         homepage_desc, history_p1, history_p2, history_p3,
+         photo1_path, photo1_caption, photo2_path, photo2_caption) = result
 
-        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century)
+        # Ustaw domyślne wartości jeśli None
+        year = year or "1882"
+        century = century or "XIX w."
+        homepage_desc = homepage_desc or "Odkryj historię zapisaną w ziemi."
+        history_p1 = history_p1 or ""
+        history_p2 = history_p2 or ""
+        history_p3 = history_p3 or ""
+        photo1_path = photo1_path or "assets_index/dworzec_czarna.png"
+        photo1_caption = photo1_caption or ""
+        photo2_path = photo2_path or "assets_index/protokol.jpg"
+        photo2_caption = photo2_caption or ""
+
+        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
+                                      homepage_desc, history_p1, history_p2, history_p3,
+                                      photo1_path, photo1_caption, photo2_path, photo2_caption)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            new_name, new_full_name, new_powiat, new_region, new_year, new_century = dialog.result
+            (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
+             new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
+             new_photo1_path, new_photo1_caption, new_photo2_path, new_photo2_caption) = dialog.result
             try:
-                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century)
+                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
+                              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
+                              new_photo1_path, new_photo1_caption, new_photo2_path, new_photo2_caption)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -2037,9 +2140,12 @@ class TemplateChangeDialog(tk.Toplevel):
 
 
 class AddEditLocationDialog(tk.Toplevel):
-    """Dialog do dodawania/edytowania miejscowości."""
+    """Dialog do dodawania/edytowania miejscowości z zakładkami."""
 
-    def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w."):
+    def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
+                 homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
+                 photo1_path="assets_index/dworzec_czarna.png", photo1_caption="",
+                 photo2_path="assets_index/protokol.jpg", photo2_caption=""):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -2047,51 +2153,117 @@ class AddEditLocationDialog(tk.Toplevel):
 
         self.result = None
 
-        # Rozmiar
-        w, h = 500, 420
+        # Rozmiar większy dla zakładek
+        w, h = 700, 600
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         x = (sw - w) // 2
         y = (sh - h) // 2
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.resizable(False, False)
+        self.resizable(True, True)
 
-        # Pola formularza
-        main_frame = ttk.Frame(self, padding="20")
+        # Główny kontener
+        main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(main_frame, text="Nazwa (folder):").grid(row=0, column=0, sticky="w", pady=5)
-        self.name_entry = ttk.Entry(main_frame, width=40)
+        # Notebook (zakładki)
+        notebook = ttk.Notebook(main_frame)
+        notebook.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # === ZAKŁADKA 1: Podstawowe dane ===
+        basic_frame = ttk.Frame(notebook, padding="20")
+        notebook.add(basic_frame, text="Podstawowe dane")
+
+        ttk.Label(basic_frame, text="Nazwa (folder):").grid(row=0, column=0, sticky="w", pady=5)
+        self.name_entry = ttk.Entry(basic_frame, width=50)
         self.name_entry.insert(0, name)
-        self.name_entry.grid(row=0, column=1, pady=5, padx=10)
+        self.name_entry.grid(row=0, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(main_frame, text="Pełna nazwa:").grid(row=1, column=0, sticky="w", pady=5)
-        self.full_name_entry = ttk.Entry(main_frame, width=40)
+        ttk.Label(basic_frame, text="Pełna nazwa:").grid(row=1, column=0, sticky="w", pady=5)
+        self.full_name_entry = ttk.Entry(basic_frame, width=50)
         self.full_name_entry.insert(0, full_name)
-        self.full_name_entry.grid(row=1, column=1, pady=5, padx=10)
+        self.full_name_entry.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(main_frame, text="Powiat:").grid(row=2, column=0, sticky="w", pady=5)
-        self.powiat_entry = ttk.Entry(main_frame, width=40)
+        ttk.Label(basic_frame, text="Powiat:").grid(row=2, column=0, sticky="w", pady=5)
+        self.powiat_entry = ttk.Entry(basic_frame, width=50)
         self.powiat_entry.insert(0, powiat)
-        self.powiat_entry.grid(row=2, column=1, pady=5, padx=10)
+        self.powiat_entry.grid(row=2, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(main_frame, text="Region:").grid(row=3, column=0, sticky="w", pady=5)
-        self.region_entry = ttk.Entry(main_frame, width=40)
+        ttk.Label(basic_frame, text="Region:").grid(row=3, column=0, sticky="w", pady=5)
+        self.region_entry = ttk.Entry(basic_frame, width=50)
         self.region_entry.insert(0, region)
-        self.region_entry.grid(row=3, column=1, pady=5, padx=10)
+        self.region_entry.grid(row=3, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(main_frame, text="Rok mapy:").grid(row=4, column=0, sticky="w", pady=5)
-        self.year_entry = ttk.Entry(main_frame, width=40)
+        ttk.Label(basic_frame, text="Rok mapy:").grid(row=4, column=0, sticky="w", pady=5)
+        self.year_entry = ttk.Entry(basic_frame, width=50)
         self.year_entry.insert(0, year)
-        self.year_entry.grid(row=4, column=1, pady=5, padx=10)
+        self.year_entry.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(main_frame, text="Wiek (np. XIX w.):").grid(row=5, column=0, sticky="w", pady=5)
-        self.century_entry = ttk.Entry(main_frame, width=40)
+        ttk.Label(basic_frame, text="Wiek (np. XIX w.):").grid(row=5, column=0, sticky="w", pady=5)
+        self.century_entry = ttk.Entry(basic_frame, width=50)
         self.century_entry.insert(0, century)
-        self.century_entry.grid(row=5, column=1, pady=5, padx=10)
+        self.century_entry.grid(row=5, column=1, pady=5, padx=10, sticky="ew")
+
+        basic_frame.columnconfigure(1, weight=1)
+
+        # === ZAKŁADKA 2: Strona główna ===
+        homepage_frame = ttk.Frame(notebook, padding="20")
+        notebook.add(homepage_frame, text="Strona główna")
+
+        ttk.Label(homepage_frame, text="Opis strony głównej:").pack(anchor="w", pady=(0, 5))
+        self.homepage_desc_text = scrolledtext.ScrolledText(homepage_frame, width=60, height=8, wrap=tk.WORD)
+        self.homepage_desc_text.insert("1.0", homepage_description)
+        self.homepage_desc_text.pack(fill=tk.BOTH, expand=True)
+
+        # === ZAKŁADKA 3: Historia ===
+        history_frame = ttk.Frame(notebook, padding="20")
+        notebook.add(history_frame, text="Historia")
+
+        ttk.Label(history_frame, text="Akapit 1 (pochodzenie miejscowości):").pack(anchor="w", pady=(0, 5))
+        self.history_p1_text = scrolledtext.ScrolledText(history_frame, width=60, height=5, wrap=tk.WORD)
+        self.history_p1_text.insert("1.0", history_paragraph1)
+        self.history_p1_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        ttk.Label(history_frame, text="Akapit 2 (rozwój, kolej):").pack(anchor="w", pady=(0, 5))
+        self.history_p2_text = scrolledtext.ScrolledText(history_frame, width=60, height=5, wrap=tk.WORD)
+        self.history_p2_text.insert("1.0", history_paragraph2)
+        self.history_p2_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        ttk.Label(history_frame, text="Akapit 3 (statystyki 1882):").pack(anchor="w", pady=(0, 5))
+        self.history_p3_text = scrolledtext.ScrolledText(history_frame, width=60, height=4, wrap=tk.WORD)
+        self.history_p3_text.insert("1.0", history_paragraph3)
+        self.history_p3_text.pack(fill=tk.BOTH, expand=True)
+
+        # === ZAKŁADKA 4: Zdjęcia ===
+        photos_frame = ttk.Frame(notebook, padding="20")
+        notebook.add(photos_frame, text="Zdjęcia")
+
+        ttk.Label(photos_frame, text="Zdjęcie 1 - Ścieżka:").grid(row=0, column=0, sticky="w", pady=5)
+        self.photo1_path_entry = ttk.Entry(photos_frame, width=50)
+        self.photo1_path_entry.insert(0, photo1_path)
+        self.photo1_path_entry.grid(row=0, column=1, pady=5, padx=10, sticky="ew")
+
+        ttk.Label(photos_frame, text="Zdjęcie 1 - Podpis:").grid(row=1, column=0, sticky="nw", pady=5)
+        self.photo1_caption_text = scrolledtext.ScrolledText(photos_frame, width=50, height=3, wrap=tk.WORD)
+        self.photo1_caption_text.insert("1.0", photo1_caption)
+        self.photo1_caption_text.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
+
+        ttk.Separator(photos_frame, orient='horizontal').grid(row=2, column=0, columnspan=2, sticky="ew", pady=10)
+
+        ttk.Label(photos_frame, text="Zdjęcie 2 - Ścieżka:").grid(row=3, column=0, sticky="w", pady=5)
+        self.photo2_path_entry = ttk.Entry(photos_frame, width=50)
+        self.photo2_path_entry.insert(0, photo2_path)
+        self.photo2_path_entry.grid(row=3, column=1, pady=5, padx=10, sticky="ew")
+
+        ttk.Label(photos_frame, text="Zdjęcie 2 - Podpis:").grid(row=4, column=0, sticky="nw", pady=5)
+        self.photo2_caption_text = scrolledtext.ScrolledText(photos_frame, width=50, height=3, wrap=tk.WORD)
+        self.photo2_caption_text.insert("1.0", photo2_caption)
+        self.photo2_caption_text.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
+
+        photos_frame.columnconfigure(1, weight=1)
 
         # Przyciski
         buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        buttons_frame.pack(fill=tk.X, pady=(10, 0))
 
         ttk.Button(buttons_frame, text="✅ Zapisz", command=self.save,
                   style="Success.TButton").pack(side=tk.LEFT, padx=5)
@@ -2107,6 +2279,16 @@ class AddEditLocationDialog(tk.Toplevel):
         year = self.year_entry.get().strip()
         century = self.century_entry.get().strip()
 
+        # Pobierz teksty z ScrolledText
+        homepage_desc = self.homepage_desc_text.get("1.0", tk.END).strip()
+        history_p1 = self.history_p1_text.get("1.0", tk.END).strip()
+        history_p2 = self.history_p2_text.get("1.0", tk.END).strip()
+        history_p3 = self.history_p3_text.get("1.0", tk.END).strip()
+        photo1_path = self.photo1_path_entry.get().strip()
+        photo1_caption = self.photo1_caption_text.get("1.0", tk.END).strip()
+        photo2_path = self.photo2_path_entry.get().strip()
+        photo2_caption = self.photo2_caption_text.get("1.0", tk.END).strip()
+
         if not name:
             messagebox.showerror("❌ Błąd", "Nazwa jest wymagana!", parent=self)
             return
@@ -2121,7 +2303,9 @@ class AddEditLocationDialog(tk.Toplevel):
         if not century:
             century = "XIX w."  # Domyślna wartość
 
-        self.result = (name, full_name, powiat, region, year, century)
+        self.result = (name, full_name, powiat, region, year, century,
+                      homepage_desc, history_p1, history_p2, history_p3,
+                      photo1_path, photo1_caption, photo2_path, photo2_caption)
         self.destroy()
 
 

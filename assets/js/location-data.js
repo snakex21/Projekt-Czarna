@@ -24,7 +24,15 @@
         '{{POWIAT}}': config.powiat || '',
         '{{REGION}}': config.region || '',
         '{{YEAR}}': config.year || '',
-        '{{WIEK}}': config.century || ''
+        '{{WIEK}}': config.century || '',
+        '{{HOMEPAGE_DESCRIPTION}}': config.homepageDescription || '',
+        '{{HISTORY_P1}}': config.historyParagraph1 || '',
+        '{{HISTORY_P2}}': config.historyParagraph2 || '',
+        '{{HISTORY_P3}}': config.historyParagraph3 || '',
+        '{{PHOTO1_PATH}}': config.photo1Path || '',
+        '{{PHOTO1_CAPTION}}': config.photo1Caption || '',
+        '{{PHOTO2_PATH}}': config.photo2Path || '',
+        '{{PHOTO2_CAPTION}}': config.photo2Caption || ''
     };
 
     console.log('✓ Placeholdery do zastąpienia:', placeholders);
