@@ -75,9 +75,19 @@ def init_locations_db():
             full_name TEXT NOT NULL,
             powiat TEXT,
             region TEXT,
-            active INTEGER DEFAULT 0
+            active INTEGER DEFAULT 0,
+            homepage_template TEXT DEFAULT 'standardowy'
         )
     """)
+
+    # Migracja: dodaj kolumnę homepage_template jeśli nie istnieje
+    try:
+        cursor.execute("SELECT homepage_template FROM locations LIMIT 1")
+    except sqlite3.OperationalError:
+        # Kolumna nie istnieje, dodaj ją
+        cursor.execute("ALTER TABLE locations ADD COLUMN homepage_template TEXT DEFAULT 'standardowy'")
+        print("✓ Dodano kolumnę homepage_template do tabeli locations")
+
     conn.commit()
     conn.close()
 
@@ -86,17 +96,17 @@ def get_all_locations():
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations ORDER BY name")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template FROM locations ORDER BY name")
     locations = cursor.fetchall()
     conn.close()
     return locations
 
 def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active)."""
+    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template)."""
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active FROM locations WHERE active = 1")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template FROM locations WHERE active = 1")
     location = cursor.fetchone()
     conn.close()
     return location
@@ -107,10 +117,16 @@ def get_active_location_name():
     return location[1] if location else None
 
 def set_active_location(location_id):
-    """Ustawia miejscowość jako aktywną."""
+    """Ustawia miejscowość jako aktywną i automatycznie aplikuje jej szablon strony."""
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
+
+    # Pobierz szablon dla tej miejscowości
+    cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (location_id,))
+    result = cursor.fetchone()
+    template = result[0] if result and result[0] else "standardowy"
+
     # Wyłącz wszystkie inne miejscowości
     cursor.execute("UPDATE locations SET active = 0")
     # Ustaw wybraną jako aktywną
@@ -118,7 +134,19 @@ def set_active_location(location_id):
     conn.commit()
     conn.close()
 
-def add_location(name, full_name, powiat="", region=""):
+    # Automatycznie aplikuj szablon dla tej miejscowości
+    apply_homepage_template(template)
+
+def set_location_template(location_id, template_name):
+    """Ustawia szablon strony głównej dla danej miejscowości."""
+    init_locations_db()
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE locations SET homepage_template = ? WHERE id = ?", (template_name, location_id))
+    conn.commit()
+    conn.close()
+
+def add_location(name, full_name, powiat="", region="", homepage_template="standardowy"):
     """Dodaje nową miejscowość do bazy danych i tworzy folder."""
     init_locations_db()
 
@@ -154,8 +182,8 @@ ADMIN_PASSWORD_HASH=
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active) VALUES (?, ?, ?, ?, 0)",
-                      (name, full_name, powiat, region))
+        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template) VALUES (?, ?, ?, ?, 0, ?)",
+                      (name, full_name, powiat, region, homepage_template))
         conn.commit()
         location_id = cursor.lastrowid
         conn.close()
@@ -856,9 +884,6 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
                   style="Primary.TButton").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(location_controls, text="🎨 Szablon Strony", command=self.open_template_selector,
-                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
-
         self.refresh_locations()
 
         # Sekcja operacji głównych
@@ -1122,10 +1147,6 @@ class AppLauncher(tk.Tk):
         manager = LocationManager(self)
         self.wait_window(manager)
         self.refresh_locations()
-
-    def open_template_selector(self):
-        """Otwiera okno wyboru szablonu strony głównej."""
-        TemplateSelector(self)
 
     def open_backup_manager(self):
         """Otwiera okno menedżera kopii zapasowych."""
@@ -1540,127 +1561,6 @@ if __name__ == '__main__':
 # KLASY OKIEN DIALOGOWYCH
 # =============================================================================
 
-class TemplateSelector(tk.Toplevel):
-    """Okno wyboru szablonu strony głównej."""
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("🎨 Wybór Szablonu Strony Głównej")
-        self.transient(parent)
-        self.grab_set()
-        self.parent_app = parent
-
-        self.geometry("600x400")
-        self.minsize(500, 350)
-        self.center_window()
-
-        self.create_widgets()
-
-    def center_window(self):
-        """Centruje okno na ekranie."""
-        self.update_idletasks()
-        w = self.winfo_width()
-        h = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.winfo_screenheight() // 2) - (h // 2)
-        self.geometry(f"{w}x{h}+{x}+{y}")
-
-    def create_widgets(self):
-        """Tworzy interfejs wyboru szablonu."""
-        main_frame = ttk.Frame(self, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Nagłówek
-        header_frame = ttk.Frame(main_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 15))
-
-        ttk.Label(header_frame, text="Wybierz szablon strony głównej",
-                 font=("Segoe UI", 14, "bold")).pack(anchor=tk.W)
-
-        ttk.Label(header_frame, text="Szablon określa wygląd i treść strony index.html",
-                 foreground="#666666").pack(anchor=tk.W, pady=(5, 0))
-
-        # Lista szablonów
-        templates_frame = ttk.LabelFrame(main_frame, text="Dostępne szablony", padding="10")
-        templates_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
-
-        # Szablon 1: Praca inżynierska
-        template1_frame = ttk.Frame(templates_frame)
-        template1_frame.pack(fill=tk.X, pady=5)
-
-        self.template_var = tk.StringVar(value="praca_inzynierska")
-
-        ttk.Radiobutton(template1_frame, text="🎓 Praca Inżynierska",
-                       variable=self.template_var, value="praca_inzynierska").pack(anchor=tk.W)
-
-        ttk.Label(template1_frame, text="Oryginalna strona dla projektu studenckiego o gminie Czarna.\n"
-                                        "Zawiera informacje o Akademii Tarnowskiej i opiekunie projektu.",
-                 foreground="#666666", wraplength=500).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
-
-        # Separator
-        ttk.Separator(templates_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
-
-        # Szablon 2: Standardowy
-        template2_frame = ttk.Frame(templates_frame)
-        template2_frame.pack(fill=tk.X, pady=5)
-
-        ttk.Radiobutton(template2_frame, text="📍 Standardowy",
-                       variable=self.template_var, value="standardowy").pack(anchor=tk.W)
-
-        ttk.Label(template2_frame, text="Uniwersalny szablon dostosowany do różnych miejscowości.\n"
-                                        "Automatycznie używa nazwy, powiatu i regionu aktywnej miejscowości.",
-                 foreground="#666666", wraplength=500).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
-
-        # Informacja o aktywnej miejscowości
-        active_location = get_active_location()
-        if active_location:
-            location_info = ttk.Frame(template2_frame)
-            location_info.pack(anchor=tk.W, padx=(25, 0), pady=(5, 0))
-
-            ttk.Label(location_info, text="Aktywna miejscowość:",
-                     foreground="#999999", font=("Segoe UI", 9)).pack(side=tk.LEFT)
-
-            location_text = f"{active_location[2] or active_location[1]}"
-            if active_location[3]:  # powiat
-                location_text += f" • {active_location[3]}"
-            if active_location[4]:  # region
-                location_text += f" • {active_location[4]}"
-
-            ttk.Label(location_info, text=location_text,
-                     foreground="#0066cc", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT, padx=(5, 0))
-
-        # Przyciski
-        buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.pack(fill=tk.X)
-
-        ttk.Button(buttons_frame, text="Anuluj", command=self.destroy,
-                  style="Secondary.TButton").pack(side=tk.RIGHT, padx=(5, 0))
-
-        ttk.Button(buttons_frame, text="✅ Zastosuj Szablon", command=self.apply_template,
-                  style="Success.TButton").pack(side=tk.RIGHT)
-
-    def apply_template(self):
-        """Aplikuje wybrany szablon."""
-        template_name = self.template_var.get()
-
-        if messagebox.askyesno("Potwierdzenie",
-                              f"Czy na pewno chcesz zastosować szablon '{template_name}'?\n\n"
-                              f"Obecny plik index.html zostanie nadpisany.",
-                              parent=self):
-            success = apply_homepage_template(template_name)
-
-            if success:
-                messagebox.showinfo("✅ Sukces",
-                                   f"Szablon '{template_name}' został zastosowany pomyślnie!\n\n"
-                                   f"Odśwież stronę w przeglądarce aby zobaczyć zmiany.",
-                                   parent=self)
-                self.destroy()
-            else:
-                messagebox.showerror("❌ Błąd",
-                                    "Nie udało się zastosować szablonu.\n"
-                                    "Sprawdź logi aby uzyskać więcej informacji.",
-                                    parent=self)
-
 class LocationManager(tk.Toplevel):
     """Okno dialogowe do zarządzania miejscowościami."""
 
@@ -1691,8 +1591,8 @@ class LocationManager(tk.Toplevel):
         table_frame = ttk.LabelFrame(main_frame, text="📋 Lista Miejscowości", padding="10")
         table_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        # Kolumny: ID, Nazwa, Pełna Nazwa, Powiat, Region, Aktywna
-        columns = ("id", "name", "full_name", "powiat", "region", "active")
+        # Kolumny: ID, Nazwa, Pełna Nazwa, Powiat, Region, Szablon, Aktywna
+        columns = ("id", "name", "full_name", "powiat", "region", "template", "active")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", selectmode="browse")
 
         self.tree.heading("id", text="ID")
@@ -1700,14 +1600,16 @@ class LocationManager(tk.Toplevel):
         self.tree.heading("full_name", text="Pełna Nazwa")
         self.tree.heading("powiat", text="Powiat")
         self.tree.heading("region", text="Region")
+        self.tree.heading("template", text="Szablon Strony")
         self.tree.heading("active", text="Aktywna")
 
-        self.tree.column("id", width=50, anchor="center")
-        self.tree.column("name", width=120)
-        self.tree.column("full_name", width=200)
-        self.tree.column("powiat", width=120)
-        self.tree.column("region", width=120)
-        self.tree.column("active", width=80, anchor="center")
+        self.tree.column("id", width=40, anchor="center")
+        self.tree.column("name", width=100)
+        self.tree.column("full_name", width=150)
+        self.tree.column("powiat", width=110)
+        self.tree.column("region", width=100)
+        self.tree.column("template", width=130)
+        self.tree.column("active", width=70, anchor="center")
 
         scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -1731,6 +1633,9 @@ class LocationManager(tk.Toplevel):
         ttk.Button(buttons_frame, text="✅ Ustaw jako Aktywną", command=self.set_active,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
+        ttk.Button(buttons_frame, text="🎨 Zmień Szablon", command=self.change_template,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
+
         ttk.Button(buttons_frame, text="🔄 Odśwież", command=self.refresh_table,
                   style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
 
@@ -1743,11 +1648,18 @@ class LocationManager(tk.Toplevel):
         # Pobierz dane
         locations = get_all_locations()
 
+        # Mapowanie nazw szablonów na bardziej czytelne
+        template_names = {
+            "standardowy": "📍 Standardowy",
+            "praca_inzynierska": "🎓 Praca Inżynierska"
+        }
+
         # Wypełnij tabelę
         for loc in locations:
-            loc_id, name, full_name, powiat, region, active = loc
+            loc_id, name, full_name, powiat, region, active, template = loc
             active_str = "✓" if active else ""
-            self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, active_str))
+            template_display = template_names.get(template, template)
+            self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, template_display, active_str))
 
     def add_location(self):
         """Dodaje nową miejscowość."""
@@ -1808,6 +1720,23 @@ class LocationManager(tk.Toplevel):
         except ValueError as e:
             messagebox.showerror("❌ Błąd", str(e), parent=self)
 
+    def change_template(self):
+        """Zmienia szablon strony dla wybranej miejscowości."""
+        selected = self.tree.selection()
+        if not selected:
+            messagebox.showwarning("⚠️ Brak zaznaczenia", "Wybierz miejscowość aby zmienić szablon", parent=self)
+            return
+
+        values = self.tree.item(selected[0], "values")
+        loc_id, name = values[0], values[1]
+
+        # Otwórz okno wyboru szablonu
+        dialog = TemplateChangeDialog(self, int(loc_id), name)
+        self.wait_window(dialog)
+
+        # Odśwież tabelę
+        self.refresh_table()
+
     def set_active(self):
         """Ustawia wybraną miejscowość jako aktywną."""
         selected = self.tree.selection()
@@ -1819,8 +1748,127 @@ class LocationManager(tk.Toplevel):
         loc_id, name = values[0], values[1]
 
         set_active_location(int(loc_id))
-        messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}", parent=self)
+        messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}\nZastosowano szablon strony dla tej miejscowości.", parent=self)
         self.refresh_table()
+
+
+class TemplateChangeDialog(tk.Toplevel):
+    """Dialog do zmiany szablonu strony dla miejscowości."""
+
+    def __init__(self, parent, location_id, location_name):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title(f"🎨 Zmień Szablon - {location_name}")
+        self.grab_set()
+
+        self.location_id = location_id
+        self.location_name = location_name
+
+        self.geometry("500x350")
+        self.minsize(450, 300)
+        self.center_window()
+
+        self.create_widgets()
+
+    def center_window(self):
+        """Centruje okno na ekranie."""
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (w // 2)
+        y = (self.winfo_screenheight() // 2) - (h // 2)
+        self.geometry(f"{w}x{h}+{x}+{y}")
+
+    def create_widgets(self):
+        """Tworzy interfejs wyboru szablonu."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Nagłówek
+        header_frame = ttk.Frame(main_frame)
+        header_frame.pack(fill=tk.X, pady=(0, 15))
+
+        ttk.Label(header_frame, text=f"Wybierz szablon dla: {self.location_name}",
+                 font=("Segoe UI", 12, "bold")).pack(anchor=tk.W)
+
+        # Pobierz aktualny szablon
+        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (self.location_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        current_template = result[0] if result and result[0] else "standardowy"
+
+        # Lista szablonów
+        templates_frame = ttk.LabelFrame(main_frame, text="Dostępne szablony", padding="10")
+        templates_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+
+        self.template_var = tk.StringVar(value=current_template)
+
+        # Szablon 1: Standardowy
+        template1_frame = ttk.Frame(templates_frame)
+        template1_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Radiobutton(template1_frame, text="📍 Standardowy",
+                       variable=self.template_var, value="standardowy").pack(anchor=tk.W)
+
+        ttk.Label(template1_frame, text="Uniwersalny szablon dostosowany do różnych miejscowości.\n"
+                                        "Automatycznie podstawia nazwę, powiat i region.",
+                 foreground="#666666", wraplength=450).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
+
+        # Separator
+        ttk.Separator(templates_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Szablon 2: Praca inżynierska
+        template2_frame = ttk.Frame(templates_frame)
+        template2_frame.pack(fill=tk.X, pady=5)
+
+        ttk.Radiobutton(template2_frame, text="🎓 Praca Inżynierska",
+                       variable=self.template_var, value="praca_inzynierska").pack(anchor=tk.W)
+
+        ttk.Label(template2_frame, text="Oryginalna strona dla projektu studenckiego o gminie Czarna.\n"
+                                        "Zawiera informacje o Akademii Tarnowskiej.",
+                 foreground="#666666", wraplength=450).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
+
+        # Przyciski
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill=tk.X)
+
+        ttk.Button(buttons_frame, text="Anuluj", command=self.destroy,
+                  style="Secondary.TButton").pack(side=tk.RIGHT, padx=(5, 0))
+
+        ttk.Button(buttons_frame, text="✅ Zapisz i Zastosuj", command=self.save_template,
+                  style="Success.TButton").pack(side=tk.RIGHT)
+
+    def save_template(self):
+        """Zapisuje wybrany szablon dla miejscowości."""
+        template_name = self.template_var.get()
+
+        # Zapisz szablon w bazie danych
+        set_location_template(self.location_id, template_name)
+
+        # Jeśli to aktywna miejscowość, od razu zastosuj szablon
+        active_location = get_active_location()
+        if active_location and active_location[0] == self.location_id:
+            success = apply_homepage_template(template_name)
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"Szablon '{template_name}' został zapisany i zastosowany!\n\n"
+                                   f"Odśwież stronę w przeglądarce aby zobaczyć zmiany.",
+                                   parent=self)
+            else:
+                messagebox.showwarning("⚠️ Zapisano",
+                                      f"Szablon '{template_name}' został zapisany, ale nie udało się go zastosować.\n"
+                                      f"Sprawdź logi aby uzyskać więcej informacji.",
+                                      parent=self)
+        else:
+            messagebox.showinfo("✅ Sukces",
+                               f"Szablon '{template_name}' został zapisany.\n\n"
+                               f"Zostanie zastosowany gdy aktywujesz tę miejscowość.",
+                               parent=self)
+
+        self.destroy()
 
 
 class AddEditLocationDialog(tk.Toplevel):
