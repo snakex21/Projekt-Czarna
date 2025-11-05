@@ -387,14 +387,13 @@ def get_local_ip():
 
 def check_env_configuration():
     """Sprawdza i konfiguruje plik .env dla aktywnej miejscowości."""
-    # Najpierw sprawdź czy jest aktywna miejscowość
-    active_location = get_active_location()
-
-    if not active_location:
-        # Brak miejscowości - użyj domyślnej lokalizacji backend/.env
-        env_path = os.path.join(BACKEND_DIR, ".env")
-    else:
+    # Pobierz ścieżkę do .env aktywnej miejscowości
+    try:
         env_path = get_location_env_path()
+    except ValueError:
+        # Brak aktywnej miejscowości - nie powinno się zdarzyć
+        # ale obsłuż to dla bezpieczeństwa
+        return False
 
     env_example_path = os.path.join(BACKEND_DIR, ".env.example")
 
@@ -552,13 +551,12 @@ def check_backup_folder_files():
 def read_env_config(key_prefix=None):
     """Odczytuje konfigurację z pliku .env aktywnej miejscowości."""
     # Sprawdź czy jest aktywna miejscowość
-    active_location = get_active_location()
-
-    if not active_location:
-        # Brak miejscowości - użyj domyślnej lokalizacji backend/.env
-        env_path = os.path.join(BACKEND_DIR, ".env")
-    else:
+    # Pobierz ścieżkę do .env aktywnej miejscowości
+    try:
         env_path = get_location_env_path()
+    except ValueError:
+        # Brak aktywnej miejscowości
+        return {}
 
     config = {}
 
@@ -930,11 +928,11 @@ class AppLauncher(tk.Tk):
             btn.configure(command=lambda u=url: webbrowser.open_new_tab(u))
 
     def get_env_mtime(self):
-        """Zwraca czas modyfikacji pliku backend/.env."""
-        env_path = os.path.join(BACKEND_DIR, ".env")
+        """Zwraca czas modyfikacji pliku .env aktywnej miejscowości."""
         try:
+            env_path = get_location_env_path()
             return os.path.getmtime(env_path)
-        except OSError:
+        except (OSError, ValueError):
             return None
 
     def start_env_watcher(self):
@@ -1065,9 +1063,13 @@ class AppLauncher(tk.Tk):
         MapCalibrator(self)
 
     def open_env_editor(self):
-        """Otwiera edytor konfiguracji .env."""
-        env_path = os.path.join(BACKEND_DIR, ".env")
-        
+        """Otwiera edytor konfiguracji .env aktywnej miejscowości."""
+        try:
+            env_path = get_location_env_path()
+        except ValueError:
+            messagebox.showerror("❌ Błąd", "Brak aktywnej miejscowości")
+            return
+
         if not os.path.exists(env_path):
             if not check_env_configuration():
                 messagebox.showerror("❌ Błąd", "Nie można utworzyć pliku .env")
@@ -2209,9 +2211,14 @@ class AdminSettings(tk.Toplevel):
                 return
         
         self.env.setdefault('FLASK_SECRET_KEY', 'change-me-' + str(os.getpid()))
-        
-        # Zapisz .env
-        env_path = os.path.join(BACKEND_DIR, ".env")
+
+        # Zapisz .env do aktywnej miejscowości
+        try:
+            env_path = get_location_env_path()
+        except ValueError:
+            messagebox.showerror("❌ Błąd", "Brak aktywnej miejscowości", parent=self)
+            return
+
         self._save_env_file(env_path)
         
         self.parent_app.on_env_changed()
