@@ -6,10 +6,10 @@
          ========================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Interaktywna mapa katastralna miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
+    {% raw %}<meta name="description" content="Interaktywna mapa katastralna miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
     <meta name="author" content="System GIS - {{MIEJSCOWOSC_PELNA}}">
     <meta name="keywords" content="mapa katastralna, {{MIEJSCOWOSC}}, GIS, {{YEAR}}">
-    <title>Interaktywna Mapa Katastralna - {{MIEJSCOWOSC_PELNA}}</title>
+    <title>Interaktywna Mapa Katastralna - {{MIEJSCOWOSC_PELNA}}</title>{% endraw %}
 
     <!-- ==========================================================================
          KONFIGURACJA MAPY (WSTRZYKIWANA PRZEZ SERWER)
@@ -58,7 +58,7 @@
             <div class="toolbar-left">
                 <h1 class="app-title">
                     <i class="fas fa-map-marked-alt"></i>
-                    Mapa Katastralna {{MIEJSCOWOSC_PELNA}} z {{WIEK}} w.
+                    {% raw %}Mapa Katastralna {{MIEJSCOWOSC_PELNA}} z {{WIEK}} w.{% endraw %}
                 </h1>
                 <div class="toolbar-stats">
                     <span class="stat-badge">
