@@ -106,6 +106,12 @@ def init_locations_db():
         cursor.execute("ALTER TABLE locations ADD COLUMN century TEXT DEFAULT 'XIX w.'")
         print("✓ Dodano kolumnę century do tabeli locations")
 
+    # Aktualizuj istniejące rekordy które mają NULL w century
+    cursor.execute("UPDATE locations SET century = 'XIX w.' WHERE century IS NULL OR century = ''")
+    updated_rows = cursor.rowcount
+    if updated_rows > 0:
+        print(f"✓ Zaktualizowano {updated_rows} rekordów z pustym wiekiem na 'XIX w.'")
+
     conn.commit()
     conn.close()
 
