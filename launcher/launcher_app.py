@@ -1755,7 +1755,7 @@ class LocationManager(tk.Toplevel):
 
         # Wypełnij tabelę
         for loc in locations:
-            loc_id, name, full_name, powiat, region, active, template, year = loc
+            loc_id, name, full_name, powiat, region, active, template, year, century = loc
             active_str = "✓" if active else ""
             template_display = template_names.get(template, template)
             self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, template_display, active_str))
