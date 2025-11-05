@@ -839,7 +839,7 @@ def set_location_template(location_id, template_name):
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                history_photos=None):
+                history_photos=None, postgres_db_name=""):
     """
     Dodaje nową miejscowość do bazy danych PostgreSQL i tworzy folder.
 
@@ -906,11 +906,11 @@ ADMIN_PASSWORD_HASH=
                 INSERT INTO locations (name, full_name, powiat, region, active,
                                       homepage_template, year, century,
                                       homepage_description, history_paragraph1,
-                                      history_paragraph2, history_paragraph3)
-                VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s)
+                                      history_paragraph2, history_paragraph3, postgres_db_name)
+                VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (name, full_name, powiat, region, homepage_template, year, century,
-                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3))
+                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name))
 
             location_id = cursor.fetchone()[0]
 
@@ -957,7 +957,7 @@ ADMIN_PASSWORD_HASH=
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                   history_photos=None):
+                   history_photos=None, postgres_db_name=""):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1010,11 +1010,12 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                     year = %s, century = %s,
                     homepage_description = %s, history_paragraph1 = %s,
                     history_paragraph2 = %s, history_paragraph3 = %s,
+                    postgres_db_name = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             """, (name, full_name, powiat, region, year, century,
                   homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                  location_id))
+                  postgres_db_name, location_id))
 
             cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
             for idx, photo in enumerate(history_photos):
@@ -2606,12 +2607,12 @@ class LocationManager(tk.Toplevel):
         if hasattr(dialog, 'result') and dialog.result:
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
-             history_photos) = dialog.result
+             history_photos, postgres_db_name) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
-                           history_photos=history_photos)
+                           history_photos=history_photos, postgres_db_name=postgres_db_name)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -2632,6 +2633,7 @@ class LocationManager(tk.Toplevel):
         name = full_name = powiat = region = year = century = ""
         homepage_desc = history_p1 = history_p2 = history_p3 = ""
         history_photos_json = "[]"
+        postgres_db_name = ""
 
         # Próbuj PostgreSQL
         if check_postgres_available():
@@ -2641,14 +2643,16 @@ class LocationManager(tk.Toplevel):
 
                 cursor.execute("""
                     SELECT name, full_name, powiat, region, year, century,
-                           homepage_description, history_paragraph1, history_paragraph2, history_paragraph3
+                           homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                           postgres_db_name
                     FROM locations WHERE id = %s
                 """, (loc_id,))
                 result = cursor.fetchone()
 
                 if result:
                     (name, full_name, powiat, region, year, century,
-                     homepage_desc, history_p1, history_p2, history_p3) = result
+                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name) = result
+                    postgres_db_name = postgres_db_name or ""
 
                     # Pobierz zdjęcia historyczne
                     cursor.execute("""
@@ -2702,17 +2706,17 @@ class LocationManager(tk.Toplevel):
 
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
-                                      history_photos)
+                                      history_photos, postgres_db_name)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-             new_history_photos) = dialog.result
+             new_history_photos, new_postgres_db_name) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-                              new_history_photos)
+                              new_history_photos, new_postgres_db_name)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -3364,7 +3368,7 @@ class AddEditLocationDialog(tk.Toplevel):
 
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                 history_photos=None):
+                 history_photos=None, postgres_db_name=""):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -3374,7 +3378,7 @@ class AddEditLocationDialog(tk.Toplevel):
         self.history_photos = history_photos if history_photos else []
 
         # Rozmiar większy dla zakładek
-        w, h = 700, 600
+        w, h = 700, 650  # Zwiększam wysokość dla nowego pola
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         x = (sw - w) // 2
         y = (sh - h) // 2
@@ -3413,15 +3417,44 @@ class AddEditLocationDialog(tk.Toplevel):
         self.region_entry.insert(0, region)
         self.region_entry.grid(row=3, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(basic_frame, text="Rok mapy:").grid(row=4, column=0, sticky="w", pady=5)
+        # NOWE POLE: Baza danych PostgreSQL
+        ttk.Label(basic_frame, text="Baza danych:").grid(row=4, column=0, sticky="w", pady=5)
+
+        # Pobierz listę dostępnych baz PostgreSQL
+        available_dbs = self.get_available_databases()
+        self.db_combo = ttk.Combobox(basic_frame, width=47, state="readonly")
+        self.db_combo['values'] = available_dbs
+
+        # Ustaw domyślną wartość
+        if postgres_db_name and postgres_db_name in available_dbs:
+            self.db_combo.set(postgres_db_name)
+        elif available_dbs:
+            # Jeśli brak wartości, zaproponuj bazę na podstawie nazwy miejscowości
+            if name:
+                suggested_db = f"mapa_{name.lower()}_db"
+                if suggested_db in available_dbs:
+                    self.db_combo.set(suggested_db)
+                else:
+                    self.db_combo.set(available_dbs[0])
+            else:
+                self.db_combo.set(available_dbs[0])
+
+        self.db_combo.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
+
+        # Dodaj przycisk odświeżania listy baz
+        refresh_btn = ttk.Button(basic_frame, text="🔄", width=3,
+                                command=self.refresh_databases)
+        refresh_btn.grid(row=4, column=2, pady=5, padx=(0, 10))
+
+        ttk.Label(basic_frame, text="Rok mapy:").grid(row=5, column=0, sticky="w", pady=5)
         self.year_entry = ttk.Entry(basic_frame, width=50)
         self.year_entry.insert(0, year)
-        self.year_entry.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
+        self.year_entry.grid(row=5, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(basic_frame, text="Wiek (np. XIX w.):").grid(row=5, column=0, sticky="w", pady=5)
+        ttk.Label(basic_frame, text="Wiek (np. XIX w.):").grid(row=6, column=0, sticky="w", pady=5)
         self.century_entry = ttk.Entry(basic_frame, width=50)
         self.century_entry.insert(0, century)
-        self.century_entry.grid(row=5, column=1, pady=5, padx=10, sticky="ew")
+        self.century_entry.grid(row=6, column=1, pady=5, padx=10, sticky="ew")
 
         basic_frame.columnconfigure(1, weight=1)
 
@@ -3483,6 +3516,40 @@ class AddEditLocationDialog(tk.Toplevel):
         ttk.Button(buttons_frame, text="❌ Anuluj", command=self.destroy,
                   style="Danger.TButton").pack(side=tk.LEFT, padx=5)
 
+    def get_available_databases(self):
+        """
+        Pobiera listę dostępnych baz danych PostgreSQL (mapa_*_db).
+        Zawiera również opcję "(brak)" i "(nowa baza)".
+        """
+        databases = ["(brak - użyj SQLite)"]
+
+        # Jeśli PostgreSQL dostępny, pobierz listę baz
+        if check_postgres_available():
+            try:
+                config = get_postgres_config()
+                pg_dbs = postgres_list_databases(config['host'], config['port'],
+                                                 config['user'], config['password'])
+                # Filtruj tylko bazy zaczynające się od "mapa_"
+                map_dbs = [db for db in pg_dbs if db.startswith('mapa_') and db != 'mapa_launcher_db']
+                databases.extend(sorted(map_dbs))
+            except Exception as e:
+                print(f"⚠️ Błąd pobierania listy baz: {e}")
+
+        databases.append("(nowa baza - wpisz nazwę)")
+        return databases
+
+    def refresh_databases(self):
+        """Odświeża listę dostępnych baz danych."""
+        current_value = self.db_combo.get()
+        available_dbs = self.get_available_databases()
+        self.db_combo['values'] = available_dbs
+
+        # Przywróć wartość jeśli istnieje
+        if current_value in available_dbs:
+            self.db_combo.set(current_value)
+        elif available_dbs:
+            self.db_combo.set(available_dbs[0])
+
     def manage_photos(self):
         """Otwiera dialog zarządzania zdjęciami."""
         dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
@@ -3501,6 +3568,7 @@ class AddEditLocationDialog(tk.Toplevel):
         region = self.region_entry.get().strip()
         year = self.year_entry.get().strip()
         century = self.century_entry.get().strip()
+        postgres_db_name = self.db_combo.get().strip()
 
         # Pobierz teksty z ScrolledText
         homepage_desc = self.homepage_desc_text.get("1.0", tk.END).strip()
@@ -3522,9 +3590,27 @@ class AddEditLocationDialog(tk.Toplevel):
         if not century:
             century = "XIX w."  # Domyślna wartość
 
+        # Obsłuż specjalne wartości bazy danych
+        if postgres_db_name == "(brak - użyj SQLite)":
+            postgres_db_name = ""
+        elif postgres_db_name == "(nowa baza - wpisz nazwę)":
+            # Zaproponuj domyślną nazwę
+            suggested_name = f"mapa_{name.lower()}_db"
+            new_db_name = simpledialog.askstring(
+                "Nazwa bazy danych",
+                f"Podaj nazwę nowej bazy danych PostgreSQL:",
+                initialvalue=suggested_name,
+                parent=self
+            )
+            if not new_db_name:
+                messagebox.showwarning("⚠️ Uwaga", "Nie podano nazwy bazy. Miejscowość będzie bez przypisanej bazy.", parent=self)
+                postgres_db_name = ""
+            else:
+                postgres_db_name = new_db_name.strip()
+
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
-                      self.history_photos)
+                      self.history_photos, postgres_db_name)
         self.destroy()
 
 
