@@ -405,13 +405,19 @@ def apply_placeholders_to_file(file_path, location_data):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Zastąp placeholdery
-        content = content.replace('{{MIEJSCOWOSC}}', location_name)
-        content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
-        content = content.replace('{{POWIAT}}', location_powiat)
-        content = content.replace('{{REGION}}', location_region)
-        content = content.replace('{{YEAR}}', location_year)
-        content = content.replace('{{WIEK}}', location_century)
+        # Zastąp placeholdery - tylko jeśli wartość nie jest pusta
+        if location_name:
+            content = content.replace('{{MIEJSCOWOSC}}', location_name)
+        if location_full_name:
+            content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
+        if location_powiat:
+            content = content.replace('{{POWIAT}}', location_powiat)
+        if location_region:
+            content = content.replace('{{REGION}}', location_region)
+        if location_year:
+            content = content.replace('{{YEAR}}', location_year)
+        if location_century:
+            content = content.replace('{{WIEK}}', location_century)
 
         # Zapisz
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -495,13 +501,19 @@ def apply_homepage_template(template_name):
             with open(template_path, 'r', encoding='utf-8') as f:
                 content = f.read()
 
-            # Zastąp placeholdery
-            content = content.replace('{{MIEJSCOWOSC}}', location_name)
-            content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
-            content = content.replace('{{POWIAT}}', location_powiat)
-            content = content.replace('{{REGION}}', location_region)
-            content = content.replace('{{YEAR}}', location_year)
-            content = content.replace('{{WIEK}}', location_century)
+            # Zastąp placeholdery - tylko jeśli wartość nie jest pusta
+            if location_name:
+                content = content.replace('{{MIEJSCOWOSC}}', location_name)
+            if location_full_name:
+                content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
+            if location_powiat:
+                content = content.replace('{{POWIAT}}', location_powiat)
+            if location_region:
+                content = content.replace('{{REGION}}', location_region)
+            if location_year:
+                content = content.replace('{{YEAR}}', location_year)
+            if location_century:
+                content = content.replace('{{WIEK}}', location_century)
 
             # Zapisz
             with open(target_path, 'w', encoding='utf-8') as f:
