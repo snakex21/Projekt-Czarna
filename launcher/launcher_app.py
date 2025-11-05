@@ -135,6 +135,33 @@ def init_locations_db():
             cursor.execute(f"UPDATE locations SET {col_name} = ? WHERE {col_name} IS NULL OR {col_name} = ''", (default_value,))
             print(f"✓ Ustawiono domyślną wartość dla {col_name}")
 
+    # Migracja: dodaj kolumnę history_photos jako JSON array (max 20 zdjęć)
+    try:
+        cursor.execute("SELECT history_photos FROM locations LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("ALTER TABLE locations ADD COLUMN history_photos TEXT")
+        print("✓ Dodano kolumnę history_photos do tabeli locations")
+
+        # Migruj istniejące dane z photo1/2 do history_photos jako JSON array
+        cursor.execute("SELECT id, photo1_path, photo1_caption, photo2_path, photo2_caption FROM locations")
+        rows = cursor.fetchall()
+        for row in rows:
+            loc_id, p1_path, p1_caption, p2_path, p2_caption = row
+            photos = []
+            if p1_path:
+                photos.append({
+                    "filename": os.path.basename(p1_path) if p1_path else "",
+                    "caption": p1_caption or "Historyczne zdjęcie dworca."
+                })
+            if p2_path:
+                photos.append({
+                    "filename": os.path.basename(p2_path) if p2_path else "",
+                    "caption": p2_caption or "Fragment dokumentacji katastralnej."
+                })
+            photos_json = json.dumps(photos, ensure_ascii=False)
+            cursor.execute("UPDATE locations SET history_photos = ? WHERE id = ?", (photos_json, loc_id))
+        print(f"✓ Zmigrowano {len(rows)} rekordów z photo1/2 do history_photos")
+
     conn.commit()
     conn.close()
 
@@ -145,7 +172,7 @@ def get_all_locations():
     cursor = conn.cursor()
     cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      photo1_path, photo1_caption, photo2_path, photo2_caption
+                      photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
                       FROM locations ORDER BY name""")
     locations = cursor.fetchall()
     conn.close()
@@ -158,7 +185,7 @@ def get_active_location():
     cursor = conn.cursor()
     cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      photo1_path, photo1_caption, photo2_path, photo2_caption
+                      photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
                       FROM locations WHERE active = 1""")
     location = cursor.fetchone()
     conn.close()
@@ -228,10 +255,7 @@ def generate_location_config_js():
         history_p1 = ""
         history_p2 = ""
         history_p3 = ""
-        photo1_path = "assets_index/dworzec_czarna.png"
-        photo1_caption = "Historyczne zdjęcie."
-        photo2_path = "assets_index/protokol.jpg"
-        photo2_caption = "Fragment dokumentacji."
+        history_photos = []
     else:
         # Pobierz dane miejscowości z wszystkimi polami
         location_name = active_location[1] or "Miejscowość"
@@ -244,10 +268,13 @@ def generate_location_config_js():
         history_p1 = active_location[10] if len(active_location) > 10 else ""
         history_p2 = active_location[11] if len(active_location) > 11 else ""
         history_p3 = active_location[12] if len(active_location) > 12 else ""
-        photo1_path = active_location[13] if len(active_location) > 13 else "assets_index/dworzec_czarna.png"
-        photo1_caption = active_location[14] if len(active_location) > 14 else "Historyczne zdjęcie."
-        photo2_path = active_location[15] if len(active_location) > 15 else "assets_index/protokol.jpg"
-        photo2_caption = active_location[16] if len(active_location) > 16 else "Fragment dokumentacji."
+
+        # Pobierz history_photos jako JSON (indeks 17 po dodaniu history_photos)
+        history_photos_json = active_location[17] if len(active_location) > 17 else None
+        try:
+            history_photos = json.loads(history_photos_json) if history_photos_json else []
+        except (json.JSONDecodeError, TypeError):
+            history_photos = []
 
     # Ścieżka do pliku JS - BASE_DIR to już główny folder projektu
     js_path = os.path.join(BASE_DIR, "assets", "js", "location-config.js")
@@ -264,6 +291,9 @@ def generate_location_config_js():
             return ""
         return s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
 
+    # Przygotuj JSON dla history_photos (przekonwertuj na właściwy format JS)
+    photos_json = json.dumps(history_photos, ensure_ascii=False, indent=4)
+
     # Wygeneruj zawartość pliku JS
     js_content = f"""// Konfiguracja aktualnej miejscowości
 // Ten plik jest automatycznie generowany przez launcher
@@ -278,10 +308,7 @@ window.LOCATION_CONFIG = {{
     historyParagraph1: "{escape_js_string(history_p1)}",
     historyParagraph2: "{escape_js_string(history_p2)}",
     historyParagraph3: "{escape_js_string(history_p3)}",
-    photo1Path: "{escape_js_string(photo1_path)}",
-    photo1Caption: "{escape_js_string(photo1_caption)}",
-    photo2Path: "{escape_js_string(photo2_path)}",
-    photo2Caption: "{escape_js_string(photo2_caption)}"
+    historyPhotos: {photos_json}
 }};
 """
 
@@ -311,10 +338,14 @@ def set_location_template(location_id, template_name):
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                photo1_path="assets_index/dworzec_czarna.png", photo1_caption="Historyczne zdjęcie dworca.",
-                photo2_path="assets_index/protokol.jpg", photo2_caption="Fragment dokumentacji katastralnej."):
+                history_photos=None):
     """Dodaje nową miejscowość do bazy danych i tworzy folder."""
     init_locations_db()
+
+    # Konwertuj history_photos na JSON
+    if history_photos is None:
+        history_photos = []
+    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
 
     # Utwórz folder dla miejscowości
     location_folder = os.path.join(BACKUP_FOLDER, name)
@@ -350,11 +381,11 @@ ADMIN_PASSWORD_HASH=
     try:
         cursor.execute("""INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century,
                           homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          photo1_path, photo1_caption, photo2_path, photo2_caption)
-                          VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                          history_photos)
+                          VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)""",
                       (name, full_name, powiat, region, homepage_template, year, century,
                        homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       photo1_path, photo1_caption, photo2_path, photo2_caption))
+                       history_photos_json))
         conn.commit()
         location_id = cursor.lastrowid
         conn.close()
@@ -365,9 +396,14 @@ ADMIN_PASSWORD_HASH=
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                   photo1_path="", photo1_caption="", photo2_path="", photo2_caption=""):
+                   history_photos=None):
     """Aktualizuje dane miejscowości."""
     init_locations_db()
+
+    # Konwertuj history_photos na JSON
+    if history_photos is None:
+        history_photos = []
+    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
 
     # Pobierz starą nazwę
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
@@ -391,11 +427,11 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
     try:
         cursor.execute("""UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ?,
                           homepage_description = ?, history_paragraph1 = ?, history_paragraph2 = ?, history_paragraph3 = ?,
-                          photo1_path = ?, photo1_caption = ?, photo2_path = ?, photo2_caption = ?
+                          history_photos = ?
                           WHERE id = ?""",
                       (name, full_name, powiat, region, year, century,
                        homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       photo1_path, photo1_caption, photo2_path, photo2_caption, location_id))
+                       history_photos_json, location_id))
         conn.commit()
         conn.close()
     except sqlite3.IntegrityError:
@@ -1885,13 +1921,12 @@ class LocationManager(tk.Toplevel):
         if hasattr(dialog, 'result') and dialog.result:
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
-             photo1_path, photo1_caption, photo2_path, photo2_caption) = dialog.result
+             history_photos) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
-                           photo1_path=photo1_path, photo1_caption=photo1_caption,
-                           photo2_path=photo2_path, photo2_caption=photo2_caption)
+                           history_photos=history_photos)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -1913,7 +1948,7 @@ class LocationManager(tk.Toplevel):
         cursor = conn.cursor()
         cursor.execute("""SELECT name, full_name, powiat, region, year, century,
                           homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          photo1_path, photo1_caption, photo2_path, photo2_caption
+                          history_photos
                           FROM locations WHERE id = ?""", (loc_id,))
         result = cursor.fetchone()
         conn.close()
@@ -1924,7 +1959,7 @@ class LocationManager(tk.Toplevel):
 
         (name, full_name, powiat, region, year, century,
          homepage_desc, history_p1, history_p2, history_p3,
-         photo1_path, photo1_caption, photo2_path, photo2_caption) = result
+         history_photos_json) = result
 
         # Ustaw domyślne wartości jeśli None
         year = year or "1882"
@@ -1933,24 +1968,26 @@ class LocationManager(tk.Toplevel):
         history_p1 = history_p1 or ""
         history_p2 = history_p2 or ""
         history_p3 = history_p3 or ""
-        photo1_path = photo1_path or "assets_index/dworzec_czarna.png"
-        photo1_caption = photo1_caption or ""
-        photo2_path = photo2_path or "assets_index/protokol.jpg"
-        photo2_caption = photo2_caption or ""
+
+        # Sparsuj history_photos z JSON
+        try:
+            history_photos = json.loads(history_photos_json) if history_photos_json else []
+        except (json.JSONDecodeError, TypeError):
+            history_photos = []
 
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
-                                      photo1_path, photo1_caption, photo2_path, photo2_caption)
+                                      history_photos)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-             new_photo1_path, new_photo1_caption, new_photo2_path, new_photo2_caption) = dialog.result
+             new_history_photos) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-                              new_photo1_path, new_photo1_caption, new_photo2_path, new_photo2_caption)
+                              new_history_photos)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -2139,19 +2176,232 @@ class TemplateChangeDialog(tk.Toplevel):
         self.destroy()
 
 
+class PhotosManagerDialog(tk.Toplevel):
+    """Dialog do zarządzania listą zdjęć historycznych (max 20)."""
+
+    def __init__(self, parent, photos_list, base_dir):
+        super().__init__(parent)
+        self.title("📸 Zarządzaj zdjęciami historycznymi")
+        self.geometry("700x500")
+        self.transient(parent)
+        self.grab_set()
+
+        self.photos_list = photos_list.copy() if photos_list else []
+        self.base_dir = base_dir
+        self.assets_dir = os.path.join(base_dir, "strona_glowna", "assets_index")
+        self.result = None
+
+        # Główny frame
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Info o limicie
+        info_label = ttk.Label(main_frame, text="Możesz dodać maksymalnie 20 zdjęć. Zarządzaj kolejnością i podpisami.",
+                               foreground="gray")
+        info_label.pack(anchor=tk.W, pady=(0, 10))
+
+        # Frame z listą i scrollbarem
+        list_frame = ttk.Frame(main_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.photos_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, height=15)
+        self.photos_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.photos_listbox.yview)
+
+        # Przyciski do zarządzania
+        buttons_frame = ttk.Frame(main_frame)
+        buttons_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(buttons_frame, text="➕ Dodaj zdjęcie", command=self.add_photo).pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="✏️ Edytuj", command=self.edit_photo).pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="🗑️ Usuń", command=self.delete_photo).pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="⬆️ W górę", command=self.move_up).pack(side=tk.LEFT, padx=5)
+        ttk.Button(buttons_frame, text="⬇️ W dół", command=self.move_down).pack(side=tk.LEFT, padx=5)
+
+        # Przyciski OK/Cancel
+        bottom_frame = ttk.Frame(main_frame)
+        bottom_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(bottom_frame, text="✅ OK", command=self.on_ok).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(bottom_frame, text="❌ Anuluj", command=self.destroy).pack(side=tk.RIGHT)
+
+        # Załaduj listę
+        self.refresh_list()
+
+    def refresh_list(self):
+        """Odśwież listę zdjęć."""
+        self.photos_listbox.delete(0, tk.END)
+        for i, photo in enumerate(self.photos_list, 1):
+            self.photos_listbox.insert(tk.END, f"{i}. {photo['filename']} - {photo['caption'][:50]}")
+
+    def add_photo(self):
+        """Dodaj nowe zdjęcie."""
+        if len(self.photos_list) >= 20:
+            messagebox.showwarning("Limit zdjęć", "Możesz dodać maksymalnie 20 zdjęć.", parent=self)
+            return
+
+        # Wybierz plik
+        file_path = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz zdjęcie",
+            filetypes=[
+                ("Pliki graficzne", "*.png *.jpg *.jpeg *.gif *.bmp"),
+                ("Wszystkie pliki", "*.*")
+            ]
+        )
+
+        if not file_path:
+            return
+
+        # Pobierz nazwę bez rozszerzenia
+        original_filename = os.path.basename(file_path)
+        name_without_ext = os.path.splitext(original_filename)[0]
+        extension = os.path.splitext(original_filename)[1]
+
+        # Zapytaj o nazwę pliku
+        new_filename = tk.simpledialog.askstring(
+            "Nazwa pliku",
+            f"Podaj nazwę dla tego zdjęcia (bez rozszerzenia):",
+            initialvalue=name_without_ext,
+            parent=self
+        )
+
+        if not new_filename:
+            return
+
+        # Dodaj rozszerzenie
+        new_filename = new_filename + extension
+
+        # Zapytaj o podpis
+        caption = tk.simpledialog.askstring(
+            "Podpis zdjęcia",
+            "Podaj podpis do zdjęcia:",
+            parent=self
+        )
+
+        if not caption:
+            caption = "Zdjęcie historyczne"
+
+        # Sprawdź czy plik o tej nazwie już istnieje
+        dest_path = os.path.join(self.assets_dir, new_filename)
+        if os.path.exists(dest_path):
+            if not messagebox.askyesno("Plik istnieje",
+                                       f"Plik {new_filename} już istnieje. Czy nadpisać?",
+                                       parent=self):
+                return
+
+        # Skopiuj plik
+        try:
+            os.makedirs(self.assets_dir, exist_ok=True)
+            shutil.copy2(file_path, dest_path)
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się skopiować pliku:\n{e}", parent=self)
+            return
+
+        # Dodaj do listy
+        self.photos_list.append({
+            "filename": new_filename,
+            "caption": caption
+        })
+
+        self.refresh_list()
+        self.photos_listbox.selection_clear(0, tk.END)
+        self.photos_listbox.selection_set(tk.END)
+        self.photos_listbox.see(tk.END)
+
+    def edit_photo(self):
+        """Edytuj wybrany."""
+        selection = self.photos_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Brak wyboru", "Wybierz zdjęcie do edycji.", parent=self)
+            return
+
+        idx = selection[0]
+        photo = self.photos_list[idx]
+
+        # Edytuj podpis
+        new_caption = tk.simpledialog.askstring(
+            "Edytuj podpis",
+            "Podaj nowy podpis:",
+            initialvalue=photo['caption'],
+            parent=self
+        )
+
+        if new_caption is not None:
+            photo['caption'] = new_caption
+            self.refresh_list()
+            self.photos_listbox.selection_set(idx)
+
+    def delete_photo(self):
+        """Usuń wybrane zdjęcie."""
+        selection = self.photos_listbox.curselection()
+        if not selection:
+            messagebox.showinfo("Brak wyboru", "Wybierz zdjęcie do usunięcia.", parent=self)
+            return
+
+        idx = selection[0]
+        photo = self.photos_list[idx]
+
+        if messagebox.askyesno("Potwierdź usunięcie",
+                               f"Czy na pewno usunąć zdjęcie:\n{photo['filename']}?",
+                               parent=self):
+            del self.photos_list[idx]
+            self.refresh_list()
+
+    def move_up(self):
+        """Przesuń zdjęcie w górę."""
+        selection = self.photos_listbox.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        if idx == 0:
+            return  # Już na górze
+
+        # Zamień miejscami
+        self.photos_list[idx], self.photos_list[idx-1] = self.photos_list[idx-1], self.photos_list[idx]
+        self.refresh_list()
+        self.photos_listbox.selection_set(idx-1)
+        self.photos_listbox.see(idx-1)
+
+    def move_down(self):
+        """Przesuń zdjęcie w dół."""
+        selection = self.photos_listbox.curselection()
+        if not selection:
+            return
+
+        idx = selection[0]
+        if idx >= len(self.photos_list) - 1:
+            return  # Już na dole
+
+        # Zamień miejscami
+        self.photos_list[idx], self.photos_list[idx+1] = self.photos_list[idx+1], self.photos_list[idx]
+        self.refresh_list()
+        self.photos_listbox.selection_set(idx+1)
+        self.photos_listbox.see(idx+1)
+
+    def on_ok(self):
+        """Zatwierdź zmiany."""
+        self.result = self.photos_list
+        self.destroy()
+
+
 class AddEditLocationDialog(tk.Toplevel):
     """Dialog do dodawania/edytowania miejscowości z zakładkami."""
 
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                 photo1_path="assets_index/dworzec_czarna.png", photo1_caption="",
-                 photo2_path="assets_index/protokol.jpg", photo2_caption=""):
+                 history_photos=None):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
         self.grab_set()
 
         self.result = None
+        self.history_photos = history_photos if history_photos else []
 
         # Rozmiar większy dla zakładek
         w, h = 700, 600
@@ -2233,33 +2483,26 @@ class AddEditLocationDialog(tk.Toplevel):
         self.history_p3_text.insert("1.0", history_paragraph3)
         self.history_p3_text.pack(fill=tk.BOTH, expand=True)
 
-        # === ZAKŁADKA 4: Zdjęcia ===
+        # === ZAKŁADKA 4: Historia - Zdjęcia ===
         photos_frame = ttk.Frame(notebook, padding="20")
-        notebook.add(photos_frame, text="Zdjęcia")
+        notebook.add(photos_frame, text="Historia - Zdjęcia")
 
-        ttk.Label(photos_frame, text="Zdjęcie 1 - Ścieżka:").grid(row=0, column=0, sticky="w", pady=5)
-        self.photo1_path_entry = ttk.Entry(photos_frame, width=50)
-        self.photo1_path_entry.insert(0, photo1_path)
-        self.photo1_path_entry.grid(row=0, column=1, pady=5, padx=10, sticky="ew")
+        # Info
+        info_label = ttk.Label(photos_frame,
+                               text="Zarządzaj zdjęciami historycznymi wyświetlanymi na stronie historia.\n"
+                                    "Możesz dodać maksymalnie 20 zdjęć.",
+                               foreground="gray")
+        info_label.pack(anchor=tk.W, pady=(0, 10))
 
-        ttk.Label(photos_frame, text="Zdjęcie 1 - Podpis:").grid(row=1, column=0, sticky="nw", pady=5)
-        self.photo1_caption_text = scrolledtext.ScrolledText(photos_frame, width=50, height=3, wrap=tk.WORD)
-        self.photo1_caption_text.insert("1.0", photo1_caption)
-        self.photo1_caption_text.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
+        # Liczba zdjęć
+        count_label = ttk.Label(photos_frame, text=f"Obecnie: {len(self.history_photos)} zdjęć")
+        count_label.pack(anchor=tk.W, pady=(0, 10))
+        self.photos_count_label = count_label
 
-        ttk.Separator(photos_frame, orient='horizontal').grid(row=2, column=0, columnspan=2, sticky="ew", pady=10)
-
-        ttk.Label(photos_frame, text="Zdjęcie 2 - Ścieżka:").grid(row=3, column=0, sticky="w", pady=5)
-        self.photo2_path_entry = ttk.Entry(photos_frame, width=50)
-        self.photo2_path_entry.insert(0, photo2_path)
-        self.photo2_path_entry.grid(row=3, column=1, pady=5, padx=10, sticky="ew")
-
-        ttk.Label(photos_frame, text="Zdjęcie 2 - Podpis:").grid(row=4, column=0, sticky="nw", pady=5)
-        self.photo2_caption_text = scrolledtext.ScrolledText(photos_frame, width=50, height=3, wrap=tk.WORD)
-        self.photo2_caption_text.insert("1.0", photo2_caption)
-        self.photo2_caption_text.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
-
-        photos_frame.columnconfigure(1, weight=1)
+        # Przycisk zarządzania
+        manage_btn = ttk.Button(photos_frame, text="🖼️ Zarządzaj zdjęciami",
+                                command=self.manage_photos)
+        manage_btn.pack(anchor=tk.W)
 
         # Przyciski
         buttons_frame = ttk.Frame(main_frame)
@@ -2269,6 +2512,16 @@ class AddEditLocationDialog(tk.Toplevel):
                   style="Success.TButton").pack(side=tk.LEFT, padx=5)
         ttk.Button(buttons_frame, text="❌ Anuluj", command=self.destroy,
                   style="Danger.TButton").pack(side=tk.LEFT, padx=5)
+
+    def manage_photos(self):
+        """Otwiera dialog zarządzania zdjęciami."""
+        dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
+        self.wait_window(dialog)
+
+        if dialog.result is not None:
+            self.history_photos = dialog.result
+            # Zaktualizuj licznik
+            self.photos_count_label.config(text=f"Obecnie: {len(self.history_photos)} zdjęć")
 
     def save(self):
         """Zapisuje dane i zamyka okno."""
@@ -2284,10 +2537,6 @@ class AddEditLocationDialog(tk.Toplevel):
         history_p1 = self.history_p1_text.get("1.0", tk.END).strip()
         history_p2 = self.history_p2_text.get("1.0", tk.END).strip()
         history_p3 = self.history_p3_text.get("1.0", tk.END).strip()
-        photo1_path = self.photo1_path_entry.get().strip()
-        photo1_caption = self.photo1_caption_text.get("1.0", tk.END).strip()
-        photo2_path = self.photo2_path_entry.get().strip()
-        photo2_caption = self.photo2_caption_text.get("1.0", tk.END).strip()
 
         if not name:
             messagebox.showerror("❌ Błąd", "Nazwa jest wymagana!", parent=self)
@@ -2305,7 +2554,7 @@ class AddEditLocationDialog(tk.Toplevel):
 
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
-                      photo1_path, photo1_caption, photo2_path, photo2_caption)
+                      self.history_photos)
         self.destroy()
 
 
