@@ -843,6 +843,9 @@ class AppLauncher(tk.Tk):
         check_backup_folder_files()
         _auto_sync_site_icon()
 
+        # Automatycznie odśwież strony HTML z placeholderami
+        self.refresh_html_pages()
+
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
         
@@ -1221,6 +1224,18 @@ class AppLauncher(tk.Tk):
         
         add_cmd = f'netsh advfirewall firewall add rule name="{rule_name}" dir=in action=allow protocol=TCP localport={port} enable=yes profile=any'
         subprocess.run(add_cmd, shell=True)
+
+    def refresh_html_pages(self):
+        """Automatycznie odświeża wszystkie strony HTML z aktualnymi danymi miejscowości."""
+        try:
+            active_location = get_active_location()
+            if active_location:
+                # Pobierz aktualny szablon i wymuś jego zastosowanie
+                template = active_location[6] if len(active_location) > 6 else "standardowy"
+                apply_homepage_template(template)
+                print(f"✓ Automatycznie zaktualizowano strony HTML dla miejscowości: {active_location[1]}")
+        except Exception as e:
+            print(f"⚠️ Nie udało się automatycznie zaktualizować stron HTML: {e}")
 
     def refresh_locations(self):
         """Odświeża listę miejscowości w menu rozwijanym."""
