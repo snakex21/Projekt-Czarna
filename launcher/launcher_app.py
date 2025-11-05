@@ -76,7 +76,8 @@ def init_locations_db():
             powiat TEXT,
             region TEXT,
             active INTEGER DEFAULT 0,
-            homepage_template TEXT DEFAULT 'standardowy'
+            homepage_template TEXT DEFAULT 'standardowy',
+            year TEXT DEFAULT '1882'
         )
     """)
 
@@ -88,6 +89,14 @@ def init_locations_db():
         cursor.execute("ALTER TABLE locations ADD COLUMN homepage_template TEXT DEFAULT 'standardowy'")
         print("✓ Dodano kolumnę homepage_template do tabeli locations")
 
+    # Migracja: dodaj kolumnę year jeśli nie istnieje
+    try:
+        cursor.execute("SELECT year FROM locations LIMIT 1")
+    except sqlite3.OperationalError:
+        # Kolumna nie istnieje, dodaj ją
+        cursor.execute("ALTER TABLE locations ADD COLUMN year TEXT DEFAULT '1882'")
+        print("✓ Dodano kolumnę year do tabeli locations")
+
     conn.commit()
     conn.close()
 
@@ -96,17 +105,17 @@ def get_all_locations():
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template FROM locations ORDER BY name")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year FROM locations ORDER BY name")
     locations = cursor.fetchall()
     conn.close()
     return locations
 
 def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template)."""
+    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template, year)."""
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template FROM locations WHERE active = 1")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year FROM locations WHERE active = 1")
     location = cursor.fetchone()
     conn.close()
     return location
@@ -146,7 +155,7 @@ def set_location_template(location_id, template_name):
     conn.commit()
     conn.close()
 
-def add_location(name, full_name, powiat="", region="", homepage_template="standardowy"):
+def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882"):
     """Dodaje nową miejscowość do bazy danych i tworzy folder."""
     init_locations_db()
 
@@ -182,8 +191,8 @@ ADMIN_PASSWORD_HASH=
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template) VALUES (?, ?, ?, ?, 0, ?)",
-                      (name, full_name, powiat, region, homepage_template))
+        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year) VALUES (?, ?, ?, ?, 0, ?, ?)",
+                      (name, full_name, powiat, region, homepage_template, year))
         conn.commit()
         location_id = cursor.lastrowid
         conn.close()
@@ -391,11 +400,12 @@ def apply_homepage_template(template_name):
                 print("❌ Brak aktywnej miejscowości")
                 return False
 
-            # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active)
+            # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year)
             location_name = active_location[1]
             location_full_name = active_location[2] or location_name
             location_powiat = active_location[3] or "Powiat"
             location_region = active_location[4] or "Region"
+            location_year = active_location[7] if len(active_location) > 7 else "1882"
 
             # Wczytaj szablon
             with open(template_path, 'r', encoding='utf-8') as f:
@@ -406,12 +416,13 @@ def apply_homepage_template(template_name):
             content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
             content = content.replace('{{POWIAT}}', location_powiat)
             content = content.replace('{{REGION}}', location_region)
+            content = content.replace('{{YEAR}}', location_year)
 
             # Zapisz
             with open(target_path, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            print(f"✅ Zastosowano szablon 'standardowy' dla miejscowości: {location_full_name}")
+            print(f"✅ Zastosowano szablon 'standardowy' dla miejscowości: {location_full_name} ({location_year})")
 
         else:
             # Dla innych szablonów - po prostu skopiuj
@@ -1656,7 +1667,7 @@ class LocationManager(tk.Toplevel):
 
         # Wypełnij tabelę
         for loc in locations:
-            loc_id, name, full_name, powiat, region, active, template = loc
+            loc_id, name, full_name, powiat, region, active, template, year = loc
             active_str = "✓" if active else ""
             template_display = template_names.get(template, template)
             self.tree.insert("", "end", values=(loc_id, name, full_name, powiat, region, template_display, active_str))
