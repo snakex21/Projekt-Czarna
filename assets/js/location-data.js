@@ -14,19 +14,21 @@
 
     const config = window.LOCATION_CONFIG;
 
+    // Mapa placeholderów na wartości
+    const placeholders = {
+        '{{MIEJSCOWOSC}}': config.name,
+        '{{MIEJSCOWOSC_PELNA}}': config.fullName,
+        '{{POWIAT}}': config.powiat,
+        '{{REGION}}': config.region,
+        '{{YEAR}}': config.year,
+        '{{WIEK}}': config.century
+    };
+
     /**
      * Zamienia wszystkie placeholdery w dokumencie na dane z konfiguracji
      */
-    function replacePlaceholders() {
-        // Mapa placeholderów na wartości
-        const placeholders = {
-            '{{MIEJSCOWOSC}}': config.name,
-            '{{MIEJSCOWOSC_PELNA}}': config.fullName,
-            '{{POWIAT}}': config.powiat,
-            '{{REGION}}': config.region,
-            '{{YEAR}}': config.year,
-            '{{WIEK}}': config.century
-        };
+    function replacePlaceholders(rootElement) {
+        const root = rootElement || document.body;
 
         // Funkcja rekurencyjna do przeszukiwania wszystkich węzłów tekstowych
         function processNode(node) {
@@ -76,26 +78,66 @@
             }
         }
 
-        // Zacznij od całego dokumentu
-        processNode(document.body);
+        // Przetworz drzewo DOM
+        processNode(root);
 
-        // Zaktualizuj również tytuł strony
-        if (document.title) {
+        // Zaktualizuj również tytuł strony (tylko jeśli przetwarzamy cały dokument)
+        if (root === document.body && document.title) {
             let title = document.title;
             for (const [placeholder, value] of Object.entries(placeholders)) {
                 title = title.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
             }
             document.title = title;
         }
-
-        console.log('✓ Dane miejscowości zostały wstawione:', config);
     }
+
+    // Eksportuj funkcję globalnie, żeby można było wywołać ręcznie
+    window.applyLocationData = function() {
+        replacePlaceholders();
+        console.log('✓ Dane miejscowości zostały wstawione:', config);
+    };
 
     // Uruchom gdy DOM jest gotowy
+    function initialize() {
+        replacePlaceholders();
+        console.log('✓ Dane miejscowości zostały wstawione (inicjalizacja):', config);
+
+        // Obserwuj zmiany DOM i automatycznie przetwarzaj nową zawartość
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                // Jeśli dodano nowe węzły
+                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            replacePlaceholders(node);
+                        }
+                    });
+                }
+            });
+        });
+
+        // Zacznij obserwować zmiany w document.body
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        console.log('✓ MutationObserver aktywny - automatyczne przetwarzanie nowej zawartości');
+    }
+
+    // Uruchom
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', replacePlaceholders);
+        document.addEventListener('DOMContentLoaded', initialize);
     } else {
         // DOM już załadowany
-        replacePlaceholders();
+        initialize();
     }
+
+    // Dodatkowe wywołanie po pełnym załadowaniu strony (dla pewności)
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            replacePlaceholders();
+            console.log('✓ Dane miejscowości ponownie wstawione (po window.load)');
+        }, 100);
+    });
 })();
