@@ -1669,9 +1669,17 @@ class MapCalibrator(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.resizable(False, False)
-        
+
         self.parent_app = parent
-        self.config_path = os.path.join(BACKUP_FOLDER, "map_config.json")
+
+        # Użyj folderu aktywnej miejscowości
+        active_location_name = get_active_location_name()
+        if active_location_name:
+            location_folder = os.path.join(BACKUP_FOLDER, active_location_name)
+        else:
+            location_folder = BACKUP_FOLDER
+
+        self.config_path = os.path.join(location_folder, "map_config.json")
         self.vars = {
             'sw_lat': tk.StringVar(), 'sw_lng': tk.StringVar(),
             'ne_lat': tk.StringVar(), 'ne_lng': tk.StringVar(),
@@ -2798,25 +2806,28 @@ class BackupManager(tk.Toplevel):
         selected = self.tree.selection()
         if not selected:
             return
-        
+
         filename = selected[0]
-        
+
         msg = (f"⚠️ UWAGA! Ta operacja jest NIEODWRACALNA.\n\n"
                f"Czy na pewno przywrócić dane z:\n'{filename}'?\n\n"
                "Spowoduje to:\n"
                "• NADPISANIE wszystkich istniejących danych\n"
                "• ZASTĄPIENIE folderu ze skanami\n"
                "• UTRATĘ wszystkich niezapisanych zmian")
-        
+
         if not messagebox.askyesno("⚠️ POTWIERDZENIE KRYTYCZNEJ OPERACJI", msg, icon="warning", parent=self):
             return
-        
+
         backup_path = os.path.join(BACKUP_FOLDER, filename)
-        
+
         try:
             with zipfile.ZipFile(backup_path, "r") as zf:
                 archive_contents = zf.namelist()
-                
+
+                # Sprawdź czy to nowy format (z folderami miejscowości) czy stary
+                has_location_folders = any('/' in f and not f.startswith('assets/') for f in archive_contents)
+
                 # Przywracanie skanów
                 scan_files = [f for f in archive_contents if f.startswith("assets/protokoly/")]
                 if scan_files:
@@ -2825,21 +2836,37 @@ class BackupManager(tk.Toplevel):
                     for file_info in zf.infolist():
                         if file_info.filename.startswith("assets/protokoly/"):
                             zf.extract(file_info, path=BASE_DIR)
-                
-                # Przywracanie plików JSON
-                if "map_config.json" in archive_contents:
-                    zf.extract("map_config.json", path=BACKUP_FOLDER)
-                
-                for key in ["owners", "parcels", "genealogy"]:
-                    json_filename = os.path.basename(DATA_FILES[key]["path"])
-                    if json_filename in archive_contents:
-                        zf.extract(json_filename, path=BACKUP_FOLDER)
-                    
-                    for related_path in DATA_FILES[key].get("related", []):
-                        related_filename = os.path.basename(related_path)
-                        if related_filename in archive_contents:
-                            zf.extract(related_filename, path=BACKUP_FOLDER)
-            
+
+                if has_location_folders:
+                    # Nowy format - wyodrębnij bezpośrednio do backup/
+                    # Struktura w ZIP: {miejscowość}/*.json
+                    for file_info in zf.infolist():
+                        if not file_info.filename.startswith('assets/'):
+                            # Wyodrębnij pliki miejscowości zachowując strukturę folderów
+                            zf.extract(file_info, path=BACKUP_FOLDER)
+                else:
+                    # Stary format - pliki bezpośrednio w root ZIP
+                    # Wyodrębnij do aktywnej miejscowości
+                    active_location_name = get_active_location_name()
+                    if active_location_name:
+                        target_folder = os.path.join(BACKUP_FOLDER, active_location_name)
+                    else:
+                        target_folder = BACKUP_FOLDER
+
+                    # Przywracanie plików JSON
+                    if "map_config.json" in archive_contents:
+                        zf.extract("map_config.json", path=target_folder)
+
+                    for key in ["owners", "parcels", "genealogy"]:
+                        json_filename = os.path.basename(DATA_FILES[key]["path"])
+                        if json_filename in archive_contents:
+                            zf.extract(json_filename, path=target_folder)
+
+                        for related_path in DATA_FILES[key].get("related", []):
+                            related_filename = os.path.basename(related_path)
+                            if related_filename in archive_contents:
+                                zf.extract(related_filename, path=target_folder)
+
             messagebox.showinfo("✅ Sukces",
                               "Kopia zapasowa została przywrócona.\n\n"
                               "Uruchom ponownie edytory, aby zobaczyć zmiany.",
