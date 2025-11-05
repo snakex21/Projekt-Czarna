@@ -6,7 +6,7 @@ System Mapy Katastralnej - Centrum Zarządzania
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, scrolledtext
+from tkinter import ttk, messagebox, filedialog, scrolledtext, simpledialog
 import subprocess
 import threading
 import os
