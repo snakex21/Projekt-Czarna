@@ -112,6 +112,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
 CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON locations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -126,6 +127,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS single_active_location ON locations;
 CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
     FOR EACH ROW EXECUTE FUNCTION ensure_single_active_location();
 """
@@ -3364,11 +3366,22 @@ class DatabaseWizard(tk.Toplevel):
             self.log("   Użyj opcji 'Pełna instalacja' lub 'Tylko baza launcher'")
             raise Exception("Baza mapa_launcher_db nie istnieje")
 
-        self.log("1. Usuwam stare tabele...")
+        self.log("1. Usuwam stare wyzwalacze, funkcje i tabele...")
 
-        # SQL do usunięcia tabel
+        # SQL do usunięcia wszystkiego w odpowiedniej kolejności
         drop_sql = """
+        -- Usuń wyzwalacze
+        DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
+        DROP TRIGGER IF EXISTS single_active_location ON locations;
+
+        -- Usuń tabele (CASCADE usuwa też zależności)
+        DROP TABLE IF EXISTS history_photos CASCADE;
         DROP TABLE IF EXISTS locations CASCADE;
+
+        -- Funkcje można zostawić (są nadpisywane przez CREATE OR REPLACE)
+        -- ale dla czystości można je usunąć:
+        DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+        DROP FUNCTION IF EXISTS ensure_single_active_location() CASCADE;
         """
 
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=drop_sql)
