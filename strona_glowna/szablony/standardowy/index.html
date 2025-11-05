@@ -68,8 +68,7 @@
                 <!-- Opis projektu -->
                 <div class="description-wrapper">
                     <p class="main-description">
-                        Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne,
-                        poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z {{YEAR}} roku.
+                        {{HOMEPAGE_DESCRIPTION}}
                     </p>
                 </div>
 
@@ -236,5 +235,9 @@
             elements.forEach(el => observer.observe(el));
         });
     </script>
+
+    <!-- Dane miejscowości (automatycznie generowane przez launcher) -->
+    <script src="../../assets/js/location-config.js"></script>
+    <script src="../../assets/js/location-data.js"></script>
 </body>
 </html>
