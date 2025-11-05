@@ -261,135 +261,295 @@ def postgres_list_databases(host, port, user, password):
         return []
 
 
+def get_launcher_postgres_connection():
+    """
+    Zwraca połączenie do bazy danych mapa_launcher_db.
+    Używa konfiguracji z get_postgres_config().
+
+    Returns:
+        psycopg2.connection: Połączenie do bazy danych
+
+    Raises:
+        Exception: Jeśli nie można połączyć się z bazą
+    """
+    config = get_postgres_config()
+    try:
+        conn = psycopg2.connect(
+            host=config['host'],
+            port=config['port'],
+            user=config['user'],
+            password=config['password'],
+            database='mapa_launcher_db'
+        )
+        return conn
+    except psycopg2.OperationalError as e:
+        raise Exception(f"Nie można połączyć się z bazą mapa_launcher_db: {str(e)}")
+
+
+def init_postgres_locations_db():
+    """
+    Inicjalizuje bazę PostgreSQL mapa_launcher_db jeśli nie istnieje.
+    Tworzy bazę i wykonuje schemat.
+
+    Returns:
+        bool: True jeśli sukces, False jeśli błąd
+    """
+    config = get_postgres_config()
+
+    # Sprawdź czy baza istnieje
+    if not postgres_database_exists(config['host'], config['port'], config['user'],
+                                     config['password'], 'mapa_launcher_db'):
+        # Utwórz bazę
+        success, msg = postgres_create_database(config['host'], config['port'],
+                                                 config['user'], config['password'],
+                                                 'mapa_launcher_db')
+        if not success:
+            print(f"❌ Błąd tworzenia bazy: {msg}")
+            return False
+        print(f"✓ {msg}")
+
+    # Wykonaj schemat
+    success, msg = postgres_execute_schema(config['host'], config['port'],
+                                            config['user'], config['password'],
+                                            'mapa_launcher_db', LAUNCHER_DB_SCHEMA)
+    if not success:
+        print(f"❌ Błąd wykonywania schematu: {msg}")
+        return False
+
+    print(f"✓ Baza mapa_launcher_db jest gotowa")
+    return True
+
+
+def migrate_sqlite_to_postgres():
+    """
+    Migruje dane z locations.db (SQLite) do mapa_launcher_db (PostgreSQL).
+
+    - Odczytuje wszystkie rekordy z SQLite
+    - Wstawia je do PostgreSQL (locations i history_photos)
+    - Obsługuje zarówno stary format (photo1/2) jak i nowy (history_photos JSON)
+
+    Returns:
+        tuple: (success: bool, message: str, migrated_count: int)
+    """
+    try:
+        # Sprawdź czy plik SQLite istnieje
+        if not os.path.exists(LOCATIONS_DB_PATH):
+            return False, "Plik locations.db nie istnieje", 0
+
+        # Połącz się z SQLite
+        sqlite_conn = sqlite3.connect(LOCATIONS_DB_PATH)
+        sqlite_cursor = sqlite_conn.cursor()
+
+        # Pobierz wszystkie miejscowości
+        sqlite_cursor.execute("""
+            SELECT id, name, full_name, powiat, region, active,
+                   homepage_template, year, century,
+                   homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                   photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
+            FROM locations
+        """)
+        locations = sqlite_cursor.fetchall()
+        sqlite_conn.close()
+
+        if not locations:
+            return False, "Brak danych w locations.db do migracji", 0
+
+        # Inicjalizuj PostgreSQL
+        if not init_postgres_locations_db():
+            return False, "Nie można zainicjalizować bazy PostgreSQL", 0
+
+        # Połącz się z PostgreSQL
+        pg_conn = get_launcher_postgres_connection()
+        pg_cursor = pg_conn.cursor()
+
+        migrated = 0
+        for loc in locations:
+            (sqlite_id, name, full_name, powiat, region, active,
+             homepage_template, year, century,
+             homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+             photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos_json) = loc
+
+            # Sprawdź czy miejscowość już istnieje w PostgreSQL
+            pg_cursor.execute("SELECT id FROM locations WHERE name = %s", (name,))
+            existing = pg_cursor.fetchone()
+
+            if existing:
+                # Zaktualizuj istniejący rekord
+                location_id = existing[0]
+                pg_cursor.execute("""
+                    UPDATE locations SET
+                        full_name = %s, powiat = %s, region = %s, active = %s,
+                        homepage_template = %s, year = %s, century = %s,
+                        homepage_description = %s, history_paragraph1 = %s,
+                        history_paragraph2 = %s, history_paragraph3 = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (full_name, powiat, region, bool(active),
+                      homepage_template, year, century,
+                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                      location_id))
+            else:
+                # Wstaw nowy rekord
+                pg_cursor.execute("""
+                    INSERT INTO locations (name, full_name, powiat, region, active,
+                                          homepage_template, year, century,
+                                          homepage_description, history_paragraph1,
+                                          history_paragraph2, history_paragraph3)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (name, full_name, powiat, region, bool(active),
+                      homepage_template, year, century,
+                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3))
+                location_id = pg_cursor.fetchone()[0]
+
+            # Migruj zdjęcia historyczne
+            # Usuń stare zdjęcia dla tej lokalizacji
+            pg_cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
+
+            # Parsuj history_photos z JSON
+            photos = []
+            if history_photos_json:
+                try:
+                    photos = json.loads(history_photos_json)
+                except:
+                    pass
+
+            # Jeśli brak photos w JSON, użyj starych pól photo1/2
+            if not photos:
+                if photo1_path:
+                    photos.append({
+                        "filename": os.path.basename(photo1_path),
+                        "caption": photo1_caption or "Historyczne zdjęcie."
+                    })
+                if photo2_path:
+                    photos.append({
+                        "filename": os.path.basename(photo2_path),
+                        "caption": photo2_caption or "Fragment dokumentacji."
+                    })
+
+            # Wstaw zdjęcia do tabeli history_photos
+            for idx, photo in enumerate(photos):
+                pg_cursor.execute("""
+                    INSERT INTO history_photos (location_id, filename, caption, order_index)
+                    VALUES (%s, %s, %s, %s)
+                """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
+
+            migrated += 1
+
+        pg_conn.commit()
+        pg_cursor.close()
+        pg_conn.close()
+
+        return True, f"Zmigrowano {migrated} miejscowości", migrated
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return False, f"Błąd migracji: {str(e)}", 0
+
+
 # =============================================================================
 # ZARZĄDZANIE MIEJSCOWOŚCIAMI - definicje funkcji przed get_data_files()
 # =============================================================================
 def init_locations_db():
-    """Inicjalizuje bazę danych miejscowości."""
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS locations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            powiat TEXT,
-            region TEXT,
-            active INTEGER DEFAULT 0,
-            homepage_template TEXT DEFAULT 'standardowy',
-            year TEXT DEFAULT '1882',
-            century TEXT DEFAULT 'XIX w.'
-        )
-    """)
-
-    # Migracja: dodaj kolumnę homepage_template jeśli nie istnieje
+    """
+    Inicjalizuje bazę danych miejscowości (PostgreSQL).
+    Wywołuje init_postgres_locations_db() aby utworzyć mapa_launcher_db i tabele.
+    """
     try:
-        cursor.execute("SELECT homepage_template FROM locations LIMIT 1")
-    except sqlite3.OperationalError:
-        # Kolumna nie istnieje, dodaj ją
-        cursor.execute("ALTER TABLE locations ADD COLUMN homepage_template TEXT DEFAULT 'standardowy'")
-        print("✓ Dodano kolumnę homepage_template do tabeli locations")
-
-    # Migracja: dodaj kolumnę year jeśli nie istnieje
-    try:
-        cursor.execute("SELECT year FROM locations LIMIT 1")
-    except sqlite3.OperationalError:
-        # Kolumna nie istnieje, dodaj ją
-        cursor.execute("ALTER TABLE locations ADD COLUMN year TEXT DEFAULT '1882'")
-        print("✓ Dodano kolumnę year do tabeli locations")
-
-    # Migracja: dodaj kolumnę century jeśli nie istnieje
-    try:
-        cursor.execute("SELECT century FROM locations LIMIT 1")
-    except sqlite3.OperationalError:
-        # Kolumna nie istnieje, dodaj ją
-        cursor.execute("ALTER TABLE locations ADD COLUMN century TEXT DEFAULT 'XIX w.'")
-        print("✓ Dodano kolumnę century do tabeli locations")
-
-    # Aktualizuj istniejące rekordy które mają NULL w century
-    cursor.execute("UPDATE locations SET century = 'XIX w.' WHERE century IS NULL OR century = ''")
-    updated_rows = cursor.rowcount
-    if updated_rows > 0:
-        print(f"✓ Zaktualizowano {updated_rows} rekordów z pustym wiekiem na 'XIX w.'")
-
-    # Migracja: dodaj kolumny dla edytowalnych tekstów
-    text_columns = [
-        ('homepage_description', 'TEXT', 'Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.'),
-        ('history_paragraph1', 'TEXT', 'Miejscowość Czarna znajduje się pomiędzy miastami: Tarnów, Dębica, Pilzno, Radomyśl Wielki, została utworzona najprawdopodobniej w XVI wieku. Jak dotąd pasjonatom historii tej ziemi nie udało się odnaleźć dokumentu o utworzeniu tej wsi. Ale sądząc z utworzenia sąsiednich miejscowości: Jaźwiny 1364 r, Borowa 1404r., Głowaczowa 1418, Żdżary(w latach 1407-1416), itd., mogło to być trochę wcześniej, bo wyznaczone zostały ich granice. Przez Czarną płynie rzeka w dawnych wiekach o tej samej nazwie, obecnie „Czarny potok". Wspomniane miejscowości powstały po wykarczowaniu drzew Puszczy Sandomierskiej. Czarna słabo się rozwijała ze względu na niskiej klasy gleby (piaszczyste), a także z powodu braku stałego koryta przepływającej rzeki Czarna, były to poważne bariery.'),
-        ('history_paragraph2', 'TEXT', 'Tutejsi ludzie oprócz rolnictwa, zajmowali się „wypalaniem węgla drzewnego do celów kowalskich oraz pozyskiwaniem drzew i wywozili do miast i osiedli okolicznych, stąd prawdopodobnie też nazwa miejscowości Czarna". Tutejsi rolnicy zajmowali się chowem bydła, wołów, których używali do pracy na roli i wywozem wspomnianego węgla i drzewa do miast okolicznych. Być może taki stan długo by jeszcze trwał, gdyby nie budowa kolei żelaznych w połowie XIX wieku. Pierwotne plany przewidywały przebieg szlaku kolejowego przez Pilzno, ale przy braku zgody włodarzy tego miasta, na budowę przez ich terytorium, wytyczono przez Czarną. Po wybudowaniu przez zaborcę austriackiego kolei relacji Kraków – Dębica w 1856 roku, Czarna uzyskała okno na świat, otworzyła się szansa na pracę poza rolnictwem. Spowodowało to również napływ ludzi z zewnątrz, którzy tutaj kupowali grunty jako inwestycję swoich pieniędzy. Ale też istniał inny problem, uporządkowanie własności w księgach gruntowych po uwłaszczeniu chłopów. Dla ludzi nie interesujących się historią zapewne będzie sporym zaskoczeniem, że każda miejscowość w minionych wiekach była prywatną własnością. W XIX wieku właścicielką Czarnej była między innymi hrabina Henryka Kuczkowska z domu Ankwicz (znana jako wielka miłość Adama Mickiewicza) mająca swój dwór w pobliskiej Machowej.'),
-        ('history_paragraph3', 'TEXT', 'W roku 1882 Czarna liczyła 555 mieszkańców, dla porównania przed uruchomieniem kolei było to tylko 442, a wiec przyrost 113 osób. Ale nasza praca dotyczy roku 1882, kiedy to dokonano komisyjnego przeglądu, kto jakie parcele posiada i jak wszedł w ich posiadanie.'),
-        ('photo1_path', 'TEXT', 'assets_index/dworzec_czarna.png'),
-        ('photo1_caption', 'TEXT', 'Historyczne zdjęcie dworca kolejowego w Czarnej, kluczowego dla rozwoju wsi w XIX wieku.'),
-        ('photo2_path', 'TEXT', 'assets_index/protokol.jpg'),
-        ('photo2_caption', 'TEXT', 'Fragment dokumentacji katastralnej.')
-    ]
-
-    for col_name, col_type, default_value in text_columns:
-        try:
-            cursor.execute(f"SELECT {col_name} FROM locations LIMIT 1")
-        except sqlite3.OperationalError:
-            # Kolumna nie istnieje, dodaj ją
-            cursor.execute(f"ALTER TABLE locations ADD COLUMN {col_name} {col_type}")
-            print(f"✓ Dodano kolumnę {col_name} do tabeli locations")
-            # Ustaw domyślne wartości dla istniejących rekordów
-            cursor.execute(f"UPDATE locations SET {col_name} = ? WHERE {col_name} IS NULL OR {col_name} = ''", (default_value,))
-            print(f"✓ Ustawiono domyślną wartość dla {col_name}")
-
-    # Migracja: dodaj kolumnę history_photos jako JSON array (max 20 zdjęć)
-    try:
-        cursor.execute("SELECT history_photos FROM locations LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("ALTER TABLE locations ADD COLUMN history_photos TEXT")
-        print("✓ Dodano kolumnę history_photos do tabeli locations")
-
-        # Migruj istniejące dane z photo1/2 do history_photos jako JSON array
-        cursor.execute("SELECT id, photo1_path, photo1_caption, photo2_path, photo2_caption FROM locations")
-        rows = cursor.fetchall()
-        for row in rows:
-            loc_id, p1_path, p1_caption, p2_path, p2_caption = row
-            photos = []
-            if p1_path:
-                photos.append({
-                    "filename": os.path.basename(p1_path) if p1_path else "",
-                    "caption": p1_caption or "Historyczne zdjęcie dworca."
-                })
-            if p2_path:
-                photos.append({
-                    "filename": os.path.basename(p2_path) if p2_path else "",
-                    "caption": p2_caption or "Fragment dokumentacji katastralnej."
-                })
-            photos_json = json.dumps(photos, ensure_ascii=False)
-            cursor.execute("UPDATE locations SET history_photos = ? WHERE id = ?", (photos_json, loc_id))
-        print(f"✓ Zmigrowano {len(rows)} rekordów z photo1/2 do history_photos")
-
-    conn.commit()
-    conn.close()
+        init_postgres_locations_db()
+    except Exception as e:
+        print(f"⚠️ Błąd inicjalizacji bazy PostgreSQL: {e}")
+        print("⚠️ Upewnij się, że PostgreSQL jest uruchomiony i skonfigurowany.")
+        # Nie rzucamy wyjątku - pozwól aplikacji działać, użytkownik może użyć kreatora bazy danych
 
 def get_all_locations():
-    """Zwraca wszystkie miejscowości z bazy danych."""
-    init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+    """
+    Zwraca wszystkie miejscowości z bazy danych PostgreSQL.
+
+    Returns:
+        list of tuples: Lista miejscowości posortowana po nazwie
+        Format tuple: (id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
-                      FROM locations ORDER BY name""")
-    locations = cursor.fetchall()
-    conn.close()
-    return locations
+                      None, None, None, None, history_photos_json)
+
+        Pola None (14-17) są dla kompatybilności wstecznej z photo1/2 (już nieużywane).
+        Pole 18 (history_photos_json) zawiera JSON array zdjęć historycznych.
+    """
+    init_locations_db()
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Pobierz miejscowości wraz ze zdjęciami jako JSON array
+        cursor.execute("""
+            SELECT
+                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                l.homepage_template, l.year, l.century,
+                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                     FROM history_photos WHERE location_id = l.id),
+                    '[]'::json
+                )::text as history_photos
+            FROM locations l
+            ORDER BY l.name
+        """)
+        locations = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Zwróć tuple z polami None dla photo1/2 (dla kompatybilności wstecznej)
+        result = []
+        for loc in locations:
+            # (id, name, full_name, powiat, region, active, homepage_template, year, century,
+            #  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+            #  photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos)
+            result.append(loc[:13] + (None, None, None, None, loc[13]))
+        return result
+    except Exception as e:
+        print(f"❌ Błąd pobierania miejscowości: {e}")
+        return []
 
 def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple z wszystkimi polami."""
-    init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+    """
+    Zwraca aktywną miejscowość jako tuple z wszystkimi polami.
+
+    Returns:
+        tuple or None: Aktywna miejscowość lub None jeśli brak aktywnej
+        Format tuple: (id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
-                      FROM locations WHERE active = 1""")
-    location = cursor.fetchone()
-    conn.close()
-    return location
+                      None, None, None, None, history_photos_json)
+    """
+    init_locations_db()
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                l.homepage_template, l.year, l.century,
+                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                     FROM history_photos WHERE location_id = l.id),
+                    '[]'::json
+                )::text as history_photos
+            FROM locations l
+            WHERE l.active = true
+        """)
+        location = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if location:
+            # Dodaj pola None dla photo1/2 (dla kompatybilności wstecznej)
+            return location[:13] + (None, None, None, None, location[13])
+        return None
+    except Exception as e:
+        print(f"❌ Błąd pobierania aktywnej miejscowości: {e}")
+        return None
 
 def get_active_location_name():
     """Zwraca nazwę aktywnej miejscowości lub None."""
@@ -397,28 +557,34 @@ def get_active_location_name():
     return location[1] if location else None
 
 def set_active_location(location_id):
-    """Ustawia miejscowość jako aktywną i automatycznie aplikuje jej szablon strony."""
+    """
+    Ustawia miejscowość jako aktywną i automatycznie aplikuje jej szablon strony.
+
+    PostgreSQL trigger automatycznie wyłącza inne miejscowości gdy ta staje się aktywna.
+    """
     init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
 
-    # Pobierz szablon dla tej miejscowości
-    cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    template = result[0] if result and result[0] else "standardowy"
+        # Pobierz szablon dla tej miejscowości
+        cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (location_id,))
+        result = cursor.fetchone()
+        template = result[0] if result and result[0] else "standardowy"
 
-    # Wyłącz wszystkie inne miejscowości
-    cursor.execute("UPDATE locations SET active = 0")
-    # Ustaw wybraną jako aktywną
-    cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
-    conn.commit()
-    conn.close()
+        # Ustaw wybraną jako aktywną (trigger automatycznie wyłączy inne)
+        cursor.execute("UPDATE locations SET active = true WHERE id = %s", (location_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
 
-    # Automatycznie aplikuj szablon dla tej miejscowości
-    apply_homepage_template(template)
+        # Automatycznie aplikuj szablon dla tej miejscowości
+        apply_homepage_template(template)
 
-    # Wygeneruj plik JS z danymi miejscowości
-    generate_location_config_js()
+        # Wygeneruj plik JS z danymi miejscowości
+        generate_location_config_js()
+    except Exception as e:
+        print(f"❌ Błąd ustawiania aktywnej miejscowości: {e}")
 
 def generate_location_config_js():
     """
@@ -434,13 +600,17 @@ def generate_location_config_js():
             print("⚠️ Brak aktywnej miejscowości - ustawiam pierwszą dostępną")
             # Ręcznie ustaw pierwszą miejscowość jako aktywną (bez wywoływania set_active_location, żeby uniknąć rekurencji)
             init_locations_db()
-            conn = sqlite3.connect(LOCATIONS_DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute("UPDATE locations SET active = 0")
-            cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (all_locations[0][0],))
-            conn.commit()
-            conn.close()
-            active_location = get_active_location()
+            try:
+                conn = get_launcher_postgres_connection()
+                cursor = conn.cursor()
+                cursor.execute("UPDATE locations SET active = false")
+                cursor.execute("UPDATE locations SET active = true WHERE id = %s", (all_locations[0][0],))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                active_location = get_active_location()
+            except Exception as e:
+                print(f"❌ Błąd ustawiania pierwszej miejscowości: {e}")
 
     if not active_location:
         print("⚠️ Brak miejscowości w bazie danych - tworzę plik JS z domyślnymi wartościami")
@@ -529,23 +699,46 @@ window.LOCATION_CONFIG = {{
 def set_location_template(location_id, template_name):
     """Ustawia szablon strony głównej dla danej miejscowości."""
     init_locations_db()
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE locations SET homepage_template = ? WHERE id = ?", (template_name, location_id))
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE locations SET homepage_template = %s WHERE id = %s", (template_name, location_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"❌ Błąd ustawiania szablonu: {e}")
 
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
                 history_photos=None):
-    """Dodaje nową miejscowość do bazy danych i tworzy folder."""
+    """
+    Dodaje nową miejscowość do bazy danych PostgreSQL i tworzy folder.
+
+    Args:
+        name: Nazwa miejscowości (unikalna)
+        full_name: Pełna nazwa
+        powiat: Nazwa powiatu
+        region: Nazwa regionu
+        homepage_template: Szablon strony głównej
+        year: Rok mapy katastralnej
+        century: Wiek mapy
+        homepage_description: Opis na stronie głównej
+        history_paragraph1-3: Paragrafy historii
+        history_photos: Lista zdjęć historycznych (max 20)
+
+    Returns:
+        int: ID nowej miejscowości
+
+    Raises:
+        ValueError: Jeśli miejscowość już istnieje
+    """
     init_locations_db()
 
-    # Konwertuj history_photos na JSON
+    # Obsłuż history_photos
     if history_photos is None:
         history_photos = []
-    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
 
     # Utwórz folder dla miejscowości
     location_folder = os.path.join(BACKUP_FOLDER, name)
@@ -575,97 +768,175 @@ ADMIN_PASSWORD_HASH=
         with open(env_path, 'w', encoding='utf-8') as f:
             f.write(default_env)
 
-    # Dodaj do bazy danych
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
+    # Dodaj do bazy danych PostgreSQL
     try:
-        cursor.execute("""INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century,
-                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          history_photos)
-                          VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                      (name, full_name, powiat, region, homepage_template, year, century,
-                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       history_photos_json))
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Wstaw miejscowość
+        cursor.execute("""
+            INSERT INTO locations (name, full_name, powiat, region, active,
+                                  homepage_template, year, century,
+                                  homepage_description, history_paragraph1,
+                                  history_paragraph2, history_paragraph3)
+            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (name, full_name, powiat, region, homepage_template, year, century,
+              homepage_description, history_paragraph1, history_paragraph2, history_paragraph3))
+
+        location_id = cursor.fetchone()[0]
+
+        # Wstaw zdjęcia historyczne
+        for idx, photo in enumerate(history_photos):
+            cursor.execute("""
+                INSERT INTO history_photos (location_id, filename, caption, order_index)
+                VALUES (%s, %s, %s, %s)
+            """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
+
         conn.commit()
-        location_id = cursor.lastrowid
+        cursor.close()
         conn.close()
         return location_id
-    except sqlite3.IntegrityError:
-        conn.close()
+
+    except psycopg2.IntegrityError:
+        if conn:
+            conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise Exception(f"Błąd dodawania miejscowości: {str(e)}")
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                    history_photos=None):
-    """Aktualizuje dane miejscowości."""
+    """
+    Aktualizuje dane miejscowości w PostgreSQL.
+
+    Args:
+        location_id: ID miejscowości do zaktualizowania
+        name: Nowa nazwa miejscowości
+        full_name: Nowa pełna nazwa
+        powiat: Nowy powiat
+        region: Nowy region
+        year: Rok mapy
+        century: Wiek mapy
+        homepage_description: Opis na stronie głównej
+        history_paragraph1-3: Paragrafy historii
+        history_photos: Lista zdjęć historycznych (max 20)
+
+    Raises:
+        ValueError: Jeśli miejscowość nie istnieje lub nazwa już istnieje
+    """
     init_locations_db()
 
-    # Konwertuj history_photos na JSON
+    # Obsłuż history_photos
     if history_photos is None:
         history_photos = []
-    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
 
-    # Pobierz starą nazwę
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        raise ValueError("Miejscowość nie istnieje")
-
-    old_name = result[0]
-
-    # Zmień nazwę folderu jeśli nazwa się zmieniła
-    if old_name != name:
-        old_folder = os.path.join(BACKUP_FOLDER, old_name)
-        new_folder = os.path.join(BACKUP_FOLDER, name)
-        if os.path.exists(old_folder):
-            os.rename(old_folder, new_folder)
-
-    # Zaktualizuj bazę danych
     try:
-        cursor.execute("""UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ?,
-                          homepage_description = ?, history_paragraph1 = ?, history_paragraph2 = ?, history_paragraph3 = ?,
-                          history_photos = ?
-                          WHERE id = ?""",
-                      (name, full_name, powiat, region, year, century,
-                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       history_photos_json, location_id))
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Pobierz starą nazwę
+        cursor.execute("SELECT name FROM locations WHERE id = %s", (location_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            raise ValueError("Miejscowość nie istnieje")
+
+        old_name = result[0]
+
+        # Zmień nazwę folderu jeśli nazwa się zmieniła
+        if old_name != name:
+            old_folder = os.path.join(BACKUP_FOLDER, old_name)
+            new_folder = os.path.join(BACKUP_FOLDER, name)
+            if os.path.exists(old_folder):
+                os.rename(old_folder, new_folder)
+
+        # Zaktualizuj bazę danych
+        cursor.execute("""
+            UPDATE locations SET
+                name = %s, full_name = %s, powiat = %s, region = %s,
+                year = %s, century = %s,
+                homepage_description = %s, history_paragraph1 = %s,
+                history_paragraph2 = %s, history_paragraph3 = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (name, full_name, powiat, region, year, century,
+              homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+              location_id))
+
+        # Zaktualizuj zdjęcia historyczne - usuń stare i wstaw nowe
+        cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
+        for idx, photo in enumerate(history_photos):
+            cursor.execute("""
+                INSERT INTO history_photos (location_id, filename, caption, order_index)
+                VALUES (%s, %s, %s, %s)
+            """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
+
         conn.commit()
+        cursor.close()
         conn.close()
-    except sqlite3.IntegrityError:
-        conn.close()
+
+    except psycopg2.IntegrityError:
+        if conn:
+            conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise Exception(f"Błąd aktualizacji miejscowości: {str(e)}")
 
 def delete_location(location_id):
-    """Usuwa miejscowość z bazy danych i folder."""
+    """
+    Usuwa miejscowość z bazy danych PostgreSQL i folder.
+
+    Args:
+        location_id: ID miejscowości do usunięcia
+
+    Raises:
+        ValueError: Jeśli miejscowość nie istnieje lub jest aktywna
+    """
     init_locations_db()
 
-    # Pobierz nazwę miejscowości
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, active FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Pobierz nazwę miejscowości
+        cursor.execute("SELECT name, active FROM locations WHERE id = %s", (location_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            raise ValueError("Miejscowość nie istnieje")
+
+        name, active = result
+
+        if active:
+            cursor.close()
+            conn.close()
+            raise ValueError("Nie można usunąć aktywnej miejscowości")
+
+        # Usuń folder
+        location_folder = os.path.join(BACKUP_FOLDER, name)
+        if os.path.exists(location_folder):
+            shutil.rmtree(location_folder)
+
+        # Usuń z bazy danych (CASCADE automatycznie usunie zdjęcia)
+        cursor.execute("DELETE FROM locations WHERE id = %s", (location_id,))
+        conn.commit()
+        cursor.close()
         conn.close()
-        raise ValueError("Miejscowość nie istnieje")
 
-    name, active = result
-
-    if active:
-        conn.close()
-        raise ValueError("Nie można usunąć aktywnej miejscowości")
-
-    # Usuń folder
-    location_folder = os.path.join(BACKUP_FOLDER, name)
-    if os.path.exists(location_folder):
-        shutil.rmtree(location_folder)
-
-    # Usuń z bazy danych
-    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
-    conn.commit()
-    conn.close()
+    except Exception as e:
+        if conn:
+            conn.close()
+        if isinstance(e, ValueError):
+            raise
+        raise Exception(f"Błąd usuwania miejscowości: {str(e)}")
 
 def ensure_default_location_exists():
     """Upewnia się, że istnieje domyślna miejscowość."""
@@ -2153,23 +2424,48 @@ class LocationManager(tk.Toplevel):
         values = self.tree.item(selected[0], "values")
         loc_id = values[0]
 
-        # Pobierz pełne dane z bazy danych
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("""SELECT name, full_name, powiat, region, year, century,
-                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          history_photos
-                          FROM locations WHERE id = ?""", (loc_id,))
-        result = cursor.fetchone()
-        conn.close()
+        # Pobierz pełne dane z bazy danych PostgreSQL
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
 
-        if not result:
-            messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
+            # Pobierz dane miejscowości
+            cursor.execute("""
+                SELECT name, full_name, powiat, region, year, century,
+                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3
+                FROM locations WHERE id = %s
+            """, (loc_id,))
+            result = cursor.fetchone()
+
+            if not result:
+                cursor.close()
+                conn.close()
+                messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
+                return
+
+            (name, full_name, powiat, region, year, century,
+             homepage_desc, history_p1, history_p2, history_p3) = result
+
+            # Pobierz zdjęcia historyczne
+            cursor.execute("""
+                SELECT filename, caption
+                FROM history_photos
+                WHERE location_id = %s
+                ORDER BY order_index
+            """, (loc_id,))
+            photos_rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            # Konwertuj zdjęcia do formatu JSON (dla kompatybilności z resztą kodu)
+            history_photos_json = json.dumps([
+                {"filename": row[0], "caption": row[1]}
+                for row in photos_rows
+            ], ensure_ascii=False)
+
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Błąd pobierania danych: {str(e)}", parent=self)
             return
-
-        (name, full_name, powiat, region, year, century,
-         homepage_desc, history_p1, history_p2, history_p3,
-         history_photos_json) = result
 
         # Ustaw domyślne wartości jeśli None
         year = year or "1882"
@@ -2306,14 +2602,18 @@ class TemplateChangeDialog(tk.Toplevel):
         ttk.Label(header_frame, text=f"Wybierz szablon dla: {self.location_name}",
                  font=("Segoe UI", 12, "bold")).pack(anchor=tk.W)
 
-        # Pobierz aktualny szablon
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (self.location_id,))
-        result = cursor.fetchone()
-        conn.close()
-
-        current_template = result[0] if result and result[0] else "standardowy"
+        # Pobierz aktualny szablon z PostgreSQL
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (self.location_id,))
+            result = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            current_template = result[0] if result and result[0] else "standardowy"
+        except Exception as e:
+            print(f"❌ Błąd pobierania szablonu: {e}")
+            current_template = "standardowy"
 
         # Lista szablonów
         templates_frame = ttk.LabelFrame(main_frame, text="Dostępne szablony", padding="10")
