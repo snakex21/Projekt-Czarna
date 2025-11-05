@@ -61,7 +61,7 @@
                 <div class="title-wrapper">
                     <h1 class="main-title">
                         Interaktywna Mapa Katastralna
-                        <span class="subtitle">{{MIEJSCOWOSC_PELNA}} z XIX wieku</span>
+                        <span class="subtitle">{{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku</span>
                     </h1>
                 </div>
 
@@ -69,7 +69,7 @@
                 <div class="description-wrapper">
                     <p class="main-description">
                         Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne,
-                        poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.
+                        poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z {{YEAR}} roku.
                     </p>
                 </div>
 
@@ -196,8 +196,11 @@
                     </div>
                     <div class="credit-divider">•</div>
                     <div class="credit-item">
-                        <span class="credit-label">{{POWIAT}}</span>
-                        <span class="credit-name">{{REGION}}</span>
+                        <span class="credit-name">powiat {{POWIAT}}</span>
+                    </div>
+                    <div class="credit-divider">•</div>
+                    <div class="credit-item">
+                        <span class="credit-name">region {{REGION}}</span>
                     </div>
                 </div>
                 <div class="footer-copyright">
