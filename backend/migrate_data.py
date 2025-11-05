@@ -13,22 +13,72 @@ from psycopg2.extras import execute_values
 import re
 from datetime import date
 from dotenv import load_dotenv
+import sqlite3
 
 # ================================================================================
 # KONFIGURACJA ŚRODOWISKA
 # ================================================================================
 
-# Załadowanie zmiennych środowiskowych
-load_dotenv()
+# Funkcja do określenia aktywnej miejscowości i ścieżki do .env
+def get_active_location_info():
+    """Zwraca informacje o aktywnej miejscowości (nazwa, ścieżka do .env, folder backup)."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    launcher_dir = os.path.join(base_dir, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    # Sprawdź czy baza danych istnieje
+    if not os.path.exists(locations_db_path):
+        # Użyj domyślnej lokalizacji
+        return {
+            'name': None,
+            'env_path': os.path.join(base_dir, "backend", ".env"),
+            'backup_dir': os.path.join(base_dir, "backup")
+        }
+
+    try:
+        conn = sqlite3.connect(locations_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+            backup_folder = os.path.join(base_dir, "backup", location_name)
+            env_path = os.path.join(backup_folder, ".env")
+
+            if os.path.exists(env_path):
+                print(f"✅ Używam danych z miejscowości: {location_name}")
+                return {
+                    'name': location_name,
+                    'env_path': env_path,
+                    'backup_dir': backup_folder
+                }
+    except Exception as e:
+        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+
+    # Fallback do domyślnej lokalizacji
+    print(f"⚠️ Używam domyślnej lokalizacji danych")
+    return {
+        'name': None,
+        'env_path': os.path.join(base_dir, "backend", ".env"),
+        'backup_dir': os.path.join(base_dir, "backup")
+    }
+
+# Pobierz informacje o aktywnej miejscowości
+location_info = get_active_location_info()
+
+# Załadowanie zmiennych środowiskowych z odpowiedniego pliku .env
+load_dotenv(location_info['env_path'])
 
 def get_env_variable(var_name, default_value=None):
     """
     Pobiera wartość zmiennej środowiskowej z opcjonalną wartością domyślną.
-    
+
     Args:
         var_name: Nazwa zmiennej środowiskowej
         default_value: Wartość domyślna jeśli zmienna nie istnieje
-    
+
     Returns:
         Wartość zmiennej lub wartość domyślna
     """
@@ -45,8 +95,8 @@ print("=" * 50)
 # ŚCIEŻKI I PARAMETRY POŁĄCZENIA
 # ================================================================================
 
-# Lokalizacje plików źródłowych
-BACKUP_DIR = "../backup/"
+# Lokalizacje plików źródłowych - używamy folderu aktywnej miejscowości
+BACKUP_DIR = location_info['backup_dir']
 OWNER_DATA_FILE = os.path.join(BACKUP_DIR, "owner_data_to_import.json")
 PARCEL_DATA_FILE = os.path.join(BACKUP_DIR, "parcels_data.json")
 DEMOGRAFIA_DATA_FILE = os.path.join(BACKUP_DIR, "demografia.json")
