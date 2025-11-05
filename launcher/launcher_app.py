@@ -170,17 +170,39 @@ def generate_location_config_js():
     Ten plik jest ładowany przez strony HTML i dynamicznie wstawia dane.
     """
     active_location = get_active_location()
-    if not active_location:
-        print("⚠️ Brak aktywnej miejscowości - nie można wygenerować location-config.js")
-        return False
 
-    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
-    location_name = active_location[1] or ""
-    location_full_name = active_location[2] or location_name
-    location_powiat = active_location[3] or ""
-    location_region = active_location[4] or ""
-    location_year = active_location[7] if len(active_location) > 7 else "1882"
-    location_century = active_location[8] if len(active_location) > 8 else "XIX"
+    # Jeśli nie ma aktywnej miejscowości, spróbuj ustawić pierwszą dostępną
+    if not active_location:
+        all_locations = get_all_locations()
+        if all_locations:
+            print("⚠️ Brak aktywnej miejscowości - ustawiam pierwszą dostępną")
+            # Ręcznie ustaw pierwszą miejscowość jako aktywną (bez wywoływania set_active_location, żeby uniknąć rekurencji)
+            init_locations_db()
+            conn = sqlite3.connect(LOCATIONS_DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("UPDATE locations SET active = 0")
+            cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (all_locations[0][0],))
+            conn.commit()
+            conn.close()
+            active_location = get_active_location()
+
+    if not active_location:
+        print("⚠️ Brak miejscowości w bazie danych - tworzę plik JS z domyślnymi wartościami")
+        # Stwórz plik z domyślnymi wartościami
+        location_name = "Miejscowość"
+        location_full_name = "Miejscowość"
+        location_powiat = "Powiat"
+        location_region = "Region"
+        location_year = "1882"
+        location_century = "XIX"
+    else:
+        # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
+        location_name = active_location[1] or "Miejscowość"
+        location_full_name = active_location[2] or location_name
+        location_powiat = active_location[3] or "Powiat"
+        location_region = active_location[4] or "Region"
+        location_year = active_location[7] if len(active_location) > 7 else "1882"
+        location_century = active_location[8] if len(active_location) > 8 else "XIX"
 
     # Ścieżka do pliku JS
     js_path = os.path.join(os.path.dirname(BASE_DIR), "assets", "js", "location-config.js")
@@ -209,6 +231,8 @@ window.LOCATION_CONFIG = {{
         return True
     except Exception as e:
         print(f"❌ Błąd podczas generowania location-config.js: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def set_location_template(location_id, template_name):
@@ -812,6 +836,14 @@ class AppLauncher(tk.Tk):
 
         # Automatycznie odśwież strony HTML z placeholderami
         self.refresh_html_pages()
+
+        # Upewnij się, że location-config.js istnieje
+        try:
+            generate_location_config_js()
+        except Exception as e:
+            print(f"⚠️ Błąd podczas generowania location-config.js: {e}")
+            import traceback
+            traceback.print_exc()
 
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
