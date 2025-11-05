@@ -201,7 +201,7 @@ ADMIN_PASSWORD_HASH=
         conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
 
-def update_location(location_id, name, full_name, powiat, region):
+def update_location(location_id, name, full_name, powiat, region, year):
     """Aktualizuje dane miejscowości."""
     init_locations_db()
 
@@ -225,8 +225,8 @@ def update_location(location_id, name, full_name, powiat, region):
 
     # Zaktualizuj bazę danych
     try:
-        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ? WHERE id = ?",
-                      (name, full_name, powiat, region, location_id))
+        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ? WHERE id = ?",
+                      (name, full_name, powiat, region, year, location_id))
         conn.commit()
         conn.close()
     except sqlite3.IntegrityError:
@@ -375,6 +375,78 @@ def get_available_templates():
                     templates.append(item)
     return templates
 
+def apply_placeholders_to_file(file_path, location_data):
+    """
+    Zastępuje placeholdery w pliku HTML danymi miejscowości.
+
+    Args:
+        file_path: Ścieżka do pliku HTML
+        location_data: Krotka z danymi miejscowości (name, full_name, powiat, region, year)
+
+    Returns:
+        True jeśli sukces, False w przeciwnym razie
+    """
+    if not os.path.exists(file_path):
+        return False
+
+    try:
+        location_name, location_full_name, location_powiat, location_region, location_year = location_data
+
+        # Wczytaj plik
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Zastąp placeholdery
+        content = content.replace('{{MIEJSCOWOSC}}', location_name)
+        content = content.replace('{{MIEJSCOWOSC_PELNA}}', location_full_name)
+        content = content.replace('{{POWIAT}}', location_powiat)
+        content = content.replace('{{REGION}}', location_region)
+        content = content.replace('{{YEAR}}', location_year)
+
+        # Zapisz
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        return True
+    except Exception as e:
+        print(f"❌ Błąd podczas przetwarzania {file_path}: {e}")
+        return False
+
+def apply_placeholders_to_all_pages():
+    """
+    Aplikuje placeholdery do wszystkich stron HTML w projekcie.
+    Wywołuje się automatycznie po zmianie aktywnej miejscowości.
+    """
+    active_location = get_active_location()
+    if not active_location:
+        return False
+
+    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year)
+    location_name = active_location[1]
+    location_full_name = active_location[2] or location_name
+    location_powiat = active_location[3] or "Powiat"
+    location_region = active_location[4] or "Region"
+    location_year = active_location[7] if len(active_location) > 7 else "1882"
+
+    location_data = (location_name, location_full_name, location_powiat, location_region, location_year)
+
+    # Lista plików do przetworzenia
+    files_to_process = [
+        os.path.join(HOMEPAGE_DIR, "historia.html"),
+        os.path.join(os.path.dirname(BASE_DIR), "mapa", "mapa.html"),
+        os.path.join(os.path.dirname(BASE_DIR), "wlasciciele", "stats.html"),
+    ]
+
+    success_count = 0
+    for file_path in files_to_process:
+        if apply_placeholders_to_file(file_path, location_data):
+            success_count += 1
+
+    if success_count > 0:
+        print(f"✅ Zaktualizowano placeholdery w {success_count} plikach HTML")
+
+    return success_count == len(files_to_process)
+
 def apply_homepage_template(template_name):
     """
     Aplikuje wybrany szablon strony głównej.
@@ -428,6 +500,9 @@ def apply_homepage_template(template_name):
             # Dla innych szablonów - po prostu skopiuj
             shutil.copy2(template_path, target_path)
             print(f"✅ Zastosowano szablon: {template_name}")
+
+        # Aplikuj placeholdery do pozostałych stron
+        apply_placeholders_to_all_pages()
 
         return True
 
@@ -1678,9 +1753,9 @@ class LocationManager(tk.Toplevel):
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            name, full_name, powiat, region = dialog.result
+            name, full_name, powiat, region, year = dialog.result
             try:
-                add_location(name, full_name, powiat, region)
+                add_location(name, full_name, powiat, region, year=year)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -1693,16 +1768,40 @@ class LocationManager(tk.Toplevel):
             messagebox.showwarning("⚠️ Brak zaznaczenia", "Wybierz miejscowość do edycji", parent=self)
             return
 
+        # Pobierz wszystkie dane miejscowości z bazy danych
         values = self.tree.item(selected[0], "values")
-        loc_id, name, full_name, powiat, region = values[:5]
+        loc_id = values[0]
 
-        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region)
+        # Pobierz pełne dane z bazy danych
+        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, full_name, powiat, region, year FROM locations WHERE id = ?", (loc_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
+            messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
+            return
+
+        name, full_name, powiat, region, year = result
+        year = year or "1882"  # Domyślna wartość jeśli None
+
+        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            new_name, new_full_name, new_powiat, new_region = dialog.result
+            new_name, new_full_name, new_powiat, new_region, new_year = dialog.result
             try:
-                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region)
+                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year)
+
+                # Jeśli edytowana miejscowość jest aktywna, zaktualizuj placeholdery w HTML
+                active_location = get_active_location()
+                if active_location and active_location[0] == int(loc_id):
+                    apply_placeholders_to_all_pages()
+                    # Zaktualizuj również stronę główną
+                    template = active_location[6] if len(active_location) > 6 else "standardowy"
+                    apply_homepage_template(template)
+
                 messagebox.showinfo("✅ Sukces", f"Zaktualizowano miejscowość: {new_name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -1885,7 +1984,7 @@ class TemplateChangeDialog(tk.Toplevel):
 class AddEditLocationDialog(tk.Toplevel):
     """Dialog do dodawania/edytowania miejscowości."""
 
-    def __init__(self, parent, title, name="", full_name="", powiat="", region=""):
+    def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882"):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -1894,7 +1993,7 @@ class AddEditLocationDialog(tk.Toplevel):
         self.result = None
 
         # Rozmiar
-        w, h = 500, 300
+        w, h = 500, 380
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         x = (sw - w) // 2
         y = (sh - h) // 2
@@ -1925,9 +2024,14 @@ class AddEditLocationDialog(tk.Toplevel):
         self.region_entry.insert(0, region)
         self.region_entry.grid(row=3, column=1, pady=5, padx=10)
 
+        ttk.Label(main_frame, text="Rok mapy:").grid(row=4, column=0, sticky="w", pady=5)
+        self.year_entry = ttk.Entry(main_frame, width=40)
+        self.year_entry.insert(0, year)
+        self.year_entry.grid(row=4, column=1, pady=5, padx=10)
+
         # Przyciski
         buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.grid(row=4, column=0, columnspan=2, pady=20)
+        buttons_frame.grid(row=5, column=0, columnspan=2, pady=20)
 
         ttk.Button(buttons_frame, text="✅ Zapisz", command=self.save,
                   style="Success.TButton").pack(side=tk.LEFT, padx=5)
@@ -1940,6 +2044,7 @@ class AddEditLocationDialog(tk.Toplevel):
         full_name = self.full_name_entry.get().strip()
         powiat = self.powiat_entry.get().strip()
         region = self.region_entry.get().strip()
+        year = self.year_entry.get().strip()
 
         if not name:
             messagebox.showerror("❌ Błąd", "Nazwa jest wymagana!", parent=self)
@@ -1949,7 +2054,10 @@ class AddEditLocationDialog(tk.Toplevel):
             messagebox.showerror("❌ Błąd", "Pełna nazwa jest wymagana!", parent=self)
             return
 
-        self.result = (name, full_name, powiat, region)
+        if not year:
+            year = "1882"  # Domyślna wartość
+
+        self.result = (name, full_name, powiat, region, year)
         self.destroy()
 
 
