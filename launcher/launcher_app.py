@@ -204,8 +204,11 @@ def generate_location_config_js():
         location_year = active_location[7] if len(active_location) > 7 else "1882"
         location_century = active_location[8] if len(active_location) > 8 else "XIX"
 
-    # Ścieżka do pliku JS
-    js_path = os.path.join(os.path.dirname(BASE_DIR), "assets", "js", "location-config.js")
+    # Ścieżka do pliku JS - BASE_DIR to już główny folder projektu
+    js_path = os.path.join(BASE_DIR, "assets", "js", "location-config.js")
+
+    # Debug - pokaż gdzie zapisujemy plik
+    print(f"📁 Zapisuję location-config.js do: {js_path}")
 
     # Stwórz folder jeśli nie istnieje
     os.makedirs(os.path.dirname(js_path), exist_ok=True)
@@ -228,9 +231,11 @@ window.LOCATION_CONFIG = {{
         with open(js_path, 'w', encoding='utf-8') as f:
             f.write(js_content)
         print(f"✓ Wygenerowano location-config.js dla miejscowości: {location_full_name}")
+        print(f"✓ Plik zapisany pomyślnie: {os.path.exists(js_path)}")
         return True
     except Exception as e:
         print(f"❌ Błąd podczas generowania location-config.js: {e}")
+        print(f"❌ Próbowano zapisać do: {js_path}")
         import traceback
         traceback.print_exc()
         return False
