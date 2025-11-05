@@ -77,7 +77,8 @@ def init_locations_db():
             region TEXT,
             active INTEGER DEFAULT 0,
             homepage_template TEXT DEFAULT 'standardowy',
-            year TEXT DEFAULT '1882'
+            year TEXT DEFAULT '1882',
+            century TEXT DEFAULT 'XIX w.'
         )
     """)
 
@@ -97,6 +98,14 @@ def init_locations_db():
         cursor.execute("ALTER TABLE locations ADD COLUMN year TEXT DEFAULT '1882'")
         print("✓ Dodano kolumnę year do tabeli locations")
 
+    # Migracja: dodaj kolumnę century jeśli nie istnieje
+    try:
+        cursor.execute("SELECT century FROM locations LIMIT 1")
+    except sqlite3.OperationalError:
+        # Kolumna nie istnieje, dodaj ją
+        cursor.execute("ALTER TABLE locations ADD COLUMN century TEXT DEFAULT 'XIX w.'")
+        print("✓ Dodano kolumnę century do tabeli locations")
+
     conn.commit()
     conn.close()
 
@@ -105,17 +114,17 @@ def get_all_locations():
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year FROM locations ORDER BY name")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year, century FROM locations ORDER BY name")
     locations = cursor.fetchall()
     conn.close()
     return locations
 
 def get_active_location():
-    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template, year)."""
+    """Zwraca aktywną miejscowość jako tuple (id, name, full_name, powiat, region, active, homepage_template, year, century)."""
     init_locations_db()
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year FROM locations WHERE active = 1")
+    cursor.execute("SELECT id, name, full_name, powiat, region, active, homepage_template, year, century FROM locations WHERE active = 1")
     location = cursor.fetchone()
     conn.close()
     return location
@@ -155,7 +164,7 @@ def set_location_template(location_id, template_name):
     conn.commit()
     conn.close()
 
-def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882"):
+def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w."):
     """Dodaje nową miejscowość do bazy danych i tworzy folder."""
     init_locations_db()
 
@@ -191,8 +200,8 @@ ADMIN_PASSWORD_HASH=
     conn = sqlite3.connect(LOCATIONS_DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year) VALUES (?, ?, ?, ?, 0, ?, ?)",
-                      (name, full_name, powiat, region, homepage_template, year))
+        cursor.execute("INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century) VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+                      (name, full_name, powiat, region, homepage_template, year, century))
         conn.commit()
         location_id = cursor.lastrowid
         conn.close()
@@ -201,7 +210,7 @@ ADMIN_PASSWORD_HASH=
         conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
 
-def update_location(location_id, name, full_name, powiat, region, year):
+def update_location(location_id, name, full_name, powiat, region, year, century):
     """Aktualizuje dane miejscowości."""
     init_locations_db()
 
@@ -225,8 +234,8 @@ def update_location(location_id, name, full_name, powiat, region, year):
 
     # Zaktualizuj bazę danych
     try:
-        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ? WHERE id = ?",
-                      (name, full_name, powiat, region, year, location_id))
+        cursor.execute("UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ? WHERE id = ?",
+                      (name, full_name, powiat, region, year, century, location_id))
         conn.commit()
         conn.close()
     except sqlite3.IntegrityError:
@@ -381,7 +390,7 @@ def apply_placeholders_to_file(file_path, location_data):
 
     Args:
         file_path: Ścieżka do pliku HTML
-        location_data: Krotka z danymi miejscowości (name, full_name, powiat, region, year)
+        location_data: Krotka z danymi miejscowości (name, full_name, powiat, region, year, century)
 
     Returns:
         True jeśli sukces, False w przeciwnym razie
@@ -390,7 +399,7 @@ def apply_placeholders_to_file(file_path, location_data):
         return False
 
     try:
-        location_name, location_full_name, location_powiat, location_region, location_year = location_data
+        location_name, location_full_name, location_powiat, location_region, location_year, location_century = location_data
 
         # Wczytaj plik
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -402,6 +411,7 @@ def apply_placeholders_to_file(file_path, location_data):
         content = content.replace('{{POWIAT}}', location_powiat)
         content = content.replace('{{REGION}}', location_region)
         content = content.replace('{{YEAR}}', location_year)
+        content = content.replace('{{WIEK}}', location_century)
 
         # Zapisz
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -421,14 +431,15 @@ def apply_placeholders_to_all_pages():
     if not active_location:
         return False
 
-    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year)
+    # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
     location_name = active_location[1]
     location_full_name = active_location[2] or location_name
     location_powiat = active_location[3] or "Powiat"
     location_region = active_location[4] or "Region"
     location_year = active_location[7] if len(active_location) > 7 else "1882"
+    location_century = active_location[8] if len(active_location) > 8 else "XIX w."
 
-    location_data = (location_name, location_full_name, location_powiat, location_region, location_year)
+    location_data = (location_name, location_full_name, location_powiat, location_region, location_year, location_century)
 
     # Lista plików do przetworzenia
     files_to_process = [
@@ -472,12 +483,13 @@ def apply_homepage_template(template_name):
                 print("❌ Brak aktywnej miejscowości")
                 return False
 
-            # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year)
+            # Pobierz dane miejscowości: (id, name, full_name, powiat, region, active, homepage_template, year, century)
             location_name = active_location[1]
             location_full_name = active_location[2] or location_name
             location_powiat = active_location[3] or "Powiat"
             location_region = active_location[4] or "Region"
             location_year = active_location[7] if len(active_location) > 7 else "1882"
+            location_century = active_location[8] if len(active_location) > 8 else "XIX w."
 
             # Wczytaj szablon
             with open(template_path, 'r', encoding='utf-8') as f:
@@ -489,6 +501,7 @@ def apply_homepage_template(template_name):
             content = content.replace('{{POWIAT}}', location_powiat)
             content = content.replace('{{REGION}}', location_region)
             content = content.replace('{{YEAR}}', location_year)
+            content = content.replace('{{WIEK}}', location_century)
 
             # Zapisz
             with open(target_path, 'w', encoding='utf-8') as f:
@@ -1753,9 +1766,9 @@ class LocationManager(tk.Toplevel):
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            name, full_name, powiat, region, year = dialog.result
+            name, full_name, powiat, region, year, century = dialog.result
             try:
-                add_location(name, full_name, powiat, region, year=year)
+                add_location(name, full_name, powiat, region, year=year, century=century)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -1775,7 +1788,7 @@ class LocationManager(tk.Toplevel):
         # Pobierz pełne dane z bazy danych
         conn = sqlite3.connect(LOCATIONS_DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT name, full_name, powiat, region, year FROM locations WHERE id = ?", (loc_id,))
+        cursor.execute("SELECT name, full_name, powiat, region, year, century FROM locations WHERE id = ?", (loc_id,))
         result = cursor.fetchone()
         conn.close()
 
@@ -1783,16 +1796,17 @@ class LocationManager(tk.Toplevel):
             messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
             return
 
-        name, full_name, powiat, region, year = result
+        name, full_name, powiat, region, year, century = result
         year = year or "1882"  # Domyślna wartość jeśli None
+        century = century or "XIX w."  # Domyślna wartość jeśli None
 
-        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year)
+        dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
-            new_name, new_full_name, new_powiat, new_region, new_year = dialog.result
+            new_name, new_full_name, new_powiat, new_region, new_year, new_century = dialog.result
             try:
-                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year)
+                update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century)
 
                 # Jeśli edytowana miejscowość jest aktywna, zaktualizuj placeholdery w HTML
                 active_location = get_active_location()
@@ -1984,7 +1998,7 @@ class TemplateChangeDialog(tk.Toplevel):
 class AddEditLocationDialog(tk.Toplevel):
     """Dialog do dodawania/edytowania miejscowości."""
 
-    def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882"):
+    def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w."):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -1993,7 +2007,7 @@ class AddEditLocationDialog(tk.Toplevel):
         self.result = None
 
         # Rozmiar
-        w, h = 500, 380
+        w, h = 500, 420
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
         x = (sw - w) // 2
         y = (sh - h) // 2
@@ -2029,9 +2043,14 @@ class AddEditLocationDialog(tk.Toplevel):
         self.year_entry.insert(0, year)
         self.year_entry.grid(row=4, column=1, pady=5, padx=10)
 
+        ttk.Label(main_frame, text="Wiek (np. XIX w.):").grid(row=5, column=0, sticky="w", pady=5)
+        self.century_entry = ttk.Entry(main_frame, width=40)
+        self.century_entry.insert(0, century)
+        self.century_entry.grid(row=5, column=1, pady=5, padx=10)
+
         # Przyciski
         buttons_frame = ttk.Frame(main_frame)
-        buttons_frame.grid(row=5, column=0, columnspan=2, pady=20)
+        buttons_frame.grid(row=6, column=0, columnspan=2, pady=20)
 
         ttk.Button(buttons_frame, text="✅ Zapisz", command=self.save,
                   style="Success.TButton").pack(side=tk.LEFT, padx=5)
@@ -2045,6 +2064,7 @@ class AddEditLocationDialog(tk.Toplevel):
         powiat = self.powiat_entry.get().strip()
         region = self.region_entry.get().strip()
         year = self.year_entry.get().strip()
+        century = self.century_entry.get().strip()
 
         if not name:
             messagebox.showerror("❌ Błąd", "Nazwa jest wymagana!", parent=self)
@@ -2057,7 +2077,10 @@ class AddEditLocationDialog(tk.Toplevel):
         if not year:
             year = "1882"  # Domyślna wartość
 
-        self.result = (name, full_name, powiat, region, year)
+        if not century:
+            century = "XIX w."  # Domyślna wartość
+
+        self.result = (name, full_name, powiat, region, year, century)
         self.destroy()
 
 
