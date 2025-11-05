@@ -129,11 +129,83 @@
         console.log('✓ Dane miejscowości:', config);
     };
 
+    /**
+     * Generuje galerię zdjęć historycznych dynamicznie
+     */
+    function generateHistoryPhotos() {
+        const gallery = document.getElementById('history-photo-gallery');
+        if (!gallery) {
+            console.log('ℹ️ Brak elementu #history-photo-gallery - pomijam generowanie zdjęć');
+            return;
+        }
+
+        const photos = config.historyPhotos || [];
+        if (photos.length === 0) {
+            console.log('ℹ️ Brak zdjęć historycznych do wygenerowania');
+            gallery.innerHTML = '<p class="no-photos">Brak zdjęć historycznych.</p>';
+            return;
+        }
+
+        console.log(`📸 Generuję ${photos.length} zdjęć historycznych`);
+        gallery.innerHTML = ''; // Wyczyść zawartość
+
+        photos.forEach((photo, index) => {
+            const figure = document.createElement('figure');
+            figure.className = 'gallery-item';
+
+            const imageWrapper = document.createElement('div');
+            imageWrapper.className = 'image-wrapper';
+
+            const img = document.createElement('img');
+            img.src = `assets_index/${photo.filename}`;
+            img.alt = photo.caption || `Zdjęcie historyczne ${index + 1}`;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'image-overlay';
+            overlay.innerHTML = '<i class="fas fa-search-plus"></i>';
+
+            imageWrapper.appendChild(img);
+            imageWrapper.appendChild(overlay);
+
+            const figcaption = document.createElement('figcaption');
+            figcaption.innerHTML = `<i class="fas fa-image"></i> ${photo.caption || 'Brak podpisu'}`;
+
+            figure.appendChild(imageWrapper);
+            figure.appendChild(figcaption);
+            gallery.appendChild(figure);
+
+            // Dodaj obsługę kliknięcia (modal)
+            imageWrapper.addEventListener('click', function() {
+                const modal = document.createElement('div');
+                modal.className = 'image-modal';
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <span class="modal-close">&times;</span>
+                        <img src="${img.src}" alt="${img.alt}">
+                        <p>${photo.caption || ''}</p>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal || e.target.className === 'modal-close') {
+                        modal.remove();
+                    }
+                });
+            });
+        });
+
+        console.log(`✓ Wygenerowano ${photos.length} zdjęć w galerii`);
+    }
+
     // Uruchom gdy DOM jest gotowy
     function initialize() {
         console.log('🔧 Inicjalizacja location-data.js');
         const count = replacePlaceholders();
         console.log(`✓ Dane miejscowości zostały wstawione (inicjalizacja): zamieniono ${count} placeholderów`);
+
+        // Generuj galerię zdjęć
+        generateHistoryPhotos();
 
         // Obserwuj zmiany DOM i automatycznie przetwarzaj nową zawartość
         const observer = new MutationObserver(function(mutations) {
