@@ -1447,6 +1447,76 @@ ADMIN_PASSWORD_HASH=
         print(f"⚠️ Nie można utworzyć pliku .env: {e}")
         return False
 
+def setup_postgres_config():
+    """
+    Sprawdza czy plik .postgres.env istnieje.
+    Jeśli nie - pyta użytkownika o dane PostgreSQL i tworzy plik.
+    """
+    # Sprawdź czy plik już istnieje
+    if os.path.exists(POSTGRES_CONFIG_FILE):
+        return True
+
+    print("⚠️ Brak pliku konfiguracji PostgreSQL (.postgres.env)")
+    print("ℹ️ Launcher potrzebuje danych dostępu do PostgreSQL aby działać prawidłowo.")
+
+    # Importuj simpledialog tylko gdy potrzebne
+    from tkinter import simpledialog, messagebox
+
+    # Utwórz tymczasowe okno (niezbędne dla dialogów)
+    temp_root = tk.Tk()
+    temp_root.withdraw()  # Ukryj główne okno
+
+    # Wyświetl informację
+    result = messagebox.askokcancel(
+        "🔧 Konfiguracja PostgreSQL",
+        "Launcher nie znalazł konfiguracji PostgreSQL.\n\n"
+        "Aby połączyć się z bazą danych, potrzebuję hasła do PostgreSQL.\n\n"
+        "Czy chcesz skonfigurować teraz?\n\n"
+        "Możesz też pominąć i użyć SQLite (mniej funkcji).",
+        icon='question'
+    )
+
+    if not result:
+        temp_root.destroy()
+        print("⚠️ Pominięto konfigurację PostgreSQL. Używam SQLite.")
+        return False
+
+    # Zapytaj o hasło
+    password = simpledialog.askstring(
+        "Hasło PostgreSQL",
+        "Podaj hasło do użytkownika 'postgres' w PostgreSQL:",
+        show='*'
+    )
+
+    temp_root.destroy()
+
+    if not password:
+        print("⚠️ Nie podano hasła. Używam SQLite.")
+        return False
+
+    # Utwórz plik konfiguracji
+    try:
+        config_content = f"""LAUNCHER_DB_HOST=localhost
+LAUNCHER_DB_PORT=5432
+LAUNCHER_DB_USER=postgres
+LAUNCHER_DB_PASSWORD={password}
+"""
+
+        with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            f.write(config_content)
+
+        print(f"✅ Utworzono plik konfiguracji: {POSTGRES_CONFIG_FILE}")
+
+        # Wyczyść cache sprawdzania dostępności PostgreSQL
+        global POSTGRES_AVAILABLE
+        POSTGRES_AVAILABLE = None
+
+        return True
+
+    except Exception as e:
+        print(f"❌ Błąd tworzenia pliku konfiguracji: {e}")
+        return False
+
 def _auto_sync_site_icon():
     """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę 
     z folderów icons → assets/site i zapisuje ścieżkę w konfiguracji bazy danych."""
@@ -1621,6 +1691,9 @@ class AppLauncher(tk.Tk):
 
         # Migracja starych danych
         migrate_old_backup_structure()
+
+        # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
+        setup_postgres_config()
 
         check_env_configuration()
         check_backup_folder_files()
