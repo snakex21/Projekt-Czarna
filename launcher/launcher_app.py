@@ -131,15 +131,68 @@ CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
 """
 
 
+# Zmienna globalna - czy PostgreSQL jest dostępny
+POSTGRES_AVAILABLE = None
+POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "launcher", ".postgres.env")
+
+
 def get_postgres_config():
-    """Zwraca konfigurację PostgreSQL (domyślną lub z .env)"""
-    # TODO: Wczytać z głównego .env jeśli istnieje
-    return {
+    """
+    Zwraca konfigurację PostgreSQL z pliku .postgres.env lub domyślną.
+
+    Plik .postgres.env powinien zawierać:
+    LAUNCHER_DB_HOST=localhost
+    LAUNCHER_DB_PORT=5432
+    LAUNCHER_DB_USER=postgres
+    LAUNCHER_DB_PASSWORD=twoje_haslo
+    """
+    config = {
         'host': 'localhost',
         'port': 5432,
         'user': 'postgres',
-        'password': ''  # Użytkownik poda w kreatorze
+        'password': ''
     }
+
+    # Spróbuj wczytać z pliku .postgres.env
+    if os.path.exists(POSTGRES_CONFIG_FILE):
+        try:
+            from dotenv import dotenv_values
+            env_config = dotenv_values(POSTGRES_CONFIG_FILE)
+            config['host'] = env_config.get('LAUNCHER_DB_HOST', config['host'])
+            config['port'] = int(env_config.get('LAUNCHER_DB_PORT', config['port']))
+            config['user'] = env_config.get('LAUNCHER_DB_USER', config['user'])
+            config['password'] = env_config.get('LAUNCHER_DB_PASSWORD', config['password'])
+        except Exception as e:
+            print(f"⚠️ Błąd wczytywania .postgres.env: {e}")
+
+    return config
+
+
+def check_postgres_available():
+    """
+    Sprawdza czy PostgreSQL jest dostępny i skonfigurowany.
+    Ustawia globalną zmienną POSTGRES_AVAILABLE.
+    """
+    global POSTGRES_AVAILABLE
+
+    if POSTGRES_AVAILABLE is not None:
+        return POSTGRES_AVAILABLE
+
+    config = get_postgres_config()
+
+    # Jeśli brak hasła, PostgreSQL nie jest skonfigurowany
+    if not config['password']:
+        POSTGRES_AVAILABLE = False
+        return False
+
+    # Sprawdź czy można się połączyć
+    success, _ = test_postgres_connection(
+        config['host'], config['port'],
+        config['user'], config['password']
+    )
+
+    POSTGRES_AVAILABLE = success
+    return success
 
 
 def test_postgres_connection(host, port, user, password):
@@ -453,103 +506,151 @@ def migrate_sqlite_to_postgres():
 # =============================================================================
 def init_locations_db():
     """
-    Inicjalizuje bazę danych miejscowości (PostgreSQL).
-    Wywołuje init_postgres_locations_db() aby utworzyć mapa_launcher_db i tabele.
+    Inicjalizuje bazę danych miejscowości.
+    Próbuje PostgreSQL, jeśli nie działa - używa SQLite jako fallback.
     """
-    try:
-        init_postgres_locations_db()
-    except Exception as e:
-        print(f"⚠️ Błąd inicjalizacji bazy PostgreSQL: {e}")
-        print("⚠️ Upewnij się, że PostgreSQL jest uruchomiony i skonfigurowany.")
-        # Nie rzucamy wyjątku - pozwól aplikacji działać, użytkownik może użyć kreatora bazy danych
+    # Sprawdź czy PostgreSQL jest dostępny
+    if check_postgres_available():
+        try:
+            init_postgres_locations_db()
+            return
+        except Exception as e:
+            print(f"⚠️ Błąd inicjalizacji PostgreSQL: {e}")
+            print("⚠️ Używam SQLite jako fallback...")
+
+    # Fallback do SQLite
+    if not os.path.exists(LOCATIONS_DB_PATH):
+        print("ℹ️ PostgreSQL niedostępny. Utwórz plik .postgres.env w folderze launcher z hasłem do PostgreSQL.")
+        print(f"ℹ️ Tworzę nową bazę SQLite: {LOCATIONS_DB_PATH}")
+
+    # Inicjalizuj SQLite (kopia starej wersji)
+    conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            powiat TEXT,
+            region TEXT,
+            active INTEGER DEFAULT 0,
+            homepage_template TEXT DEFAULT 'standardowy',
+            year TEXT DEFAULT '1882',
+            century TEXT DEFAULT 'XIX w.',
+            homepage_description TEXT,
+            history_paragraph1 TEXT,
+            history_paragraph2 TEXT,
+            history_paragraph3 TEXT,
+            history_photos TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 def get_all_locations():
     """
-    Zwraca wszystkie miejscowości z bazy danych PostgreSQL.
+    Zwraca wszystkie miejscowości z bazy danych (PostgreSQL lub SQLite fallback).
 
     Returns:
         list of tuples: Lista miejscowości posortowana po nazwie
         Format tuple: (id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
                       None, None, None, None, history_photos_json)
-
-        Pola None (14-17) są dla kompatybilności wstecznej z photo1/2 (już nieużywane).
-        Pole 18 (history_photos_json) zawiera JSON array zdjęć historycznych.
     """
     init_locations_db()
-    try:
-        conn = get_launcher_postgres_connection()
+
+    # Próbuj PostgreSQL
+    if check_postgres_available():
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT
+                    l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                    l.homepage_template, l.year, l.century,
+                    l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                         FROM history_photos WHERE location_id = l.id),
+                        '[]'::json
+                    )::text as history_photos
+                FROM locations l
+                ORDER BY l.name
+            """)
+            locations = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            result = []
+            for loc in locations:
+                result.append(loc[:13] + (None, None, None, None, loc[13]))
+            return result
+        except Exception as e:
+            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
+
+    # Fallback do SQLite
+    if os.path.exists(LOCATIONS_DB_PATH):
+        conn = sqlite3.connect(LOCATIONS_DB_PATH)
         cursor = conn.cursor()
-
-        # Pobierz miejscowości wraz ze zdjęciami jako JSON array
-        cursor.execute("""
-            SELECT
-                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
-                l.homepage_template, l.year, l.century,
-                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
-                COALESCE(
-                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
-                     FROM history_photos WHERE location_id = l.id),
-                    '[]'::json
-                )::text as history_photos
-            FROM locations l
-            ORDER BY l.name
-        """)
+        cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                          history_photos
+                          FROM locations ORDER BY name""")
         locations = cursor.fetchall()
-        cursor.close()
         conn.close()
+        # Dodaj pola None dla photo1/2
+        return [loc[:13] + (None, None, None, None, loc[13]) for loc in locations]
 
-        # Zwróć tuple z polami None dla photo1/2 (dla kompatybilności wstecznej)
-        result = []
-        for loc in locations:
-            # (id, name, full_name, powiat, region, active, homepage_template, year, century,
-            #  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-            #  photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos)
-            result.append(loc[:13] + (None, None, None, None, loc[13]))
-        return result
-    except Exception as e:
-        print(f"❌ Błąd pobierania miejscowości: {e}")
-        return []
+    return []
 
 def get_active_location():
-    """
-    Zwraca aktywną miejscowość jako tuple z wszystkimi polami.
-
-    Returns:
-        tuple or None: Aktywna miejscowość lub None jeśli brak aktywnej
-        Format tuple: (id, name, full_name, powiat, region, active, homepage_template, year, century,
-                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      None, None, None, None, history_photos_json)
-    """
+    """Zwraca aktywną miejscowość (PostgreSQL lub SQLite fallback)."""
     init_locations_db()
-    try:
-        conn = get_launcher_postgres_connection()
+
+    # Próbuj PostgreSQL
+    if check_postgres_available():
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT
+                    l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                    l.homepage_template, l.year, l.century,
+                    l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                    COALESCE(
+                        (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                         FROM history_photos WHERE location_id = l.id),
+                        '[]'::json
+                    )::text as history_photos
+                FROM locations l
+                WHERE l.active = true
+            """)
+            location = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
+            if location:
+                return location[:13] + (None, None, None, None, location[13])
+            return None
+        except Exception as e:
+            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
+
+    # Fallback do SQLite
+    if os.path.exists(LOCATIONS_DB_PATH):
+        conn = sqlite3.connect(LOCATIONS_DB_PATH)
         cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT
-                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
-                l.homepage_template, l.year, l.century,
-                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
-                COALESCE(
-                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
-                     FROM history_photos WHERE location_id = l.id),
-                    '[]'::json
-                )::text as history_photos
-            FROM locations l
-            WHERE l.active = true
-        """)
+        cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
+                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                          history_photos
+                          FROM locations WHERE active = 1""")
         location = cursor.fetchone()
-        cursor.close()
         conn.close()
-
         if location:
-            # Dodaj pola None dla photo1/2 (dla kompatybilności wstecznej)
             return location[:13] + (None, None, None, None, location[13])
-        return None
-    except Exception as e:
-        print(f"❌ Błąd pobierania aktywnej miejscowości: {e}")
-        return None
+
+    return None
 
 def get_active_location_name():
     """Zwraca nazwę aktywnej miejscowości lub None."""
@@ -557,34 +658,48 @@ def get_active_location_name():
     return location[1] if location else None
 
 def set_active_location(location_id):
-    """
-    Ustawia miejscowość jako aktywną i automatycznie aplikuje jej szablon strony.
-
-    PostgreSQL trigger automatycznie wyłącza inne miejscowości gdy ta staje się aktywna.
-    """
+    """Ustawia miejscowość jako aktywną (PostgreSQL lub SQLite fallback)."""
     init_locations_db()
-    try:
-        conn = get_launcher_postgres_connection()
+
+    template = "standardowy"
+
+    # Próbuj PostgreSQL
+    if check_postgres_available():
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (location_id,))
+            result = cursor.fetchone()
+            template = result[0] if result and result[0] else "standardowy"
+
+            cursor.execute("UPDATE locations SET active = true WHERE id = %s", (location_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            apply_homepage_template(template)
+            generate_location_config_js()
+            return
+        except Exception as e:
+            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
+
+    # Fallback do SQLite
+    if os.path.exists(LOCATIONS_DB_PATH):
+        conn = sqlite3.connect(LOCATIONS_DB_PATH)
         cursor = conn.cursor()
 
-        # Pobierz szablon dla tej miejscowości
-        cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (location_id,))
+        cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (location_id,))
         result = cursor.fetchone()
         template = result[0] if result and result[0] else "standardowy"
 
-        # Ustaw wybraną jako aktywną (trigger automatycznie wyłączy inne)
-        cursor.execute("UPDATE locations SET active = true WHERE id = %s", (location_id,))
+        cursor.execute("UPDATE locations SET active = 0")
+        cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
         conn.commit()
-        cursor.close()
         conn.close()
 
-        # Automatycznie aplikuj szablon dla tej miejscowości
         apply_homepage_template(template)
-
-        # Wygeneruj plik JS z danymi miejscowości
         generate_location_config_js()
-    except Exception as e:
-        print(f"❌ Błąd ustawiania aktywnej miejscowości: {e}")
 
 def generate_location_config_js():
     """
