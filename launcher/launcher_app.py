@@ -2495,6 +2495,110 @@ if __name__ == '__main__':
             return command
 
 # =============================================================================
+# MIGRACJA DANYCH
+# =============================================================================
+
+def migrate_sqlite_to_postgres():
+    """
+    Migruje dane miejscowości z SQLite do PostgreSQL.
+
+    Returns:
+        (success, message) - tuple z wynikiem i komunikatem
+    """
+    # Sprawdź czy PostgreSQL jest dostępny
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest skonfigurowany.\nUtwórz plik launcher/.postgres.env z danymi dostępu.")
+
+    # Sprawdź czy baza mapa_launcher_db istnieje
+    config = get_postgres_config()
+    if not postgres_database_exists(**config, db_name='mapa_launcher_db'):
+        return (False, "Baza mapa_launcher_db nie istnieje.\nUruchom kreator bazy danych.")
+
+    # Sprawdź czy istnieje plik SQLite
+    if not os.path.exists(LOCATIONS_DB_PATH):
+        return (False, "Brak pliku locations.db do migracji.")
+
+    try:
+        # Połącz z SQLite
+        conn_sqlite = sqlite3.connect(LOCATIONS_DB_PATH)
+        cursor_sqlite = conn_sqlite.cursor()
+
+        # Pobierz wszystkie miejscowości z SQLite
+        cursor_sqlite.execute("""
+            SELECT name, full_name, powiat, region, active,
+                   homepage_template, year, century,
+                   homepage_description, history_paragraph1,
+                   history_paragraph2, history_paragraph3,
+                   history_photos
+            FROM locations
+        """)
+
+        locations = cursor_sqlite.fetchall()
+        conn_sqlite.close()
+
+        if not locations:
+            return (False, "Brak miejscowości do migracji w SQLite.")
+
+        # Połącz z PostgreSQL
+        import psycopg2
+        conn_pg = psycopg2.connect(
+            host=config['host'],
+            port=config['port'],
+            user=config['user'],
+            password=config['password'],
+            database='mapa_launcher_db'
+        )
+        cursor_pg = conn_pg.cursor()
+
+        migrated = 0
+        skipped = 0
+
+        # Migruj każdą miejscowość
+        for loc in locations:
+            name, full_name, powiat, region, active, homepage_template, year, century, \
+            homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, \
+            history_photos = loc
+
+            # Sprawdź czy miejscowość już istnieje
+            cursor_pg.execute("SELECT id FROM locations WHERE name = %s", (name,))
+            if cursor_pg.fetchone():
+                skipped += 1
+                continue
+
+            # Wstaw miejscowość
+            cursor_pg.execute("""
+                INSERT INTO locations (name, full_name, powiat, region, active,
+                                     homepage_template, year, century,
+                                     homepage_description, history_paragraph1,
+                                     history_paragraph2, history_paragraph3,
+                                     history_photos, postgres_db_name)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (name, full_name, powiat, region, active, homepage_template, year, century,
+                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                  history_photos, ""))  # postgres_db_name na razie puste
+
+            migrated += 1
+
+        conn_pg.commit()
+        cursor_pg.close()
+        conn_pg.close()
+
+        msg = f"✅ Migracja zakończona!\n\n"
+        msg += f"Zmigrowano: {migrated} miejscowości\n"
+        if skipped > 0:
+            msg += f"Pominięto (już istnieją): {skipped} miejscowości\n"
+        msg += f"\n⚠️ Po migracji możesz usunąć plik locations.db"
+
+        # Ustaw globalną zmienną aby system używał PostgreSQL
+        global POSTGRES_AVAILABLE
+        POSTGRES_AVAILABLE = True
+
+        return (True, msg)
+
+    except Exception as e:
+        return (False, f"Błąd migracji: {e}")
+
+# =============================================================================
 # KLASY OKIEN DIALOGOWYCH
 # =============================================================================
 
@@ -2575,6 +2679,9 @@ class LocationManager(tk.Toplevel):
 
         ttk.Button(buttons_frame, text="🔄 Odśwież", command=self.refresh_table,
                   style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(buttons_frame, text="⬆️ Migruj do PostgreSQL", command=self.migrate_to_postgres,
+                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
     def refresh_table(self):
         """Odświeża tabelkę z miejscowościami."""
@@ -2784,6 +2891,31 @@ class LocationManager(tk.Toplevel):
         set_active_location(int(loc_id))
         messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}\nZastosowano szablon strony dla tej miejscowości.", parent=self)
         self.refresh_table()
+
+    def migrate_to_postgres(self):
+        """Migruje dane z SQLite do PostgreSQL."""
+        # Pokaż dialog potwierdzenia
+        confirm = messagebox.askyesno(
+            "Migracja SQLite → PostgreSQL",
+            "Czy chcesz przenieść dane miejscowości z SQLite do PostgreSQL?\n\n"
+            "Upewnij się, że:\n"
+            "1. PostgreSQL jest skonfigurowany (.postgres.env)\n"
+            "2. Baza mapa_launcher_db istnieje\n\n"
+            "Operacja nie usuwa pliku locations.db.",
+            parent=self
+        )
+
+        if not confirm:
+            return
+
+        # Wykonaj migrację
+        success, msg = migrate_sqlite_to_postgres()
+
+        if success:
+            messagebox.showinfo("✅ Sukces", msg, parent=self)
+            self.refresh_table()
+        else:
+            messagebox.showerror("❌ Błąd", msg, parent=self)
 
 
 class TemplateChangeDialog(tk.Toplevel):
@@ -3008,6 +3140,8 @@ class DatabaseWizard(tk.Toplevel):
                        variable=self.action_var, value="full_setup").pack(anchor=tk.W, pady=5)
         ttk.Radiobutton(actions_frame, text="🔧 Tylko baza launcher (mapa_launcher_db)",
                        variable=self.action_var, value="launcher_only").pack(anchor=tk.W, pady=5)
+        ttk.Radiobutton(actions_frame, text="♻️ Resetuj tabele launcher (usuń i odtwórz)",
+                       variable=self.action_var, value="reset_launcher").pack(anchor=tk.W, pady=5)
 
         ttk.Button(frame, text="🔄 Odśwież status", command=self.refresh_status).pack(pady=10)
 
@@ -3106,6 +3240,8 @@ class DatabaseWizard(tk.Toplevel):
                 self.full_setup()
             elif action == "launcher_only":
                 self.launcher_only_setup()
+            elif action == "reset_launcher":
+                self.reset_launcher_tables()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -3144,6 +3280,39 @@ class DatabaseWizard(tk.Toplevel):
         self.log(f"   {msg}")
 
         self.log("\n✅ Gotowe!")
+
+    def reset_launcher_tables(self):
+        """Resetuj tabele w bazie launcher"""
+        self.log("=== Resetowanie tabel launcher ===\n")
+
+        # Sprawdź czy baza istnieje
+        if not postgres_database_exists(**self.config, db_name='mapa_launcher_db'):
+            self.log("❌ Baza mapa_launcher_db nie istnieje!")
+            self.log("   Użyj opcji 'Pełna instalacja' lub 'Tylko baza launcher'")
+            raise Exception("Baza mapa_launcher_db nie istnieje")
+
+        self.log("1. Usuwam stare tabele...")
+
+        # SQL do usunięcia tabel
+        drop_sql = """
+        DROP TABLE IF EXISTS locations CASCADE;
+        """
+
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=drop_sql)
+        self.log(f"   {msg}")
+
+        if not success:
+            raise Exception(f"Błąd usuwania tabel: {msg}")
+
+        self.log("2. Tworzę nowe tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+        self.log(f"   {msg}")
+
+        if not success:
+            raise Exception(f"Błąd tworzenia tabel: {msg}")
+
+        self.log("\n✅ Tabele zostały zresetowane!")
+        self.log("⚠️ UWAGA: Wszystkie dane miejscowości zostały usunięte!")
 
     def finish(self):
         """Zakończ"""
