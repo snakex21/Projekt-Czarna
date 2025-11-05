@@ -3681,7 +3681,6 @@ class AddEditLocationDialog(tk.Toplevel):
         # Jeśli postgres_db_name jest podane ale nie ma go w liście, dodaj do listy
         # (może być sytuacja gdy baza istnieje ale nie została wykryta)
         if postgres_db_name and postgres_db_name not in available_dbs:
-            print(f"⚠️ Baza {postgres_db_name} nie jest na liście, dodaję...")
             # Wstaw przed opcją "(nowa baza...)"
             available_dbs.insert(-1, postgres_db_name)
 
@@ -3692,20 +3691,16 @@ class AddEditLocationDialog(tk.Toplevel):
         if postgres_db_name:
             # Jeśli jest postgres_db_name, użyj go
             self.db_combo.set(postgres_db_name)
-            print(f"DEBUG: Ustawiono bazę na: {postgres_db_name}")
         elif available_dbs:
             # Jeśli brak wartości, zaproponuj bazę na podstawie nazwy miejscowości
             if name:
                 suggested_db = f"mapa_{name.lower()}_db"
                 if suggested_db in available_dbs:
                     self.db_combo.set(suggested_db)
-                    print(f"DEBUG: Zasugerowano bazę: {suggested_db}")
                 else:
                     self.db_combo.set(available_dbs[0])
-                    print(f"DEBUG: Ustawiono pierwszą bazę: {available_dbs[0]}")
             else:
                 self.db_combo.set(available_dbs[0])
-                print(f"DEBUG: Ustawiono pierwszą bazę: {available_dbs[0]}")
 
         self.db_combo.grid(row=4, column=1, pady=5, padx=10, sticky="ew")
 
@@ -3791,34 +3786,20 @@ class AddEditLocationDialog(tk.Toplevel):
         databases = []
 
         # Sprawdź czy PostgreSQL jest dostępny
-        pg_available = check_postgres_available()
-        print(f"DEBUG: PostgreSQL dostępny: {pg_available}")
-
-        if pg_available:
+        if check_postgres_available():
             try:
                 config = get_postgres_config()
-                print(f"DEBUG: Łączę z PostgreSQL: {config['host']}:{config['port']} jako {config['user']}")
-
                 pg_dbs = postgres_list_databases(config['host'], config['port'],
                                                  config['user'], config['password'])
-                print(f"DEBUG: Wszystkie bazy PostgreSQL: {pg_dbs}")
 
                 # Filtruj tylko bazy zaczynające się od "mapa_"
                 map_dbs = [db for db in pg_dbs if db.startswith('mapa_') and db != 'mapa_launcher_db']
-                print(f"DEBUG: Bazy mapa_*_db (bez launcher): {map_dbs}")
-
                 databases.extend(sorted(map_dbs))
             except Exception as e:
                 print(f"❌ Błąd pobierania listy baz: {e}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print("⚠️ PostgreSQL nie jest dostępny! Sprawdź plik launcher/.postgres.env")
 
         # Dodaj opcję tworzenia nowej bazy
         databases.append("(nowa baza - wpisz nazwę)")
-
-        print(f"DEBUG: Finalna lista baz do wyboru: {databases}")
         return databases
 
     def refresh_databases(self):
