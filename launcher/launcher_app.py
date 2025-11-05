@@ -743,6 +743,7 @@ def get_all_locations():
                     l.id, l.name, l.full_name, l.powiat, l.region, l.active,
                     l.homepage_template, l.year, l.century,
                     l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                    l.postgres_db_name,
                     COALESCE(
                         (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
                          FROM history_photos WHERE location_id = l.id),
@@ -755,10 +756,10 @@ def get_all_locations():
             cursor.close()
             conn.close()
 
-            result = []
-            for loc in locations:
-                result.append(loc[:13] + (None, None, None, None, loc[13]))
-            return result
+            # Format: (id, name, full_name, powiat, region, active, homepage_template, year, century,
+            #          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+            #          postgres_db_name, history_photos)
+            return locations
         except Exception as e:
             print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
 
@@ -3482,11 +3483,13 @@ class DatabaseWizard(tk.Toplevel):
         try:
             locations = get_all_locations()
             if locations:
-                # Format: (id, name, postgres_db_name)
+                # Format: (id, name, full_name, powiat, region, active, homepage_template, year, century,
+                #          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                #          postgres_db_name, history_photos)
                 location_items = []
                 for loc in locations:
                     loc_id, name = loc[0], loc[1]
-                    postgres_db_name = loc[14] if len(loc) > 14 else ""  # postgres_db_name jest na indeksie 14
+                    postgres_db_name = loc[13] if len(loc) > 13 and loc[13] else ""  # postgres_db_name jest na indeksie 13
 
                     # Pokaż nazwę miejscowości i nazwę bazy
                     if postgres_db_name:
@@ -3498,7 +3501,7 @@ class DatabaseWizard(tk.Toplevel):
 
                 # Ustaw wartości w combobox
                 self.location_combo['values'] = [item[0] for item in location_items]
-                self.location_data = location_items  # Przechowaj pełne dane
+                self.location_data = location_items  # Przechowuj pełne dane
 
                 if location_items:
                     self.location_combo.current(0)
@@ -3507,6 +3510,8 @@ class DatabaseWizard(tk.Toplevel):
                 self.location_data = []
         except Exception as e:
             print(f"⚠️ Błąd odświeżania listy miejscowości: {e}")
+            import traceback
+            traceback.print_exc()
             self.location_combo['values'] = ["Błąd wczytywania"]
             self.location_data = []
 
