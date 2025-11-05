@@ -132,6 +132,129 @@ CREATE TRIGGER single_active_location BEFORE INSERT OR UPDATE ON locations
     FOR EACH ROW EXECUTE FUNCTION ensure_single_active_location();
 """
 
+# Schemat bazy danych dla miejscowości (mapa_*_db) - tabele mapy, właścicieli, genealogii, itp.
+LOCATION_DB_SCHEMA = """
+-- Czyszczenie istniejących tabel (jeśli istnieją)
+DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele,
+                     wlasciciele, obiekty_geograficzne, demografia, login_attempts,
+                     blocked_ips, konfiguracja_systemu CASCADE;
+
+-- Tabela globalnej konfiguracji systemu
+CREATE TABLE konfiguracja_systemu (
+    klucz VARCHAR(50) PRIMARY KEY,
+    wartosc JSONB NOT NULL,
+    opis TEXT
+);
+
+-- Tabela obiektów geograficznych (działki, drogi, budynki)
+CREATE TABLE obiekty_geograficzne (
+    id SERIAL PRIMARY KEY,
+    nazwa_lub_numer VARCHAR(50) NOT NULL,
+    kategoria       VARCHAR(50) NOT NULL,
+    geometria GEOMETRY(GEOMETRY, 4326),
+    UNIQUE (nazwa_lub_numer, kategoria)
+);
+
+-- Tabela protokołów właścicieli
+CREATE TABLE wlasciciele (
+    id SERIAL PRIMARY KEY,
+    unikalny_klucz VARCHAR(100) NOT NULL UNIQUE,
+    nazwa_wlasciciela VARCHAR(255) NOT NULL,
+    numer_protokolu INTEGER,
+    numer_domu VARCHAR(50),
+    data_protokolu DATE,
+    miejsce_protokolu VARCHAR(100),
+    genealogia TEXT,
+    historia_wlasnosci TEXT,
+    uwagi TEXT,
+    wspolwlasnosc TEXT,
+    powiazania_i_transakcje TEXT,
+    interpretacja_i_wnioski TEXT
+);
+
+-- Tabela genealogii osób
+CREATE TABLE osoby_genealogia (
+    id SERIAL PRIMARY KEY,
+    json_id INTEGER UNIQUE NOT NULL,
+    imie_nazwisko VARCHAR(255) NOT NULL,
+    plec VARCHAR(1),
+    numer_domu VARCHAR(50),
+    rok_urodzenia INTEGER,
+    rok_smierci INTEGER,
+    id_ojca INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
+    id_matki INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
+    id_protokolu INTEGER REFERENCES wlasciciele(id) ON DELETE SET NULL,
+    uwagi TEXT
+);
+
+-- Tabela relacji małżeńskich
+CREATE TABLE malzenstwa (
+    malzonek1_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
+    malzonek2_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
+    PRIMARY KEY (malzonek1_id, malzonek2_id),
+    CONSTRAINT rozne_osoby CHECK (malzonek1_id <> malzonek2_id)
+);
+
+-- Tabela łącząca właścicieli z obiektami
+CREATE TABLE dzialki_wlasciciele (
+    id SERIAL PRIMARY KEY,
+    wlasciciel_id INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    obiekt_id INTEGER NOT NULL REFERENCES obiekty_geograficzne(id) ON DELETE CASCADE,
+    typ_posiadania VARCHAR(50),
+    opis_udzialu TEXT,
+    UNIQUE (wlasciciel_id, obiekt_id, typ_posiadania)
+);
+
+-- Tabela danych demograficznych
+CREATE TABLE demografia (
+    id SERIAL PRIMARY KEY,
+    rok INTEGER NOT NULL UNIQUE,
+    populacja_ogolem INTEGER,
+    katolicy INTEGER,
+    zydzi INTEGER,
+    inni INTEGER,
+    opis TEXT
+);
+
+-- Tabela powiązań między protokołami
+CREATE TABLE powiazania_protokolow (
+    id SERIAL PRIMARY KEY,
+    wlasciciel_id_1 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    wlasciciel_id_2 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
+    typ_relacji VARCHAR(50),
+    opis_relacji TEXT
+);
+
+-- Tabela logów prób logowania
+CREATE TABLE login_attempts (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
+    username_attempt VARCHAR(255),
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    successful BOOLEAN NOT NULL
+);
+
+-- Tabela zablokowanych adresów IP
+CREATE TABLE blocked_ips (
+    id SERIAL PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL UNIQUE,
+    reason TEXT,
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indeksy dla optymalizacji zapytań
+CREATE INDEX idx_obiekty_geometria ON obiekty_geograficzne USING GIST (geometria);
+CREATE INDEX idx_wlasciciele_nazwa ON wlasciciele (nazwa_wlasciciela);
+CREATE INDEX idx_osoby_genealogia_protokol ON osoby_genealogia (id_protokolu);
+CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
+
+-- Wstawienie domyślnej konfiguracji mapy
+INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) VALUES
+('map_calibration', '{"sw": {"lat": 50.0414, "lng": 21.2261}, "ne": {"lat": 50.0814, "lng": 21.2661}}', 'Współrzędne kalibracji mapy historycznej (Południowy-Zachód i Północny-Wschód).'),
+('map_defaults', '{"center": {"lat": 50.0614, "lng": 21.2461}, "zoom": 14}', 'Domyślny widok startowy mapy (centrum i poziom przybliżenia).')
+ON CONFLICT (klucz) DO NOTHING;
+"""
+
 
 # Zmienne globalne
 POSTGRES_AVAILABLE = None
@@ -383,6 +506,44 @@ def init_postgres_locations_db():
 
     print(f"✓ Baza mapa_launcher_db jest gotowa")
     return True
+
+
+def init_location_database(db_name):
+    """
+    Tworzy i inicjalizuje bazę danych dla miejscowości (np. mapa_czarna_db).
+    Tworzy wszystkie tabele: obiekty_geograficzne, wlasciciele, osoby_genealogia,
+    demografia, malzenstwa, login_attempts, blocked_ips, itd.
+
+    Args:
+        db_name: Nazwa bazy danych (np. 'mapa_czarna_db')
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest dostępny")
+
+    config = get_postgres_config()
+
+    # Sprawdź czy baza już istnieje
+    db_exists = postgres_database_exists(config['host'], config['port'],
+                                         config['user'], config['password'], db_name)
+
+    if not db_exists:
+        # Utwórz bazę
+        success, msg = postgres_create_database(config['host'], config['port'],
+                                                config['user'], config['password'], db_name)
+        if not success:
+            return (False, f"Błąd tworzenia bazy: {msg}")
+
+    # Wykonaj schemat (DROP + CREATE wszystkie tabele)
+    success, msg = postgres_execute_schema(config['host'], config['port'],
+                                          config['user'], config['password'],
+                                          db_name, LOCATION_DB_SCHEMA)
+    if not success:
+        return (False, f"Błąd inicjalizacji tabel: {msg}")
+
+    return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
 
 
 def migrate_sqlite_to_postgres():
@@ -883,12 +1044,15 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     location_folder = os.path.join(BACKUP_FOLDER, name)
     os.makedirs(location_folder, exist_ok=True)
 
-    # Utwórz domyślny plik .env
+    # Utwórz domyślny plik .env z nazwą bazy na podstawie postgres_db_name
     env_path = os.path.join(location_folder, ".env")
     if not os.path.exists(env_path):
-        default_env = """# Konfiguracja bazy danych PostgreSQL
+        # Użyj podanej nazwy bazy lub domyślnej
+        db_name_for_env = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}_db"
+
+        default_env = f"""# Konfiguracja bazy danych PostgreSQL
 DB_HOST=localhost
-DB_NAME=mapa_czarna_db
+DB_NAME={db_name_for_env}
 DB_USER=postgres
 DB_PASSWORD=1234
 DB_PORT=5432
@@ -936,6 +1100,16 @@ ADMIN_PASSWORD_HASH=
             conn.commit()
             cursor.close()
             conn.close()
+
+            # Automatycznie utwórz bazę danych dla miejscowości (jeśli podano nazwę)
+            if postgres_db_name:
+                print(f"📦 Tworzę bazę danych: {postgres_db_name}...")
+                success, msg = init_location_database(postgres_db_name)
+                if success:
+                    print(msg)
+                else:
+                    print(f"⚠️ {msg}")
+
             return location_id
 
         except psycopg2.IntegrityError:
@@ -3227,6 +3401,21 @@ class DatabaseWizard(tk.Toplevel):
                        variable=self.action_var, value="launcher_only").pack(anchor=tk.W, pady=5)
         ttk.Radiobutton(actions_frame, text="♻️ Resetuj tabele launcher (usuń i odtwórz)",
                        variable=self.action_var, value="reset_launcher").pack(anchor=tk.W, pady=5)
+        ttk.Radiobutton(actions_frame, text="📦 Utwórz/zresetuj bazę miejscowości",
+                       variable=self.action_var, value="init_location_db").pack(anchor=tk.W, pady=5)
+
+        # Dropdown z wyborem miejscowości
+        location_frame = ttk.Frame(actions_frame)
+        location_frame.pack(anchor=tk.W, pady=5, padx=20)
+
+        ttk.Label(location_frame, text="Wybierz miejscowość:").pack(side=tk.LEFT, padx=(0, 10))
+
+        self.location_var = tk.StringVar()
+        self.location_combo = ttk.Combobox(location_frame, textvariable=self.location_var, state="readonly", width=30)
+        self.location_combo.pack(side=tk.LEFT)
+
+        # Wypełnij listę miejscowości
+        self.refresh_locations_list()
 
         ttk.Button(frame, text="🔄 Odśwież status", command=self.refresh_status).pack(pady=10)
 
@@ -3288,6 +3477,39 @@ class DatabaseWizard(tk.Toplevel):
         else:
             self.db_status_text.insert(tk.END, "  Brak\n")
 
+    def refresh_locations_list(self):
+        """Odśwież listę miejscowości w dropdownie"""
+        try:
+            locations = get_all_locations()
+            if locations:
+                # Format: (id, name, postgres_db_name)
+                location_items = []
+                for loc in locations:
+                    loc_id, name = loc[0], loc[1]
+                    postgres_db_name = loc[14] if len(loc) > 14 else ""  # postgres_db_name jest na indeksie 14
+
+                    # Pokaż nazwę miejscowości i nazwę bazy
+                    if postgres_db_name:
+                        display = f"{name} → {postgres_db_name}"
+                        location_items.append((display, postgres_db_name))
+                    else:
+                        display = f"{name} (brak bazy)"
+                        location_items.append((display, ""))
+
+                # Ustaw wartości w combobox
+                self.location_combo['values'] = [item[0] for item in location_items]
+                self.location_data = location_items  # Przechowaj pełne dane
+
+                if location_items:
+                    self.location_combo.current(0)
+            else:
+                self.location_combo['values'] = ["Brak miejscowości"]
+                self.location_data = []
+        except Exception as e:
+            print(f"⚠️ Błąd odświeżania listy miejscowości: {e}")
+            self.location_combo['values'] = ["Błąd wczytywania"]
+            self.location_data = []
+
     def next_step(self):
         """Następny krok"""
         current = self.notebook.index(self.notebook.select())
@@ -3327,6 +3549,8 @@ class DatabaseWizard(tk.Toplevel):
                 self.launcher_only_setup()
             elif action == "reset_launcher":
                 self.reset_launcher_tables()
+            elif action == "init_location_db":
+                self.init_location_db_action()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -3413,6 +3637,37 @@ class DatabaseWizard(tk.Toplevel):
         # Wyczyść cache inicjalizacji aby przy następnym użyciu schemat został ponownie wykonany
         global LOCATIONS_DB_INITIALIZED
         LOCATIONS_DB_INITIALIZED = False
+
+    def init_location_db_action(self):
+        """Utwórz/zresetuj bazę danych miejscowości"""
+        self.log("=== Tworzenie/resetowanie bazy miejscowości ===\n")
+
+        # Pobierz wybraną miejscowość
+        selected_index = self.location_combo.current()
+        if selected_index < 0 or not hasattr(self, 'location_data') or not self.location_data:
+            self.log("❌ Nie wybrano miejscowości!")
+            raise Exception("Wybierz miejscowość z listy")
+
+        display_name, db_name = self.location_data[selected_index]
+
+        if not db_name:
+            self.log("❌ Wybrana miejscowość nie ma przypisanej bazy danych!")
+            self.log("   Edytuj miejscowość i przypisz bazę PostgreSQL.")
+            raise Exception("Brak przypisanej bazy danych")
+
+        self.log(f"📦 Baza: {db_name}\n")
+
+        # Wywołaj funkcję inicjalizacji
+        self.log(f"1. Sprawdzam/tworzę bazę {db_name}...")
+        success, msg = init_location_database(db_name)
+
+        if not success:
+            self.log(f"   ❌ {msg}")
+            raise Exception(msg)
+
+        self.log(f"   ✓ {msg}")
+        self.log("\n✅ Baza miejscowości gotowa do użycia!")
+        self.log("⚠️ Tabele zostały utworzone/zresetowane (wszystkie dane usunięte)")
 
     def finish(self):
         """Zakończ"""
