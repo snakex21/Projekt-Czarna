@@ -536,11 +536,9 @@ def init_postgres_locations_db():
     # Jeśli już zainicjalizowana i baza istnieje, tylko włącz PostGIS i zakończ
     if LOCATIONS_DB_INITIALIZED and db_exists:
         # Upewnij się, że PostGIS jest włączony (dla istniejących baz)
-        success, msg = postgres_enable_postgis(config['host'], config['port'],
-                                               config['user'], config['password'],
-                                               'mapa_launcher_db')
-        if success:
-            print(f"✓ {msg}")
+        postgres_enable_postgis(config['host'], config['port'],
+                               config['user'], config['password'],
+                               'mapa_launcher_db')
         return True
 
     if not db_exists:
@@ -553,15 +551,10 @@ def init_postgres_locations_db():
             return False
         print(f"✓ {msg}")
 
-    # Włącz PostGIS w bazie launcher (zawsze przy pierwszym uruchomieniu)
-    success, msg = postgres_enable_postgis(config['host'], config['port'],
-                                           config['user'], config['password'],
-                                           'mapa_launcher_db')
-    if success:
-        print(f"✓ {msg}")
-    else:
-        print(f"⚠️ {msg}")
-        # Nie przerywaj - PostGIS może już być włączony lub użytkownik może nie mieć uprawnień
+    # Włącz PostGIS w bazie launcher (cicho, bez komunikatów)
+    postgres_enable_postgis(config['host'], config['port'],
+                           config['user'], config['password'],
+                           'mapa_launcher_db')
 
     # Wykonaj schemat (tylko raz!)
     success, msg = postgres_execute_schema(config['host'], config['port'],
@@ -606,12 +599,9 @@ def init_location_database(db_name):
         if not success:
             return (False, f"Błąd tworzenia bazy: {msg}")
 
-    # Włącz PostGIS w bazie miejscowości
-    success, msg = postgres_enable_postgis(config['host'], config['port'],
-                                           config['user'], config['password'], db_name)
-    if not success:
-        print(f"⚠️ Nie udało się włączyć PostGIS w {db_name}: {msg}")
-        # Nie przerywaj - PostGIS może już być włączony
+    # Włącz PostGIS w bazie miejscowości (cicho)
+    postgres_enable_postgis(config['host'], config['port'],
+                           config['user'], config['password'], db_name)
 
     # Wykonaj schemat (DROP + CREATE wszystkie tabele)
     success, msg = postgres_execute_schema(config['host'], config['port'],
@@ -620,7 +610,7 @@ def init_location_database(db_name):
     if not success:
         return (False, f"Błąd inicjalizacji tabel: {msg}")
 
-    return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana (z PostGIS)")
+    return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
 
 
 def migrate_sqlite_to_postgres():
@@ -1221,7 +1211,7 @@ ADMIN_PASSWORD_HASH=
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                   history_photos=None, postgres_db_name=""):
+                   history_photos=None, postgres_db_name="", homepage_template="standardowy"):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1274,12 +1264,12 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                     year = %s, century = %s,
                     homepage_description = %s, history_paragraph1 = %s,
                     history_paragraph2 = %s, history_paragraph3 = %s,
-                    postgres_db_name = %s,
+                    postgres_db_name = %s, homepage_template = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             """, (name, full_name, powiat, region, year, century,
                   homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                  postgres_db_name, location_id))
+                  postgres_db_name, homepage_template, location_id))
 
             cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
             for idx, photo in enumerate(history_photos):
@@ -3075,12 +3065,13 @@ class LocationManager(tk.Toplevel):
         if hasattr(dialog, 'result') and dialog.result:
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
-             history_photos, postgres_db_name) = dialog.result
+             history_photos, postgres_db_name, homepage_template) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
-                           history_photos=history_photos, postgres_db_name=postgres_db_name)
+                           history_photos=history_photos, postgres_db_name=postgres_db_name,
+                           homepage_template=homepage_template)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -3102,6 +3093,7 @@ class LocationManager(tk.Toplevel):
         homepage_desc = history_p1 = history_p2 = history_p3 = ""
         history_photos_json = "[]"
         postgres_db_name = ""
+        homepage_template = "standardowy"
 
         # Próbuj PostgreSQL
         if check_postgres_available():
@@ -3112,15 +3104,16 @@ class LocationManager(tk.Toplevel):
                 cursor.execute("""
                     SELECT name, full_name, powiat, region, year, century,
                            homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                           postgres_db_name
+                           postgres_db_name, homepage_template
                     FROM locations WHERE id = %s
                 """, (loc_id,))
                 result = cursor.fetchone()
 
                 if result:
                     (name, full_name, powiat, region, year, century,
-                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name) = result
+                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template) = result
                     postgres_db_name = postgres_db_name or ""
+                    homepage_template = homepage_template or "standardowy"
 
                     # Pobierz zdjęcia historyczne
                     cursor.execute("""
@@ -3174,17 +3167,17 @@ class LocationManager(tk.Toplevel):
 
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
-                                      history_photos, postgres_db_name)
+                                      history_photos, postgres_db_name, homepage_template)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-             new_history_photos, new_postgres_db_name) = dialog.result
+             new_history_photos, new_postgres_db_name, new_homepage_template) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-                              new_history_photos, new_postgres_db_name)
+                              new_history_photos, new_postgres_db_name, new_homepage_template)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -4116,7 +4109,7 @@ class AddEditLocationDialog(tk.Toplevel):
 
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                 history_photos=None, postgres_db_name=""):
+                 history_photos=None, postgres_db_name="", homepage_template="standardowy"):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -4218,10 +4211,38 @@ class AddEditLocationDialog(tk.Toplevel):
         homepage_frame = ttk.Frame(notebook, padding="20")
         notebook.add(homepage_frame, text="Strona główna")
 
-        ttk.Label(homepage_frame, text="Opis strony głównej:").pack(anchor="w", pady=(0, 5))
-        self.homepage_desc_text = scrolledtext.ScrolledText(homepage_frame, width=60, height=8, wrap=tk.WORD)
+        # Wybór szablonu
+        template_selection_frame = ttk.Frame(homepage_frame)
+        template_selection_frame.pack(fill=tk.X, pady=(0, 15))
+
+        ttk.Label(template_selection_frame, text="Szablon strony głównej:").pack(side=tk.LEFT, padx=(0, 10))
+
+        self.homepage_template_var = tk.StringVar(value=homepage_template)
+        self.template_combo = ttk.Combobox(template_selection_frame,
+                                          textvariable=self.homepage_template_var,
+                                          values=["standardowy", "praca_inzynierska"],
+                                          state="readonly", width=30)
+        self.template_combo.pack(side=tk.LEFT)
+        self.template_combo.bind("<<ComboboxSelected>>", self.on_template_change)
+
+        # Frame dla opisu (pokazywany/ukrywany w zależności od szablonu)
+        self.homepage_desc_frame = ttk.Frame(homepage_frame)
+        self.homepage_desc_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.homepage_desc_label = ttk.Label(self.homepage_desc_frame, text="Opis strony głównej:")
+        self.homepage_desc_label.pack(anchor="w", pady=(0, 5))
+
+        self.homepage_desc_text = scrolledtext.ScrolledText(self.homepage_desc_frame, width=60, height=8, wrap=tk.WORD)
         self.homepage_desc_text.insert("1.0", homepage_description)
         self.homepage_desc_text.pack(fill=tk.BOTH, expand=True)
+
+        # Info o szablonie inżynierskim
+        self.template_info_label = ttk.Label(homepage_frame,
+                                            text="Szablon 'praca inżynierska' ma stały wygląd i nie jest modyfikowalny.",
+                                            foreground="gray", wraplength=500)
+
+        # Pokaż/ukryj opis w zależności od szablonu
+        self.update_template_visibility()
 
         # === ZAKŁADKA 3: Historia ===
         history_frame = ttk.Frame(notebook, padding="20")
@@ -4307,6 +4328,23 @@ class AddEditLocationDialog(tk.Toplevel):
         elif available_dbs:
             self.db_combo.set(available_dbs[0])
 
+    def on_template_change(self, event=None):
+        """Wywoływana gdy zmieni się wybór szablonu."""
+        self.update_template_visibility()
+
+    def update_template_visibility(self):
+        """Pokazuje/ukrywa pole opisu w zależności od wybranego szablonu."""
+        template = self.homepage_template_var.get()
+
+        if template == "standardowy":
+            # Pokaż pole opisu
+            self.homepage_desc_frame.pack(fill=tk.BOTH, expand=True)
+            self.template_info_label.pack_forget()
+        else:
+            # Ukryj pole opisu, pokaż info
+            self.homepage_desc_frame.pack_forget()
+            self.template_info_label.pack(anchor="w", pady=(0, 10))
+
     def manage_photos(self):
         """Otwiera dialog zarządzania zdjęciami."""
         dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
@@ -4368,9 +4406,12 @@ class AddEditLocationDialog(tk.Toplevel):
             messagebox.showerror("❌ Błąd", "Musisz wybrać lub utworzyć bazę danych PostgreSQL!", parent=self)
             return
 
+        # Pobierz wybrany szablon
+        homepage_template = self.homepage_template_var.get()
+
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
-                      self.history_photos, postgres_db_name)
+                      self.history_photos, postgres_db_name, homepage_template)
         self.destroy()
 
 
