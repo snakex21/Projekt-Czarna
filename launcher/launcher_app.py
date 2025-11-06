@@ -3477,6 +3477,63 @@ class TemplateChangeDialog(tk.Toplevel):
         self.destroy()
 
 
+class LoadingDialog(tk.Toplevel):
+    """Okno z animacją ładowania podczas inicjalizacji."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.title("Inicjalizacja systemu")
+        self.geometry("450x250")
+        self.resizable(False, False)
+
+        # Wycentruj okno
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (450 // 2)
+        y = (self.winfo_screenheight() // 2) - (250 // 2)
+        self.geometry(f"450x250+{x}+{y}")
+
+        # Ukryj przyciski okna
+        self.overrideredirect(False)
+        self.transient(parent)
+
+        # Główny frame
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Tytuł
+        ttk.Label(main_frame, text="⚙️ Przygotowywanie systemu...",
+                 font=('Arial', 14, 'bold')).pack(pady=(0, 20))
+
+        # Progress bar (animowany)
+        self.progress = ttk.Progressbar(main_frame, mode='indeterminate', length=350)
+        self.progress.pack(pady=10)
+        self.progress.start(10)
+
+        # Status text
+        self.status_label = ttk.Label(main_frame, text="Sprawdzanie konfiguracji...",
+                                      font=('Arial', 10), wraplength=400)
+        self.status_label.pack(pady=20)
+
+        # Szczegóły (mniejszym fontem)
+        self.detail_label = ttk.Label(main_frame, text="",
+                                      font=('Arial', 9), foreground='gray')
+        self.detail_label.pack(pady=5)
+
+        self.lift()
+        self.focus_force()
+
+    def update_status(self, status, detail=""):
+        """Aktualizuje tekst statusu."""
+        self.status_label.config(text=status)
+        self.detail_label.config(text=detail)
+        self.update()
+
+    def close(self):
+        """Zamyka okno."""
+        self.progress.stop()
+        self.destroy()
+
+
 def auto_initialize_on_startup():
     """
     Automatyczna inicjalizacja przy pierwszym uruchomieniu programu.
@@ -3498,12 +3555,51 @@ def auto_initialize_on_startup():
     if not config.get('password'):
         return  # Brak hasła - nie można się połączyć
 
+    # Szybkie sprawdzenie czy jest coś do zrobienia (bez tworzenia okna)
     try:
-        # Test połączenia
         success, msg = test_postgres_connection(**config)
         if not success:
             print(f"⚠️ Nie można połączyć się z PostgreSQL: {msg}")
             return
+
+        # Sprawdź co trzeba zrobić
+        needs_work = False
+        db_exists = postgres_database_exists(**config, db_name='mapa_launcher_db')
+        if not db_exists:
+            needs_work = True
+        else:
+            # Sprawdź czy Czarna istnieje
+            try:
+                conn = get_launcher_postgres_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM locations WHERE name = 'Czarna'")
+                czarna_exists = cursor.fetchone()[0] > 0
+                cursor.close()
+                conn.close()
+                if not czarna_exists:
+                    needs_work = True
+            except:
+                needs_work = True
+
+            # Sprawdź czy baza Czarnej istnieje
+            czarna_db_exists = postgres_database_exists(**config, db_name='mapa_czarna_db')
+            if not czarna_db_exists:
+                needs_work = True
+
+        # Jeśli nie ma nic do zrobienia - wyjdź
+        if not needs_work:
+            print("ℹ️ System już jest skonfigurowany")
+            return
+
+    except Exception as e:
+        print(f"⚠️ Błąd sprawdzania: {e}")
+        return
+
+    # Jeśli jest coś do zrobienia - pokaż okno ładowania i wykonaj
+    loading_dialog = LoadingDialog()
+
+    try:
+        loading_dialog.update_status("Sprawdzanie baz danych...", "Łączenie z PostgreSQL")
 
         print("✅ PostgreSQL dostępny, sprawdzam bazy...")
 
@@ -3517,15 +3613,19 @@ def auto_initialize_on_startup():
         db_exists = postgres_database_exists(**config, db_name='mapa_launcher_db')
 
         if not db_exists:
+            loading_dialog.update_status("Tworzenie bazy mapa_launcher_db...",
+                                        "Konfiguracja PostgreSQL")
             print("📦 Tworzę bazę mapa_launcher_db...")
             success_db, msg_db = postgres_create_database(**config, db_name='mapa_launcher_db')
             if not success_db:
                 print(f"❌ Błąd tworzenia bazy launcher: {msg_db}")
+                loading_dialog.close()
                 return
             created_launcher = True
             print("✅ Baza mapa_launcher_db utworzona")
 
         # Włącz PostGIS (zawsze, nawet jeśli baza istniała)
+        loading_dialog.update_status("Konfiguracja PostGIS...", "Rozszerzenia przestrzenne")
         postgres_enable_postgis(**config, db_name='mapa_launcher_db')
 
         # Wykonaj schemat (zawsze, bezpieczne z IF NOT EXISTS)
@@ -3544,6 +3644,8 @@ def auto_initialize_on_startup():
             czarna_exists = False
 
         if not czarna_exists:
+            loading_dialog.update_status("Tworzenie miejscowości 'Czarna'...",
+                                        "Domyślna lokalizacja")
             print("📍 Tworzę domyślną miejscowość 'Czarna'...")
             add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
             created_czarna_location = True
@@ -3561,6 +3663,8 @@ def auto_initialize_on_startup():
         czarna_db_exists = postgres_database_exists(**config, db_name='mapa_czarna_db')
 
         if not czarna_db_exists:
+            loading_dialog.update_status("Tworzenie bazy mapa_czarna_db...",
+                                        "Baza danych dla miejscowości")
             print("📦 Tworzę bazę mapa_czarna_db...")
             success_db, msg_db = init_location_database('mapa_czarna_db')
             if success_db:
@@ -3589,6 +3693,8 @@ def auto_initialize_on_startup():
 
                 # Jeśli baza jest pusta - migruj dane
                 if count == 0:
+                    loading_dialog.update_status("Migracja danych...",
+                                                "Import z backup/Czarna - to może potrwać chwilę")
                     print("🔄 Automatyczna migracja danych z backup/Czarna...")
                     auto_migrate_data_function(backup_czarna)
                     migrated_data = True
@@ -3596,6 +3702,10 @@ def auto_initialize_on_startup():
                     print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
             except Exception as e:
                 print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
+
+        # Zamknij okno ładowania
+        loading_dialog.update_status("Finalizowanie...", "Prawie gotowe!")
+        loading_dialog.close()
 
         # 5. Wyświetl okno informacyjne jeśli coś zostało zrobione
         if created_launcher or created_czarna_location or created_czarna_db or migrated_data:
@@ -3631,6 +3741,9 @@ def auto_initialize_on_startup():
             print("ℹ️ System już jest skonfigurowany")
 
     except Exception as e:
+        # Zamknij okno ładowania w przypadku błędu
+        if 'loading_dialog' in locals():
+            loading_dialog.close()
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
         import traceback
         traceback.print_exc()
