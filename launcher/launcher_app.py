@@ -2052,6 +2052,9 @@ class AppLauncher(tk.Tk):
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
         setup_postgres_config()
 
+        # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
+        auto_initialize_on_startup()
+
         check_env_configuration()
         check_backup_folder_files()
         _auto_sync_site_icon()
@@ -3474,6 +3477,210 @@ class TemplateChangeDialog(tk.Toplevel):
         self.destroy()
 
 
+def auto_initialize_on_startup():
+    """
+    Automatyczna inicjalizacja przy pierwszym uruchomieniu programu.
+
+    Sprawdza czy:
+    1. Istnieje plik .postgres.env z hasłem
+    2. Istnieje baza mapa_launcher_db
+    3. Istnieje miejscowość Czarna
+    4. Istnieje baza mapa_czarna_db
+    5. Dane są zmigrowane
+
+    Jeśli czegoś brakuje - automatycznie tworzy i pokazuje okno informacyjne.
+    """
+    # Sprawdź czy .postgres.env istnieje i ma hasło
+    if not os.path.exists(POSTGRES_CONFIG_FILE):
+        return  # Brak konfiguracji - user musi najpierw wpisać hasło
+
+    config = get_postgres_config()
+    if not config.get('password'):
+        return  # Brak hasła - nie można się połączyć
+
+    try:
+        # Test połączenia
+        success, msg = test_postgres_connection(**config)
+        if not success:
+            print(f"⚠️ Nie można połączyć się z PostgreSQL: {msg}")
+            return
+
+        print("✅ PostgreSQL dostępny, sprawdzam bazy...")
+
+        # Flagi do śledzenia co zostało zrobione
+        created_launcher = False
+        created_czarna_location = False
+        created_czarna_db = False
+        migrated_data = False
+
+        # 1. Sprawdź/utwórz bazę mapa_launcher_db
+        db_exists = postgres_database_exists(**config, db_name='mapa_launcher_db')
+
+        if not db_exists:
+            print("📦 Tworzę bazę mapa_launcher_db...")
+            success_db, msg_db = postgres_create_database(**config, db_name='mapa_launcher_db')
+            if not success_db:
+                print(f"❌ Błąd tworzenia bazy launcher: {msg_db}")
+                return
+            created_launcher = True
+            print("✅ Baza mapa_launcher_db utworzona")
+
+        # Włącz PostGIS (zawsze, nawet jeśli baza istniała)
+        postgres_enable_postgis(**config, db_name='mapa_launcher_db')
+
+        # Wykonaj schemat (zawsze, bezpieczne z IF NOT EXISTS)
+        postgres_execute_schema(**config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+
+        # 2. Sprawdź czy istnieje miejscowość "Czarna"
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM locations WHERE name = 'Czarna'")
+            czarna_exists = cursor.fetchone()[0] > 0
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"⚠️ Nie można sprawdzić miejscowości: {e}")
+            czarna_exists = False
+
+        if not czarna_exists:
+            print("📍 Tworzę domyślną miejscowość 'Czarna'...")
+            add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+            created_czarna_location = True
+
+            # Ustaw jako aktywną
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE locations SET active = TRUE WHERE name = 'Czarna'")
+            conn.commit()
+            cursor.close()
+            conn.close()
+            print("✅ Miejscowość 'Czarna' utworzona i ustawiona jako aktywna")
+
+        # 3. Sprawdź czy baza Czarnej istnieje
+        czarna_db_exists = postgres_database_exists(**config, db_name='mapa_czarna_db')
+
+        if not czarna_db_exists:
+            print("📦 Tworzę bazę mapa_czarna_db...")
+            success_db, msg_db = init_location_database('mapa_czarna_db')
+            if success_db:
+                created_czarna_db = True
+                print("✅ Baza mapa_czarna_db utworzona")
+            else:
+                print(f"⚠️ Błąd tworzenia bazy mapa_czarna_db: {msg_db}")
+
+        # 4. Migracja danych z backup/Czarna (jeśli folder istnieje)
+        backup_czarna = os.path.join(BACKUP_FOLDER, "Czarna")
+        if os.path.exists(backup_czarna):
+            # Sprawdź czy dane już są w bazie (sprawdź tabelę wlasciciele)
+            try:
+                conn = psycopg2.connect(
+                    host=config['host'],
+                    port=config['port'],
+                    user=config['user'],
+                    password=config['password'],
+                    dbname='mapa_czarna_db'
+                )
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM wlasciciele")
+                count = cursor.fetchone()[0]
+                cursor.close()
+                conn.close()
+
+                # Jeśli baza jest pusta - migruj dane
+                if count == 0:
+                    print("🔄 Automatyczna migracja danych z backup/Czarna...")
+                    auto_migrate_data_function(backup_czarna)
+                    migrated_data = True
+                else:
+                    print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
+            except Exception as e:
+                print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
+
+        # 5. Wyświetl okno informacyjne jeśli coś zostało zrobione
+        if created_launcher or created_czarna_location or created_czarna_db or migrated_data:
+            message = "🎉 System jest gotowy do użycia!\n\n"
+
+            if created_launcher:
+                message += "✅ Utworzono bazę mapa_launcher_db\n"
+            else:
+                message += "✅ Baza mapa_launcher_db gotowa\n"
+
+            if created_czarna_location:
+                message += "✅ Utworzono miejscowość 'Czarna'\n"
+            else:
+                message += "✅ Miejscowość 'Czarna' gotowa\n"
+
+            if created_czarna_db:
+                message += "✅ Utworzono bazę mapa_czarna_db\n"
+            else:
+                message += "✅ Baza mapa_czarna_db gotowa\n"
+
+            if migrated_data:
+                message += "✅ Dane zmigrowane z backup/Czarna\n"
+
+            message += "\n💡 Możesz teraz:\n"
+            message += "• Włączyć serwer i zobaczyć mapę\n"
+            message += "• Edytować dane właścicieli\n"
+            message += "• Kalibrować mapę\n"
+            message += "• Zarządzać miejscowościami"
+
+            messagebox.showinfo("System gotowy!", message)
+            print("✅ Automatyczna inicjalizacja zakończona pomyślnie")
+        else:
+            print("ℹ️ System już jest skonfigurowany")
+
+    except Exception as e:
+        print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def auto_migrate_data_function(backup_folder):
+    """
+    Funkcja pomocnicza do migracji danych (standalone, nie metoda klasy).
+
+    Args:
+        backup_folder: Ścieżka do folderu z danymi (np. backup/Czarna)
+    """
+    try:
+        import subprocess
+        import sys
+
+        # Ścieżka do skryptu migracji
+        migrate_script = os.path.join(BASE_DIR, "backend", "migrate_data.py")
+
+        if not os.path.exists(migrate_script):
+            print(f"⚠️ Brak skryptu migracji: {migrate_script}")
+            return
+
+        # Uruchom skrypt migracji
+        print(f"🔄 Migracja danych z {backup_folder}...")
+        result = subprocess.run(
+            [sys.executable, migrate_script],
+            cwd=BASE_DIR,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=60
+        )
+
+        if result.returncode == 0:
+            print("✅ Migracja zakończona pomyślnie")
+            if result.stdout:
+                print(result.stdout)
+        else:
+            print(f"⚠️ Migracja zakończona z błędami:")
+            if result.stderr:
+                print(result.stderr)
+
+    except subprocess.TimeoutExpired:
+        print("⚠️ Migracja przekroczyła limit czasu (60s)")
+    except Exception as e:
+        print(f"⚠️ Błąd podczas migracji: {e}")
+
+
 class DatabaseWizard(tk.Toplevel):
     """Narzędzie do zarządzania bazą danych PostgreSQL"""
 
@@ -3625,7 +3832,7 @@ class DatabaseWizard(tk.Toplevel):
         self.finish_button.pack(pady=10)
 
     def test_connection(self):
-        """Test połączenia i automatyczna inicjalizacja"""
+        """Test połączenia z PostgreSQL"""
         self.config['host'] = self.host_entry.get().strip()
         self.config['port'] = int(self.port_entry.get().strip())
         self.config['user'] = self.user_entry.get().strip()
@@ -3634,95 +3841,21 @@ class DatabaseWizard(tk.Toplevel):
         success, msg = test_postgres_connection(**self.config)
 
         if success:
-            self.connection_status.config(text="✓ Połączenie OK! Inicjalizuję...", foreground="green")
+            self.connection_status.config(text="✓ Połączenie OK!", foreground="green")
 
-            # 1. Zapisz hasło do .postgres.env
+            # Zapisz hasło do .postgres.env
             save_postgres_config(self.config['host'], self.config['port'],
                                self.config['user'], self.config['password'])
 
-            # 2. Sprawdź/utwórz bazę mapa_launcher_db
-            try:
-                db_exists = postgres_database_exists(**self.config, db_name='mapa_launcher_db')
-
-                if not db_exists:
-                    # Utwórz bazę launcher
-                    print("📦 Tworzę bazę mapa_launcher_db...")
-                    success_db, msg_db = postgres_create_database(**self.config, db_name='mapa_launcher_db')
-                    if not success_db:
-                        raise Exception(f"Błąd tworzenia bazy launcher: {msg_db}")
-                    print("✅ Baza mapa_launcher_db utworzona")
-
-                # Włącz PostGIS
-                postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
-
-                # Wykonaj schemat
-                success_schema, msg_schema = postgres_execute_schema(**self.config,
-                                                                     db_name='mapa_launcher_db',
-                                                                     schema_sql=LAUNCHER_DB_SCHEMA)
-                if not success_schema:
-                    print(f"⚠️ Schemat: {msg_schema}")
-
-                # 3. Sprawdź czy istnieje domyślna miejscowość "Czarna"
-                conn = get_launcher_postgres_connection()
-                cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM locations WHERE name = 'Czarna'")
-                czarna_exists = cursor.fetchone()[0] > 0
-
-                if not czarna_exists:
-                    print("📍 Tworzę domyślną miejscowość 'Czarna'...")
-                    cursor.close()
-                    conn.close()
-
-                    # Utwórz miejscowość Czarna z bazą danych
-                    add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
-                    print("✅ Miejscowość 'Czarna' utworzona")
-
-                    # Ustaw jako aktywną
-                    conn = get_launcher_postgres_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE locations SET active = TRUE WHERE name = 'Czarna'")
-                    conn.commit()
-                else:
-                    # Sprawdź czy Czarna ma bazę danych
-                    cursor.execute("SELECT postgres_db_name FROM locations WHERE name = 'Czarna'")
-                    result = cursor.fetchone()
-                    czarna_db_name = result[0] if result and result[0] else "mapa_czarna_db"
-
-                    # Sprawdź czy baza Czarnej istnieje
-                    czarna_db_exists = postgres_database_exists(**self.config, db_name=czarna_db_name)
-
-                    if not czarna_db_exists:
-                        print(f"📦 Tworzę bazę {czarna_db_name}...")
-                        init_location_database(czarna_db_name)
-                        print(f"✅ Baza {czarna_db_name} utworzona")
-
-                cursor.close()
-                conn.close()
-
-                # 4. Automatyczna migracja danych z backup/Czarna
-                backup_czarna = os.path.join(BACKUP_FOLDER, "Czarna")
-                if os.path.exists(backup_czarna):
-                    print("🔄 Automatyczna migracja danych z backup/Czarna...")
-                    self.auto_migrate_data(backup_czarna)
-
-                self.connection_status.config(text="✓ Połączenie OK! System gotowy.", foreground="green")
-                messagebox.showinfo("Sukces",
-                                  "Połączenie działa!\n\n"
-                                  "✅ Baza mapa_launcher_db gotowa\n"
-                                  "✅ Miejscowość 'Czarna' gotowa\n"
-                                  "✅ Dane zmigrowane (jeśli były w backup/)",
-                                  parent=self)
-
-            except Exception as e:
-                print(f"⚠️ Błąd podczas inicjalizacji: {e}")
-                self.connection_status.config(text=f"✓ Połączenie OK, ale: {str(e)[:50]}...", foreground="orange")
-                messagebox.showwarning("Uwaga",
-                                      f"Połączenie działa, ale wystąpił problem:\n{e}\n\n"
-                                      "Sprawdź logi w konsoli.",
-                                      parent=self)
+            messagebox.showinfo("Sukces",
+                              "Połączenie z PostgreSQL działa!\n\n"
+                              "✅ Konfiguracja zapisana do launcher/.postgres.env\n\n"
+                              "Program automatycznie utworzy bazy przy następnym uruchomieniu.",
+                              parent=self)
         else:
             self.connection_status.config(text=f"✗ {msg}", foreground="red")
             messagebox.showerror("Błąd", msg, parent=self)
+
 
     def auto_migrate_data(self, backup_folder):
         """
