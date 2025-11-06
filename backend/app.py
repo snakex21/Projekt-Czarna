@@ -102,7 +102,40 @@ def get_active_location_env_path():
 
 # Wczytanie zmiennych środowiskowych z pliku .env aktywnej miejscowości
 active_env_path = get_active_location_env_path()
-load_dotenv(active_env_path)
+
+# Własna funkcja do wczytania .env z obsługą różnych kodowań
+def load_env_with_encoding(env_path):
+    """Wczytuje .env z obsługą różnych kodowań (utf-8, cp1250, latin-1)."""
+    if not os.path.exists(env_path):
+        print(f"⚠️ Plik .env nie istnieje: {env_path}")
+        return
+
+    # Spróbuj różnych kodowań
+    for encoding in ['utf-8', 'cp1250', 'latin-1']:
+        try:
+            with open(env_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key, value = key.strip(), value.strip()
+                        # Usuń cudzysłowy jeśli są
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
+                        elif value.startswith("'") and value.endswith("'"):
+                            value = value[1:-1]
+                        os.environ[key] = value
+            print(f"✅ Załadowano .env ({encoding}): {env_path}")
+            return
+        except UnicodeDecodeError:
+            if encoding == 'latin-1':  # latin-1 nie powinno rzucić UnicodeDecodeError
+                print(f"❌ Błąd odczytu .env: {env_path}")
+            continue
+        except Exception as e:
+            print(f"❌ Błąd wczytywania .env: {e}")
+            return
+
+load_env_with_encoding(active_env_path)
 
 def get_env_variable(var_name, default_value=None):
     """Pobiera zmienną środowiskową z opcjonalną wartością domyślną."""
@@ -133,7 +166,8 @@ DB_CONFIG = {
     "dbname": get_env_variable("DB_NAME", "mapa_czarna_db"),
     "user": get_env_variable("DB_USER", "postgres"),
     "password": get_env_variable("DB_PASSWORD", "1234"),
-    "port": get_env_variable("DB_PORT", "5432")
+    "port": get_env_variable("DB_PORT", "5432"),
+    "client_encoding": "UTF8"  # Wymuszenie kodowania UTF-8
 }
 
 # =============================================================================
