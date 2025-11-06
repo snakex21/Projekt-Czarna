@@ -3749,6 +3749,8 @@ class DatabaseWizard(tk.Toplevel):
                 cwd=BASE_DIR,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
+                errors='replace',  # Zamień niezrozumiałe znaki na ?
                 timeout=60
             )
 
