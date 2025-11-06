@@ -23,22 +23,22 @@ import sqlite3
 def get_active_location_info():
     """Zwraca informacje o aktywnej miejscowości (nazwa, ścieżka do .env, folder backup)."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    launcher_dir = os.path.join(base_dir, "launcher")
-    locations_db_path = os.path.join(launcher_dir, "locations.db")
 
-    # Sprawdź czy baza danych istnieje
-    if not os.path.exists(locations_db_path):
-        # Użyj domyślnej lokalizacji
-        return {
-            'name': None,
-            'env_path': os.path.join(base_dir, "backend", ".env"),
-            'backup_dir': os.path.join(base_dir, "backup")
+    # Najpierw spróbuj PostgreSQL (baza launcher)
+    try:
+        # Pobierz konfigurację postgres z zmiennych środowiskowych (jeśli są)
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
         }
 
-    try:
-        conn = sqlite3.connect(locations_db_path)
+        conn = psycopg2.connect(**launcher_db_config)
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
         result = cursor.fetchone()
         conn.close()
 
@@ -55,7 +55,34 @@ def get_active_location_info():
                     'backup_dir': backup_folder
                 }
     except Exception as e:
-        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+        print(f"⚠️ PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+    # Fallback do SQLite jeśli PostgreSQL nie działa
+    launcher_dir = os.path.join(base_dir, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    if os.path.exists(locations_db_path):
+        try:
+            conn = sqlite3.connect(locations_db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM locations WHERE active = 1")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                location_name = result[0]
+                backup_folder = os.path.join(base_dir, "backup", location_name)
+                env_path = os.path.join(backup_folder, ".env")
+
+                if os.path.exists(env_path):
+                    print(f"✅ Używam danych z miejscowości (SQLite): {location_name}")
+                    return {
+                        'name': location_name,
+                        'env_path': env_path,
+                        'backup_dir': backup_folder
+                    }
+        except Exception as e:
+            print(f"⚠️ Błąd podczas odczytu SQLite: {e}")
 
     # Fallback do domyślnej lokalizacji
     print(f"⚠️ Używam domyślnej lokalizacji danych")
@@ -68,8 +95,40 @@ def get_active_location_info():
 # Pobierz informacje o aktywnej miejscowości
 location_info = get_active_location_info()
 
+# Własna funkcja do wczytania .env z obsługą różnych kodowań
+def load_env_with_encoding(env_path):
+    """Wczytuje .env z obsługą różnych kodowań (utf-8, cp1250, latin-1)."""
+    if not os.path.exists(env_path):
+        print(f"⚠️ Plik .env nie istnieje: {env_path}")
+        return
+
+    # Spróbuj różnych kodowań
+    for encoding in ['utf-8', 'cp1250', 'latin-1']:
+        try:
+            with open(env_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key, value = key.strip(), value.strip()
+                        # Usuń cudzysłowy jeśli są
+                        if value.startswith('"') and value.endswith('"'):
+                            value = value[1:-1]
+                        elif value.startswith("'") and value.endswith("'"):
+                            value = value[1:-1]
+                        os.environ[key] = value
+            print(f"✅ Załadowano .env ({encoding})")
+            return
+        except UnicodeDecodeError:
+            if encoding == 'latin-1':  # latin-1 nie powinno rzucić UnicodeDecodeError
+                print(f"❌ Błąd odczytu .env: {env_path}")
+            continue
+        except Exception as e:
+            print(f"❌ Błąd wczytywania .env: {e}")
+            return
+
 # Załadowanie zmiennych środowiskowych z odpowiedniego pliku .env
-load_dotenv(location_info['env_path'])
+load_env_with_encoding(location_info['env_path'])
 
 def get_env_variable(var_name, default_value=None):
     """
@@ -108,7 +167,8 @@ DB_CONFIG = {
     "dbname": get_env_variable("DB_NAME", "mapa_czarna_db"),
     "user": get_env_variable("DB_USER", "postgres"),
     "password": get_env_variable("DB_PASSWORD", "1234"),
-    "port": get_env_variable("DB_PORT", "5432")
+    "port": get_env_variable("DB_PORT", "5432"),
+    "client_encoding": "UTF8"  # Wymuszenie kodowania UTF-8
 }
 
 print("\n📊 Konfiguracja połączenia:")
