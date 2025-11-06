@@ -65,38 +65,63 @@ def clear_genealogy_cache():
 # =============================================================================
 
 # Funkcja do określenia ścieżki .env z aktywnej miejscowości
-import sqlite3
-
 def get_active_location_env_path():
-    """Zwraca ścieżkę do pliku .env aktywnej miejscowości."""
+    """Zwraca ścieżkę do pliku .env aktywnej miejscowości (czyta z PostgreSQL)."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    launcher_dir = os.path.join(base_dir, "launcher")
-    locations_db_path = os.path.join(launcher_dir, "locations.db")
-
-    # Sprawdź czy baza danych istnieje
-    if not os.path.exists(locations_db_path):
-        # Użyj domyślnej lokalizacji
-        return os.path.join(base_dir, "backend", ".env")
+    default_env = os.path.join(base_dir, "backend", ".env")
 
     try:
-        conn = sqlite3.connect(locations_db_path)
+        # Czytaj konfigurację PostgreSQL z launcher/.postgres.env
+        launcher_dir = os.path.join(base_dir, "launcher")
+        postgres_config_path = os.path.join(launcher_dir, ".postgres.env")
+
+        if not os.path.exists(postgres_config_path):
+            print(f"⚠️ Brak {postgres_config_path}, używam backend/.env")
+            return default_env
+
+        # Wczytaj dane PostgreSQL z .postgres.env
+        postgres_config = {}
+        with open(postgres_config_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    postgres_config[key] = value
+
+        # Połącz się z mapa_launcher_db
+        import psycopg2
+        conn = psycopg2.connect(
+            host=postgres_config.get('LAUNCHER_DB_HOST', 'localhost'),
+            port=postgres_config.get('LAUNCHER_DB_PORT', '5432'),
+            user=postgres_config.get('LAUNCHER_DB_USER', 'postgres'),
+            password=postgres_config.get('LAUNCHER_DB_PASSWORD', ''),
+            database='mapa_launcher_db'
+        )
+
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        cursor.execute("SELECT name FROM locations WHERE active = true")
         result = cursor.fetchone()
+        cursor.close()
         conn.close()
 
         if result:
             location_name = result[0]
+            # Sprawdź czy istnieje .env w backup/miejscowość
             backup_folder = os.path.join(base_dir, "backup", location_name)
             env_path = os.path.join(backup_folder, ".env")
             if os.path.exists(env_path):
                 print(f"✅ Używam .env z miejscowości: {location_name}")
                 return env_path
+            else:
+                print(f"⚠️ Brak .env dla {location_name}, używam backend/.env")
+                return default_env
+
     except Exception as e:
-        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+        print(f"⚠️ Błąd podczas odczytu PostgreSQL launcher: {e}")
+        print(f"⚠️ Używam domyślnej lokalizacji .env")
+        return default_env
 
     # Fallback do domyślnej lokalizacji
-    default_env = os.path.join(base_dir, "backend", ".env")
     print(f"⚠️ Używam domyślnej lokalizacji .env")
     return default_env
 

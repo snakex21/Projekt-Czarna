@@ -157,6 +157,9 @@ DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialk
 
 # Pełny schemat z DROP + CREATE
 LOCATION_DB_SCHEMA = """
+-- Włącz rozszerzenie PostGIS (wymagane dla typów GEOMETRY)
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- Czyszczenie istniejących tabel (jeśli istnieją)
 DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele,
                      wlasciciele, obiekty_geograficzne, demografia, login_attempts,
@@ -877,6 +880,7 @@ def set_active_location(location_id):
 
             apply_homepage_template(template)
             generate_location_config_js()
+            generate_env_file()
             return
         except Exception as e:
             print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
@@ -897,6 +901,73 @@ def set_active_location(location_id):
 
         apply_homepage_template(template)
         generate_location_config_js()
+        generate_env_file()
+
+def generate_env_file():
+    """
+    Generuje plik .env dla backendu Flask na podstawie aktywnej miejscowości.
+    Zapisuje do:
+    - backend/.env (główny plik dla Flask)
+    - backup/{location_name}/.env (kopia zapasowa dla miejscowości)
+    """
+    active_location = get_active_location()
+
+    if not active_location:
+        print("⚠️ Brak aktywnej miejscowości - nie można wygenerować .env")
+        return False
+
+    location_name = active_location[1]
+    postgres_db_name = active_location[13] if len(active_location) > 13 and active_location[13] else f"mapa_{location_name.lower()}_db"
+
+    # Pobierz hasło PostgreSQL z .postgres.env
+    postgres_config = get_postgres_config()
+    db_password = postgres_config.get('password', '1234')
+
+    # Generuj zawartość .env
+    env_content = f"""# Wygenerowane automatycznie przez launcher
+# Aktywna miejscowość: {location_name}
+# Data wygenerowania: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+# Konfiguracja bazy danych PostgreSQL
+DB_HOST=localhost
+DB_NAME={postgres_db_name}
+DB_USER=postgres
+DB_PASSWORD={db_password}
+DB_PORT=5432
+
+# Konfiguracja serwera Flask
+FLASK_HOST=127.0.0.1
+FLASK_PORT=5000
+FLASK_DEBUG=True
+FLASK_SECRET_KEY=change-me-once
+
+# Ustawienia bezpieczeństwa
+ADMIN_AUTH_ENABLED=0
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=
+"""
+
+    try:
+        # Zapisz do backend/.env
+        backend_env_path = os.path.join(BASE_DIR, "backend", ".env")
+        os.makedirs(os.path.dirname(backend_env_path), exist_ok=True)
+        with open(backend_env_path, 'w', encoding='utf-8') as f:
+            f.write(env_content)
+        print(f"✓ Wygenerowano backend/.env dla miejscowości: {location_name}")
+
+        # Zapisz kopię do backup/{location_name}/.env
+        backup_env_path = os.path.join(BASE_DIR, "backup", location_name, ".env")
+        os.makedirs(os.path.dirname(backup_env_path), exist_ok=True)
+        with open(backup_env_path, 'w', encoding='utf-8') as f:
+            f.write(env_content)
+        print(f"✓ Zapisano kopię do backup/{location_name}/.env")
+
+        return True
+    except Exception as e:
+        print(f"❌ Błąd podczas generowania .env: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 def generate_location_config_js():
     """
@@ -1904,6 +1975,11 @@ class AppLauncher(tk.Tk):
 
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
         setup_postgres_config()
+
+        # Auto-create launcher database jeśli nie istnieje
+        if check_postgres_available():
+            init_postgres_locations_db()
+            print("✓ Baza launcher gotowa")
 
         check_env_configuration()
         check_backup_folder_files()
