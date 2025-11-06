@@ -3834,16 +3834,20 @@ class DatabaseWizard(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("🔧 Kreator Bazy Danych")
-        self.geometry("700x550")
+        self.title("🔧 Zarządzanie Tabelami Bazy Danych")
         self.transient(parent)
         self.grab_set()
 
+        # Automatyczne dopasowanie do ekranu
+        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
+        w = min(int(sw * 0.6), 900)
+        h = min(int(sh * 0.7), 650)
+
         # Wycentruj
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.winfo_screenheight() // 2) - (550 // 2)
-        self.geometry(f"700x550+{x}+{y}")
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.minsize(700, 500)
 
         self.result = None
         self.config = get_postgres_config()
@@ -3922,12 +3926,10 @@ class DatabaseWizard(tk.Toplevel):
         actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
         actions_frame.pack(fill=tk.X)
 
-        self.action_var = tk.StringVar(value="create_launcher_db")
+        self.action_var = tk.StringVar(value="drop_launcher_tables")
 
         # Opcje dla bazy launcher (mapa_launcher_db)
-        ttk.Label(actions_frame, text="Baza launcher:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę launcher (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_launcher_db").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Label(actions_frame, text="Baza launcher (mapa_launcher_db):", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele launcher (DROP TABLES)",
                        variable=self.action_var, value="drop_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele launcher (DROP + CREATE)",
@@ -3937,27 +3939,10 @@ class DatabaseWizard(tk.Toplevel):
 
         # Opcje dla bazy miejscowości
         ttk.Label(actions_frame, text="Baza miejscowości:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę miejscowości (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_location_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele miejscowości (DROP TABLES)",
                        variable=self.action_var, value="drop_location_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele miejscowości (DROP + CREATE)",
                        variable=self.action_var, value="recreate_location_tables").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
-                       variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
-
-        ttk.Separator(actions_frame, orient='horizontal').pack(fill='x', pady=10)
-
-        # Opcje backup/restore
-        ttk.Label(actions_frame, text="Backup/Restore:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="📤 Eksportuj miejscowości do JSON",
-                       variable=self.action_var, value="export_locations_json").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="📥 Importuj miejscowości z JSON",
-                       variable=self.action_var, value="import_locations_json").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="📦 PEŁNY BACKUP do ZIP (wszystko!)",
-                       variable=self.action_var, value="full_backup_zip").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="📂 PRZYWRÓĆ z ZIP (wszystko!)",
-                       variable=self.action_var, value="full_restore_zip").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
@@ -4102,28 +4087,14 @@ class DatabaseWizard(tk.Toplevel):
         self.log("🚀 Rozpoczynam...\n")
 
         try:
-            if action == "create_launcher_db":
-                self.create_launcher_database()
-            elif action == "drop_launcher_tables":
+            if action == "drop_launcher_tables":
                 self.drop_launcher_tables()
             elif action == "recreate_launcher_tables":
                 self.recreate_launcher_tables()
-            elif action == "create_location_db":
-                self.create_location_database()
             elif action == "drop_location_tables":
                 self.drop_location_tables()
             elif action == "recreate_location_tables":
                 self.recreate_location_tables()
-            elif action == "drop_location_database":
-                self.drop_location_database()
-            elif action == "export_locations_json":
-                self.export_locations_to_json_action()
-            elif action == "import_locations_json":
-                self.import_locations_from_json_action()
-            elif action == "full_backup_zip":
-                self.full_backup_zip_action()
-            elif action == "full_restore_zip":
-                self.full_restore_zip_action()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -4135,25 +4106,6 @@ class DatabaseWizard(tk.Toplevel):
             self.progress.stop()
 
     # === FUNKCJE DLA BAZY LAUNCHER ===
-
-    def create_launcher_database(self):
-        """Utwórz bazę launcher (CREATE DATABASE + tables)"""
-        self.log("=== Tworzenie bazy launcher ===\n")
-
-        self.log("1. Tworzę bazę mapa_launcher_db...")
-        success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
-        self.log(f"   {msg}")
-        if not success:
-            raise Exception(msg)
-
-        self.log("2. Tworzę tabele...")
-        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
-        self.log(f"   {msg}")
-        if not success:
-            raise Exception(msg)
-
-        global LOCATIONS_DB_INITIALIZED
-        LOCATIONS_DB_INITIALIZED = False
 
     def drop_launcher_tables(self):
         """Usuń tabele launcher (DROP TABLES)"""
@@ -4211,25 +4163,6 @@ class DatabaseWizard(tk.Toplevel):
 
         return db_name
 
-    def create_location_database(self):
-        """Utwórz bazę miejscowości (CREATE DATABASE + tables)"""
-        self.log("=== Tworzenie bazy miejscowości ===\n")
-
-        db_name = self._get_selected_location_db()
-        self.log(f"Baza: {db_name}\n")
-
-        self.log("1. Tworzę bazę...")
-        success, msg = postgres_create_database(**self.config, db_name=db_name)
-        self.log(f"   {msg}")
-        if not success:
-            raise Exception(msg)
-
-        self.log("2. Tworzę tabele...")
-        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
-        self.log(f"   {msg}")
-        if not success:
-            raise Exception(msg)
-
     def drop_location_tables(self):
         """Usuń tabele miejscowości (DROP TABLES)"""
         self.log("=== Usuwanie tabel miejscowości ===\n")
@@ -4271,199 +4204,6 @@ class DatabaseWizard(tk.Toplevel):
             raise Exception(msg)
 
         self.log("\n⚠️ Wszystkie dane usunięte i tabele odtworzone!")
-
-    def drop_location_database(self):
-        """Usuń całą bazę miejscowości (DROP DATABASE)"""
-        self.log("=== Usuwanie całej bazy miejscowości ===\n")
-
-        db_name = self._get_selected_location_db()
-        self.log(f"Baza: {db_name}\n")
-
-        if not postgres_database_exists(**self.config, db_name=db_name):
-            raise Exception(f"Baza {db_name} nie istnieje!")
-
-        # Potwierdzenie
-        confirm = messagebox.askyesno(
-            "⚠️ UWAGA",
-            f"Czy na pewno chcesz CAŁKOWICIE USUNĄĆ bazę {db_name}?\n\n"
-            "Wszystkie dane zostaną bezpowrotnie utracone!",
-            icon='warning',
-            parent=self
-        )
-
-        if not confirm:
-            raise Exception("Anulowano przez użytkownika")
-
-        self.log("Usuwam bazę danych...")
-
-        # DROP DATABASE
-        try:
-            import psycopg2
-            conn = psycopg2.connect(
-                host=self.config['host'],
-                port=self.config['port'],
-                user=self.config['user'],
-                password=self.config['password'],
-                database='postgres'
-            )
-            conn.autocommit = True
-            cursor = conn.cursor()
-            cursor.execute(f"DROP DATABASE IF EXISTS {db_name}")
-            cursor.close()
-            conn.close()
-
-            self.log(f"   ✓ Baza {db_name} została usunięta")
-        except Exception as e:
-            raise Exception(f"Błąd usuwania bazy: {e}")
-
-        self.log("\n⚠️ Baza całkowicie usunięta!")
-
-    # === FUNKCJE BACKUP/RESTORE ===
-
-    def export_locations_to_json_action(self):
-        """Eksportuj miejscowości do JSON"""
-        self.log("=== Eksport miejscowości do JSON ===\n")
-
-        # Zapytaj gdzie zapisać
-        from tkinter import filedialog
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_name = f"locations_export_{timestamp}.json"
-
-        filepath = filedialog.asksaveasfilename(
-            parent=self,
-            title="Zapisz eksport jako",
-            defaultextension=".json",
-            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
-            initialfile=default_name
-        )
-
-        if not filepath:
-            raise Exception("Anulowano przez użytkownika")
-
-        self.log(f"Plik docelowy: {filepath}\n")
-        self.log("Eksportuję dane...")
-
-        success, message, output_path = export_locations_to_json(filepath)
-
-        if not success:
-            raise Exception(message)
-
-        self.log(f"   {message}")
-        self.log(f"\n📁 Plik zapisano: {output_path}")
-
-    def import_locations_from_json_action(self):
-        """Importuj miejscowości z JSON"""
-        self.log("=== Import miejscowości z JSON ===\n")
-
-        # Zapytaj o plik
-        from tkinter import filedialog
-        filepath = filedialog.askopenfilename(
-            parent=self,
-            title="Wybierz plik JSON",
-            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")]
-        )
-
-        if not filepath:
-            raise Exception("Anulowano przez użytkownika")
-
-        self.log(f"Plik źródłowy: {filepath}\n")
-        self.log("Importuję dane...")
-
-        success, message = import_locations_from_json(filepath)
-
-        if not success:
-            raise Exception(message)
-
-        self.log(f"   {message}")
-        self.log("\n✓ Import zakończony pomyślnie")
-
-        # Odśwież listę miejscowości w dropdownie
-        self.refresh_locations_list()
-
-    def full_backup_zip_action(self):
-        """Pełny backup do ZIP"""
-        self.log("=== PEŁNY BACKUP DO ZIP ===\n")
-
-        # Zapytaj gdzie zapisać
-        from tkinter import filedialog
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_name = f"full_backup_{timestamp}.zip"
-
-        filepath = filedialog.asksaveasfilename(
-            parent=self,
-            title="Zapisz pełny backup jako",
-            defaultextension=".zip",
-            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")],
-            initialfile=default_name
-        )
-
-        if not filepath:
-            raise Exception("Anulowano przez użytkownika")
-
-        self.log(f"Plik docelowy: {filepath}\n")
-        self.log("Tworzę pełny backup (launcher + bazy + pliki + zdjęcia)...\n")
-
-        success, message, output_path = full_backup_to_zip(filepath)
-
-        if not success:
-            raise Exception(message)
-
-        self.log(f"\n{message}")
-        self.log(f"📁 Plik zapisano: {output_path}")
-        self.log("\n✓ Backup zawiera:")
-        self.log("  • locations.json (konfiguracja launchera)")
-        self.log("  • SQL dumpy wszystkich baz miejscowości")
-        self.log("  • Pliki .env i backup/")
-        self.log("  • Wszystkie zdjęcia")
-
-    def full_restore_zip_action(self):
-        """Przywróć z pełnego backupu ZIP"""
-        self.log("=== PRZYWRACANIE Z PEŁNEGO BACKUPU ===\n")
-
-        # Zapytaj o plik
-        from tkinter import filedialog
-        filepath = filedialog.askopenfilename(
-            parent=self,
-            title="Wybierz plik ZIP z backupem",
-            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
-        )
-
-        if not filepath:
-            raise Exception("Anulowano przez użytkownika")
-
-        # Ostrzeżenie
-        confirm = messagebox.askyesno(
-            "⚠️ UWAGA",
-            "Przywracanie backupu:\n\n"
-            "• Zaimportuje miejscowości do launchera\n"
-            "• Odtworzy bazy danych PostgreSQL\n"
-            "• Przywróci pliki .env\n"
-            "• Przywróci zdjęcia\n\n"
-            "Istniejące miejscowości mogą zostać zaktualizowane.\n\n"
-            "Kontynuować?",
-            icon='warning',
-            parent=self
-        )
-
-        if not confirm:
-            raise Exception("Anulowano przez użytkownika")
-
-        self.log(f"Plik źródłowy: {filepath}\n")
-        self.log("Przywracam backup (może to chwilę potrwać)...\n")
-
-        success, message = full_restore_from_zip(filepath)
-
-        if not success:
-            raise Exception(message)
-
-        self.log(f"\n{message}")
-        self.log("\n✓ Backup został w pełni przywrócony!")
-        self.log("  • Miejscowości zaimportowane")
-        self.log("  • Bazy danych odtworzone")
-        self.log("  • Pliki przywrócone")
-
-        # Odśwież listę miejscowości w dropdownie
-        self.refresh_locations_list()
 
     def finish(self):
         """Zakończ"""
@@ -5870,7 +5610,35 @@ class BackupManager(tk.Toplevel):
 
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
-        
+
+        # Sekcja PEŁNEGO backupu (launcher + bazy + wszystko)
+        full_backup_frame = ttk.LabelFrame(main_frame, text="🔥 PEŁNY BACKUP (Launcher + Bazy + Wszystko)", padding="10")
+        full_backup_frame.pack(fill=tk.X, pady=(10, 0))
+
+        full_info = ttk.Label(full_backup_frame,
+                             text="Pełny backup zawiera: locations.json, pg_dump wszystkich baz, pliki .env, zdjęcia",
+                             foreground="gray")
+        full_info.pack(anchor=tk.W, pady=(0, 10))
+
+        full_buttons_frame = ttk.Frame(full_backup_frame)
+        full_buttons_frame.pack(fill=tk.X)
+
+        ttk.Button(full_buttons_frame, text="📦 PEŁNY BACKUP do ZIP",
+                  command=self.create_full_backup,
+                  style="Warning.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(full_buttons_frame, text="📂 PRZYWRÓĆ z ZIP",
+                  command=self.restore_full_backup,
+                  style="Primary.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(full_buttons_frame, text="📤 Eksportuj JSON (tylko config)",
+                  command=self.export_json,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(full_buttons_frame, text="📥 Importuj JSON",
+                  command=self.import_json,
+                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
+
         # Sekcja zarządzania kopiami
         restore_frame = ttk.LabelFrame(main_frame, text="📦 Istniejące Kopie Zapasowe", padding="10")
         restore_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -6164,6 +5932,132 @@ class BackupManager(tk.Toplevel):
                               parent=self)
         except Exception as e:
             messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
+
+    # === PEŁNY BACKUP (launcher + bazy + wszystko) ===
+
+    def create_full_backup(self):
+        """Tworzy pełny backup całej aplikacji do ZIP"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f"full_backup_{timestamp}.zip"
+
+        filepath = filedialog.asksaveasfilename(
+            parent=self,
+            title="Zapisz pełny backup jako",
+            defaultextension=".zip",
+            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")],
+            initialfile=default_name
+        )
+
+        if not filepath:
+            return
+
+        try:
+            print("📦 Tworzenie pełnego backupu...")
+            success, message, output_path = full_backup_to_zip(filepath)
+
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"Pełny backup utworzony!\n\n{message}\n\n"
+                                   f"Plik: {os.path.basename(output_path)}",
+                                   parent=self)
+                self.populate_backup_list()
+            else:
+                messagebox.showerror("❌ Błąd", f"Błąd tworzenia backupu:\n{message}", parent=self)
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
+
+    def restore_full_backup(self):
+        """Przywraca pełny backup z ZIP"""
+        filepath = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz plik ZIP z pełnym backupem",
+            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        # Ostrzeżenie
+        confirm = messagebox.askyesno(
+            "⚠️ UWAGA",
+            "Przywracanie pełnego backupu:\n\n"
+            "• Zaimportuje miejscowości do launchera\n"
+            "• Odtworzy bazy danych PostgreSQL\n"
+            "• Przywróci pliki .env\n"
+            "• Przywróci zdjęcia\n\n"
+            "Istniejące miejscowości mogą zostać zaktualizowane.\n\n"
+            "Kontynuować?",
+            icon='warning',
+            parent=self
+        )
+
+        if not confirm:
+            return
+
+        try:
+            print("📂 Przywracanie pełnego backupu...")
+            success, message = full_restore_from_zip(filepath)
+
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"Pełny backup przywrócony!\n\n{message}",
+                                   parent=self)
+            else:
+                messagebox.showerror("❌ Błąd", f"Błąd przywracania:\n{message}", parent=self)
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
+
+    def export_json(self):
+        """Eksportuje tylko konfigurację miejscowości do JSON"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f"locations_export_{timestamp}.json"
+
+        filepath = filedialog.asksaveasfilename(
+            parent=self,
+            title="Zapisz eksport jako",
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
+            initialfile=default_name
+        )
+
+        if not filepath:
+            return
+
+        try:
+            success, message, output_path = export_locations_to_json(filepath)
+
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"{message}\n\nPlik: {os.path.basename(output_path)}",
+                                   parent=self)
+            else:
+                messagebox.showerror("❌ Błąd", f"Błąd eksportu:\n{message}", parent=self)
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
+
+    def import_json(self):
+        """Importuje konfigurację miejscowości z JSON"""
+        filepath = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz plik JSON",
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        try:
+            success, message = import_locations_from_json(filepath)
+
+            if success:
+                messagebox.showinfo("✅ Sukces",
+                                   f"Import zakończony!\n\n{message}",
+                                   parent=self)
+            else:
+                messagebox.showerror("❌ Błąd", f"Błąd importu:\n{message}", parent=self)
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
+
 
 class ProgressDialog(tk.Toplevel):
     """Okno dialogowe postępu operacji."""
