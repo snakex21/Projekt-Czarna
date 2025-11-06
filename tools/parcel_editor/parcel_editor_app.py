@@ -14,6 +14,7 @@ import webbrowser
 from datetime import datetime
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 import sqlite3
+import psycopg2
 
 # ==========================================================================
 # KONFIGURACJA ŚCIEŻEK SYSTEMU
@@ -24,28 +25,53 @@ PROJECT_DIR = os.path.abspath(os.path.join(BASE_DIR, os.pardir, os.pardir))
 # Funkcja do określenia aktywnej miejscowości
 def get_active_location_backup_folder():
     """Zwraca folder backup aktywnej miejscowości."""
-    launcher_dir = os.path.join(PROJECT_DIR, "launcher")
-    locations_db_path = os.path.join(launcher_dir, "locations.db")
-
-    # Sprawdź czy baza danych istnieje
-    if not os.path.exists(locations_db_path):
-        # Użyj domyślnej lokalizacji
-        return os.path.join(PROJECT_DIR, "backup")
-
+    # Najpierw spróbuj PostgreSQL (baza launcher)
     try:
-        conn = sqlite3.connect(locations_db_path)
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+
+        conn = psycopg2.connect(**launcher_db_config)
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
         result = cursor.fetchone()
         conn.close()
 
         if result:
             location_name = result[0]
-            return os.path.join(PROJECT_DIR, "backup", location_name)
+            backup_folder = os.path.join(PROJECT_DIR, "backup", location_name)
+            print(f"✅ Edytor działek - aktywna miejscowość: {location_name}")
+            return backup_folder
     except Exception as e:
-        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+        print(f"⚠️ PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+    # Fallback do SQLite jeśli PostgreSQL nie działa
+    launcher_dir = os.path.join(PROJECT_DIR, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    if os.path.exists(locations_db_path):
+        try:
+            conn = sqlite3.connect(locations_db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM locations WHERE active = 1")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                location_name = result[0]
+                backup_folder = os.path.join(PROJECT_DIR, "backup", location_name)
+                print(f"✅ Edytor działek (SQLite) - aktywna miejscowość: {location_name}")
+                return backup_folder
+        except Exception as e:
+            print(f"⚠️ Błąd podczas odczytu SQLite: {e}")
 
     # Fallback do domyślnej lokalizacji
+    print(f"⚠️ Używam domyślnej lokalizacji backup")
     return os.path.join(PROJECT_DIR, "backup")
 
 BACKUP_DIR = get_active_location_backup_folder()
