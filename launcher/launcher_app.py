@@ -424,6 +424,35 @@ def postgres_enable_postgis(host, port, user, password, db_name):
         return False, f"Błąd PostGIS: {str(e)}"
 
 
+def postgres_enable_postgis(host, port, user, password, db_name):
+    """Włącza rozszerzenie PostGIS w bazie danych"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database=db_name, client_encoding='UTF8'
+        )
+        # Ustaw autocommit dla CREATE EXTENSION
+        conn.autocommit = True
+        cursor = conn.cursor()
+
+        # Sprawdź czy PostGIS już istnieje
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'postgis');")
+        postgis_exists = cursor.fetchone()[0]
+
+        if postgis_exists:
+            cursor.close()
+            conn.close()
+            return True, "PostGIS już włączony"
+
+        # Włącz PostGIS
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+        cursor.close()
+        conn.close()
+        return True, "PostGIS włączony pomyślnie"
+    except Exception as e:
+        return False, f"Błąd włączania PostGIS: {str(e)}"
+
+
 def postgres_execute_schema(host, port, user, password, db_name, schema_sql):
     """Wykonuje SQL schema w bazie"""
     try:
@@ -498,15 +527,21 @@ def init_postgres_locations_db():
     """
     global LOCATIONS_DB_INITIALIZED
 
-    # Jeśli już zainicjalizowana, pomiń
-    if LOCATIONS_DB_INITIALIZED:
-        return True
-
     config = get_postgres_config()
 
     # Sprawdź czy baza istnieje
-    if not postgres_database_exists(config['host'], config['port'], config['user'],
-                                     config['password'], 'mapa_launcher_db'):
+    db_exists = postgres_database_exists(config['host'], config['port'], config['user'],
+                                         config['password'], 'mapa_launcher_db')
+
+    # Jeśli już zainicjalizowana i baza istnieje, tylko włącz PostGIS i zakończ
+    if LOCATIONS_DB_INITIALIZED and db_exists:
+        # Upewnij się, że PostGIS jest włączony (dla istniejących baz)
+        postgres_enable_postgis(config['host'], config['port'],
+                               config['user'], config['password'],
+                               'mapa_launcher_db')
+        return True
+
+    if not db_exists:
         # Utwórz bazę
         success, msg = postgres_create_database(config['host'], config['port'],
                                                  config['user'], config['password'],
@@ -515,6 +550,11 @@ def init_postgres_locations_db():
             print(f"❌ Błąd tworzenia bazy: {msg}")
             return False
         print(f"✓ {msg}")
+
+    # Włącz PostGIS w bazie launcher (cicho, bez komunikatów)
+    postgres_enable_postgis(config['host'], config['port'],
+                           config['user'], config['password'],
+                           'mapa_launcher_db')
 
     # Wykonaj schemat (tylko raz!)
     success, msg = postgres_execute_schema(config['host'], config['port'],
@@ -558,6 +598,10 @@ def init_location_database(db_name):
                                                 config['user'], config['password'], db_name)
         if not success:
             return (False, f"Błąd tworzenia bazy: {msg}")
+
+    # Włącz PostGIS w bazie miejscowości (cicho)
+    postgres_enable_postgis(config['host'], config['port'],
+                           config['user'], config['password'], db_name)
 
     # Wykonaj schemat (DROP + CREATE wszystkie tabele)
     success, msg = postgres_execute_schema(config['host'], config['port'],
@@ -1033,6 +1077,51 @@ def set_location_template(location_id, template_name):
         conn.commit()
         conn.close()
 
+def ensure_location_data_files(location_folder):
+    """
+    Tworzy wymagane pliki JSON dla miejscowości jeśli nie istnieją.
+
+    Args:
+        location_folder: Ścieżka do folderu miejscowości w backup/
+    """
+    # Słownik z nazwami plików i ich pustymi strukturami
+    data_files = {
+        'demografia.json': [],
+        'genealogia.json': {
+            "persons": []
+        },
+        'map_config.json': {
+            "calibration": {
+                "sw": {"lat": 0, "lng": 0},
+                "ne": {"lat": 0, "lng": 0}
+            },
+            "defaults": {
+                "center": {"lat": 0, "lng": 0},
+                "zoom": 15
+            }
+        },
+        'owner_data_to_import.json': {},
+        'parcels_data.json': {}
+    }
+
+    # Twórz pliki jeśli nie istnieją
+    created_files = []
+    for filename, structure in data_files.items():
+        file_path = os.path.join(location_folder, filename)
+        if not os.path.exists(file_path):
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(structure, f, ensure_ascii=False, indent=4)
+                created_files.append(filename)
+            except Exception as e:
+                print(f"⚠️ Błąd tworzenia {filename}: {e}")
+
+    if created_files:
+        print(f"✅ Utworzono pliki danych: {', '.join(created_files)}")
+
+    return created_files
+
+
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
@@ -1067,6 +1156,9 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     # Utwórz folder dla miejscowości
     location_folder = os.path.join(BACKUP_FOLDER, name)
     os.makedirs(location_folder, exist_ok=True)
+
+    # Utwórz wymagane pliki JSON jeśli nie istnieją
+    ensure_location_data_files(location_folder)
 
     # Utwórz domyślny plik .env z nazwą bazy na podstawie postgres_db_name
     env_path = os.path.join(location_folder, ".env")
@@ -1167,7 +1259,7 @@ ADMIN_PASSWORD_HASH=
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                   history_photos=None, postgres_db_name=""):
+                   history_photos=None, postgres_db_name="", homepage_template="standardowy"):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1220,12 +1312,12 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                     year = %s, century = %s,
                     homepage_description = %s, history_paragraph1 = %s,
                     history_paragraph2 = %s, history_paragraph3 = %s,
-                    postgres_db_name = %s,
+                    postgres_db_name = %s, homepage_template = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             """, (name, full_name, powiat, region, year, century,
                   homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                  postgres_db_name, location_id))
+                  postgres_db_name, homepage_template, location_id))
 
             cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
             for idx, photo in enumerate(history_photos):
@@ -1788,7 +1880,26 @@ def _save_favicon_to_database(filename):
     """Zapisuje ścieżkę favicon do bazy danych."""
     try:
         db_cfg = get_db_config_from_env()
-        with psycopg2.connect(**db_cfg) as conn, conn.cursor() as cur:
+
+        # Upewnij się, że wszystkie wartości są poprawnie enkodowane jako UTF-8 stringi
+        db_cfg_normalized = {}
+        for key, value in db_cfg.items():
+            if isinstance(value, str):
+                # Normalizuj string do UTF-8
+                try:
+                    # Jeśli string jest poprawny, zostaw go
+                    value.encode('utf-8')
+                    db_cfg_normalized[key] = value
+                except UnicodeEncodeError:
+                    # Jeśli nie, spróbuj przekonwertować
+                    db_cfg_normalized[key] = value.encode('latin-1').decode('utf-8', errors='ignore')
+            else:
+                db_cfg_normalized[key] = value
+
+        # Dodaj client_encoding dla lepszej obsługi znaków
+        db_cfg_normalized['client_encoding'] = 'UTF8'
+
+        with psycopg2.connect(**db_cfg_normalized) as conn, conn.cursor() as cur:
             rel_path = os.path.join("site", filename).replace("\\", "/")
             cur.execute(
                 "INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) "
@@ -1798,9 +1909,9 @@ def _save_favicon_to_database(filename):
             )
             conn.commit()
             print(f"✅ Zapisano favicon do bazy danych: {rel_path}")
-    except psycopg2.Error as e:
-        # Baza może jeszcze nie istnieć – to nie błąd krytyczny przy pierwszym uruchomieniu
-        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć): {e}")
+    except (psycopg2.Error, UnicodeDecodeError, UnicodeEncodeError) as e:
+        # Baza może jeszcze nie istnieć lub problem z kodowaniem – to nie błąd krytyczny przy pierwszym uruchomieniu
+        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć lub problem z kodowaniem): {e}")
         pass
 
 def check_backup_folder_files():
@@ -1850,17 +1961,22 @@ def read_env_config(key_prefix=None):
     if not os.path.exists(env_path):
         return config
 
-    try:
-        with open(env_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    key, value = key.strip(), value.strip()
-                    if not key_prefix or key.startswith(key_prefix):
-                        config[key] = value
-    except Exception as e:
-        print(f"Błąd odczytu .env: {e}")
+    # Spróbuj różnych kodowań (utf-8, cp1250, latin-1)
+    for encoding in ['utf-8', 'cp1250', 'latin-1']:
+        try:
+            with open(env_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key, value = key.strip(), value.strip()
+                        if not key_prefix or key.startswith(key_prefix):
+                            config[key] = value
+            break  # Jeśli udało się odczytać, przerwij pętlę
+        except (UnicodeDecodeError, Exception) as e:
+            if encoding == 'latin-1':  # latin-1 nigdy nie powinno rzucić UnicodeDecodeError
+                print(f"Błąd odczytu .env: {e}")
+            continue  # Spróbuj kolejnego kodowania
 
     return config
 
@@ -2078,7 +2194,7 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
                   style="Primary.TButton").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(location_controls, text="🔧 Kreator Bazy Danych", command=self.open_database_wizard,
+        ttk.Button(location_controls, text="🔧 Zarządzanie Bazą Danych", command=self.open_database_wizard,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
         self.refresh_locations()
@@ -2362,10 +2478,10 @@ class AppLauncher(tk.Tk):
         self.refresh_locations()
 
     def open_database_wizard(self):
-        """Otwiera kreator konfiguracji bazy danych PostgreSQL."""
+        """Otwiera narzędzie zarządzania bazą danych PostgreSQL."""
         wizard = DatabaseWizard(self)
         self.wait_window(wizard)
-        # Po zamknięciu kreatora odśwież listę miejscowości (w razie nowej konfiguracji)
+        # Po zamknięciu narzędzia odśwież listę miejscowości (w razie nowej konfiguracji)
         self.refresh_locations()
 
     def open_backup_manager(self):
@@ -2997,12 +3113,13 @@ class LocationManager(tk.Toplevel):
         if hasattr(dialog, 'result') and dialog.result:
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
-             history_photos, postgres_db_name) = dialog.result
+             history_photos, postgres_db_name, homepage_template) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
-                           history_photos=history_photos, postgres_db_name=postgres_db_name)
+                           history_photos=history_photos, postgres_db_name=postgres_db_name,
+                           homepage_template=homepage_template)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -3024,6 +3141,7 @@ class LocationManager(tk.Toplevel):
         homepage_desc = history_p1 = history_p2 = history_p3 = ""
         history_photos_json = "[]"
         postgres_db_name = ""
+        homepage_template = "standardowy"
 
         # Próbuj PostgreSQL
         if check_postgres_available():
@@ -3034,15 +3152,16 @@ class LocationManager(tk.Toplevel):
                 cursor.execute("""
                     SELECT name, full_name, powiat, region, year, century,
                            homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                           postgres_db_name
+                           postgres_db_name, homepage_template
                     FROM locations WHERE id = %s
                 """, (loc_id,))
                 result = cursor.fetchone()
 
                 if result:
                     (name, full_name, powiat, region, year, century,
-                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name) = result
+                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template) = result
                     postgres_db_name = postgres_db_name or ""
+                    homepage_template = homepage_template or "standardowy"
 
                     # Pobierz zdjęcia historyczne
                     cursor.execute("""
@@ -3096,17 +3215,17 @@ class LocationManager(tk.Toplevel):
 
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
-                                      history_photos, postgres_db_name)
+                                      history_photos, postgres_db_name, homepage_template)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-             new_history_photos, new_postgres_db_name) = dialog.result
+             new_history_photos, new_postgres_db_name, new_homepage_template) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
-                              new_history_photos, new_postgres_db_name)
+                              new_history_photos, new_postgres_db_name, new_homepage_template)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -3325,20 +3444,25 @@ class TemplateChangeDialog(tk.Toplevel):
 
 
 class DatabaseWizard(tk.Toplevel):
-    """Kreator konfiguracji bazy danych PostgreSQL"""
+    """Narzędzie do zarządzania bazą danych PostgreSQL"""
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("🔧 Kreator Bazy Danych")
-        self.geometry("700x550")
+        self.title("🔧 Zarządzanie Bazą Danych")
+
+        # Ustawienie większego rozmiaru okna z możliwością zmiany rozmiaru
+        width = 800
+        height = 800
+        self.geometry(f"{width}x{height}")
+        self.minsize(width, height)  # Minimalne wymiary okna
         self.transient(parent)
         self.grab_set()
 
         # Wycentruj
         self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.winfo_screenheight() // 2) - (550 // 2)
-        self.geometry(f"700x550+{x}+{y}")
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
         self.result = None
         self.config = get_postgres_config()
@@ -3417,12 +3541,10 @@ class DatabaseWizard(tk.Toplevel):
         actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
         actions_frame.pack(fill=tk.X)
 
-        self.action_var = tk.StringVar(value="create_launcher_db")
+        self.action_var = tk.StringVar(value="recreate_launcher_tables")
 
         # Opcje dla bazy launcher (mapa_launcher_db)
         ttk.Label(actions_frame, text="Baza launcher:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę launcher (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_launcher_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele launcher (DROP TABLES)",
                        variable=self.action_var, value="drop_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele launcher (DROP + CREATE)",
@@ -3432,14 +3554,10 @@ class DatabaseWizard(tk.Toplevel):
 
         # Opcje dla bazy miejscowości
         ttk.Label(actions_frame, text="Baza miejscowości:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę miejscowości (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_location_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele miejscowości (DROP TABLES)",
                        variable=self.action_var, value="drop_location_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele miejscowości (DROP + CREATE)",
                        variable=self.action_var, value="recreate_location_tables").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
-                       variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
@@ -3620,7 +3738,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3660,7 +3784,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę nowe tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę nowe tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3698,7 +3828,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3738,7 +3874,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę nowe tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę nowe tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -4015,7 +4157,7 @@ class AddEditLocationDialog(tk.Toplevel):
 
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                 history_photos=None, postgres_db_name=""):
+                 history_photos=None, postgres_db_name="", homepage_template="standardowy"):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -4117,10 +4259,38 @@ class AddEditLocationDialog(tk.Toplevel):
         homepage_frame = ttk.Frame(notebook, padding="20")
         notebook.add(homepage_frame, text="Strona główna")
 
-        ttk.Label(homepage_frame, text="Opis strony głównej:").pack(anchor="w", pady=(0, 5))
-        self.homepage_desc_text = scrolledtext.ScrolledText(homepage_frame, width=60, height=8, wrap=tk.WORD)
+        # Wybór szablonu
+        template_selection_frame = ttk.Frame(homepage_frame)
+        template_selection_frame.pack(fill=tk.X, pady=(0, 15))
+
+        ttk.Label(template_selection_frame, text="Szablon strony głównej:").pack(side=tk.LEFT, padx=(0, 10))
+
+        self.homepage_template_var = tk.StringVar(value=homepage_template)
+        self.template_combo = ttk.Combobox(template_selection_frame,
+                                          textvariable=self.homepage_template_var,
+                                          values=["standardowy", "praca_inzynierska"],
+                                          state="readonly", width=30)
+        self.template_combo.pack(side=tk.LEFT)
+        self.template_combo.bind("<<ComboboxSelected>>", self.on_template_change)
+
+        # Frame dla opisu (pokazywany/ukrywany w zależności od szablonu)
+        self.homepage_desc_frame = ttk.Frame(homepage_frame)
+        self.homepage_desc_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.homepage_desc_label = ttk.Label(self.homepage_desc_frame, text="Opis strony głównej:")
+        self.homepage_desc_label.pack(anchor="w", pady=(0, 5))
+
+        self.homepage_desc_text = scrolledtext.ScrolledText(self.homepage_desc_frame, width=60, height=8, wrap=tk.WORD)
         self.homepage_desc_text.insert("1.0", homepage_description)
         self.homepage_desc_text.pack(fill=tk.BOTH, expand=True)
+
+        # Info o szablonie inżynierskim
+        self.template_info_label = ttk.Label(homepage_frame,
+                                            text="Szablon 'praca inżynierska' ma stały wygląd i nie jest modyfikowalny.",
+                                            foreground="gray", wraplength=500)
+
+        # Pokaż/ukryj opis w zależności od szablonu
+        self.update_template_visibility()
 
         # === ZAKŁADKA 3: Historia ===
         history_frame = ttk.Frame(notebook, padding="20")
@@ -4206,6 +4376,23 @@ class AddEditLocationDialog(tk.Toplevel):
         elif available_dbs:
             self.db_combo.set(available_dbs[0])
 
+    def on_template_change(self, event=None):
+        """Wywoływana gdy zmieni się wybór szablonu."""
+        self.update_template_visibility()
+
+    def update_template_visibility(self):
+        """Pokazuje/ukrywa pole opisu w zależności od wybranego szablonu."""
+        template = self.homepage_template_var.get()
+
+        if template == "standardowy":
+            # Pokaż pole opisu
+            self.homepage_desc_frame.pack(fill=tk.BOTH, expand=True)
+            self.template_info_label.pack_forget()
+        else:
+            # Ukryj pole opisu, pokaż info
+            self.homepage_desc_frame.pack_forget()
+            self.template_info_label.pack(anchor="w", pady=(0, 10))
+
     def manage_photos(self):
         """Otwiera dialog zarządzania zdjęciami."""
         dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
@@ -4267,9 +4454,12 @@ class AddEditLocationDialog(tk.Toplevel):
             messagebox.showerror("❌ Błąd", "Musisz wybrać lub utworzyć bazę danych PostgreSQL!", parent=self)
             return
 
+        # Pobierz wybrany szablon
+        homepage_template = self.homepage_template_var.get()
+
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
-                      self.history_photos, postgres_db_name)
+                      self.history_photos, postgres_db_name, homepage_template)
         self.destroy()
 
 
@@ -5170,6 +5360,7 @@ class BackupManager(tk.Toplevel):
         self.backup_vars = {key: tk.BooleanVar(value=True) for key in DATA_FILES}
         self.backup_vars["scans"] = tk.BooleanVar(value=True)
         self.backup_vars["config"] = tk.BooleanVar(value=True)
+        self.backup_vars["launcher_db"] = tk.BooleanVar(value=True)
 
         content_frame = ttk.Frame(create_frame)
         content_frame.pack(fill=tk.X)
@@ -5194,6 +5385,7 @@ class BackupManager(tk.Toplevel):
 
         ttk.Checkbutton(col2, text="🌳 Genealogia", variable=self.backup_vars["genealogy"]).pack(anchor="w", pady=2)
         ttk.Checkbutton(col2, text="📄 Skany Protokołów", variable=self.backup_vars["scans"]).pack(anchor="w", pady=2)
+        ttk.Checkbutton(col2, text="🗄️ Baza Launcher (konfiguracja stron)", variable=self.backup_vars["launcher_db"]).pack(anchor="w", pady=2)
 
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
@@ -5396,11 +5588,95 @@ class BackupManager(tk.Toplevel):
                     arcname = os.path.relpath(file_path, BASE_DIR)
                     files_to_zip.append((file_path, arcname))
 
+        # Eksport danych z bazy launcher (tabele konfiguracyjne stron)
+        if self.backup_vars["launcher_db"].get():
+            try:
+                db_cfg = get_db_config_from_env()
+                # Połącz się z bazą launcher
+                launcher_db_cfg = db_cfg.copy()
+                launcher_db_cfg['dbname'] = 'mapa_launcher_db'
+                launcher_db_cfg['client_encoding'] = 'UTF8'
+
+                with psycopg2.connect(**launcher_db_cfg) as conn, conn.cursor() as cur:
+                    # Eksportuj dane dla każdej miejscowości
+                    for location_name in locations_to_backup:
+                        # Pobierz rekord miejscowości
+                        cur.execute("""
+                            SELECT id, name, full_name, powiat, region, active,
+                                   homepage_template, year, century, homepage_description,
+                                   history_paragraph1, history_paragraph2, history_paragraph3,
+                                   postgres_db_name, created_at, updated_at
+                            FROM locations
+                            WHERE name = %s
+                        """, (location_name,))
+
+                        location_row = cur.fetchone()
+                        if location_row:
+                            location_data = {
+                                "id": location_row[0],
+                                "name": location_row[1],
+                                "full_name": location_row[2],
+                                "powiat": location_row[3],
+                                "region": location_row[4],
+                                "active": location_row[5],
+                                "homepage_template": location_row[6],
+                                "year": location_row[7],
+                                "century": location_row[8],
+                                "homepage_description": location_row[9],
+                                "history_paragraph1": location_row[10],
+                                "history_paragraph2": location_row[11],
+                                "history_paragraph3": location_row[12],
+                                "postgres_db_name": location_row[13],
+                                "created_at": str(location_row[14]) if location_row[14] else None,
+                                "updated_at": str(location_row[15]) if location_row[15] else None
+                            }
+
+                            # Pobierz zdjęcia historyczne dla tej miejscowości
+                            cur.execute("""
+                                SELECT id, filename, caption, order_index, created_at
+                                FROM history_photos
+                                WHERE location_id = %s
+                                ORDER BY order_index
+                            """, (location_row[0],))
+
+                            photos = []
+                            for photo_row in cur.fetchall():
+                                photos.append({
+                                    "id": photo_row[0],
+                                    "filename": photo_row[1],
+                                    "caption": photo_row[2],
+                                    "order_index": photo_row[3],
+                                    "created_at": str(photo_row[4]) if photo_row[4] else None
+                                })
+
+                            location_data["history_photos"] = photos
+
+                            # Zapisz do pliku JSON
+                            temp_json_path = os.path.join(BACKUP_FOLDER, f"_temp_launcher_db_{location_name}.json")
+                            with open(temp_json_path, 'w', encoding='utf-8') as f:
+                                json.dump(location_data, f, ensure_ascii=False, indent=2)
+
+                            # Dodaj do archiwum
+                            arcname = os.path.join(location_name, "launcher_db_config.json")
+                            files_to_zip.append((temp_json_path, arcname))
+            except Exception as e:
+                print(f"⚠️ Nie udało się wyeksportować danych z bazy launcher: {e}")
+
         # Tworzenie archiwum
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, (file_path, arcname) in enumerate(files_to_zip):
                 progress_callback(i + 1, len(files_to_zip), f"Pakowanie: {os.path.basename(arcname)}")
                 zf.write(file_path, arcname)
+
+        # Usuń pliki tymczasowe launcher_db
+        if self.backup_vars["launcher_db"].get():
+            for location_name in locations_to_backup:
+                temp_json_path = os.path.join(BACKUP_FOLDER, f"_temp_launcher_db_{location_name}.json")
+                if os.path.exists(temp_json_path):
+                    try:
+                        os.remove(temp_json_path)
+                    except:
+                        pass
 
         return backup_filename
 
@@ -5462,6 +5738,102 @@ class BackupManager(tk.Toplevel):
                         if not file_info.filename.startswith('assets/'):
                             # Wyodrębnij pliki miejscowości zachowując strukturę folderów
                             zf.extract(file_info, path=BACKUP_FOLDER)
+
+                    # Przywróć dane z bazy launcher (jeśli istnieją)
+                    launcher_db_files = [f for f in archive_contents if f.endswith('launcher_db_config.json')]
+                    if launcher_db_files:
+                        try:
+                            db_cfg = get_db_config_from_env()
+                            launcher_db_cfg = db_cfg.copy()
+                            launcher_db_cfg['dbname'] = 'mapa_launcher_db'
+                            launcher_db_cfg['client_encoding'] = 'UTF8'
+
+                            with psycopg2.connect(**launcher_db_cfg) as conn, conn.cursor() as cur:
+                                for launcher_file in launcher_db_files:
+                                    # Odczytaj plik JSON z archiwum
+                                    with zf.open(launcher_file) as json_file:
+                                        location_data = json.load(json_file)
+
+                                    # Sprawdź czy miejscowość istnieje
+                                    cur.execute("SELECT id FROM locations WHERE name = %s", (location_data['name'],))
+                                    existing = cur.fetchone()
+
+                                    if existing:
+                                        # Aktualizuj istniejącą miejscowość
+                                        location_id = existing[0]
+                                        cur.execute("""
+                                            UPDATE locations SET
+                                                full_name = %s,
+                                                powiat = %s,
+                                                region = %s,
+                                                homepage_template = %s,
+                                                year = %s,
+                                                century = %s,
+                                                homepage_description = %s,
+                                                history_paragraph1 = %s,
+                                                history_paragraph2 = %s,
+                                                history_paragraph3 = %s,
+                                                postgres_db_name = %s
+                                            WHERE id = %s
+                                        """, (
+                                            location_data.get('full_name'),
+                                            location_data.get('powiat'),
+                                            location_data.get('region'),
+                                            location_data.get('homepage_template'),
+                                            location_data.get('year'),
+                                            location_data.get('century'),
+                                            location_data.get('homepage_description'),
+                                            location_data.get('history_paragraph1'),
+                                            location_data.get('history_paragraph2'),
+                                            location_data.get('history_paragraph3'),
+                                            location_data.get('postgres_db_name'),
+                                            location_id
+                                        ))
+                                    else:
+                                        # Wstaw nową miejscowość
+                                        cur.execute("""
+                                            INSERT INTO locations (
+                                                name, full_name, powiat, region,
+                                                homepage_template, year, century, homepage_description,
+                                                history_paragraph1, history_paragraph2, history_paragraph3,
+                                                postgres_db_name
+                                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            RETURNING id
+                                        """, (
+                                            location_data['name'],
+                                            location_data.get('full_name'),
+                                            location_data.get('powiat'),
+                                            location_data.get('region'),
+                                            location_data.get('homepage_template'),
+                                            location_data.get('year'),
+                                            location_data.get('century'),
+                                            location_data.get('homepage_description'),
+                                            location_data.get('history_paragraph1'),
+                                            location_data.get('history_paragraph2'),
+                                            location_data.get('history_paragraph3'),
+                                            location_data.get('postgres_db_name')
+                                        ))
+                                        location_id = cur.fetchone()[0]
+
+                                    # Usuń stare zdjęcia
+                                    cur.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
+
+                                    # Wstaw zdjęcia historyczne
+                                    for photo in location_data.get('history_photos', []):
+                                        cur.execute("""
+                                            INSERT INTO history_photos (location_id, filename, caption, order_index)
+                                            VALUES (%s, %s, %s, %s)
+                                        """, (
+                                            location_id,
+                                            photo['filename'],
+                                            photo.get('caption'),
+                                            photo.get('order_index', 0)
+                                        ))
+
+                                conn.commit()
+                                print(f"✅ Przywrócono dane launcher dla {len(launcher_db_files)} miejscowości")
+                        except Exception as e:
+                            print(f"⚠️ Nie udało się przywrócić danych z bazy launcher: {e}")
                 else:
                     # Stary format - pliki bezpośrednio w root ZIP
                     # Wyodrębnij do aktywnej miejscowości
