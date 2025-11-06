@@ -6,9 +6,9 @@
          ========================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Centrum Analityczne - kompleksowa analiza danych katastralnych Gminy Czarna z XIX wieku">
-    <meta name="keywords" content="analiza danych, statystyki, gmina Czarna, dane katastralne, XIX wiek">
-    <title>Centrum Analityczne - Gmina Czarna</title>
+    <meta name="description" content="Centrum Analityczne - kompleksowa analiza danych katastralnych miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
+    <meta name="keywords" content="analiza danych, statystyki, {{MIEJSCOWOSC}}, dane katastralne, {{YEAR}}">
+    <title>Centrum Analityczne - {{MIEJSCOWOSC_PELNA}}</title>
     
     <!-- ==========================================================================
          ZEWNĘTRZNE ZASOBY
@@ -49,7 +49,7 @@
                     </div>
                     <div class="brand-text">
                         <h1>Centrum Analityczne</h1>
-                        <p>Gmina Czarna - Dane Katastralne XIX w.</p>
+                        <p>Gmina {{MIEJSCOWOSC_PELNA}} - Dane Katastralne {{WIEK}}</p>
                     </div>
                 </div>
                 
@@ -153,7 +153,7 @@
                         </div>
                         <div class="card-data">
                             <h3>Okres badany</h3>
-                            <div class="card-value">XIX w.</div>
+                            <div class="card-value">{{WIEK}}</div>
                             <div class="card-change">
                                 <i class="fas fa-history"></i>
                                 <span>Dane historyczne</span>
@@ -595,14 +595,14 @@
                     <div class="stats-section">
                         <div class="section-header">
                             <h2><i class="fas fa-users"></i> Rozwój populacji</h2>
-                            <p>Analiza zmian demograficznych od XIX wieku</p>
+                            <p>Analiza zmian demograficznych od {{WIEK}}</p>
                         </div>
                         <div class="demographics-container">
                             <!-- Nagłówek z podsumowaniem -->
                             <div class="demo-header">
                             <div class="demo-summary">
-                                <h3><i class="fas fa-chart-line"></i> Rozwój demograficzny Gminy Czarna</h3>
-                                <p class="demo-subtitle">Analiza zmian populacji od XIX wieku</p>
+                                <h3><i class="fas fa-chart-line"></i> Rozwój demograficzny Gminy {{MIEJSCOWOSC_PELNA}}</h3>
+                                <p class="demo-subtitle">Analiza zmian populacji od {{WIEK}}</p>
                             </div>
                             <div class="demo-quick-stats">
                                 <div class="quick-stat">
@@ -882,7 +882,7 @@
             <div class="footer-content">
                 <div class="footer-info">
                     <i class="fas fa-info-circle"></i>
-                    <span>Dane pochodzą z XIX-wiecznych ksiąg katastralnych</span>
+                    <span>Dane pochodzą z ksiąg katastralnych z {{WIEK}}</span>
                 </div>
                 <div class="footer-actions">
                     <button class="footer-btn" id="help-btn">
@@ -938,5 +938,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Główny skrypt aplikacji -->
     <script src="stats-script.js"></script>
+
+    <!-- Dane miejscowości (automatycznie generowane przez launcher) -->
+    <script src="../assets/js/location-config.js"></script>
+    <script src="../assets/js/location-data.js"></script>
 </body>
 </html>

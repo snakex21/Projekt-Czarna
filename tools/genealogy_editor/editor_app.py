@@ -24,6 +24,7 @@ from collections import Counter
 import requests
 import socket
 from datetime import datetime, timedelta
+import sqlite3
 
 # ==========================================================================
 # KONFIGURACJA ŚCIEŻEK
@@ -32,8 +33,35 @@ from datetime import datetime, timedelta
 # Struktura folderów wymaga przejścia przez trzy poziomy katalogów nadrzędnych
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Funkcja do określenia aktywnej miejscowości
+def get_active_location_backup_folder():
+    """Zwraca folder backup aktywnej miejscowości."""
+    launcher_dir = os.path.join(BASE_DIR, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    # Sprawdź czy baza danych istnieje
+    if not os.path.exists(locations_db_path):
+        # Użyj domyślnej lokalizacji
+        return os.path.join(BASE_DIR, "backup")
+
+    try:
+        conn = sqlite3.connect(locations_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+            return os.path.join(BASE_DIR, "backup", location_name)
+    except Exception as e:
+        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+
+    # Fallback do domyślnej lokalizacji
+    return os.path.join(BASE_DIR, "backup")
+
 # Ścieżki do plików danych
-BACKUP_FOLDER = os.path.join(BASE_DIR, "backup")
+BACKUP_FOLDER = get_active_location_backup_folder()
 GENEALOGIA_JSON_PATH = os.path.join(BACKUP_FOLDER, "genealogia.json")
 OWNER_JSON_PATH = os.path.join(BACKUP_FOLDER, "owner_data_to_import.json")
 
