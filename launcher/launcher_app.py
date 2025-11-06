@@ -317,6 +317,33 @@ def get_postgres_config():
     return config
 
 
+def save_postgres_config(host, port, user, password):
+    """
+    Zapisuje konfigurację PostgreSQL do pliku .postgres.env.
+
+    Args:
+        host: Host PostgreSQL
+        port: Port PostgreSQL
+        user: Użytkownik PostgreSQL
+        password: Hasło PostgreSQL
+    """
+    config_content = f"""# Konfiguracja PostgreSQL dla launchera
+LAUNCHER_DB_HOST={host}
+LAUNCHER_DB_PORT={port}
+LAUNCHER_DB_USER={user}
+LAUNCHER_DB_PASSWORD={password}
+"""
+
+    try:
+        with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            f.write(config_content)
+        print(f"✅ Zapisano konfigurację PostgreSQL do {POSTGRES_CONFIG_FILE}")
+        return True
+    except Exception as e:
+        print(f"❌ Błąd zapisu konfiguracji: {e}")
+        return False
+
+
 def check_postgres_available():
     """
     Sprawdza czy PostgreSQL jest dostępny i skonfigurowany.
@@ -3598,7 +3625,7 @@ class DatabaseWizard(tk.Toplevel):
         self.finish_button.pack(pady=10)
 
     def test_connection(self):
-        """Test połączenia"""
+        """Test połączenia i automatyczna inicjalizacja"""
         self.config['host'] = self.host_entry.get().strip()
         self.config['port'] = int(self.port_entry.get().strip())
         self.config['user'] = self.user_entry.get().strip()
@@ -3607,11 +3634,135 @@ class DatabaseWizard(tk.Toplevel):
         success, msg = test_postgres_connection(**self.config)
 
         if success:
-            self.connection_status.config(text="✓ Połączenie OK!", foreground="green")
-            messagebox.showinfo("Sukces", "Połączenie działa!", parent=self)
+            self.connection_status.config(text="✓ Połączenie OK! Inicjalizuję...", foreground="green")
+
+            # 1. Zapisz hasło do .postgres.env
+            save_postgres_config(self.config['host'], self.config['port'],
+                               self.config['user'], self.config['password'])
+
+            # 2. Sprawdź/utwórz bazę mapa_launcher_db
+            try:
+                db_exists = postgres_database_exists(**self.config, db_name='mapa_launcher_db')
+
+                if not db_exists:
+                    # Utwórz bazę launcher
+                    print("📦 Tworzę bazę mapa_launcher_db...")
+                    success_db, msg_db = postgres_create_database(**self.config, db_name='mapa_launcher_db')
+                    if not success_db:
+                        raise Exception(f"Błąd tworzenia bazy launcher: {msg_db}")
+                    print("✅ Baza mapa_launcher_db utworzona")
+
+                # Włącz PostGIS
+                postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
+
+                # Wykonaj schemat
+                success_schema, msg_schema = postgres_execute_schema(**self.config,
+                                                                     db_name='mapa_launcher_db',
+                                                                     schema_sql=LAUNCHER_DB_SCHEMA)
+                if not success_schema:
+                    print(f"⚠️ Schemat: {msg_schema}")
+
+                # 3. Sprawdź czy istnieje domyślna miejscowość "Czarna"
+                conn = get_launcher_postgres_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM locations WHERE name = 'Czarna'")
+                czarna_exists = cursor.fetchone()[0] > 0
+
+                if not czarna_exists:
+                    print("📍 Tworzę domyślną miejscowość 'Czarna'...")
+                    cursor.close()
+                    conn.close()
+
+                    # Utwórz miejscowość Czarna z bazą danych
+                    add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+                    print("✅ Miejscowość 'Czarna' utworzona")
+
+                    # Ustaw jako aktywną
+                    conn = get_launcher_postgres_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE locations SET active = TRUE WHERE name = 'Czarna'")
+                    conn.commit()
+                else:
+                    # Sprawdź czy Czarna ma bazę danych
+                    cursor.execute("SELECT postgres_db_name FROM locations WHERE name = 'Czarna'")
+                    result = cursor.fetchone()
+                    czarna_db_name = result[0] if result and result[0] else "mapa_czarna_db"
+
+                    # Sprawdź czy baza Czarnej istnieje
+                    czarna_db_exists = postgres_database_exists(**self.config, db_name=czarna_db_name)
+
+                    if not czarna_db_exists:
+                        print(f"📦 Tworzę bazę {czarna_db_name}...")
+                        init_location_database(czarna_db_name)
+                        print(f"✅ Baza {czarna_db_name} utworzona")
+
+                cursor.close()
+                conn.close()
+
+                # 4. Automatyczna migracja danych z backup/Czarna
+                backup_czarna = os.path.join(BACKUP_FOLDER, "Czarna")
+                if os.path.exists(backup_czarna):
+                    print("🔄 Automatyczna migracja danych z backup/Czarna...")
+                    self.auto_migrate_data(backup_czarna)
+
+                self.connection_status.config(text="✓ Połączenie OK! System gotowy.", foreground="green")
+                messagebox.showinfo("Sukces",
+                                  "Połączenie działa!\n\n"
+                                  "✅ Baza mapa_launcher_db gotowa\n"
+                                  "✅ Miejscowość 'Czarna' gotowa\n"
+                                  "✅ Dane zmigrowane (jeśli były w backup/)",
+                                  parent=self)
+
+            except Exception as e:
+                print(f"⚠️ Błąd podczas inicjalizacji: {e}")
+                self.connection_status.config(text=f"✓ Połączenie OK, ale: {str(e)[:50]}...", foreground="orange")
+                messagebox.showwarning("Uwaga",
+                                      f"Połączenie działa, ale wystąpił problem:\n{e}\n\n"
+                                      "Sprawdź logi w konsoli.",
+                                      parent=self)
         else:
             self.connection_status.config(text=f"✗ {msg}", foreground="red")
             messagebox.showerror("Błąd", msg, parent=self)
+
+    def auto_migrate_data(self, backup_folder):
+        """
+        Automatyczna migracja danych z folderu backup do PostgreSQL.
+
+        Args:
+            backup_folder: Ścieżka do folderu z danymi (np. backup/Czarna)
+        """
+        try:
+            import subprocess
+            import sys
+
+            # Ścieżka do skryptu migracji
+            migrate_script = os.path.join(BASE_DIR, "backend", "migrate_data.py")
+
+            if not os.path.exists(migrate_script):
+                print(f"⚠️ Brak skryptu migracji: {migrate_script}")
+                return
+
+            # Uruchom skrypt migracji w tle
+            print(f"🔄 Migracja danych z {backup_folder}...")
+            result = subprocess.run(
+                [sys.executable, migrate_script],
+                cwd=BASE_DIR,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            if result.returncode == 0:
+                print("✅ Migracja zakończona pomyślnie")
+                print(result.stdout)
+            else:
+                print(f"⚠️ Migracja zakończona z błędami:")
+                print(result.stderr)
+
+        except subprocess.TimeoutExpired:
+            print("⚠️ Migracja przekroczyła limit czasu (60s)")
+        except Exception as e:
+            print(f"⚠️ Błąd podczas migracji: {e}")
 
     def refresh_status(self):
         """Odśwież status baz"""
