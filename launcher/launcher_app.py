@@ -1101,7 +1101,22 @@ def ensure_location_data_files(location_folder):
             }
         },
         'owner_data_to_import.json': {},
-        'parcels_data.json': {}
+        'parcels_data.json': {},
+        'launcher_db_config.json': {
+            "name": "",
+            "full_name": "",
+            "powiat": "",
+            "region": "",
+            "homepage_template": "standardowy",
+            "year": "1882",
+            "century": "XIX w.",
+            "homepage_description": "",
+            "history_paragraph1": "",
+            "history_paragraph2": "",
+            "history_paragraph3": "",
+            "postgres_db_name": "",
+            "history_photos": []
+        }
     }
 
     # Twórz pliki jeśli nie istnieją
@@ -2194,7 +2209,7 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="⚙️ Zarządzaj Miejscowościami", command=self.open_location_manager,
                   style="Primary.TButton").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(location_controls, text="🔧 Kreator Bazy Danych", command=self.open_database_wizard,
+        ttk.Button(location_controls, text="🔧 Zarządzanie Bazą Danych", command=self.open_database_wizard,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
         self.refresh_locations()
@@ -2478,10 +2493,10 @@ class AppLauncher(tk.Tk):
         self.refresh_locations()
 
     def open_database_wizard(self):
-        """Otwiera kreator konfiguracji bazy danych PostgreSQL."""
+        """Otwiera narzędzie zarządzania bazą danych PostgreSQL."""
         wizard = DatabaseWizard(self)
         self.wait_window(wizard)
-        # Po zamknięciu kreatora odśwież listę miejscowości (w razie nowej konfiguracji)
+        # Po zamknięciu narzędzia odśwież listę miejscowości (w razie nowej konfiguracji)
         self.refresh_locations()
 
     def open_backup_manager(self):
@@ -3444,15 +3459,15 @@ class TemplateChangeDialog(tk.Toplevel):
 
 
 class DatabaseWizard(tk.Toplevel):
-    """Kreator konfiguracji bazy danych PostgreSQL"""
+    """Narzędzie do zarządzania bazą danych PostgreSQL"""
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("🔧 Kreator Bazy Danych")
+        self.title("🔧 Zarządzanie Bazą Danych")
 
         # Ustawienie większego rozmiaru okna z możliwością zmiany rozmiaru
         width = 800
-        height = 700
+        height = 800
         self.geometry(f"{width}x{height}")
         self.minsize(width, height)  # Minimalne wymiary okna
         self.transient(parent)
