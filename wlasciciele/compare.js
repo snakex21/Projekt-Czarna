@@ -933,7 +933,7 @@ ${error.stack}
    */
   const findProtocolImages = (key) =>
     new Promise((resolve) => {
-      const baseDir = `/assets/protokoly/${key}/`;
+      const baseDir = `/protokoly/${key}/`;
       let result = [],
         i = 1;
 
@@ -947,7 +947,7 @@ ${error.stack}
         };
         img.onerror = () => {
           if (i === 1 && result.length === 0) {
-            const single = `/assets/protokoly/${key}.jpg`;
+            const single = `/protokoly/${key}.jpg`;
             const sImg = new Image();
             sImg.src = single;
             sImg.onload = () => {
