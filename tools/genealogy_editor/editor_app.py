@@ -86,8 +86,37 @@ def get_active_location_backup_folder():
     print(f"⚠️ Używam domyślnej lokalizacji backup")
     return os.path.join(BASE_DIR, "backup")
 
+def ensure_location_data_files(location_folder):
+    """Tworzy wymagane pliki JSON dla miejscowości jeśli nie istnieją."""
+    data_files = {
+        'demografia.json': [],
+        'genealogia.json': {"persons": []},
+        'map_config.json': {
+            "calibration": {"sw": {"lat": 0, "lng": 0}, "ne": {"lat": 0, "lng": 0}},
+            "defaults": {"center": {"lat": 0, "lng": 0}, "zoom": 15}
+        },
+        'owner_data_to_import.json': {},
+        'parcels_data.json': {}
+    }
+
+    created_files = []
+    for filename, structure in data_files.items():
+        file_path = os.path.join(location_folder, filename)
+        if not os.path.exists(file_path):
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(structure, f, ensure_ascii=False, indent=4)
+                created_files.append(filename)
+            except Exception as e:
+                print(f"⚠️ Błąd tworzenia {filename}: {e}")
+
+    if created_files:
+        print(f"✅ Utworzono brakujące pliki: {', '.join(created_files)}")
+
 # Ścieżki do plików danych
 BACKUP_FOLDER = get_active_location_backup_folder()
+ensure_location_data_files(BACKUP_FOLDER)  # Upewnij się że pliki istnieją
+
 GENEALOGIA_JSON_PATH = os.path.join(BACKUP_FOLDER, "genealogia.json")
 OWNER_JSON_PATH = os.path.join(BACKUP_FOLDER, "owner_data_to_import.json")
 

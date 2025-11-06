@@ -1077,6 +1077,51 @@ def set_location_template(location_id, template_name):
         conn.commit()
         conn.close()
 
+def ensure_location_data_files(location_folder):
+    """
+    Tworzy wymagane pliki JSON dla miejscowości jeśli nie istnieją.
+
+    Args:
+        location_folder: Ścieżka do folderu miejscowości w backup/
+    """
+    # Słownik z nazwami plików i ich pustymi strukturami
+    data_files = {
+        'demografia.json': [],
+        'genealogia.json': {
+            "persons": []
+        },
+        'map_config.json': {
+            "calibration": {
+                "sw": {"lat": 0, "lng": 0},
+                "ne": {"lat": 0, "lng": 0}
+            },
+            "defaults": {
+                "center": {"lat": 0, "lng": 0},
+                "zoom": 15
+            }
+        },
+        'owner_data_to_import.json': {},
+        'parcels_data.json': {}
+    }
+
+    # Twórz pliki jeśli nie istnieją
+    created_files = []
+    for filename, structure in data_files.items():
+        file_path = os.path.join(location_folder, filename)
+        if not os.path.exists(file_path):
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(structure, f, ensure_ascii=False, indent=4)
+                created_files.append(filename)
+            except Exception as e:
+                print(f"⚠️ Błąd tworzenia {filename}: {e}")
+
+    if created_files:
+        print(f"✅ Utworzono pliki danych: {', '.join(created_files)}")
+
+    return created_files
+
+
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
@@ -1111,6 +1156,9 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     # Utwórz folder dla miejscowości
     location_folder = os.path.join(BACKUP_FOLDER, name)
     os.makedirs(location_folder, exist_ok=True)
+
+    # Utwórz wymagane pliki JSON jeśli nie istnieją
+    ensure_location_data_files(location_folder)
 
     # Utwórz domyślny plik .env z nazwą bazy na podstawie postgres_db_name
     env_path = os.path.join(location_folder, ".env")
