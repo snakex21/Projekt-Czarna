@@ -1519,13 +1519,23 @@ def get_location_env_path(location_name=None):
 
 def migrate_old_backup_structure():
     """Migruje starą strukturę backup/ do nowej struktury z miejscowościami."""
-    init_locations_db()
+    # NIE WYWOŁUJ init_locations_db() tutaj - dzieje się przed setup_postgres_config()!
+    # init_locations_db() będzie wywołane później przez auto_initialize_on_startup()
 
-    # Sprawdź czy już są miejscowości
-    locations = get_all_locations()
-    if locations:
-        # Już zmigrowano
-        return
+    # Sprawdź czy już są miejscowości (jeśli PostgreSQL dostępny)
+    if check_postgres_available():
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM locations")
+            count = cursor.fetchone()[0]
+            cursor.close()
+            conn.close()
+            if count > 0:
+                # Już są miejscowości - nic nie rób
+                return
+        except:
+            pass  # Baza jeszcze nie istnieje, to normalne
 
     print("🔄 Migracja struktury folderów backup...")
 
@@ -3500,7 +3510,11 @@ class LoadingDialog(tk.Toplevel):
 
         # Ukryj przyciski okna
         self.overrideredirect(False)
-        self.transient(parent)
+        if parent:
+            self.transient(parent)
+
+        # ZAWSZE NA WIERZCHU
+        self.attributes('-topmost', True)
 
         # Główny frame
         main_frame = ttk.Frame(self, padding="20")
@@ -3525,18 +3539,25 @@ class LoadingDialog(tk.Toplevel):
                                       font=('Arial', 9), foreground='gray')
         self.detail_label.pack(pady=5)
 
+        # Wymuś bycie na wierzchu i modal
         self.lift()
         self.focus_force()
+        self.grab_set()  # Blokuj dostęp do innych okien
 
     def update_status(self, status, detail=""):
         """Aktualizuje tekst statusu."""
         self.status_label.config(text=status)
         self.detail_label.config(text=detail)
-        self.update()
+        self.lift()  # Zawsze wychodź na wierzch
+        self.update()  # Odśwież GUI
 
     def close(self):
         """Zamyka okno."""
         self.progress.stop()
+        try:
+            self.grab_release()  # Zwolnij modal
+        except:
+            pass
         self.destroy()
 
 
@@ -3709,8 +3730,14 @@ def auto_initialize_on_startup():
             except Exception as e:
                 print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
 
+        # Finalizacja - daj użytkownikowi czas zobaczyć że wszystko gotowe
+        loading_dialog.update_status("Finalizowanie...", "Konfiguracja systemu - jeszcze chwila...")
+
+        # Małe opóźnienie żeby user widział że wszystko się kończy
+        import time
+        time.sleep(1)
+
         # Zamknij okno ładowania
-        loading_dialog.update_status("Finalizowanie...", "Prawie gotowe!")
         loading_dialog.close()
 
         # 5. Wyświetl okno informacyjne jeśli coś zostało zrobione
