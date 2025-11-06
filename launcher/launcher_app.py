@@ -1788,7 +1788,26 @@ def _save_favicon_to_database(filename):
     """Zapisuje ścieżkę favicon do bazy danych."""
     try:
         db_cfg = get_db_config_from_env()
-        with psycopg2.connect(**db_cfg) as conn, conn.cursor() as cur:
+
+        # Upewnij się, że wszystkie wartości są poprawnie enkodowane jako UTF-8 stringi
+        db_cfg_normalized = {}
+        for key, value in db_cfg.items():
+            if isinstance(value, str):
+                # Normalizuj string do UTF-8
+                try:
+                    # Jeśli string jest poprawny, zostaw go
+                    value.encode('utf-8')
+                    db_cfg_normalized[key] = value
+                except UnicodeEncodeError:
+                    # Jeśli nie, spróbuj przekonwertować
+                    db_cfg_normalized[key] = value.encode('latin-1').decode('utf-8', errors='ignore')
+            else:
+                db_cfg_normalized[key] = value
+
+        # Dodaj client_encoding dla lepszej obsługi znaków
+        db_cfg_normalized['client_encoding'] = 'UTF8'
+
+        with psycopg2.connect(**db_cfg_normalized) as conn, conn.cursor() as cur:
             rel_path = os.path.join("site", filename).replace("\\", "/")
             cur.execute(
                 "INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) "
@@ -1798,9 +1817,9 @@ def _save_favicon_to_database(filename):
             )
             conn.commit()
             print(f"✅ Zapisano favicon do bazy danych: {rel_path}")
-    except psycopg2.Error as e:
-        # Baza może jeszcze nie istnieć – to nie błąd krytyczny przy pierwszym uruchomieniu
-        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć): {e}")
+    except (psycopg2.Error, UnicodeDecodeError, UnicodeEncodeError) as e:
+        # Baza może jeszcze nie istnieć lub problem z kodowaniem – to nie błąd krytyczny przy pierwszym uruchomieniu
+        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć lub problem z kodowaniem): {e}")
         pass
 
 def check_backup_folder_files():
