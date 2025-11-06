@@ -96,14 +96,7 @@ def ensure_location_data_files(location_folder):
             "defaults": {"center": {"lat": 0, "lng": 0}, "zoom": 15}
         },
         'owner_data_to_import.json': {},
-        'parcels_data.json': {},
-        'launcher_db_config.json': {
-            "name": "", "full_name": "", "powiat": "", "region": "",
-            "homepage_template": "standardowy", "year": "1882", "century": "XIX w.",
-            "homepage_description": "", "history_paragraph1": "", "history_paragraph2": "",
-            "history_paragraph3": "", "postgres_db_name": "", "history_photos": []
-        }
-    }
+        'parcels_data.json': {}}
 
     created_files = []
     for filename, structure in data_files.items():
