@@ -67,6 +67,9 @@ ICONS_SCAN_FOLDERS = [
 
 # SQL Schema dla mapa_launcher_db (baza konfiguracyjna zamiast SQLite)
 LAUNCHER_DB_SCHEMA = """
+-- Włącz rozszerzenie PostGIS
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 -- Tabela miejscowości
 CREATE TABLE IF NOT EXISTS locations (
     id SERIAL PRIMARY KEY,
@@ -5193,6 +5196,7 @@ class BackupManager(tk.Toplevel):
         self.backup_vars = {key: tk.BooleanVar(value=True) for key in DATA_FILES}
         self.backup_vars["scans"] = tk.BooleanVar(value=True)
         self.backup_vars["config"] = tk.BooleanVar(value=True)
+        self.backup_vars["launcher_db"] = tk.BooleanVar(value=True)
 
         content_frame = ttk.Frame(create_frame)
         content_frame.pack(fill=tk.X)
@@ -5217,6 +5221,7 @@ class BackupManager(tk.Toplevel):
 
         ttk.Checkbutton(col2, text="🌳 Genealogia", variable=self.backup_vars["genealogy"]).pack(anchor="w", pady=2)
         ttk.Checkbutton(col2, text="📄 Skany Protokołów", variable=self.backup_vars["scans"]).pack(anchor="w", pady=2)
+        ttk.Checkbutton(col2, text="🗄️ Baza Launcher (konfiguracja stron)", variable=self.backup_vars["launcher_db"]).pack(anchor="w", pady=2)
 
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
@@ -5419,11 +5424,95 @@ class BackupManager(tk.Toplevel):
                     arcname = os.path.relpath(file_path, BASE_DIR)
                     files_to_zip.append((file_path, arcname))
 
+        # Eksport danych z bazy launcher (tabele konfiguracyjne stron)
+        if self.backup_vars["launcher_db"].get():
+            try:
+                db_cfg = get_db_config_from_env()
+                # Połącz się z bazą launcher
+                launcher_db_cfg = db_cfg.copy()
+                launcher_db_cfg['dbname'] = 'mapa_launcher_db'
+                launcher_db_cfg['client_encoding'] = 'UTF8'
+
+                with psycopg2.connect(**launcher_db_cfg) as conn, conn.cursor() as cur:
+                    # Eksportuj dane dla każdej miejscowości
+                    for location_name in locations_to_backup:
+                        # Pobierz rekord miejscowości
+                        cur.execute("""
+                            SELECT id, name, full_name, powiat, region, active,
+                                   homepage_template, year, century, homepage_description,
+                                   history_paragraph1, history_paragraph2, history_paragraph3,
+                                   postgres_db_name, created_at, updated_at
+                            FROM locations
+                            WHERE name = %s
+                        """, (location_name,))
+
+                        location_row = cur.fetchone()
+                        if location_row:
+                            location_data = {
+                                "id": location_row[0],
+                                "name": location_row[1],
+                                "full_name": location_row[2],
+                                "powiat": location_row[3],
+                                "region": location_row[4],
+                                "active": location_row[5],
+                                "homepage_template": location_row[6],
+                                "year": location_row[7],
+                                "century": location_row[8],
+                                "homepage_description": location_row[9],
+                                "history_paragraph1": location_row[10],
+                                "history_paragraph2": location_row[11],
+                                "history_paragraph3": location_row[12],
+                                "postgres_db_name": location_row[13],
+                                "created_at": str(location_row[14]) if location_row[14] else None,
+                                "updated_at": str(location_row[15]) if location_row[15] else None
+                            }
+
+                            # Pobierz zdjęcia historyczne dla tej miejscowości
+                            cur.execute("""
+                                SELECT id, filename, caption, order_index, created_at
+                                FROM history_photos
+                                WHERE location_id = %s
+                                ORDER BY order_index
+                            """, (location_row[0],))
+
+                            photos = []
+                            for photo_row in cur.fetchall():
+                                photos.append({
+                                    "id": photo_row[0],
+                                    "filename": photo_row[1],
+                                    "caption": photo_row[2],
+                                    "order_index": photo_row[3],
+                                    "created_at": str(photo_row[4]) if photo_row[4] else None
+                                })
+
+                            location_data["history_photos"] = photos
+
+                            # Zapisz do pliku JSON
+                            temp_json_path = os.path.join(BACKUP_FOLDER, f"_temp_launcher_db_{location_name}.json")
+                            with open(temp_json_path, 'w', encoding='utf-8') as f:
+                                json.dump(location_data, f, ensure_ascii=False, indent=2)
+
+                            # Dodaj do archiwum
+                            arcname = os.path.join(location_name, "launcher_db_config.json")
+                            files_to_zip.append((temp_json_path, arcname))
+            except Exception as e:
+                print(f"⚠️ Nie udało się wyeksportować danych z bazy launcher: {e}")
+
         # Tworzenie archiwum
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for i, (file_path, arcname) in enumerate(files_to_zip):
                 progress_callback(i + 1, len(files_to_zip), f"Pakowanie: {os.path.basename(arcname)}")
                 zf.write(file_path, arcname)
+
+        # Usuń pliki tymczasowe launcher_db
+        if self.backup_vars["launcher_db"].get():
+            for location_name in locations_to_backup:
+                temp_json_path = os.path.join(BACKUP_FOLDER, f"_temp_launcher_db_{location_name}.json")
+                if os.path.exists(temp_json_path):
+                    try:
+                        os.remove(temp_json_path)
+                    except:
+                        pass
 
         return backup_filename
 
@@ -5485,6 +5574,102 @@ class BackupManager(tk.Toplevel):
                         if not file_info.filename.startswith('assets/'):
                             # Wyodrębnij pliki miejscowości zachowując strukturę folderów
                             zf.extract(file_info, path=BACKUP_FOLDER)
+
+                    # Przywróć dane z bazy launcher (jeśli istnieją)
+                    launcher_db_files = [f for f in archive_contents if f.endswith('launcher_db_config.json')]
+                    if launcher_db_files:
+                        try:
+                            db_cfg = get_db_config_from_env()
+                            launcher_db_cfg = db_cfg.copy()
+                            launcher_db_cfg['dbname'] = 'mapa_launcher_db'
+                            launcher_db_cfg['client_encoding'] = 'UTF8'
+
+                            with psycopg2.connect(**launcher_db_cfg) as conn, conn.cursor() as cur:
+                                for launcher_file in launcher_db_files:
+                                    # Odczytaj plik JSON z archiwum
+                                    with zf.open(launcher_file) as json_file:
+                                        location_data = json.load(json_file)
+
+                                    # Sprawdź czy miejscowość istnieje
+                                    cur.execute("SELECT id FROM locations WHERE name = %s", (location_data['name'],))
+                                    existing = cur.fetchone()
+
+                                    if existing:
+                                        # Aktualizuj istniejącą miejscowość
+                                        location_id = existing[0]
+                                        cur.execute("""
+                                            UPDATE locations SET
+                                                full_name = %s,
+                                                powiat = %s,
+                                                region = %s,
+                                                homepage_template = %s,
+                                                year = %s,
+                                                century = %s,
+                                                homepage_description = %s,
+                                                history_paragraph1 = %s,
+                                                history_paragraph2 = %s,
+                                                history_paragraph3 = %s,
+                                                postgres_db_name = %s
+                                            WHERE id = %s
+                                        """, (
+                                            location_data.get('full_name'),
+                                            location_data.get('powiat'),
+                                            location_data.get('region'),
+                                            location_data.get('homepage_template'),
+                                            location_data.get('year'),
+                                            location_data.get('century'),
+                                            location_data.get('homepage_description'),
+                                            location_data.get('history_paragraph1'),
+                                            location_data.get('history_paragraph2'),
+                                            location_data.get('history_paragraph3'),
+                                            location_data.get('postgres_db_name'),
+                                            location_id
+                                        ))
+                                    else:
+                                        # Wstaw nową miejscowość
+                                        cur.execute("""
+                                            INSERT INTO locations (
+                                                name, full_name, powiat, region,
+                                                homepage_template, year, century, homepage_description,
+                                                history_paragraph1, history_paragraph2, history_paragraph3,
+                                                postgres_db_name
+                                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                            RETURNING id
+                                        """, (
+                                            location_data['name'],
+                                            location_data.get('full_name'),
+                                            location_data.get('powiat'),
+                                            location_data.get('region'),
+                                            location_data.get('homepage_template'),
+                                            location_data.get('year'),
+                                            location_data.get('century'),
+                                            location_data.get('homepage_description'),
+                                            location_data.get('history_paragraph1'),
+                                            location_data.get('history_paragraph2'),
+                                            location_data.get('history_paragraph3'),
+                                            location_data.get('postgres_db_name')
+                                        ))
+                                        location_id = cur.fetchone()[0]
+
+                                    # Usuń stare zdjęcia
+                                    cur.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
+
+                                    # Wstaw zdjęcia historyczne
+                                    for photo in location_data.get('history_photos', []):
+                                        cur.execute("""
+                                            INSERT INTO history_photos (location_id, filename, caption, order_index)
+                                            VALUES (%s, %s, %s, %s)
+                                        """, (
+                                            location_id,
+                                            photo['filename'],
+                                            photo.get('caption'),
+                                            photo.get('order_index', 0)
+                                        ))
+
+                                conn.commit()
+                                print(f"✅ Przywrócono dane launcher dla {len(launcher_db_files)} miejscowości")
+                        except Exception as e:
+                            print(f"⚠️ Nie udało się przywrócić danych z bazy launcher: {e}")
                 else:
                     # Stary format - pliki bezpośrednio w root ZIP
                     # Wyodrębnij do aktywnej miejscowości
