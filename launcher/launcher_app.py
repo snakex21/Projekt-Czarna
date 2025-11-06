@@ -1850,17 +1850,22 @@ def read_env_config(key_prefix=None):
     if not os.path.exists(env_path):
         return config
 
-    try:
-        with open(env_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    key, value = key.strip(), value.strip()
-                    if not key_prefix or key.startswith(key_prefix):
-                        config[key] = value
-    except Exception as e:
-        print(f"Błąd odczytu .env: {e}")
+    # Spróbuj różnych kodowań (utf-8, cp1250, latin-1)
+    for encoding in ['utf-8', 'cp1250', 'latin-1']:
+        try:
+            with open(env_path, 'r', encoding=encoding) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key, value = key.strip(), value.strip()
+                        if not key_prefix or key.startswith(key_prefix):
+                            config[key] = value
+            break  # Jeśli udało się odczytać, przerwij pętlę
+        except (UnicodeDecodeError, Exception) as e:
+            if encoding == 'latin-1':  # latin-1 nigdy nie powinno rzucić UnicodeDecodeError
+                print(f"Błąd odczytu .env: {e}")
+            continue  # Spróbuj kolejnego kodowania
 
     return config
 
@@ -3330,15 +3335,20 @@ class DatabaseWizard(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔧 Kreator Bazy Danych")
-        self.geometry("700x550")
+
+        # Ustawienie większego rozmiaru okna z możliwością zmiany rozmiaru
+        width = 800
+        height = 700
+        self.geometry(f"{width}x{height}")
+        self.minsize(width, height)  # Minimalne wymiary okna
         self.transient(parent)
         self.grab_set()
 
         # Wycentruj
         self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.winfo_screenheight() // 2) - (550 // 2)
-        self.geometry(f"700x550+{x}+{y}")
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
         self.result = None
         self.config = get_postgres_config()
@@ -3417,12 +3427,10 @@ class DatabaseWizard(tk.Toplevel):
         actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
         actions_frame.pack(fill=tk.X)
 
-        self.action_var = tk.StringVar(value="create_launcher_db")
+        self.action_var = tk.StringVar(value="recreate_launcher_tables")
 
         # Opcje dla bazy launcher (mapa_launcher_db)
         ttk.Label(actions_frame, text="Baza launcher:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę launcher (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_launcher_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele launcher (DROP TABLES)",
                        variable=self.action_var, value="drop_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele launcher (DROP + CREATE)",
@@ -3432,14 +3440,10 @@ class DatabaseWizard(tk.Toplevel):
 
         # Opcje dla bazy miejscowości
         ttk.Label(actions_frame, text="Baza miejscowości:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
-        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę miejscowości (CREATE DATABASE + tables)",
-                       variable=self.action_var, value="create_location_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele miejscowości (DROP TABLES)",
                        variable=self.action_var, value="drop_location_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele miejscowości (DROP + CREATE)",
                        variable=self.action_var, value="recreate_location_tables").pack(anchor=tk.W, pady=2, padx=10)
-        ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
-                       variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
