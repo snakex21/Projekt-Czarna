@@ -572,6 +572,205 @@ def init_location_database(db_name):
     return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
 
 
+def export_locations_to_json(output_path=None):
+    """
+    Eksportuje wszystkie miejscowości z mapa_launcher_db do pliku JSON.
+
+    Args:
+        output_path: Ścieżka do pliku wyjściowego. Jeśli None, generuje automatyczną nazwę.
+
+    Returns:
+        tuple: (success: bool, message: str, file_path: str)
+    """
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest dostępny", None)
+
+    try:
+        locations = get_all_locations()
+
+        if not locations:
+            return (False, "Brak miejscowości do eksportu", None)
+
+        # Konwertuj tuple na dict dla czytelności JSON
+        locations_list = []
+        for loc in locations:
+            location_dict = {
+                "id": loc[0],
+                "name": loc[1],
+                "full_name": loc[2],
+                "powiat": loc[3],
+                "region": loc[4],
+                "active": loc[5],
+                "homepage_template": loc[6],
+                "year": loc[7],
+                "century": loc[8],
+                "homepage_description": loc[9],
+                "history_paragraph1": loc[10],
+                "history_paragraph2": loc[11],
+                "history_paragraph3": loc[12],
+                "postgres_db_name": loc[13],
+                "history_photos": json.loads(loc[14]) if loc[14] else []
+            }
+            locations_list.append(location_dict)
+
+        # Przygotuj dane do eksportu
+        export_data = {
+            "export_date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            "launcher_version": "1.0",
+            "locations_count": len(locations_list),
+            "locations": locations_list
+        }
+
+        # Określ ścieżkę wyjściową
+        if not output_path:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = os.path.join(BASE_DIR, "backup", f"locations_export_{timestamp}.json")
+
+        # Upewnij się że folder istnieje
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Zapisz JSON
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, ensure_ascii=False, indent=2)
+
+        return (True, f"✓ Wyeksportowano {len(locations_list)} miejscowości", output_path)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return (False, f"Błąd eksportu: {e}", None)
+
+
+def import_locations_from_json(json_path):
+    """
+    Importuje miejscowości z pliku JSON do mapa_launcher_db.
+    UWAGA: Nie usuwa istniejących miejscowości - tylko dodaje nowe lub aktualizuje istniejące.
+
+    Args:
+        json_path: Ścieżka do pliku JSON z eksportem
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest dostępny")
+
+    if not os.path.exists(json_path):
+        return (False, f"Plik nie istnieje: {json_path}")
+
+    try:
+        # Wczytaj JSON
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        locations = data.get('locations', [])
+
+        if not locations:
+            return (False, "Brak miejscowości w pliku JSON")
+
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        imported_count = 0
+        updated_count = 0
+
+        for loc in locations:
+            # Sprawdź czy miejscowość już istnieje (po nazwie)
+            cursor.execute("SELECT id FROM locations WHERE name = %s", (loc['name'],))
+            existing = cursor.fetchone()
+
+            # Przygotuj history_photos jako JSON string
+            history_photos_json = json.dumps(loc.get('history_photos', []))
+
+            if existing:
+                # Aktualizuj istniejącą
+                cursor.execute("""
+                    UPDATE locations SET
+                        full_name = %s,
+                        powiat = %s,
+                        region = %s,
+                        homepage_template = %s,
+                        year = %s,
+                        century = %s,
+                        homepage_description = %s,
+                        history_paragraph1 = %s,
+                        history_paragraph2 = %s,
+                        history_paragraph3 = %s,
+                        postgres_db_name = %s
+                    WHERE name = %s
+                """, (
+                    loc.get('full_name'),
+                    loc.get('powiat'),
+                    loc.get('region'),
+                    loc.get('homepage_template', 'standardowy'),
+                    loc.get('year', '1882'),
+                    loc.get('century', 'XIX w.'),
+                    loc.get('homepage_description'),
+                    loc.get('history_paragraph1'),
+                    loc.get('history_paragraph2'),
+                    loc.get('history_paragraph3'),
+                    loc.get('postgres_db_name'),
+                    loc['name']
+                ))
+
+                # Usuń stare zdjęcia i dodaj nowe
+                cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (existing[0],))
+                for i, photo in enumerate(loc.get('history_photos', [])):
+                    cursor.execute("""
+                        INSERT INTO history_photos (location_id, filename, caption, order_index)
+                        VALUES (%s, %s, %s, %s)
+                    """, (existing[0], photo.get('filename'), photo.get('caption'), i))
+
+                updated_count += 1
+            else:
+                # Dodaj nową miejscowość
+                cursor.execute("""
+                    INSERT INTO locations
+                    (name, full_name, powiat, region, active, homepage_template, year, century,
+                     homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                     postgres_db_name)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    loc['name'],
+                    loc.get('full_name'),
+                    loc.get('powiat'),
+                    loc.get('region'),
+                    False,  # nie ustawiaj jako aktywnej
+                    loc.get('homepage_template', 'standardowy'),
+                    loc.get('year', '1882'),
+                    loc.get('century', 'XIX w.'),
+                    loc.get('homepage_description'),
+                    loc.get('history_paragraph1'),
+                    loc.get('history_paragraph2'),
+                    loc.get('history_paragraph3'),
+                    loc.get('postgres_db_name')
+                ))
+
+                new_id = cursor.fetchone()[0]
+
+                # Dodaj zdjęcia
+                for i, photo in enumerate(loc.get('history_photos', [])):
+                    cursor.execute("""
+                        INSERT INTO history_photos (location_id, filename, caption, order_index)
+                        VALUES (%s, %s, %s, %s)
+                    """, (new_id, photo.get('filename'), photo.get('caption'), i))
+
+                imported_count += 1
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        message = f"✓ Import zakończony: {imported_count} nowych, {updated_count} zaktualizowanych"
+        return (True, message)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return (False, f"Błąd importu: {e}")
+
+
 def migrate_sqlite_to_postgres():
     """
     Migruje dane z locations.db (SQLite) do mapa_launcher_db (PostgreSQL).
@@ -3517,6 +3716,15 @@ class DatabaseWizard(tk.Toplevel):
         ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
                        variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
 
+        ttk.Separator(actions_frame, orient='horizontal').pack(fill='x', pady=10)
+
+        # Opcje backup/restore
+        ttk.Label(actions_frame, text="Backup/Restore:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Radiobutton(actions_frame, text="📤 Eksportuj miejscowości do JSON",
+                       variable=self.action_var, value="export_locations_json").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="📥 Importuj miejscowości z JSON",
+                       variable=self.action_var, value="import_locations_json").pack(anchor=tk.W, pady=2, padx=10)
+
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
         location_frame.pack(anchor=tk.W, pady=5, padx=20)
@@ -3674,6 +3882,10 @@ class DatabaseWizard(tk.Toplevel):
                 self.recreate_location_tables()
             elif action == "drop_location_database":
                 self.drop_location_database()
+            elif action == "export_locations_json":
+                self.export_locations_to_json_action()
+            elif action == "import_locations_json":
+                self.import_locations_from_json_action()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -3867,6 +4079,68 @@ class DatabaseWizard(tk.Toplevel):
             raise Exception(f"Błąd usuwania bazy: {e}")
 
         self.log("\n⚠️ Baza całkowicie usunięta!")
+
+    # === FUNKCJE BACKUP/RESTORE ===
+
+    def export_locations_to_json_action(self):
+        """Eksportuj miejscowości do JSON"""
+        self.log("=== Eksport miejscowości do JSON ===\n")
+
+        # Zapytaj gdzie zapisać
+        from tkinter import filedialog
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f"locations_export_{timestamp}.json"
+
+        filepath = filedialog.asksaveasfilename(
+            parent=self,
+            title="Zapisz eksport jako",
+            defaultextension=".json",
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
+            initialfile=default_name
+        )
+
+        if not filepath:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log(f"Plik docelowy: {filepath}\n")
+        self.log("Eksportuję dane...")
+
+        success, message, output_path = export_locations_to_json(filepath)
+
+        if not success:
+            raise Exception(message)
+
+        self.log(f"   {message}")
+        self.log(f"\n📁 Plik zapisano: {output_path}")
+
+    def import_locations_from_json_action(self):
+        """Importuj miejscowości z JSON"""
+        self.log("=== Import miejscowości z JSON ===\n")
+
+        # Zapytaj o plik
+        from tkinter import filedialog
+        filepath = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz plik JSON",
+            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log(f"Plik źródłowy: {filepath}\n")
+        self.log("Importuję dane...")
+
+        success, message = import_locations_from_json(filepath)
+
+        if not success:
+            raise Exception(message)
+
+        self.log(f"   {message}")
+        self.log("\n✓ Import zakończony pomyślnie")
+
+        # Odśwież listę miejscowości w dropdownie
+        self.refresh_locations_list()
 
     def finish(self):
         """Zakończ"""
