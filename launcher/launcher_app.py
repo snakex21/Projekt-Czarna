@@ -157,9 +157,6 @@ DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialk
 
 # Pełny schemat z DROP + CREATE
 LOCATION_DB_SCHEMA = """
--- Włącz rozszerzenie PostGIS (wymagane dla typów GEOMETRY)
-CREATE EXTENSION IF NOT EXISTS postgis;
-
 -- Czyszczenie istniejących tabel (jeśli istnieją)
 DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele,
                      wlasciciele, obiekty_geograficzne, demografia, login_attempts,
@@ -572,435 +569,6 @@ def init_location_database(db_name):
     return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
 
 
-def export_locations_to_json(output_path=None):
-    """
-    Eksportuje wszystkie miejscowości z mapa_launcher_db do pliku JSON.
-
-    Args:
-        output_path: Ścieżka do pliku wyjściowego. Jeśli None, generuje automatyczną nazwę.
-
-    Returns:
-        tuple: (success: bool, message: str, file_path: str)
-    """
-    if not check_postgres_available():
-        return (False, "PostgreSQL nie jest dostępny", None)
-
-    try:
-        locations = get_all_locations()
-
-        if not locations:
-            return (False, "Brak miejscowości do eksportu", None)
-
-        # Konwertuj tuple na dict dla czytelności JSON
-        locations_list = []
-        for loc in locations:
-            location_dict = {
-                "id": loc[0],
-                "name": loc[1],
-                "full_name": loc[2],
-                "powiat": loc[3],
-                "region": loc[4],
-                "active": loc[5],
-                "homepage_template": loc[6],
-                "year": loc[7],
-                "century": loc[8],
-                "homepage_description": loc[9],
-                "history_paragraph1": loc[10],
-                "history_paragraph2": loc[11],
-                "history_paragraph3": loc[12],
-                "postgres_db_name": loc[13],
-                "history_photos": json.loads(loc[14]) if loc[14] else []
-            }
-            locations_list.append(location_dict)
-
-        # Przygotuj dane do eksportu
-        export_data = {
-            "export_date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "launcher_version": "1.0",
-            "locations_count": len(locations_list),
-            "locations": locations_list
-        }
-
-        # Określ ścieżkę wyjściową
-        if not output_path:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = os.path.join(BASE_DIR, "backup", f"locations_export_{timestamp}.json")
-
-        # Upewnij się że folder istnieje
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # Zapisz JSON
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(export_data, f, ensure_ascii=False, indent=2)
-
-        return (True, f"✓ Wyeksportowano {len(locations_list)} miejscowości", output_path)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return (False, f"Błąd eksportu: {e}", None)
-
-
-def import_locations_from_json(json_path):
-    """
-    Importuje miejscowości z pliku JSON do mapa_launcher_db.
-    UWAGA: Nie usuwa istniejących miejscowości - tylko dodaje nowe lub aktualizuje istniejące.
-
-    Args:
-        json_path: Ścieżka do pliku JSON z eksportem
-
-    Returns:
-        tuple: (success: bool, message: str)
-    """
-    if not check_postgres_available():
-        return (False, "PostgreSQL nie jest dostępny")
-
-    if not os.path.exists(json_path):
-        return (False, f"Plik nie istnieje: {json_path}")
-
-    try:
-        # Wczytaj JSON
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        locations = data.get('locations', [])
-
-        if not locations:
-            return (False, "Brak miejscowości w pliku JSON")
-
-        conn = get_launcher_postgres_connection()
-        cursor = conn.cursor()
-
-        imported_count = 0
-        updated_count = 0
-
-        for loc in locations:
-            # Sprawdź czy miejscowość już istnieje (po nazwie)
-            cursor.execute("SELECT id FROM locations WHERE name = %s", (loc['name'],))
-            existing = cursor.fetchone()
-
-            # Przygotuj history_photos jako JSON string
-            history_photos_json = json.dumps(loc.get('history_photos', []))
-
-            if existing:
-                # Aktualizuj istniejącą
-                cursor.execute("""
-                    UPDATE locations SET
-                        full_name = %s,
-                        powiat = %s,
-                        region = %s,
-                        homepage_template = %s,
-                        year = %s,
-                        century = %s,
-                        homepage_description = %s,
-                        history_paragraph1 = %s,
-                        history_paragraph2 = %s,
-                        history_paragraph3 = %s,
-                        postgres_db_name = %s
-                    WHERE name = %s
-                """, (
-                    loc.get('full_name'),
-                    loc.get('powiat'),
-                    loc.get('region'),
-                    loc.get('homepage_template', 'standardowy'),
-                    loc.get('year', '1882'),
-                    loc.get('century', 'XIX w.'),
-                    loc.get('homepage_description'),
-                    loc.get('history_paragraph1'),
-                    loc.get('history_paragraph2'),
-                    loc.get('history_paragraph3'),
-                    loc.get('postgres_db_name'),
-                    loc['name']
-                ))
-
-                # Usuń stare zdjęcia i dodaj nowe
-                cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (existing[0],))
-                for i, photo in enumerate(loc.get('history_photos', [])):
-                    cursor.execute("""
-                        INSERT INTO history_photos (location_id, filename, caption, order_index)
-                        VALUES (%s, %s, %s, %s)
-                    """, (existing[0], photo.get('filename'), photo.get('caption'), i))
-
-                updated_count += 1
-            else:
-                # Dodaj nową miejscowość
-                cursor.execute("""
-                    INSERT INTO locations
-                    (name, full_name, powiat, region, active, homepage_template, year, century,
-                     homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                     postgres_db_name)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """, (
-                    loc['name'],
-                    loc.get('full_name'),
-                    loc.get('powiat'),
-                    loc.get('region'),
-                    False,  # nie ustawiaj jako aktywnej
-                    loc.get('homepage_template', 'standardowy'),
-                    loc.get('year', '1882'),
-                    loc.get('century', 'XIX w.'),
-                    loc.get('homepage_description'),
-                    loc.get('history_paragraph1'),
-                    loc.get('history_paragraph2'),
-                    loc.get('history_paragraph3'),
-                    loc.get('postgres_db_name')
-                ))
-
-                new_id = cursor.fetchone()[0]
-
-                # Dodaj zdjęcia
-                for i, photo in enumerate(loc.get('history_photos', [])):
-                    cursor.execute("""
-                        INSERT INTO history_photos (location_id, filename, caption, order_index)
-                        VALUES (%s, %s, %s, %s)
-                    """, (new_id, photo.get('filename'), photo.get('caption'), i))
-
-                imported_count += 1
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        message = f"✓ Import zakończony: {imported_count} nowych, {updated_count} zaktualizowanych"
-        return (True, message)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return (False, f"Błąd importu: {e}")
-
-
-def full_backup_to_zip(output_path=None):
-    """
-    Tworzy pełny backup całej aplikacji do ZIP:
-    - Eksport launchera (locations.json)
-    - Dla każdej miejscowości: pg_dump, .env, pliki backup/
-    - Zdjęcia z strona_glowna/assets_index/
-
-    Args:
-        output_path: Ścieżka do pliku ZIP. Jeśli None, generuje automatyczną nazwę.
-
-    Returns:
-        tuple: (success: bool, message: str, zip_path: str)
-    """
-    if not check_postgres_available():
-        return (False, "PostgreSQL nie jest dostępny", None)
-
-    try:
-        import subprocess
-        import tempfile
-
-        # Określ ścieżkę wyjściową
-        if not output_path:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = os.path.join(BASE_DIR, "backup", f"full_backup_{timestamp}.zip")
-
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # Utwórz tymczasowy folder na backup
-        with tempfile.TemporaryDirectory() as temp_dir:
-            print(f"📦 Tworzę pełny backup w: {output_path}")
-
-            # 1. Eksportuj locations.json
-            print("1/4 Eksportuję konfigurację launchera...")
-            locations_json_path = os.path.join(temp_dir, "locations.json")
-            success, message, _ = export_locations_to_json(locations_json_path)
-            if not success:
-                return (False, f"Błąd eksportu locations: {message}", None)
-
-            # 2. Dla każdej miejscowości: pg_dump + pliki
-            locations = get_all_locations()
-            print(f"2/4 Tworzę dump baz danych ({len(locations)} miejscowości)...")
-
-            config = get_postgres_config()
-
-            for i, loc in enumerate(locations, 1):
-                location_name = loc[1]
-                db_name = loc[13] if len(loc) > 13 and loc[13] else f"mapa_{location_name.lower()}_db"
-
-                print(f"   [{i}/{len(locations)}] {location_name} ({db_name})...")
-
-                # Folder dla tej miejscowości
-                location_dir = os.path.join(temp_dir, location_name)
-                os.makedirs(location_dir, exist_ok=True)
-
-                # pg_dump bazy miejscowości
-                dump_path = os.path.join(location_dir, f"{db_name}_dump.sql")
-                try:
-                    subprocess.run([
-                        'pg_dump',
-                        '-h', config['host'],
-                        '-p', str(config['port']),
-                        '-U', config['user'],
-                        '-d', db_name,
-                        '-f', dump_path
-                    ], env={'PGPASSWORD': config['password']}, check=True, capture_output=True)
-                except subprocess.CalledProcessError as e:
-                    print(f"⚠️ Błąd pg_dump dla {db_name}: {e.stderr.decode()}")
-                    # Kontynuuj mimo błędu
-
-                # Skopiuj pliki z backup/{location}/ (jeśli istnieją)
-                backup_location_dir = os.path.join(BASE_DIR, "backup", location_name)
-                if os.path.exists(backup_location_dir):
-                    for filename in os.listdir(backup_location_dir):
-                        src = os.path.join(backup_location_dir, filename)
-                        if os.path.isfile(src):
-                            dst = os.path.join(location_dir, filename)
-                            shutil.copy2(src, dst)
-
-            # 3. Skopiuj zdjęcia
-            print("3/4 Kopiuję zdjęcia...")
-            assets_index_dir = os.path.join(BASE_DIR, "strona_glowna", "assets_index")
-            if os.path.exists(assets_index_dir):
-                images_temp_dir = os.path.join(temp_dir, "_images")
-                os.makedirs(images_temp_dir, exist_ok=True)
-                for filename in os.listdir(assets_index_dir):
-                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-                        src = os.path.join(assets_index_dir, filename)
-                        dst = os.path.join(images_temp_dir, filename)
-                        shutil.copy2(src, dst)
-
-            # 4. Spakuj do ZIP
-            print("4/4 Pakuję do ZIP...")
-            shutil.make_archive(output_path.replace('.zip', ''), 'zip', temp_dir)
-
-            # make_archive dodaje .zip automatycznie, upewnij się że nazwa jest poprawna
-            if not output_path.endswith('.zip'):
-                output_path += '.zip'
-
-            size_mb = os.path.getsize(output_path) / (1024 * 1024)
-            return (True, f"✓ Backup utworzony ({size_mb:.1f} MB)", output_path)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return (False, f"Błąd tworzenia backupu: {e}", None)
-
-
-def full_restore_from_zip(zip_path):
-    """
-    Przywraca pełny backup z ZIP:
-    - Import locations.json do launchera
-    - Dla każdej miejscowości: CREATE DATABASE + import SQL dump
-    - Przywrócenie plików .env i backupów
-    - Przywrócenie zdjęć
-
-    Args:
-        zip_path: Ścieżka do pliku ZIP z backupem
-
-    Returns:
-        tuple: (success: bool, message: str)
-    """
-    if not check_postgres_available():
-        return (False, "PostgreSQL nie jest dostępny")
-
-    if not os.path.exists(zip_path):
-        return (False, f"Plik nie istnieje: {zip_path}")
-
-    try:
-        import subprocess
-        import tempfile
-
-        print(f"📂 Przywracam backup z: {zip_path}")
-
-        # Rozpakuj ZIP do tymczasowego folderu
-        with tempfile.TemporaryDirectory() as temp_dir:
-            print("1/4 Rozpakowuję ZIP...")
-            shutil.unpack_archive(zip_path, temp_dir, 'zip')
-
-            # 1. Import locations.json
-            print("2/4 Importuję konfigurację launchera...")
-            locations_json = os.path.join(temp_dir, "locations.json")
-            if not os.path.exists(locations_json):
-                return (False, "Brak locations.json w backupie")
-
-            success, message = import_locations_from_json(locations_json)
-            if not success:
-                return (False, f"Błąd importu locations: {message}")
-
-            # 2. Przywróć bazy danych miejscowości
-            print("3/4 Przywracam bazy danych...")
-
-            # Znajdź wszystkie foldery z miejscowościami
-            config = get_postgres_config()
-            restored_count = 0
-
-            for item in os.listdir(temp_dir):
-                item_path = os.path.join(temp_dir, item)
-                if not os.path.isdir(item_path) or item.startswith('_'):
-                    continue
-
-                location_name = item
-                print(f"   Przywracam: {location_name}...")
-
-                # Znajdź dump SQL
-                sql_dumps = [f for f in os.listdir(item_path) if f.endswith('_dump.sql')]
-                if not sql_dumps:
-                    print(f"   ⚠️ Brak SQL dump dla {location_name}")
-                    continue
-
-                dump_file = os.path.join(item_path, sql_dumps[0])
-                db_name = sql_dumps[0].replace('_dump.sql', '')
-
-                # Utwórz bazę (jeśli nie istnieje)
-                if not postgres_database_exists(config['host'], config['port'],
-                                               config['user'], config['password'], db_name):
-                    success, msg = postgres_create_database(config['host'], config['port'],
-                                                           config['user'], config['password'], db_name)
-                    if not success:
-                        print(f"   ⚠️ Błąd tworzenia bazy {db_name}: {msg}")
-                        continue
-
-                # Importuj SQL dump
-                try:
-                    subprocess.run([
-                        'psql',
-                        '-h', config['host'],
-                        '-p', str(config['port']),
-                        '-U', config['user'],
-                        '-d', db_name,
-                        '-f', dump_file
-                    ], env={'PGPASSWORD': config['password']}, check=True, capture_output=True)
-
-                    print(f"   ✓ Przywrócono bazę {db_name}")
-                    restored_count += 1
-                except subprocess.CalledProcessError as e:
-                    print(f"   ⚠️ Błąd psql dla {db_name}: {e.stderr.decode()}")
-
-                # Przywróć pliki backup
-                backup_dest_dir = os.path.join(BASE_DIR, "backup", location_name)
-                os.makedirs(backup_dest_dir, exist_ok=True)
-
-                for filename in os.listdir(item_path):
-                    if not filename.endswith('_dump.sql'):
-                        src = os.path.join(item_path, filename)
-                        if os.path.isfile(src):
-                            dst = os.path.join(backup_dest_dir, filename)
-                            shutil.copy2(src, dst)
-
-            # 3. Przywróć zdjęcia
-            print("4/4 Przywracam zdjęcia...")
-            images_temp_dir = os.path.join(temp_dir, "_images")
-            if os.path.exists(images_temp_dir):
-                assets_index_dir = os.path.join(BASE_DIR, "strona_glowna", "assets_index")
-                os.makedirs(assets_index_dir, exist_ok=True)
-
-                for filename in os.listdir(images_temp_dir):
-                    src = os.path.join(images_temp_dir, filename)
-                    dst = os.path.join(assets_index_dir, filename)
-                    shutil.copy2(src, dst)
-
-                print(f"   ✓ Przywrócono zdjęcia")
-
-            return (True, f"✓ Backup przywrócony: {restored_count} baz danych")
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return (False, f"Błąd przywracania backupu: {e}")
-
-
 def migrate_sqlite_to_postgres():
     """
     Migruje dane z locations.db (SQLite) do mapa_launcher_db (PostgreSQL).
@@ -1309,7 +877,6 @@ def set_active_location(location_id):
 
             apply_homepage_template(template)
             generate_location_config_js()
-            generate_env_file()
             return
         except Exception as e:
             print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
@@ -1330,73 +897,6 @@ def set_active_location(location_id):
 
         apply_homepage_template(template)
         generate_location_config_js()
-        generate_env_file()
-
-def generate_env_file():
-    """
-    Generuje plik .env dla backendu Flask na podstawie aktywnej miejscowości.
-    Zapisuje do:
-    - backend/.env (główny plik dla Flask)
-    - backup/{location_name}/.env (kopia zapasowa dla miejscowości)
-    """
-    active_location = get_active_location()
-
-    if not active_location:
-        print("⚠️ Brak aktywnej miejscowości - nie można wygenerować .env")
-        return False
-
-    location_name = active_location[1]
-    postgres_db_name = active_location[13] if len(active_location) > 13 and active_location[13] else f"mapa_{location_name.lower()}_db"
-
-    # Pobierz hasło PostgreSQL z .postgres.env
-    postgres_config = get_postgres_config()
-    db_password = postgres_config.get('password', '1234')
-
-    # Generuj zawartość .env
-    env_content = f"""# Wygenerowane automatycznie przez launcher
-# Aktywna miejscowość: {location_name}
-# Data wygenerowania: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-# Konfiguracja bazy danych PostgreSQL
-DB_HOST=localhost
-DB_NAME={postgres_db_name}
-DB_USER=postgres
-DB_PASSWORD={db_password}
-DB_PORT=5432
-
-# Konfiguracja serwera Flask
-FLASK_HOST=127.0.0.1
-FLASK_PORT=5000
-FLASK_DEBUG=True
-FLASK_SECRET_KEY=change-me-once
-
-# Ustawienia bezpieczeństwa
-ADMIN_AUTH_ENABLED=0
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD_HASH=
-"""
-
-    try:
-        # Zapisz do backend/.env
-        backend_env_path = os.path.join(BASE_DIR, "backend", ".env")
-        os.makedirs(os.path.dirname(backend_env_path), exist_ok=True)
-        with open(backend_env_path, 'w', encoding='utf-8') as f:
-            f.write(env_content)
-        print(f"✓ Wygenerowano backend/.env dla miejscowości: {location_name}")
-
-        # Zapisz kopię do backup/{location_name}/.env
-        backup_env_path = os.path.join(BASE_DIR, "backup", location_name, ".env")
-        os.makedirs(os.path.dirname(backup_env_path), exist_ok=True)
-        with open(backup_env_path, 'w', encoding='utf-8') as f:
-            f.write(env_content)
-        print(f"✓ Zapisano kopię do backup/{location_name}/.env")
-
-        return True
-    except Exception as e:
-        print(f"❌ Błąd podczas generowania .env: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
 
 def generate_location_config_js():
     """
@@ -2404,11 +1904,6 @@ class AppLauncher(tk.Tk):
 
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
         setup_postgres_config()
-
-        # Auto-create launcher database jeśli nie istnieje
-        if check_postgres_available():
-            init_postgres_locations_db()
-            print("✓ Baza launcher gotowa")
 
         check_env_configuration()
         check_backup_folder_files()
@@ -3834,20 +3329,16 @@ class DatabaseWizard(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("🔧 Zarządzanie Tabelami Bazy Danych")
+        self.title("🔧 Kreator Bazy Danych")
+        self.geometry("700x550")
         self.transient(parent)
         self.grab_set()
 
-        # Automatyczne dopasowanie do ekranu
-        sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
-        w = min(int(sw * 0.6), 900)
-        h = min(int(sh * 0.7), 650)
-
         # Wycentruj
-        x = (sw - w) // 2
-        y = (sh - h) // 2
-        self.geometry(f"{w}x{h}+{x}+{y}")
-        self.minsize(700, 500)
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (700 // 2)
+        y = (self.winfo_screenheight() // 2) - (550 // 2)
+        self.geometry(f"700x550+{x}+{y}")
 
         self.result = None
         self.config = get_postgres_config()
@@ -3926,10 +3417,12 @@ class DatabaseWizard(tk.Toplevel):
         actions_frame = ttk.LabelFrame(frame, text="Wybierz", padding="10")
         actions_frame.pack(fill=tk.X)
 
-        self.action_var = tk.StringVar(value="drop_launcher_tables")
+        self.action_var = tk.StringVar(value="create_launcher_db")
 
         # Opcje dla bazy launcher (mapa_launcher_db)
-        ttk.Label(actions_frame, text="Baza launcher (mapa_launcher_db):", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Label(actions_frame, text="Baza launcher:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę launcher (CREATE DATABASE + tables)",
+                       variable=self.action_var, value="create_launcher_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele launcher (DROP TABLES)",
                        variable=self.action_var, value="drop_launcher_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele launcher (DROP + CREATE)",
@@ -3939,10 +3432,14 @@ class DatabaseWizard(tk.Toplevel):
 
         # Opcje dla bazy miejscowości
         ttk.Label(actions_frame, text="Baza miejscowości:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(5,2))
+        ttk.Radiobutton(actions_frame, text="➕ Utwórz bazę miejscowości (CREATE DATABASE + tables)",
+                       variable=self.action_var, value="create_location_db").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="❌ Usuń tabele miejscowości (DROP TABLES)",
                        variable=self.action_var, value="drop_location_tables").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="♻️ Odtwórz tabele miejscowości (DROP + CREATE)",
                        variable=self.action_var, value="recreate_location_tables").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="🗑️ Usuń całą bazę miejscowości (DROP DATABASE)",
+                       variable=self.action_var, value="drop_location_database").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
@@ -4087,14 +3584,20 @@ class DatabaseWizard(tk.Toplevel):
         self.log("🚀 Rozpoczynam...\n")
 
         try:
-            if action == "drop_launcher_tables":
+            if action == "create_launcher_db":
+                self.create_launcher_database()
+            elif action == "drop_launcher_tables":
                 self.drop_launcher_tables()
             elif action == "recreate_launcher_tables":
                 self.recreate_launcher_tables()
+            elif action == "create_location_db":
+                self.create_location_database()
             elif action == "drop_location_tables":
                 self.drop_location_tables()
             elif action == "recreate_location_tables":
                 self.recreate_location_tables()
+            elif action == "drop_location_database":
+                self.drop_location_database()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -4106,6 +3609,25 @@ class DatabaseWizard(tk.Toplevel):
             self.progress.stop()
 
     # === FUNKCJE DLA BAZY LAUNCHER ===
+
+    def create_launcher_database(self):
+        """Utwórz bazę launcher (CREATE DATABASE + tables)"""
+        self.log("=== Tworzenie bazy launcher ===\n")
+
+        self.log("1. Tworzę bazę mapa_launcher_db...")
+        success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("2. Tworzę tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        global LOCATIONS_DB_INITIALIZED
+        LOCATIONS_DB_INITIALIZED = False
 
     def drop_launcher_tables(self):
         """Usuń tabele launcher (DROP TABLES)"""
@@ -4163,6 +3685,25 @@ class DatabaseWizard(tk.Toplevel):
 
         return db_name
 
+    def create_location_database(self):
+        """Utwórz bazę miejscowości (CREATE DATABASE + tables)"""
+        self.log("=== Tworzenie bazy miejscowości ===\n")
+
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        self.log("1. Tworzę bazę...")
+        success, msg = postgres_create_database(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
+        self.log("2. Tworzę tabele...")
+        success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
+        self.log(f"   {msg}")
+        if not success:
+            raise Exception(msg)
+
     def drop_location_tables(self):
         """Usuń tabele miejscowości (DROP TABLES)"""
         self.log("=== Usuwanie tabel miejscowości ===\n")
@@ -4204,6 +3745,52 @@ class DatabaseWizard(tk.Toplevel):
             raise Exception(msg)
 
         self.log("\n⚠️ Wszystkie dane usunięte i tabele odtworzone!")
+
+    def drop_location_database(self):
+        """Usuń całą bazę miejscowości (DROP DATABASE)"""
+        self.log("=== Usuwanie całej bazy miejscowości ===\n")
+
+        db_name = self._get_selected_location_db()
+        self.log(f"Baza: {db_name}\n")
+
+        if not postgres_database_exists(**self.config, db_name=db_name):
+            raise Exception(f"Baza {db_name} nie istnieje!")
+
+        # Potwierdzenie
+        confirm = messagebox.askyesno(
+            "⚠️ UWAGA",
+            f"Czy na pewno chcesz CAŁKOWICIE USUNĄĆ bazę {db_name}?\n\n"
+            "Wszystkie dane zostaną bezpowrotnie utracone!",
+            icon='warning',
+            parent=self
+        )
+
+        if not confirm:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log("Usuwam bazę danych...")
+
+        # DROP DATABASE
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host=self.config['host'],
+                port=self.config['port'],
+                user=self.config['user'],
+                password=self.config['password'],
+                database='postgres'
+            )
+            conn.autocommit = True
+            cursor = conn.cursor()
+            cursor.execute(f"DROP DATABASE IF EXISTS {db_name}")
+            cursor.close()
+            conn.close()
+
+            self.log(f"   ✓ Baza {db_name} została usunięta")
+        except Exception as e:
+            raise Exception(f"Błąd usuwania bazy: {e}")
+
+        self.log("\n⚠️ Baza całkowicie usunięta!")
 
     def finish(self):
         """Zakończ"""
@@ -5610,35 +5197,7 @@ class BackupManager(tk.Toplevel):
 
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
-
-        # Sekcja PEŁNEGO backupu (launcher + bazy + wszystko)
-        full_backup_frame = ttk.LabelFrame(main_frame, text="🔥 PEŁNY BACKUP (Launcher + Bazy + Wszystko)", padding="10")
-        full_backup_frame.pack(fill=tk.X, pady=(10, 0))
-
-        full_info = ttk.Label(full_backup_frame,
-                             text="Pełny backup zawiera: locations.json, pg_dump wszystkich baz, pliki .env, zdjęcia",
-                             foreground="gray")
-        full_info.pack(anchor=tk.W, pady=(0, 10))
-
-        full_buttons_frame = ttk.Frame(full_backup_frame)
-        full_buttons_frame.pack(fill=tk.X)
-
-        ttk.Button(full_buttons_frame, text="📦 PEŁNY BACKUP do ZIP",
-                  command=self.create_full_backup,
-                  style="Warning.TButton").pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(full_buttons_frame, text="📂 PRZYWRÓĆ z ZIP",
-                  command=self.restore_full_backup,
-                  style="Primary.TButton").pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(full_buttons_frame, text="📤 Eksportuj JSON (tylko config)",
-                  command=self.export_json,
-                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
-
-        ttk.Button(full_buttons_frame, text="📥 Importuj JSON",
-                  command=self.import_json,
-                  style="Success.TButton").pack(side=tk.LEFT, padx=5)
-
+        
         # Sekcja zarządzania kopiami
         restore_frame = ttk.LabelFrame(main_frame, text="📦 Istniejące Kopie Zapasowe", padding="10")
         restore_frame.pack(fill=tk.BOTH, expand=True, pady=10)
@@ -5932,132 +5491,6 @@ class BackupManager(tk.Toplevel):
                               parent=self)
         except Exception as e:
             messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
-
-    # === PEŁNY BACKUP (launcher + bazy + wszystko) ===
-
-    def create_full_backup(self):
-        """Tworzy pełny backup całej aplikacji do ZIP"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_name = f"full_backup_{timestamp}.zip"
-
-        filepath = filedialog.asksaveasfilename(
-            parent=self,
-            title="Zapisz pełny backup jako",
-            defaultextension=".zip",
-            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")],
-            initialfile=default_name
-        )
-
-        if not filepath:
-            return
-
-        try:
-            print("📦 Tworzenie pełnego backupu...")
-            success, message, output_path = full_backup_to_zip(filepath)
-
-            if success:
-                messagebox.showinfo("✅ Sukces",
-                                   f"Pełny backup utworzony!\n\n{message}\n\n"
-                                   f"Plik: {os.path.basename(output_path)}",
-                                   parent=self)
-                self.populate_backup_list()
-            else:
-                messagebox.showerror("❌ Błąd", f"Błąd tworzenia backupu:\n{message}", parent=self)
-        except Exception as e:
-            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
-
-    def restore_full_backup(self):
-        """Przywraca pełny backup z ZIP"""
-        filepath = filedialog.askopenfilename(
-            parent=self,
-            title="Wybierz plik ZIP z pełnym backupem",
-            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
-        )
-
-        if not filepath:
-            return
-
-        # Ostrzeżenie
-        confirm = messagebox.askyesno(
-            "⚠️ UWAGA",
-            "Przywracanie pełnego backupu:\n\n"
-            "• Zaimportuje miejscowości do launchera\n"
-            "• Odtworzy bazy danych PostgreSQL\n"
-            "• Przywróci pliki .env\n"
-            "• Przywróci zdjęcia\n\n"
-            "Istniejące miejscowości mogą zostać zaktualizowane.\n\n"
-            "Kontynuować?",
-            icon='warning',
-            parent=self
-        )
-
-        if not confirm:
-            return
-
-        try:
-            print("📂 Przywracanie pełnego backupu...")
-            success, message = full_restore_from_zip(filepath)
-
-            if success:
-                messagebox.showinfo("✅ Sukces",
-                                   f"Pełny backup przywrócony!\n\n{message}",
-                                   parent=self)
-            else:
-                messagebox.showerror("❌ Błąd", f"Błąd przywracania:\n{message}", parent=self)
-        except Exception as e:
-            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
-
-    def export_json(self):
-        """Eksportuje tylko konfigurację miejscowości do JSON"""
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        default_name = f"locations_export_{timestamp}.json"
-
-        filepath = filedialog.asksaveasfilename(
-            parent=self,
-            title="Zapisz eksport jako",
-            defaultextension=".json",
-            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")],
-            initialfile=default_name
-        )
-
-        if not filepath:
-            return
-
-        try:
-            success, message, output_path = export_locations_to_json(filepath)
-
-            if success:
-                messagebox.showinfo("✅ Sukces",
-                                   f"{message}\n\nPlik: {os.path.basename(output_path)}",
-                                   parent=self)
-            else:
-                messagebox.showerror("❌ Błąd", f"Błąd eksportu:\n{message}", parent=self)
-        except Exception as e:
-            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
-
-    def import_json(self):
-        """Importuje konfigurację miejscowości z JSON"""
-        filepath = filedialog.askopenfilename(
-            parent=self,
-            title="Wybierz plik JSON",
-            filetypes=[("JSON", "*.json"), ("Wszystkie pliki", "*.*")]
-        )
-
-        if not filepath:
-            return
-
-        try:
-            success, message = import_locations_from_json(filepath)
-
-            if success:
-                messagebox.showinfo("✅ Sukces",
-                                   f"Import zakończony!\n\n{message}",
-                                   parent=self)
-            else:
-                messagebox.showerror("❌ Błąd", f"Błąd importu:\n{message}", parent=self)
-        except Exception as e:
-            messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
-
 
 class ProgressDialog(tk.Toplevel):
     """Okno dialogowe postępu operacji."""
