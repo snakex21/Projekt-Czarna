@@ -785,7 +785,13 @@ def init_locations_db():
             print(f"⚠️ Błąd inicjalizacji PostgreSQL: {e}")
             print("⚠️ Używam SQLite jako fallback...")
 
-    # Fallback do SQLite
+    # Jeśli plik .postgres.env istnieje ale PostgreSQL nie działa,
+    # to znaczy że user ma PostgreSQL ale jest wyłączony - nie tworzymy SQLite
+    if os.path.exists(POSTGRES_CONFIG_FILE):
+        print("ℹ️ PostgreSQL jest skonfigurowany ale niedostępny. Sprawdź czy serwer PostgreSQL jest uruchomiony.")
+        return  # Nie twórz SQLite jako fallback
+
+    # Fallback do SQLite - TYLKO jeśli użytkownik nie ma w ogóle PostgreSQL skonfigurowanego
     if not os.path.exists(LOCATIONS_DB_PATH):
         print("ℹ️ PostgreSQL niedostępny. Utwórz plik .postgres.env w folderze launcher z hasłem do PostgreSQL.")
         print(f"ℹ️ Tworzę nową bazę SQLite: {LOCATIONS_DB_PATH}")
