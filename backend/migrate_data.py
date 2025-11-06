@@ -8,6 +8,7 @@ Opis: Migracja danych katastralnych z plików JSON do bazy PostgreSQL
 
 import json
 import os
+import sys
 import psycopg2
 from psycopg2.extras import execute_values
 import re
@@ -16,8 +17,38 @@ from dotenv import load_dotenv
 import sqlite3
 
 # ================================================================================
+# NAPRAW KODOWANIE DLA WINDOWS (emoji w konsoli)
+# ================================================================================
+if sys.platform == 'win32':
+    try:
+        # Ustaw UTF-8 dla stdout/stderr w Windows
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        # Jeśli reconfigure nie działa (starsze wersje Pythona), użyj alternatywy
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# ================================================================================
 # KONFIGURACJA ŚRODOWISKA
 # ================================================================================
+
+# Wczytaj konfigurację PostgreSQL z launcher/.postgres.env
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+launcher_postgres_env = os.path.join(base_dir, "launcher", ".postgres.env")
+if os.path.exists(launcher_postgres_env):
+    try:
+        from dotenv import dotenv_values
+        pg_config = dotenv_values(launcher_postgres_env)
+        if pg_config.get('LAUNCHER_DB_PASSWORD'):
+            os.environ['DB_HOST'] = pg_config.get('LAUNCHER_DB_HOST', 'localhost')
+            os.environ['DB_PORT'] = str(pg_config.get('LAUNCHER_DB_PORT', '5432'))
+            os.environ['DB_USER'] = pg_config.get('LAUNCHER_DB_USER', 'postgres')
+            os.environ['DB_PASSWORD'] = pg_config.get('LAUNCHER_DB_PASSWORD', '')
+            print(f"✅ Wczytano konfigurację PostgreSQL z launcher/.postgres.env")
+    except Exception as e:
+        print(f"⚠️ Błąd wczytywania launcher/.postgres.env: {e}")
 
 # Funkcja do określenia aktywnej miejscowości i ścieżki do .env
 def get_active_location_info():

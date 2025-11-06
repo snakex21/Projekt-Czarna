@@ -1682,6 +1682,69 @@ def serve_assets(subfolder, filename):
     """Serwuje pliki z podfolderów assets (np. skany protokołów)."""
     return send_from_directory(os.path.join(ASSETS_PATH, subfolder), filename)
 
+@app.route('/protokoly/<path:filename>')
+def serve_protokoly(filename):
+    """Serwuje protokoły z folderu backup/(aktywna_miejscowość)/protokoly/."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    launcher_dir = os.path.join(base_dir, "launcher")
+
+    # Spróbuj PostgreSQL najpierw
+    location_name = None
+    try:
+        # Importuj psycopg2 jeśli nie zaimportowane
+        import psycopg2
+
+        # Pobierz konfigurację postgres
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+
+        conn = psycopg2.connect(**launcher_db_config)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+    except Exception as e:
+        print(f"⚠️  PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+    # Fallback do SQLite jeśli PostgreSQL nie działa
+    if not location_name:
+        locations_db_path = os.path.join(launcher_dir, "locations.db")
+        if os.path.exists(locations_db_path):
+            try:
+                import sqlite3
+                conn = sqlite3.connect(locations_db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM locations WHERE active = 1")
+                result = cursor.fetchone()
+                conn.close()
+
+                if result:
+                    location_name = result[0]
+            except Exception as e:
+                print(f"⚠️  Błąd podczas odczytu SQLite: {e}")
+
+    if not location_name:
+        print(f"❌ Brak aktywnej miejscowości, nie można załadować protokołu: {filename}")
+        return "Brak aktywnej miejscowości", 404
+
+    # Ścieżka do protokołów aktywnej miejscowości
+    protokoly_path = os.path.join(base_dir, "backup", location_name, "protokoly")
+
+    if not os.path.exists(protokoly_path):
+        print(f"❌ Folder protokołów nie istnieje: {protokoly_path}")
+        return "Folder protokołów nie istnieje", 404
+
+    return send_from_directory(protokoly_path, filename)
+
 @app.route('/assets/<path:filename>')
 def serve_root_asset(filename):
     return send_from_directory(ASSETS_PATH, filename)
