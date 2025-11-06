@@ -1101,22 +1101,7 @@ def ensure_location_data_files(location_folder):
             }
         },
         'owner_data_to_import.json': {},
-        'parcels_data.json': {},
-        'launcher_db_config.json': {
-            "name": "",
-            "full_name": "",
-            "powiat": "",
-            "region": "",
-            "homepage_template": "standardowy",
-            "year": "1882",
-            "century": "XIX w.",
-            "homepage_description": "",
-            "history_paragraph1": "",
-            "history_paragraph2": "",
-            "history_paragraph3": "",
-            "postgres_db_name": "",
-            "history_photos": []
-        }
+        'parcels_data.json': {}
     }
 
     # Twórz pliki jeśli nie istnieją
