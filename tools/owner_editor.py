@@ -229,8 +229,9 @@ class OwnerEditorApp(tk.Tk):
     def check_for_unlinked_folders(self):
         """Sprawdza i usuwa osierocone foldery ze skanami."""
         print("Sprawdzanie integralności folderów ze skanami...")
-        
-        protokoly_path = os.path.join(script_dir, "..", "assets", "protokoly")
+
+        backup_folder = get_active_location_backup_folder()
+        protokoly_path = os.path.join(backup_folder, "protokoly")
         if not os.path.exists(protokoly_path):
             return
 
@@ -244,7 +245,7 @@ class OwnerEditorApp(tk.Tk):
 
             if unlinked_folders:
                 message = (
-                    f"Znaleziono {len(unlinked_folders)} folder(ów) w 'assets/protokoly', "
+                    f"Znaleziono {len(unlinked_folders)} folder(ów) w folderze protokołów, "
                     "które nie są powiązane z żadnym właścicielem w pliku JSON:\n\n"
                     f"- {', '.join(unlinked_folders)}\n\n"
                     "Czy chcesz je usunąć?"
@@ -403,7 +404,9 @@ class OwnerEditorApp(tk.Tk):
             owner_name = self.data[item_key].get("ownerName", "tego właściciela")
 
             if messagebox.askyesno("Potwierdzenie usunięcia", f"Czy na pewno chcesz usunąć wpis dla: {owner_name}?"):
-                folder_to_delete = os.path.join(script_dir, "..", "assets", "protokoly", item_key)
+                # Pobierz folder backup aktywnej miejscowości
+                backup_folder = get_active_location_backup_folder()
+                folder_to_delete = os.path.join(backup_folder, "protokoly", item_key)
                 should_delete_folder = False
                 
                 if os.path.exists(folder_to_delete):
@@ -426,7 +429,8 @@ class OwnerEditorApp(tk.Tk):
             self.tree.delete(item)
 
         # Mechanizm samonaprawy folderów
-        protokoly_path = os.path.join(script_dir, "..", "assets", "protokoly")
+        backup_folder = get_active_location_backup_folder()
+        protokoly_path = os.path.join(backup_folder, "protokoly")
         if not os.path.exists(protokoly_path):
             os.makedirs(protokoly_path)
 
