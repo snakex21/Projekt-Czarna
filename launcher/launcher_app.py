@@ -67,9 +67,6 @@ ICONS_SCAN_FOLDERS = [
 
 # SQL Schema dla mapa_launcher_db (baza konfiguracyjna zamiast SQLite)
 LAUNCHER_DB_SCHEMA = """
--- Włącz rozszerzenie PostGIS
-CREATE EXTENSION IF NOT EXISTS postgis;
-
 -- Tabela miejscowości
 CREATE TABLE IF NOT EXISTS locations (
     id SERIAL PRIMARY KEY,
@@ -427,6 +424,24 @@ def postgres_enable_postgis(host, port, user, password, db_name):
         return False, f"Błąd PostGIS: {str(e)}"
 
 
+def postgres_enable_postgis(host, port, user, password, db_name):
+    """Włącza rozszerzenie PostGIS w bazie danych"""
+    try:
+        conn = psycopg2.connect(
+            host=host, port=port, user=user, password=password,
+            database=db_name
+        )
+        # Ustaw autocommit dla CREATE EXTENSION
+        conn.autocommit = True
+        cursor = conn.cursor()
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+        cursor.close()
+        conn.close()
+        return True, "PostGIS włączony pomyślnie"
+    except Exception as e:
+        return False, f"Błąd włączania PostGIS: {str(e)}"
+
+
 def postgres_execute_schema(host, port, user, password, db_name, schema_sql):
     """Wykonuje SQL schema w bazie"""
     try:
@@ -519,6 +534,16 @@ def init_postgres_locations_db():
             return False
         print(f"✓ {msg}")
 
+    # Włącz PostGIS w bazie launcher
+    success, msg = postgres_enable_postgis(config['host'], config['port'],
+                                           config['user'], config['password'],
+                                           'mapa_launcher_db')
+    if success:
+        print(f"✓ {msg}")
+    else:
+        print(f"⚠️ {msg}")
+        # Nie przerywaj - PostGIS może już być włączony lub użytkownik może nie mieć uprawnień
+
     # Wykonaj schemat (tylko raz!)
     success, msg = postgres_execute_schema(config['host'], config['port'],
                                             config['user'], config['password'],
@@ -562,6 +587,13 @@ def init_location_database(db_name):
         if not success:
             return (False, f"Błąd tworzenia bazy: {msg}")
 
+    # Włącz PostGIS w bazie miejscowości
+    success, msg = postgres_enable_postgis(config['host'], config['port'],
+                                           config['user'], config['password'], db_name)
+    if not success:
+        print(f"⚠️ Nie udało się włączyć PostGIS w {db_name}: {msg}")
+        # Nie przerywaj - PostGIS może już być włączony
+
     # Wykonaj schemat (DROP + CREATE wszystkie tabele)
     success, msg = postgres_execute_schema(config['host'], config['port'],
                                           config['user'], config['password'],
@@ -569,7 +601,7 @@ def init_location_database(db_name):
     if not success:
         return (False, f"Błąd inicjalizacji tabel: {msg}")
 
-    return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
+    return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana (z PostGIS)")
 
 
 def migrate_sqlite_to_postgres():
@@ -3646,7 +3678,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3686,7 +3724,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę nowe tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name='mapa_launcher_db')
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę nowe tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name='mapa_launcher_db', schema_sql=LAUNCHER_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3724,7 +3768,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
@@ -3764,7 +3814,13 @@ class DatabaseWizard(tk.Toplevel):
         if not success:
             raise Exception(msg)
 
-        self.log("2. Tworzę nowe tabele...")
+        self.log("2. Włączam rozszerzenie PostGIS...")
+        success, msg = postgres_enable_postgis(**self.config, db_name=db_name)
+        self.log(f"   {msg}")
+        if not success:
+            self.log(f"   ⚠️ Ostrzeżenie: {msg}")
+
+        self.log("3. Tworzę nowe tabele...")
         success, msg = postgres_execute_schema(**self.config, db_name=db_name, schema_sql=LOCATION_DB_SCHEMA)
         self.log(f"   {msg}")
         if not success:
