@@ -1157,6 +1157,10 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     location_folder = os.path.join(BACKUP_FOLDER, name)
     os.makedirs(location_folder, exist_ok=True)
 
+    # Utwórz folder dla protokołów
+    protokoly_folder = os.path.join(location_folder, "protokoly")
+    os.makedirs(protokoly_folder, exist_ok=True)
+
     # Utwórz wymagane pliki JSON jeśli nie istnieją
     ensure_location_data_files(location_folder)
 

@@ -106,25 +106,25 @@ document.addEventListener('DOMContentLoaded', () => {
      * Wyszukuje skany protokołu w katalogu serwera
      */
     const findProtocolImages = async () => {
-        const basePath = `/assets/protokoly/${ownerKey}/`;
+        const basePath = `/protokoly/${ownerKey}/`;
         const found = [];
         let i = 1;
-        
+
         const checkNext = () => {
             const img = new Image();
             img.src = `${basePath}${i}.jpg`;
-            
+
             img.onload = () => {
                 found.push(img.src);
                 i++;
                 checkNext();
             };
-            
+
             img.onerror = () => {
                 if (i === 1 && found.length === 0) {
                     // Sprawdzenie pojedynczego pliku
                     const singleImg = new Image();
-                    singleImg.src = `/assets/protokoly/${ownerKey}.jpg`;
+                    singleImg.src = `/protokoly/${ownerKey}.jpg`;
                     
                     singleImg.onload = () => {
                         found.push(singleImg.src);
