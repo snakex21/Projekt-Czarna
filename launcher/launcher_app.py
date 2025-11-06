@@ -429,11 +429,22 @@ def postgres_enable_postgis(host, port, user, password, db_name):
     try:
         conn = psycopg2.connect(
             host=host, port=port, user=user, password=password,
-            database=db_name
+            database=db_name, client_encoding='UTF8'
         )
         # Ustaw autocommit dla CREATE EXTENSION
         conn.autocommit = True
         cursor = conn.cursor()
+
+        # Sprawdź czy PostGIS już istnieje
+        cursor.execute("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'postgis');")
+        postgis_exists = cursor.fetchone()[0]
+
+        if postgis_exists:
+            cursor.close()
+            conn.close()
+            return True, "PostGIS już włączony"
+
+        # Włącz PostGIS
         cursor.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
         cursor.close()
         conn.close()
@@ -516,15 +527,23 @@ def init_postgres_locations_db():
     """
     global LOCATIONS_DB_INITIALIZED
 
-    # Jeśli już zainicjalizowana, pomiń
-    if LOCATIONS_DB_INITIALIZED:
-        return True
-
     config = get_postgres_config()
 
     # Sprawdź czy baza istnieje
-    if not postgres_database_exists(config['host'], config['port'], config['user'],
-                                     config['password'], 'mapa_launcher_db'):
+    db_exists = postgres_database_exists(config['host'], config['port'], config['user'],
+                                         config['password'], 'mapa_launcher_db')
+
+    # Jeśli już zainicjalizowana i baza istnieje, tylko włącz PostGIS i zakończ
+    if LOCATIONS_DB_INITIALIZED and db_exists:
+        # Upewnij się, że PostGIS jest włączony (dla istniejących baz)
+        success, msg = postgres_enable_postgis(config['host'], config['port'],
+                                               config['user'], config['password'],
+                                               'mapa_launcher_db')
+        if success:
+            print(f"✓ {msg}")
+        return True
+
+    if not db_exists:
         # Utwórz bazę
         success, msg = postgres_create_database(config['host'], config['port'],
                                                  config['user'], config['password'],
@@ -534,7 +553,7 @@ def init_postgres_locations_db():
             return False
         print(f"✓ {msg}")
 
-    # Włącz PostGIS w bazie launcher
+    # Włącz PostGIS w bazie launcher (zawsze przy pierwszym uruchomieniu)
     success, msg = postgres_enable_postgis(config['host'], config['port'],
                                            config['user'], config['password'],
                                            'mapa_launcher_db')
