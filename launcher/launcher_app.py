@@ -771,6 +771,236 @@ def import_locations_from_json(json_path):
         return (False, f"Błąd importu: {e}")
 
 
+def full_backup_to_zip(output_path=None):
+    """
+    Tworzy pełny backup całej aplikacji do ZIP:
+    - Eksport launchera (locations.json)
+    - Dla każdej miejscowości: pg_dump, .env, pliki backup/
+    - Zdjęcia z strona_glowna/assets_index/
+
+    Args:
+        output_path: Ścieżka do pliku ZIP. Jeśli None, generuje automatyczną nazwę.
+
+    Returns:
+        tuple: (success: bool, message: str, zip_path: str)
+    """
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest dostępny", None)
+
+    try:
+        import subprocess
+        import tempfile
+
+        # Określ ścieżkę wyjściową
+        if not output_path:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_path = os.path.join(BASE_DIR, "backup", f"full_backup_{timestamp}.zip")
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Utwórz tymczasowy folder na backup
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"📦 Tworzę pełny backup w: {output_path}")
+
+            # 1. Eksportuj locations.json
+            print("1/4 Eksportuję konfigurację launchera...")
+            locations_json_path = os.path.join(temp_dir, "locations.json")
+            success, message, _ = export_locations_to_json(locations_json_path)
+            if not success:
+                return (False, f"Błąd eksportu locations: {message}", None)
+
+            # 2. Dla każdej miejscowości: pg_dump + pliki
+            locations = get_all_locations()
+            print(f"2/4 Tworzę dump baz danych ({len(locations)} miejscowości)...")
+
+            config = get_postgres_config()
+
+            for i, loc in enumerate(locations, 1):
+                location_name = loc[1]
+                db_name = loc[13] if len(loc) > 13 and loc[13] else f"mapa_{location_name.lower()}_db"
+
+                print(f"   [{i}/{len(locations)}] {location_name} ({db_name})...")
+
+                # Folder dla tej miejscowości
+                location_dir = os.path.join(temp_dir, location_name)
+                os.makedirs(location_dir, exist_ok=True)
+
+                # pg_dump bazy miejscowości
+                dump_path = os.path.join(location_dir, f"{db_name}_dump.sql")
+                try:
+                    subprocess.run([
+                        'pg_dump',
+                        '-h', config['host'],
+                        '-p', str(config['port']),
+                        '-U', config['user'],
+                        '-d', db_name,
+                        '-f', dump_path
+                    ], env={'PGPASSWORD': config['password']}, check=True, capture_output=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"⚠️ Błąd pg_dump dla {db_name}: {e.stderr.decode()}")
+                    # Kontynuuj mimo błędu
+
+                # Skopiuj pliki z backup/{location}/ (jeśli istnieją)
+                backup_location_dir = os.path.join(BASE_DIR, "backup", location_name)
+                if os.path.exists(backup_location_dir):
+                    for filename in os.listdir(backup_location_dir):
+                        src = os.path.join(backup_location_dir, filename)
+                        if os.path.isfile(src):
+                            dst = os.path.join(location_dir, filename)
+                            shutil.copy2(src, dst)
+
+            # 3. Skopiuj zdjęcia
+            print("3/4 Kopiuję zdjęcia...")
+            assets_index_dir = os.path.join(BASE_DIR, "strona_glowna", "assets_index")
+            if os.path.exists(assets_index_dir):
+                images_temp_dir = os.path.join(temp_dir, "_images")
+                os.makedirs(images_temp_dir, exist_ok=True)
+                for filename in os.listdir(assets_index_dir):
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                        src = os.path.join(assets_index_dir, filename)
+                        dst = os.path.join(images_temp_dir, filename)
+                        shutil.copy2(src, dst)
+
+            # 4. Spakuj do ZIP
+            print("4/4 Pakuję do ZIP...")
+            shutil.make_archive(output_path.replace('.zip', ''), 'zip', temp_dir)
+
+            # make_archive dodaje .zip automatycznie, upewnij się że nazwa jest poprawna
+            if not output_path.endswith('.zip'):
+                output_path += '.zip'
+
+            size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            return (True, f"✓ Backup utworzony ({size_mb:.1f} MB)", output_path)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return (False, f"Błąd tworzenia backupu: {e}", None)
+
+
+def full_restore_from_zip(zip_path):
+    """
+    Przywraca pełny backup z ZIP:
+    - Import locations.json do launchera
+    - Dla każdej miejscowości: CREATE DATABASE + import SQL dump
+    - Przywrócenie plików .env i backupów
+    - Przywrócenie zdjęć
+
+    Args:
+        zip_path: Ścieżka do pliku ZIP z backupem
+
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    if not check_postgres_available():
+        return (False, "PostgreSQL nie jest dostępny")
+
+    if not os.path.exists(zip_path):
+        return (False, f"Plik nie istnieje: {zip_path}")
+
+    try:
+        import subprocess
+        import tempfile
+
+        print(f"📂 Przywracam backup z: {zip_path}")
+
+        # Rozpakuj ZIP do tymczasowego folderu
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print("1/4 Rozpakowuję ZIP...")
+            shutil.unpack_archive(zip_path, temp_dir, 'zip')
+
+            # 1. Import locations.json
+            print("2/4 Importuję konfigurację launchera...")
+            locations_json = os.path.join(temp_dir, "locations.json")
+            if not os.path.exists(locations_json):
+                return (False, "Brak locations.json w backupie")
+
+            success, message = import_locations_from_json(locations_json)
+            if not success:
+                return (False, f"Błąd importu locations: {message}")
+
+            # 2. Przywróć bazy danych miejscowości
+            print("3/4 Przywracam bazy danych...")
+
+            # Znajdź wszystkie foldery z miejscowościami
+            config = get_postgres_config()
+            restored_count = 0
+
+            for item in os.listdir(temp_dir):
+                item_path = os.path.join(temp_dir, item)
+                if not os.path.isdir(item_path) or item.startswith('_'):
+                    continue
+
+                location_name = item
+                print(f"   Przywracam: {location_name}...")
+
+                # Znajdź dump SQL
+                sql_dumps = [f for f in os.listdir(item_path) if f.endswith('_dump.sql')]
+                if not sql_dumps:
+                    print(f"   ⚠️ Brak SQL dump dla {location_name}")
+                    continue
+
+                dump_file = os.path.join(item_path, sql_dumps[0])
+                db_name = sql_dumps[0].replace('_dump.sql', '')
+
+                # Utwórz bazę (jeśli nie istnieje)
+                if not postgres_database_exists(config['host'], config['port'],
+                                               config['user'], config['password'], db_name):
+                    success, msg = postgres_create_database(config['host'], config['port'],
+                                                           config['user'], config['password'], db_name)
+                    if not success:
+                        print(f"   ⚠️ Błąd tworzenia bazy {db_name}: {msg}")
+                        continue
+
+                # Importuj SQL dump
+                try:
+                    subprocess.run([
+                        'psql',
+                        '-h', config['host'],
+                        '-p', str(config['port']),
+                        '-U', config['user'],
+                        '-d', db_name,
+                        '-f', dump_file
+                    ], env={'PGPASSWORD': config['password']}, check=True, capture_output=True)
+
+                    print(f"   ✓ Przywrócono bazę {db_name}")
+                    restored_count += 1
+                except subprocess.CalledProcessError as e:
+                    print(f"   ⚠️ Błąd psql dla {db_name}: {e.stderr.decode()}")
+
+                # Przywróć pliki backup
+                backup_dest_dir = os.path.join(BASE_DIR, "backup", location_name)
+                os.makedirs(backup_dest_dir, exist_ok=True)
+
+                for filename in os.listdir(item_path):
+                    if not filename.endswith('_dump.sql'):
+                        src = os.path.join(item_path, filename)
+                        if os.path.isfile(src):
+                            dst = os.path.join(backup_dest_dir, filename)
+                            shutil.copy2(src, dst)
+
+            # 3. Przywróć zdjęcia
+            print("4/4 Przywracam zdjęcia...")
+            images_temp_dir = os.path.join(temp_dir, "_images")
+            if os.path.exists(images_temp_dir):
+                assets_index_dir = os.path.join(BASE_DIR, "strona_glowna", "assets_index")
+                os.makedirs(assets_index_dir, exist_ok=True)
+
+                for filename in os.listdir(images_temp_dir):
+                    src = os.path.join(images_temp_dir, filename)
+                    dst = os.path.join(assets_index_dir, filename)
+                    shutil.copy2(src, dst)
+
+                print(f"   ✓ Przywrócono zdjęcia")
+
+            return (True, f"✓ Backup przywrócony: {restored_count} baz danych")
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return (False, f"Błąd przywracania backupu: {e}")
+
+
 def migrate_sqlite_to_postgres():
     """
     Migruje dane z locations.db (SQLite) do mapa_launcher_db (PostgreSQL).
@@ -3724,6 +3954,10 @@ class DatabaseWizard(tk.Toplevel):
                        variable=self.action_var, value="export_locations_json").pack(anchor=tk.W, pady=2, padx=10)
         ttk.Radiobutton(actions_frame, text="📥 Importuj miejscowości z JSON",
                        variable=self.action_var, value="import_locations_json").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="📦 PEŁNY BACKUP do ZIP (wszystko!)",
+                       variable=self.action_var, value="full_backup_zip").pack(anchor=tk.W, pady=2, padx=10)
+        ttk.Radiobutton(actions_frame, text="📂 PRZYWRÓĆ z ZIP (wszystko!)",
+                       variable=self.action_var, value="full_restore_zip").pack(anchor=tk.W, pady=2, padx=10)
 
         # Dropdown z wyborem miejscowości
         location_frame = ttk.Frame(actions_frame)
@@ -3886,6 +4120,10 @@ class DatabaseWizard(tk.Toplevel):
                 self.export_locations_to_json_action()
             elif action == "import_locations_json":
                 self.import_locations_from_json_action()
+            elif action == "full_backup_zip":
+                self.full_backup_zip_action()
+            elif action == "full_restore_zip":
+                self.full_restore_zip_action()
 
             self.log("\n✅ Gotowe!")
             self.result = True
@@ -4138,6 +4376,91 @@ class DatabaseWizard(tk.Toplevel):
 
         self.log(f"   {message}")
         self.log("\n✓ Import zakończony pomyślnie")
+
+        # Odśwież listę miejscowości w dropdownie
+        self.refresh_locations_list()
+
+    def full_backup_zip_action(self):
+        """Pełny backup do ZIP"""
+        self.log("=== PEŁNY BACKUP DO ZIP ===\n")
+
+        # Zapytaj gdzie zapisać
+        from tkinter import filedialog
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f"full_backup_{timestamp}.zip"
+
+        filepath = filedialog.asksaveasfilename(
+            parent=self,
+            title="Zapisz pełny backup jako",
+            defaultextension=".zip",
+            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")],
+            initialfile=default_name
+        )
+
+        if not filepath:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log(f"Plik docelowy: {filepath}\n")
+        self.log("Tworzę pełny backup (launcher + bazy + pliki + zdjęcia)...\n")
+
+        success, message, output_path = full_backup_to_zip(filepath)
+
+        if not success:
+            raise Exception(message)
+
+        self.log(f"\n{message}")
+        self.log(f"📁 Plik zapisano: {output_path}")
+        self.log("\n✓ Backup zawiera:")
+        self.log("  • locations.json (konfiguracja launchera)")
+        self.log("  • SQL dumpy wszystkich baz miejscowości")
+        self.log("  • Pliki .env i backup/")
+        self.log("  • Wszystkie zdjęcia")
+
+    def full_restore_zip_action(self):
+        """Przywróć z pełnego backupu ZIP"""
+        self.log("=== PRZYWRACANIE Z PEŁNEGO BACKUPU ===\n")
+
+        # Zapytaj o plik
+        from tkinter import filedialog
+        filepath = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz plik ZIP z backupem",
+            filetypes=[("ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            raise Exception("Anulowano przez użytkownika")
+
+        # Ostrzeżenie
+        confirm = messagebox.askyesno(
+            "⚠️ UWAGA",
+            "Przywracanie backupu:\n\n"
+            "• Zaimportuje miejscowości do launchera\n"
+            "• Odtworzy bazy danych PostgreSQL\n"
+            "• Przywróci pliki .env\n"
+            "• Przywróci zdjęcia\n\n"
+            "Istniejące miejscowości mogą zostać zaktualizowane.\n\n"
+            "Kontynuować?",
+            icon='warning',
+            parent=self
+        )
+
+        if not confirm:
+            raise Exception("Anulowano przez użytkownika")
+
+        self.log(f"Plik źródłowy: {filepath}\n")
+        self.log("Przywracam backup (może to chwilę potrwać)...\n")
+
+        success, message = full_restore_from_zip(filepath)
+
+        if not success:
+            raise Exception(message)
+
+        self.log(f"\n{message}")
+        self.log("\n✓ Backup został w pełni przywrócony!")
+        self.log("  • Miejscowości zaimportowane")
+        self.log("  • Bazy danych odtworzone")
+        self.log("  • Pliki przywrócone")
 
         # Odśwież listę miejscowości w dropdownie
         self.refresh_locations_list()
