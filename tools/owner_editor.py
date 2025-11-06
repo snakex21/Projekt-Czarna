@@ -20,6 +20,7 @@ import sys
 import ctypes
 import platform
 import sqlite3
+import psycopg2
 
 # ==========================================================================
 # KONFIGURACJA DPI
@@ -41,31 +42,85 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 def get_active_location_backup_folder():
     """Zwraca folder backup aktywnej miejscowości."""
     base_dir = os.path.dirname(script_dir)
-    launcher_dir = os.path.join(base_dir, "launcher")
-    locations_db_path = os.path.join(launcher_dir, "locations.db")
 
-    # Sprawdź czy baza danych istnieje
-    if not os.path.exists(locations_db_path):
-        # Użyj domyślnej lokalizacji
-        return os.path.join(base_dir, "backup")
-
+    # Najpierw spróbuj PostgreSQL (baza launcher)
     try:
-        conn = sqlite3.connect(locations_db_path)
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+
+        conn = psycopg2.connect(**launcher_db_config)
         cursor = conn.cursor()
-        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
         result = cursor.fetchone()
         conn.close()
 
         if result:
             location_name = result[0]
-            return os.path.join(base_dir, "backup", location_name)
+            backup_folder = os.path.join(base_dir, "backup", location_name)
+            print(f"✅ Edytor właścicieli - aktywna miejscowość: {location_name}")
+            return backup_folder
     except Exception as e:
-        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+        print(f"⚠️ PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+    # Fallback do SQLite jeśli PostgreSQL nie działa
+    launcher_dir = os.path.join(base_dir, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    if os.path.exists(locations_db_path):
+        try:
+            conn = sqlite3.connect(locations_db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM locations WHERE active = 1")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                location_name = result[0]
+                backup_folder = os.path.join(base_dir, "backup", location_name)
+                print(f"✅ Edytor właścicieli (SQLite) - aktywna miejscowość: {location_name}")
+                return backup_folder
+        except Exception as e:
+            print(f"⚠️ Błąd podczas odczytu SQLite: {e}")
 
     # Fallback do domyślnej lokalizacji
+    print(f"⚠️ Używam domyślnej lokalizacji backup")
     return os.path.join(base_dir, "backup")
 
+def ensure_location_data_files(location_folder):
+    """Tworzy wymagane pliki JSON dla miejscowości jeśli nie istnieją."""
+    data_files = {
+        'demografia.json': [],
+        'genealogia.json': {"persons": []},
+        'map_config.json': {
+            "calibration": {"sw": {"lat": 0, "lng": 0}, "ne": {"lat": 0, "lng": 0}},
+            "defaults": {"center": {"lat": 0, "lng": 0}, "zoom": 15}
+        },
+        'owner_data_to_import.json': {},
+        'parcels_data.json': {}}
+
+    created_files = []
+    for filename, structure in data_files.items():
+        file_path = os.path.join(location_folder, filename)
+        if not os.path.exists(file_path):
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(structure, f, ensure_ascii=False, indent=4)
+                created_files.append(filename)
+            except Exception as e:
+                print(f"⚠️ Błąd tworzenia {filename}: {e}")
+
+    if created_files:
+        print(f"✅ Utworzono brakujące pliki: {', '.join(created_files)}")
+
 BACKUP_FOLDER = get_active_location_backup_folder()
+ensure_location_data_files(BACKUP_FOLDER)  # Upewnij się że pliki istnieją
+
 JSON_FILE_PATH = os.path.join(BACKUP_FOLDER, "owner_data_to_import.json")
 DEMOGRAFIA_JSON_PATH = os.path.join(BACKUP_FOLDER, "demografia.json")
 JS_FILE_PATH = os.path.join(script_dir, "..", "wlasciciele", "owner.js")
