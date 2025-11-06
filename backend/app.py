@@ -64,8 +64,45 @@ def clear_genealogy_cache():
 # KONFIGURACJA ŚRODOWISKA
 # =============================================================================
 
-# Wczytanie zmiennych środowiskowych z pliku .env
-load_dotenv()
+# Funkcja do określenia ścieżki .env z aktywnej miejscowości
+import sqlite3
+
+def get_active_location_env_path():
+    """Zwraca ścieżkę do pliku .env aktywnej miejscowości."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    launcher_dir = os.path.join(base_dir, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    # Sprawdź czy baza danych istnieje
+    if not os.path.exists(locations_db_path):
+        # Użyj domyślnej lokalizacji
+        return os.path.join(base_dir, "backend", ".env")
+
+    try:
+        conn = sqlite3.connect(locations_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+            backup_folder = os.path.join(base_dir, "backup", location_name)
+            env_path = os.path.join(backup_folder, ".env")
+            if os.path.exists(env_path):
+                print(f"✅ Używam .env z miejscowości: {location_name}")
+                return env_path
+    except Exception as e:
+        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+
+    # Fallback do domyślnej lokalizacji
+    default_env = os.path.join(base_dir, "backend", ".env")
+    print(f"⚠️ Używam domyślnej lokalizacji .env")
+    return default_env
+
+# Wczytanie zmiennych środowiskowych z pliku .env aktywnej miejscowości
+active_env_path = get_active_location_env_path()
+load_dotenv(active_env_path)
 
 def get_env_variable(var_name, default_value=None):
     """Pobiera zmienną środowiskową z opcjonalną wartością domyślną."""

@@ -13,13 +13,42 @@ import threading
 import webbrowser
 from datetime import datetime
 from flask import Flask, render_template, jsonify, request, redirect, url_for
+import sqlite3
 
 # ==========================================================================
 # KONFIGURACJA ŚCIEŻEK SYSTEMU
 # ==========================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(BASE_DIR, os.pardir, os.pardir))
-BACKUP_DIR = os.path.join(PROJECT_DIR, "backup")
+
+# Funkcja do określenia aktywnej miejscowości
+def get_active_location_backup_folder():
+    """Zwraca folder backup aktywnej miejscowości."""
+    launcher_dir = os.path.join(PROJECT_DIR, "launcher")
+    locations_db_path = os.path.join(launcher_dir, "locations.db")
+
+    # Sprawdź czy baza danych istnieje
+    if not os.path.exists(locations_db_path):
+        # Użyj domyślnej lokalizacji
+        return os.path.join(PROJECT_DIR, "backup")
+
+    try:
+        conn = sqlite3.connect(locations_db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+            return os.path.join(PROJECT_DIR, "backup", location_name)
+    except Exception as e:
+        print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
+
+    # Fallback do domyślnej lokalizacji
+    return os.path.join(PROJECT_DIR, "backup")
+
+BACKUP_DIR = get_active_location_backup_folder()
 DATA_FILE_PATH = os.path.join(BACKUP_DIR, "parcels_data.json")
 
 # ==========================================================================
@@ -45,7 +74,7 @@ parcels_data = {}
 def load_map_config_from_file():
     """Wczytuje konfigurację mapy z pliku JSON."""
     global map_config
-    config_path = os.path.join(PROJECT_DIR, "backup", "map_config.json")
+    config_path = os.path.join(BACKUP_DIR, "map_config.json")
     
     try:
         if not os.path.exists(config_path):
