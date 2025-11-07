@@ -1568,14 +1568,14 @@ def setup_postgres_config():
     # Utwórz dialog
     dialog = tk.Toplevel(temp_root)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
-    dialog.geometry("650x400")
+    dialog.geometry("700x550")
     dialog.resizable(False, False)
 
     # Wyśrodkuj okno
     dialog.update_idletasks()
-    x = (dialog.winfo_screenwidth() // 2) - (650 // 2)
-    y = (dialog.winfo_screenheight() // 2) - (400 // 2)
-    dialog.geometry(f"650x400+{x}+{y}")
+    x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (550 // 2)
+    dialog.geometry(f"700x550+{x}+{y}")
 
     # Zablokuj interakcję z innymi oknami
     dialog.grab_set()
@@ -1646,29 +1646,30 @@ def setup_postgres_config():
     status_label = tk.Label(
         main_frame,
         text="",
-        font=('Segoe UI', 48),
+        font=('Segoe UI', 56),
         bg='#f8f9fa',
         height=1
     )
-    status_label.pack(pady=(10, 20))
+    status_label.pack(pady=(15, 25))
 
-    # Przycisk OK
+    # Przycisk Kontynuuj
     ok_button = tk.Button(
         main_frame,
-        text="OK",
-        font=('Segoe UI', 12, 'bold'),
-        bg='#007bff',
+        text="KONTYNUUJ",
+        font=('Segoe UI', 13, 'bold'),
+        bg='#6c757d',
         fg='white',
         activebackground='#0056b3',
         activeforeground='white',
-        relief='flat',
+        relief='raised',
+        borderwidth=2,
         cursor='hand2',
         state='disabled',
-        padx=40,
-        pady=10,
+        padx=50,
+        pady=15,
         command=lambda: dialog.destroy()
     )
-    ok_button.pack()
+    ok_button.pack(pady=(0, 10))
 
     # Timer do debounce
     test_timer = None
