@@ -2700,27 +2700,48 @@ class AppLauncher(tk.Tk):
             print(f"⚠️ Nie udało się automatycznie zaktualizować danych miejscowości: {e}")
 
     def refresh_locations(self, force=False):
-        """Odświeża listę miejscowości w menu rozwijanym (z debounce i cache)."""
+        """Odświeża listę miejscowości w menu rozwijanym (ultra zoptymalizowane)."""
         # Debounce - zapobiegaj wielokrotnemu odświeżaniu
         if self._refresh_pending and not force:
             return
 
+        # Jeśli mamy cache i nie wymuszamy - użyj cache bez SQL
+        if self._cached_locations and not force:
+            try:
+                self._refresh_pending = True
+                locations = self._cached_locations
+                location_names = [loc[1] for loc in locations]
+
+                # Sprawdź czy dane się zmieniły
+                current_values = self.location_combo['values']
+                if tuple(current_values) == tuple(location_names):
+                    # Dane identyczne - pomiń odświeżanie
+                    return
+
+                self.location_combo['values'] = location_names
+
+                # Znajdź aktywną
+                active_location = next((loc for loc in locations if loc[5]), None)
+                if active_location:
+                    self.location_var.set(active_location[1])
+                elif location_names:
+                    self.location_var.set(location_names[0])
+                else:
+                    self.location_var.set("(brak miejscowości)")
+            finally:
+                self._refresh_pending = False
+            return
+
+        # Pełne odświeżenie z bazy (tylko jeśli force=True lub brak cache)
         try:
             self._refresh_pending = True
-
-            # get_all_locations() ma własny cache 30s, więc jest szybkie
             locations = get_all_locations()
             self._cached_locations = locations
             location_names = [loc[1] for loc in locations]
             self.location_combo['values'] = location_names
 
-            # Znajdź aktywną lokację w pobranej liście (bez dodatkowego SQL)
-            active_location = None
-            for loc in locations:
-                if loc[5]:  # loc[5] to active
-                    active_location = loc
-                    break
-
+            # Znajdź aktywną lokację
+            active_location = next((loc for loc in locations if loc[5]), None)
             if active_location:
                 self.location_var.set(active_location[1])
             elif location_names:
@@ -2765,14 +2786,15 @@ class AppLauncher(tk.Tk):
         """Otwiera okno zarządzania miejscowościami."""
         manager = LocationManager(self)
         self.wait_window(manager)
-        self.refresh_locations()
+        # Opóźnione odświeżenie - nie blokuj GUI natychmiast
+        self.after(50, lambda: self.refresh_locations(force=True))
 
     def open_database_wizard(self):
         """Otwiera narzędzie zarządzania bazą danych PostgreSQL."""
         wizard = DatabaseWizard(self)
         self.wait_window(wizard)
-        # Po zamknięciu narzędzia odśwież listę miejscowości (w razie nowej konfiguracji)
-        self.refresh_locations()
+        # Opóźnione odświeżenie - nie blokuj GUI natychmiast
+        self.after(50, lambda: self.refresh_locations(force=True))
 
     def open_backup_manager(self):
         """Otwiera okno menedżera kopii zapasowych."""
