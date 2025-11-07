@@ -23,7 +23,6 @@ import tkinter.font as tkfont
 import ctypes
 import filecmp
 import json
-import sqlite3
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -65,7 +64,7 @@ ICONS_SCAN_FOLDERS = [
 # POSTGRESQL - FUNKCJE POMOCNICZE I SCHEMA
 # =============================================================================
 
-# SQL Schema dla mapa_launcher_db (baza konfiguracyjna zamiast SQLite)
+# SQL Schema dla mapa_launcher_db (baza konfiguracyjna PostgreSQL)
 LAUNCHER_DB_SCHEMA = """
 -- Tabela miejscowości
 CREATE TABLE IF NOT EXISTS locations (
@@ -638,19 +637,6 @@ def init_location_database(db_name):
         return (False, f"Błąd inicjalizacji tabel: {msg}")
 
     return (True, f"✓ Baza {db_name} została utworzona i zainicjalizowana")
-
-
-def migrate_sqlite_to_postgres():
-    """
-    [DEPRECATED - SQLite został usunięty z systemu]
-    Program działa tylko z PostgreSQL.
-
-    Jeśli potrzebujesz zmigrować stare dane SQLite:
-    1. Przywróć wcześniejszą wersję programu
-    2. Użyj funkcji migracji
-    3. Wróć do tej wersji
-    """
-    return (False, "Migracja SQLite została wyłączona. Program działa tylko z PostgreSQL.", 0)
 
 
 # =============================================================================
@@ -1581,18 +1567,24 @@ def setup_postgres_config():
 
     # Wyświetl informację
     result = messagebox.askokcancel(
-        "🔧 Konfiguracja PostgreSQL",
+        "🔧 Konfiguracja PostgreSQL - WYMAGANE",
+        "⚠️ Program wymaga PostgreSQL do działania!\n\n"
         "Launcher nie znalazł konfiguracji PostgreSQL.\n\n"
-        "Aby połączyć się z bazą danych, potrzebuję hasła do PostgreSQL.\n\n"
-        "Czy chcesz skonfigurować teraz?\n\n"
-        "Możesz też pominąć i użyć SQLite (mniej funkcji).",
-        icon='question'
+        "Aby połączyć się z bazą danych, musisz podać hasło do PostgreSQL.\n\n"
+        "Czy chcesz skonfigurować teraz?",
+        icon='warning'
     )
 
     if not result:
         temp_root.destroy()
-        print("⚠️ Pominięto konfigurację PostgreSQL. Używam SQLite.")
-        return False
+        print("❌ Pominięto konfigurację PostgreSQL. Program nie może działać bez PostgreSQL!")
+        messagebox.showerror(
+            "Błąd - PostgreSQL Wymagany",
+            "Program wymaga PostgreSQL do działania.\n\n"
+            "Bez konfiguracji bazy danych launcher nie może być uruchomiony.\n\n"
+            "Zainstaluj PostgreSQL i uruchom program ponownie."
+        )
+        sys.exit(1)  # Zakończ program
 
     # Zapytaj o hasło
     password = simpledialog.askstring(
@@ -1604,7 +1596,7 @@ def setup_postgres_config():
     temp_root.destroy()
 
     if not password:
-        print("⚠️ Nie podano hasła. Używam SQLite.")
+        print("⚠️ Nie podano hasła. Program wymaga PostgreSQL do działania!")
         return False
 
     # Utwórz plik konfiguracji
@@ -2764,13 +2756,6 @@ if __name__ == '__main__':
             return command
 
 # =============================================================================
-# MIGRACJA DANYCH
-# =============================================================================
-
-# [DUPLICATE FUNCTION REMOVED - see line 643]
-# migrate_sqlite_to_postgres() is defined earlier in the file
-
-# =============================================================================
 # KLASY OKIEN DIALOGOWYCH
 # =============================================================================
 
@@ -3576,18 +3561,25 @@ class DatabaseWizard(tk.Toplevel):
         self.password_entry.insert(0, self.config['password'])
         self.password_entry.grid(row=3, column=1, sticky="ew", pady=5, padx=5)
 
+        # Automatyczne testowanie po wpisaniu hasła
+        self.password_entry.bind('<KeyRelease>', self.auto_test_connection)
+        self.password_entry.bind('<FocusOut>', self.auto_test_connection)
+
         form.columnconfigure(1, weight=1)
 
-        ttk.Button(form, text="🔍 Testuj Połączenie", command=self.test_connection, width=20).grid(row=4, column=0, columnspan=2, pady=20)
-
         # Status połączenia z większą czcionką
-        self.connection_status = ttk.Label(form, text="", foreground="gray", font=('Arial', 12, 'bold'))
-        self.connection_status.grid(row=5, column=0, columnspan=2, pady=10)
+        self.connection_status = ttk.Label(form, text="⚠️ Wpisz hasło do PostgreSQL",
+                                          foreground="#856404", font=('Arial', 12, 'bold'))
+        self.connection_status.grid(row=4, column=0, columnspan=2, pady=20)
 
         # Dodatkowy status frame z zieloną fajką
         self.success_frame = ttk.Frame(form)
-        self.success_frame.grid(row=6, column=0, columnspan=2, pady=10)
+        self.success_frame.grid(row=5, column=0, columnspan=2, pady=10)
         self.success_label = None
+
+        # Test początkowy jeśli hasło już istnieje
+        if self.config['password']:
+            self.after(100, self.test_connection)
 
     def create_step2_data_source(self):
         """Krok 2: Wybór źródła danych"""
@@ -3718,6 +3710,19 @@ class DatabaseWizard(tk.Toplevel):
         self.finish_button = ttk.Button(frame, text="✅ Zakończ", command=self.finish, state=tk.DISABLED)
         self.finish_button.pack(pady=10)
 
+    def auto_test_connection(self, event=None):
+        """Automatyczne testowanie połączenia po wpisaniu hasła"""
+        password = self.password_entry.get()
+
+        # Testuj tylko jeśli hasło ma przynajmniej 1 znak
+        if len(password) > 0:
+            # Anuluj poprzedni timer jeśli istnieje
+            if hasattr(self, '_test_timer'):
+                self.after_cancel(self._test_timer)
+
+            # Ustaw nowy timer - test po 1 sekundzie od ostatniego znaku
+            self._test_timer = self.after(1000, self.test_connection)
+
     def test_connection(self):
         """Test połączenia z PostgreSQL"""
         # Wyczyść poprzedni status
@@ -3761,11 +3766,14 @@ class DatabaseWizard(tk.Toplevel):
                      font=('Arial', 12, 'bold'), foreground="#155724", background="#d4edda").pack(anchor=tk.W)
             ttk.Label(text_frame, text="✅ Konfiguracja zapisana do backend/.postgres.env",
                      foreground="#155724", background="#d4edda").pack(anchor=tk.W, pady=2)
-            ttk.Label(text_frame, text="➡️ Kliknij 'Dalej' aby wybrać źródło danych",
+            ttk.Label(text_frame, text="⏳ Przechodzę do wyboru źródła danych...",
                      foreground="#0c5460", background="#d4edda", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=2)
 
             # Włącz przycisk dalej
             self.connection_tested = True
+
+            # Automatycznie przejdź do następnego kroku po 1.5 sekundy
+            self.after(1500, lambda: self.notebook.select(1))
         else:
             self.connection_status.config(text=f"✗ Błąd Połączenia", foreground="red")
 
