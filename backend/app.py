@@ -135,6 +135,22 @@ def load_env_with_encoding(env_path):
             print(f"❌ Błąd wczytywania .env: {e}")
             return
 
+# Wczytaj najpierw konfigurację PostgreSQL z backend/.postgres.env
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+postgres_env_path = os.path.join(base_dir, "backend", ".postgres.env")
+if os.path.exists(postgres_env_path):
+    load_env_with_encoding(postgres_env_path)
+    # Mapuj zmienne LAUNCHER_DB_* na DB_*
+    if os.getenv('LAUNCHER_DB_HOST'):
+        os.environ['DB_HOST'] = os.environ['LAUNCHER_DB_HOST']
+    if os.getenv('LAUNCHER_DB_PORT'):
+        os.environ['DB_PORT'] = os.environ['LAUNCHER_DB_PORT']
+    if os.getenv('LAUNCHER_DB_USER'):
+        os.environ['DB_USER'] = os.environ['LAUNCHER_DB_USER']
+    if os.getenv('LAUNCHER_DB_PASSWORD'):
+        os.environ['DB_PASSWORD'] = os.environ['LAUNCHER_DB_PASSWORD']
+
+# Wczytaj konfigurację z aktywnej miejscowości (może nadpisać niektóre zmienne)
 load_env_with_encoding(active_env_path)
 
 def get_env_variable(var_name, default_value=None):
