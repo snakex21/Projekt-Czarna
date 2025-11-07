@@ -2199,6 +2199,9 @@ class AppLauncher(tk.Tk):
         self.event_queue = queue.Queue()
         self._refresh_pending = False  # Debounce flag
         self._cached_locations = None  # Cache lokacji w pamięci
+        self._displayed_processes = {}  # Cache wyświetlanych procesów (unikaj przebudowy UI)
+        self._log_buffer = {}  # Buffer logów dla każdej konsoli (batching)
+        self._log_flush_pending = False  # Flaga pending flush
         self.setup_styles()
 
         # UKRYJ główne okno przed konfiguracją PostgreSQL
@@ -2286,8 +2289,13 @@ class AppLauncher(tk.Tk):
                 messagebox.showinfo("System gotowy!", message)
 
         self.create_widgets()
-        self._last_port = self.load_flask_config().get("port")
-        
+
+        # Odroczone operacje I/O - wykonaj po pełnej inicjalizacji GUI (nie blokuj startu)
+        self.after(10, self.refresh_locations)  # Załaduj lokacje asynchronicznie
+        self.after(30, self.refresh_quick_links)  # Konfiguruj przyciski szybkiego dostępu
+        self.after(40, self.start_env_watcher)  # Uruchom watcher pliku .env
+        self.after(20, lambda: setattr(self, '_last_port', self.load_flask_config().get("port")))
+
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.process_queue()
 
@@ -2460,7 +2468,8 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="🔧 Zarządzanie Bazą Danych", command=self.open_database_wizard,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
-        self.refresh_locations()
+        # Odłóż refresh_locations() - wykonaj po pełnej inicjalizacji GUI
+        # Usuń: self.refresh_locations() - zostanie wywołane w __init__ po create_widgets()
 
         # Sekcja operacji głównych
         operations_frame = ttk.LabelFrame(main_frame, text="⚙️ Operacje Główne", padding="10")
@@ -2535,10 +2544,10 @@ class AppLauncher(tk.Tk):
             btn = ttk.Button(links_container, text=text, style=f"{style}.TButton")
             btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
             self.quick_link_buttons.append((btn, path))
-        
+
         self._env_mtime = None
-        self.refresh_quick_links()
-        self.start_env_watcher()
+        # Odłóż refresh_quick_links() - zostanie wykonane asynchronicznie w __init__
+        # Odłóż start_env_watcher() - zostanie wykonane asynchronicznie w __init__
         
         # Sekcja procesów
         self.processes_frame = ttk.LabelFrame(main_frame, text="📊 Uruchomione Procesy", padding="10")
@@ -2564,33 +2573,77 @@ class AppLauncher(tk.Tk):
         self.log("ℹ️ Użyj przycisków powyżej, aby uruchomić komponenty.\n\n")
 
     def log(self, message, console=None):
-        """Wypisuje wiadomość do konsoli."""
+        """Wypisuje wiadomość do konsoli (zoptymalizowane z batchingiem)."""
         target_console = console or self.main_console
-        target_console.configure(state="normal")
-        target_console.insert(tk.END, message)
-        target_console.see(tk.END)
-        target_console.configure(state="disabled")
+
+        # Dodaj do bufora zamiast natychmiastowego zapisu
+        console_id = id(target_console)
+        if console_id not in self._log_buffer:
+            self._log_buffer[console_id] = {'console': target_console, 'messages': []}
+
+        self._log_buffer[console_id]['messages'].append(message)
+
+        # Zaplanuj flush jeśli jeszcze nie zaplanowano
+        if not self._log_flush_pending:
+            self._log_flush_pending = True
+            self.after(50, self._flush_logs)  # Flush co 50ms (batching)
+
+    def _flush_logs(self):
+        """Flush wszystkich zabuforowanych logów na raz."""
+        try:
+            for console_id, data in self._log_buffer.items():
+                console = data['console']
+                messages = data['messages']
+
+                if messages:
+                    # Jeden update zamiast wielu
+                    console.configure(state="normal")
+                    console.insert(tk.END, ''.join(messages))
+                    console.see(tk.END)
+                    console.configure(state="disabled")
+
+                    data['messages'].clear()
+        finally:
+            self._log_flush_pending = False
 
     def update_processes_ui(self):
-        """Odświeża listę uruchomionych procesów."""
-        for widget in self.processes_frame.winfo_children():
-            widget.destroy()
-        
-        if not self.managed_processes:
-            ttk.Label(self.processes_frame, text="📭 Brak uruchomionych procesów",
-                     foreground=COLORS['secondary']).pack(pady=10)
+        """Odświeża listę uruchomionych procesów (zoptymalizowane - bez przebudowy UI)."""
+        # Sprawdź czy lista procesów się zmieniła
+        current_keys = set(self.managed_processes.keys())
+        displayed_keys = set(self._displayed_processes.keys())
+
+        # Jeśli identyczne - pomiń aktualizację
+        if current_keys == displayed_keys:
             return
-        
-        for key, info in self.managed_processes.items():
+
+        # Usuń procesy, które już nie istnieją
+        for key in displayed_keys - current_keys:
+            if key in self._displayed_processes:
+                self._displayed_processes[key].destroy()
+                del self._displayed_processes[key]
+
+        # Dodaj nowe procesy
+        for key in current_keys - displayed_keys:
+            info = self.managed_processes[key]
             proc_frame = ttk.Frame(self.processes_frame)
             proc_frame.pack(fill=tk.X, pady=3, padx=5)
-            
+
             ttk.Label(proc_frame, text=f"🟢 {info['name']} (PID: {info['process'].pid})",
                      font=("Segoe UI", 10)).pack(side=tk.LEFT)
-            
+
             ttk.Button(proc_frame, text="⏹️ Zatrzymaj", style="Danger.TButton",
                       command=lambda k=key: self.stop_managed_process(k),
                       width=12).pack(side=tk.RIGHT, padx=5)
+
+            self._displayed_processes[key] = proc_frame
+
+        # Wyświetl "brak procesów" jeśli puste
+        if not self.managed_processes:
+            for widget in self.processes_frame.winfo_children():
+                widget.destroy()
+            self._displayed_processes.clear()
+            ttk.Label(self.processes_frame, text="📭 Brak uruchomionych procesów",
+                     foreground=COLORS['secondary']).pack(pady=10)
 
     def load_flask_config(self):
         """Czyta aktualny host/port z backend/.env."""
@@ -2619,7 +2672,7 @@ class AppLauncher(tk.Tk):
             return None
 
     def start_env_watcher(self):
-        """Cyklicznie sprawdza zmiany w pliku .env."""
+        """Cyklicznie sprawdza zmiany w pliku .env (zoptymalizowane - mniej częste sprawdzanie)."""
         def _tick():
             try:
                 mtime = self.get_env_mtime()
@@ -2629,7 +2682,7 @@ class AppLauncher(tk.Tk):
                     self._env_mtime = mtime
                     self.on_env_changed()
             finally:
-                self.after(2000, _tick)
+                self.after(5000, _tick)  # 5s zamiast 2s - zmniejsza obciążenie CPU
         _tick()
 
     def on_env_changed(self):
