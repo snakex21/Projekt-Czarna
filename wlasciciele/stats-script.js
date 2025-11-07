@@ -268,6 +268,45 @@ function initActionButtons() {
     window.location.href = `../mapa/mapa.html?highlightTopOwners=${encodeURIComponent(ownerKeys)}&ownership=${ownership}`;
   });
 
+  // Pokaż działki na mapie
+  document.getElementById('show-parcels-on-map')?.addEventListener('click', () => {
+    const topParcels = getTop10Parcels();
+    const parcelNumbers = topParcels.map(p => p.parcel_number).join(',');
+    if (parcelNumbers) {
+      window.location.href = `../mapa/mapa.html?highlightParcels=${encodeURIComponent(parcelNumbers)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 działek na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
+  });
+
+  // Pokaż rzeki na mapie
+  document.getElementById('show-rivers-on-map')?.addEventListener('click', () => {
+    const topRivers = getTop10Rivers();
+    const riverNames = topRivers.map(r => r.river_name).join(',');
+    if (riverNames) {
+      window.location.href = `../mapa/mapa.html?highlightRivers=${encodeURIComponent(riverNames)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 rzek na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
+  });
+
+  // Pokaż drogi na mapie
+  document.getElementById('show-roads-on-map')?.addEventListener('click', () => {
+    const topRoads = getTop10Roads();
+    const roadNames = topRoads.map(r => r.road_name).join(',');
+    if (roadNames) {
+      window.location.href = `../mapa/mapa.html?highlightRoads=${encodeURIComponent(roadNames)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 dróg na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
+  });
+
   // Narzędzia analityczne
   document.getElementById('compare-btn')?.addEventListener('click', openPeriodComparison);  // ← DODAJ TU
   document.getElementById('export-btn')?.addEventListener('click', exportToExcel);
@@ -722,7 +761,7 @@ function loadRiversRanking(riversData) {
   const container = document.getElementById('rivers-ranking-list');
   if (!container || !riversData) return;
 
-  container.innerHTML = riversData.slice(0, 20).map((river, i) => {
+  container.innerHTML = riversData.slice(0, 50).map((river, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = river.length_m || 0;
@@ -756,7 +795,7 @@ function loadRoadsRanking(roadsData) {
   const container = document.getElementById('roads-ranking-list');
   if (!container || !roadsData) return;
 
-  container.innerHTML = roadsData.slice(0, 20).map((road, i) => {
+  container.innerHTML = roadsData.slice(0, 50).map((road, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = road.length_m || 0;
@@ -1739,7 +1778,7 @@ function getTop10Owners(ownership, category) {
   const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
   let rankingData = category === 'all' ? data.all_plots : data[category];
   const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
-  
+
   if (rankingData) {
     rankingData = [...rankingData].sort((a, b) => {
       if (sortBy === 'area') {
@@ -1749,8 +1788,34 @@ function getTop10Owners(ownership, category) {
       }
     });
   }
-  
+
   return rankingData?.slice(0, 10) || [];
+}
+
+/**
+ * Zwraca Top 10 działek według powierzchni.
+ */
+function getTop10Parcels() {
+  const category = document.getElementById('parcel-category-filter')?.value || 'all';
+  const parcelsData = statsData?.parcels_ranking;
+  if (!parcelsData) return [];
+
+  const rankingData = category === 'all' ? parcelsData.all : parcelsData[category];
+  return (rankingData || []).slice(0, 10);
+}
+
+/**
+ * Zwraca Top 10 rzek według długości.
+ */
+function getTop10Rivers() {
+  return (statsData?.rivers_ranking || []).slice(0, 10);
+}
+
+/**
+ * Zwraca Top 10 dróg według długości.
+ */
+function getTop10Roads() {
+  return (statsData?.roads_ranking || []).slice(0, 10);
 }
 
 /**
