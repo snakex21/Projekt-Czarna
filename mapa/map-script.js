@@ -1452,6 +1452,142 @@ function highlightAndColorOwners(uniqueOwnerKeys, ownershipType = 'wszystkie') {
 }
 
 /**
+ * Podświetla działki według numerów.
+ * @param {Array<string>} parcelNumbers - Tablica numerów działek do zaznaczenia
+ */
+function highlightParcels(parcelNumbers) {
+    if (ownerHighlightLayer) {
+        map.removeLayer(ownerHighlightLayer);
+    }
+
+    if (!parcelNumbers || parcelNumbers.length === 0) return;
+
+    ownerHighlightLayer = new L.FeatureGroup();
+    let foundCount = 0;
+
+    /* Przetwarzanie wszystkich warstw */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(layer => {
+            const props = layer.feature?.properties;
+            if (props && parcelNumbers.includes(props.numer_obiektu)) {
+                const highlightStyle = {
+                    color: '#FF0000',
+                    weight: 4,
+                    fillOpacity: 0.4,
+                    fillColor: '#FF0000'
+                };
+
+                const highlightedCopy = L.geoJSON(layer.toGeoJSON(), {
+                    style: highlightStyle,
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            ...highlightStyle,
+                            radius: 8
+                        });
+                    }
+                });
+                ownerHighlightLayer.addLayer(highlightedCopy);
+                foundCount++;
+            }
+        });
+    }
+
+    if (ownerHighlightLayer.getLayers().length > 0) {
+        ownerHighlightLayer.addTo(map);
+        map.fitBounds(ownerHighlightLayer.getBounds());
+        console.log(`✅ Znaleziono i zaznaczono ${foundCount} działek`);
+    } else {
+        console.warn('⚠️ Nie znaleziono działek o podanych numerach');
+    }
+}
+
+/**
+ * Podświetla rzeki według nazw.
+ * @param {Array<string>} riverNames - Tablica nazw rzek do zaznaczenia
+ */
+function highlightRivers(riverNames) {
+    if (ownerHighlightLayer) {
+        map.removeLayer(ownerHighlightLayer);
+    }
+
+    if (!riverNames || riverNames.length === 0) return;
+
+    ownerHighlightLayer = new L.FeatureGroup();
+    let foundCount = 0;
+
+    /* Przetwarzanie wszystkich warstw */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(layer => {
+            const props = layer.feature?.properties;
+            if (props && props.kategoria === 'rzeka' && riverNames.includes(props.numer_obiektu)) {
+                const highlightStyle = {
+                    color: '#0000FF',
+                    weight: 5,
+                    opacity: 0.8
+                };
+
+                const highlightedCopy = L.geoJSON(layer.toGeoJSON(), {
+                    style: highlightStyle
+                });
+                ownerHighlightLayer.addLayer(highlightedCopy);
+                foundCount++;
+            }
+        });
+    }
+
+    if (ownerHighlightLayer.getLayers().length > 0) {
+        ownerHighlightLayer.addTo(map);
+        map.fitBounds(ownerHighlightLayer.getBounds());
+        console.log(`✅ Znaleziono i zaznaczono ${foundCount} rzek`);
+    } else {
+        console.warn('⚠️ Nie znaleziono rzek o podanych nazwach');
+    }
+}
+
+/**
+ * Podświetla drogi według nazw.
+ * @param {Array<string>} roadNames - Tablica nazw dróg do zaznaczenia
+ */
+function highlightRoads(roadNames) {
+    if (ownerHighlightLayer) {
+        map.removeLayer(ownerHighlightLayer);
+    }
+
+    if (!roadNames || roadNames.length === 0) return;
+
+    ownerHighlightLayer = new L.FeatureGroup();
+    let foundCount = 0;
+
+    /* Przetwarzanie wszystkich warstw */
+    if (geojsonLayer) {
+        geojsonLayer.eachLayer(layer => {
+            const props = layer.feature?.properties;
+            if (props && props.kategoria === 'droga' && roadNames.includes(props.numer_obiektu)) {
+                const highlightStyle = {
+                    color: '#FFA500',
+                    weight: 5,
+                    opacity: 0.8
+                };
+
+                const highlightedCopy = L.geoJSON(layer.toGeoJSON(), {
+                    style: highlightStyle
+                });
+                ownerHighlightLayer.addLayer(highlightedCopy);
+                foundCount++;
+            }
+        });
+    }
+
+    if (ownerHighlightLayer.getLayers().length > 0) {
+        ownerHighlightLayer.addTo(map);
+        map.fitBounds(ownerHighlightLayer.getBounds());
+        console.log(`✅ Znaleziono i zaznaczono ${foundCount} dróg`);
+    } else {
+        console.warn('⚠️ Nie znaleziono dróg o podanych nazwach');
+    }
+}
+
+/**
  * Czyści wszystkie podświetlenia na mapie.
  */
 function clearAllHighlights() {
@@ -1486,6 +1622,9 @@ function clearAllHighlights() {
     url.searchParams.delete("parcels");
     url.searchParams.delete("highlightTopOwners");
     url.searchParams.delete("highlightByIds");
+    url.searchParams.delete("highlightParcels");
+    url.searchParams.delete("highlightRivers");
+    url.searchParams.delete("highlightRoads");
     history.pushState({}, "", url);
 
     document.getElementById('selected-count').textContent = 0;
@@ -1519,12 +1658,48 @@ function handleUrlParameters() {
         const uniqueOwnerKeys = [...new Set(
             ownersParam.split(",").map(key => key.trim()).filter(Boolean)
         )];
-        
+
         if (uniqueOwnerKeys.length > 0) {
             highlightAndColorOwners(uniqueOwnerKeys, ownershipType);
         }
     }
-    
+
+    /* Parametr highlightParcels */
+    const parcelsParam = params.get("highlightParcels");
+    if (parcelsParam) {
+        const parcelNumbers = [...new Set(
+            parcelsParam.split(",").map(num => num.trim()).filter(Boolean)
+        )];
+
+        if (parcelNumbers.length > 0) {
+            highlightParcels(parcelNumbers);
+        }
+    }
+
+    /* Parametr highlightRivers */
+    const riversParam = params.get("highlightRivers");
+    if (riversParam) {
+        const riverNames = [...new Set(
+            riversParam.split(",").map(name => name.trim()).filter(Boolean)
+        )];
+
+        if (riverNames.length > 0) {
+            highlightRivers(riverNames);
+        }
+    }
+
+    /* Parametr highlightRoads */
+    const roadsParam = params.get("highlightRoads");
+    if (roadsParam) {
+        const roadNames = [...new Set(
+            roadsParam.split(",").map(name => name.trim()).filter(Boolean)
+        )];
+
+        if (roadNames.length > 0) {
+            highlightRoads(roadNames);
+        }
+    }
+
     /* Parametr findHouseNumber */
     const houseNumberParam = params.get("findHouseNumber");
     if (houseNumberParam) {
