@@ -5813,9 +5813,95 @@ class InstructionsWindow(tk.Toplevel):
         self.geometry(f"+{x}+{y}")
         self.focus_set()
 
+def create_and_migrate_location_database(location_name, progress_callback=None):
+    """
+    Tworzy bazę danych dla miejscowości i migruje dane z backup/.
+
+    Args:
+        location_name: Nazwa miejscowości (np. "Borowa")
+        progress_callback: Funkcja callback do raportowania postępu
+
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        # Pobierz konfigurację PostgreSQL
+        config = get_postgres_config()
+        if not config:
+            return False, "Brak konfiguracji PostgreSQL"
+
+        # Określ nazwę bazy danych
+        db_name = f"mapa_{location_name.lower()}"
+
+        if progress_callback:
+            progress_callback(f"📊 Tworzenie bazy danych: {db_name}")
+
+        # 1. Utwórz bazę danych (jeśli nie istnieje)
+        success, msg = postgres_create_database(
+            config['host'], config['port'], config['user'], config['password'], db_name
+        )
+        if not success:
+            return False, f"Błąd tworzenia bazy: {msg}"
+
+        print(f"✅ {msg}")
+
+        # 2. Włącz PostGIS
+        if progress_callback:
+            progress_callback(f"🗺️ Włączanie PostGIS w bazie {db_name}")
+
+        success, msg = postgres_enable_postgis(
+            config['host'], config['port'], config['user'], config['password'], db_name
+        )
+        if not success:
+            print(f"⚠️ Ostrzeżenie PostGIS: {msg}")
+        else:
+            print(f"✅ {msg}")
+
+        # 3. Utwórz schemat tabel
+        if progress_callback:
+            progress_callback(f"📋 Tworzenie tabel w bazie {db_name}")
+
+        success, msg = postgres_execute_schema(
+            config['host'], config['port'], config['user'], config['password'],
+            db_name, LOCATION_DB_SCHEMA
+        )
+        if not success:
+            return False, f"Błąd tworzenia tabel: {msg}"
+
+        print(f"✅ {msg}")
+
+        # 4. Zaktualizuj .env dla miejscowości
+        location_folder = os.path.join(BACKUP_FOLDER, location_name)
+        env_path = os.path.join(location_folder, ".env")
+
+        if os.path.exists(location_folder):
+            # Utwórz/zaktualizuj plik .env
+            env_content = f"""DB_HOST={config['host']}
+DB_PORT={config['port']}
+DB_NAME={db_name}
+DB_USER={config['user']}
+DB_PASSWORD={config['password']}
+"""
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(env_content)
+            print(f"✅ Zaktualizowano .env dla {location_name}")
+
+        # 5. Wywołaj migrację danych
+        if progress_callback:
+            progress_callback(f"🔄 Migracja danych z backup/{location_name}")
+
+        print(f"🔄 Migracja danych dla miejscowości: {location_name}")
+        auto_migrate_data_function(location_folder)
+
+        return True, f"Baza {db_name} utworzona i dane zmigrowane pomyślnie"
+
+    except Exception as e:
+        return False, f"Błąd: {str(e)}"
+
+
 class BackupManager(tk.Toplevel):
     """Okno dialogowe do zarządzania kopiami zapasowymi projektu."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
@@ -6245,6 +6331,9 @@ class BackupManager(tk.Toplevel):
                 # Sprawdź czy to nowy format (z folderami miejscowości) czy stary
                 has_location_folders = any('/' in f and not f.startswith('assets/') for f in archive_contents)
 
+                # Lista przywróconych miejscowości (do późniejszej migracji)
+                restored_locations = []
+
                 # Przywracanie skanów
                 scan_files = [f for f in archive_contents if f.startswith("assets/protokoly/")]
                 if scan_files:
@@ -6355,14 +6444,33 @@ class BackupManager(tk.Toplevel):
 
                                 conn.commit()
                                 print(f"✅ Przywrócono dane launcher dla {len(launcher_db_files)} miejscowości")
+
+                                # Dodaj przywrócone miejscowości do listy
+                                for launcher_file in launcher_db_files:
+                                    with zf.open(launcher_file) as json_file:
+                                        location_data = json.load(json_file)
+                                    restored_locations.append(location_data['name'])
+
                         except Exception as e:
                             print(f"⚠️ Nie udało się przywrócić danych z bazy launcher: {e}")
+
+                    # Jeśli nie było launcher_db_files, ale są foldery miejscowości - zbierz je z ZIP
+                    if not launcher_db_files and has_location_folders:
+                        # Wykryj miejscowości z struktury folderów w ZIP
+                        location_folders = set()
+                        for filename in archive_contents:
+                            if '/' in filename and not filename.startswith('assets/'):
+                                location_name = filename.split('/')[0]
+                                if location_name:
+                                    location_folders.add(location_name)
+                        restored_locations.extend(list(location_folders))
                 else:
                     # Stary format - pliki bezpośrednio w root ZIP
                     # Wyodrębnij do aktywnej miejscowości
                     active_location_name = get_active_location_name()
                     if active_location_name:
                         target_folder = os.path.join(BACKUP_FOLDER, active_location_name)
+                        restored_locations.append(active_location_name)
                     else:
                         target_folder = BACKUP_FOLDER
 
@@ -6380,10 +6488,80 @@ class BackupManager(tk.Toplevel):
                             if related_filename in archive_contents:
                                 zf.extract(related_filename, path=target_folder)
 
-            messagebox.showinfo("✅ Sukces",
-                              "Kopia zapasowa została przywrócona.\n\n"
-                              "Uruchom ponownie edytory, aby zobaczyć zmiany.",
-                              parent=self)
+            # Zapytaj użytkownika czy chce zmigrować dane do PostgreSQL
+            migration_success = []
+            migration_errors = []
+
+            if restored_locations:
+                locations_list = "\n".join([f"  • {loc}" for loc in restored_locations])
+                migrate_msg = (
+                    f"✅ Kopia zapasowa została przywrócona.\n\n"
+                    f"Znaleziono dane dla miejscowości:\n{locations_list}\n\n"
+                    f"Czy chcesz automatycznie utworzyć bazy danych i zmigrować dane do PostgreSQL?"
+                )
+
+                if messagebox.askyesno("🔄 Migracja Danych", migrate_msg, icon="question", parent=self):
+                    # Stwórz okno z postępem migracji
+                    progress_window = tk.Toplevel(self)
+                    progress_window.title("🔄 Migracja Danych")
+                    progress_window.transient(self)
+                    progress_window.grab_set()
+
+                    x = self.winfo_x() + (self.winfo_width() - 500) // 2
+                    y = self.winfo_y() + (self.winfo_height() - 300) // 2
+                    progress_window.geometry(f"500x300+{x}+{y}")
+
+                    ttk.Label(progress_window, text="Migracja danych do PostgreSQL",
+                             font=("Segoe UI", 12, "bold")).pack(pady=10)
+
+                    progress_text = scrolledtext.ScrolledText(progress_window, height=12, width=60)
+                    progress_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+                    def log_progress(message):
+                        progress_text.insert(tk.END, message + "\n")
+                        progress_text.see(tk.END)
+                        progress_text.update()
+
+                    # Migruj każdą miejscowość
+                    for location_name in restored_locations:
+                        log_progress(f"\n{'='*50}")
+                        log_progress(f"📍 Miejscowość: {location_name}")
+                        log_progress(f"{'='*50}")
+
+                        success, msg = create_and_migrate_location_database(
+                            location_name,
+                            progress_callback=log_progress
+                        )
+
+                        if success:
+                            migration_success.append(location_name)
+                            log_progress(f"✅ {msg}")
+                        else:
+                            migration_errors.append((location_name, msg))
+                            log_progress(f"❌ {msg}")
+
+                    log_progress(f"\n{'='*50}")
+                    log_progress("📊 Podsumowanie migracji:")
+                    log_progress(f"  ✅ Sukces: {len(migration_success)}/{len(restored_locations)}")
+                    if migration_errors:
+                        log_progress(f"  ❌ Błędy: {len(migration_errors)}")
+                    log_progress(f"{'='*50}")
+
+                    # Przycisk zamknięcia
+                    ttk.Button(progress_window, text="Zamknij",
+                              command=progress_window.destroy).pack(pady=10)
+
+                    progress_window.wait_window()
+
+            # Pokaż końcowy komunikat
+            final_msg = "Kopia zapasowa została przywrócona.\n\n"
+            if migration_success:
+                final_msg += f"✅ Zmigrowano dane dla: {', '.join(migration_success)}\n"
+            if migration_errors:
+                final_msg += f"\n⚠️ Błędy migracji dla: {', '.join([loc for loc, _ in migration_errors])}\n"
+            final_msg += "\nUruchom ponownie edytory, aby zobaczyć zmiany."
+
+            messagebox.showinfo("✅ Sukces", final_msg, parent=self)
         except Exception as e:
             messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
 
