@@ -1894,6 +1894,73 @@ def serve_location_favicon():
     print(f"❌ Brak pliku favicon w: {location_path}")
     return "Favicon nie znaleziony", 404
 
+@app.route('/location_js/<path:filename>')
+def serve_location_js(filename):
+    """Serwuje pliki JS konfiguracyjne z folderu backup/(aktywna_miejscowość)/."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    launcher_dir = os.path.join(base_dir, "launcher")
+
+    # Spróbuj PostgreSQL najpierw
+    location_name = None
+    try:
+        import psycopg2
+
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+
+        conn = psycopg2.connect(**launcher_db_config)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+        result = cursor.fetchone()
+        conn.close()
+
+        if result:
+            location_name = result[0]
+    except Exception as e:
+        print(f"⚠️  PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+    # Fallback do SQLite jeśli PostgreSQL nie działa
+    if not location_name:
+        locations_db_path = os.path.join(launcher_dir, "locations.db")
+        if os.path.exists(locations_db_path):
+            try:
+                import sqlite3
+                conn = sqlite3.connect(locations_db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM locations WHERE active = 1")
+                result = cursor.fetchone()
+                conn.close()
+
+                if result:
+                    location_name = result[0]
+            except Exception as e:
+                print(f"⚠️  Błąd podczas odczytu SQLite: {e}")
+
+    if not location_name:
+        print(f"❌ Brak aktywnej miejscowości, nie można załadować {filename}")
+        return "Brak aktywnej miejscowości", 404
+
+    # Ścieżka do folderu aktywnej miejscowości
+    location_path = os.path.join(base_dir, "backup", location_name)
+
+    if not os.path.exists(location_path):
+        print(f"❌ Folder miejscowości nie istnieje: {location_path}")
+        return "Folder miejscowości nie istnieje", 404
+
+    # Ścieżka do pliku JS
+    js_file_path = os.path.join(location_path, filename)
+    if os.path.exists(js_file_path):
+        return send_from_directory(location_path, filename, mimetype='application/javascript')
+
+    print(f"❌ Plik JS nie znaleziony: {js_file_path}")
+    return "Plik JS nie znaleziony", 404
+
 @app.route('/assets/<path:filename>')
 def serve_root_asset(filename):
     return send_from_directory(ASSETS_PATH, filename)
