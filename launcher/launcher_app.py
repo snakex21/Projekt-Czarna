@@ -2024,31 +2024,31 @@ class AppLauncher(tk.Tk):
         # POKAŻ główne okno po konfiguracji PostgreSQL
         self.deiconify()
 
-        # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
-        # Zwraca loading_dialog jeśli było coś do zrobienia, None jeśli nie
-        loading_dialog = auto_initialize_on_startup()
+        # Zawsze tworzymy okno ładowania dla lepszej UX
+        loading_dialog = LoadingDialog()
+        loading_dialog.update_status("Inicjalizacja...", "Sprawdzanie konfiguracji")
 
-        # Kontynuuj inicjalizację z oknem ładowania (jeśli istnieje)
-        if loading_dialog:
-            loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
+        # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
+        # Przekazujemy loading_dialog żeby funkcja mogła aktualizować postęp
+        auto_initialize_on_startup(loading_dialog)
+
+        # Kontynuuj inicjalizację z oknem ładowania
+        loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
 
         check_env_configuration()
         check_backup_folder_files()
 
-        if loading_dialog:
-            loading_dialog.update_status("Synchronizacja ikon...", "Favicon i zasoby")
+        loading_dialog.update_status("Synchronizacja ikon...", "Favicon i zasoby")
 
         _auto_sync_site_icon()
 
         # Automatycznie odśwież strony HTML z placeholderami
-        if loading_dialog:
-            loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
+        loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
 
         self.refresh_html_pages()
 
         # Upewnij się, że location-config.js istnieje
-        if loading_dialog:
-            loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
+        loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
 
         try:
             generate_location_config_js()
@@ -2057,46 +2057,45 @@ class AppLauncher(tk.Tk):
             import traceback
             traceback.print_exc()
 
-        # Zamknij okno ładowania (jeśli było) i pokaż podsumowanie
-        if loading_dialog:
-            loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
-            import time
-            time.sleep(0.5)
-            loading_dialog.close()
+        # Zamknij okno ładowania i pokaż podsumowanie
+        loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
+        import time
+        time.sleep(0.5)
+        loading_dialog.close()
 
-            # Pokaż podsumowanie inicjalizacji
-            if hasattr(loading_dialog, 'init_summary'):
-                summary = loading_dialog.init_summary
-                if summary['created_launcher'] or summary['created_czarna_location'] or \
-                   summary['created_czarna_db'] or summary['migrated_data']:
+        # Pokaż podsumowanie inicjalizacji
+        if hasattr(loading_dialog, 'init_summary'):
+            summary = loading_dialog.init_summary
+            if summary['created_launcher'] or summary['created_czarna_location'] or \
+               summary['created_czarna_db'] or summary['migrated_data']:
 
-                    message = "🎉 System jest gotowy do użycia!\n\n"
+                message = "🎉 System jest gotowy do użycia!\n\n"
 
-                    if summary['created_launcher']:
-                        message += "✅ Utworzono bazę mapa_launcher_db\n"
-                    else:
-                        message += "✅ Baza mapa_launcher_db gotowa\n"
+                if summary['created_launcher']:
+                    message += "✅ Utworzono bazę mapa_launcher_db\n"
+                else:
+                    message += "✅ Baza mapa_launcher_db gotowa\n"
 
-                    if summary['created_czarna_location']:
-                        message += "✅ Utworzono miejscowość 'Czarna'\n"
-                    else:
-                        message += "✅ Miejscowość 'Czarna' gotowa\n"
+                if summary['created_czarna_location']:
+                    message += "✅ Utworzono miejscowość 'Czarna'\n"
+                else:
+                    message += "✅ Miejscowość 'Czarna' gotowa\n"
 
-                    if summary['created_czarna_db']:
-                        message += "✅ Utworzono bazę mapa_czarna_db\n"
-                    else:
-                        message += "✅ Baza mapa_czarna_db gotowa\n"
+                if summary['created_czarna_db']:
+                    message += "✅ Utworzono bazę mapa_czarna_db\n"
+                else:
+                    message += "✅ Baza mapa_czarna_db gotowa\n"
 
-                    if summary['migrated_data']:
-                        message += "✅ Dane zmigrowane z backup/Czarna\n"
+                if summary['migrated_data']:
+                    message += "✅ Dane zmigrowane z backup/Czarna\n"
 
-                    message += "\n💡 Możesz teraz:\n"
-                    message += "• Włączyć serwer i zobaczyć mapę\n"
-                    message += "• Edytować dane właścicieli\n"
-                    message += "• Kalibrować mapę\n"
-                    message += "• Zarządzać miejscowościami"
+                message += "\n💡 Możesz teraz:\n"
+                message += "• Włączyć serwer i zobaczyć mapę\n"
+                message += "• Edytować dane właścicieli\n"
+                message += "• Kalibrować mapę\n"
+                message += "• Zarządzać miejscowościami"
 
-                    messagebox.showinfo("System gotowy!", message)
+                messagebox.showinfo("System gotowy!", message)
 
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
@@ -3436,7 +3435,7 @@ class LoadingDialog(tk.Toplevel):
         self.destroy()
 
 
-def auto_initialize_on_startup():
+def auto_initialize_on_startup(loading_dialog):
     """
     Automatyczna inicjalizacja przy pierwszym uruchomieniu programu.
 
@@ -3447,25 +3446,27 @@ def auto_initialize_on_startup():
     4. Istnieje baza mapa_czarna_db
     5. Dane są zmigrowane
 
-    Jeśli czegoś brakuje - automatycznie tworzy i pokazuje okno informacyjne.
+    Jeśli czegoś brakuje - automatycznie tworzy.
 
-    Returns:
-        LoadingDialog lub None - okno ładowania jeśli była inicjalizacja, None jeśli nie
+    Args:
+        loading_dialog: Okno LoadingDialog do aktualizacji postępu
     """
     # Sprawdź czy .postgres.env istnieje i ma hasło
     if not os.path.exists(POSTGRES_CONFIG_FILE):
-        return None  # Brak konfiguracji - user musi najpierw wpisać hasło
+        print("⚠️ Brak pliku .postgres.env")
+        return  # Brak konfiguracji - user musi najpierw wpisać hasło
 
     config = get_postgres_config()
     if not config.get('password'):
-        return None  # Brak hasła - nie można się połączyć
+        print("⚠️ Brak hasła w konfiguracji")
+        return  # Brak hasła - nie można się połączyć
 
-    # Szybkie sprawdzenie czy jest coś do zrobienia (bez tworzenia okna)
+    # Szybkie sprawdzenie czy jest coś do zrobienia
     try:
         success, msg = test_postgres_connection(**config)
         if not success:
             print(f"⚠️ Nie można połączyć się z PostgreSQL: {msg}")
-            return None
+            return
 
         # Sprawdź co trzeba zrobić
         needs_work = False
@@ -3494,14 +3495,13 @@ def auto_initialize_on_startup():
         # Jeśli nie ma nic do zrobienia - wyjdź
         if not needs_work:
             print("ℹ️ System już jest skonfigurowany")
-            return None
+            return
 
     except Exception as e:
         print(f"⚠️ Błąd sprawdzania: {e}")
-        return None
+        return
 
-    # Jeśli jest coś do zrobienia - pokaż okno ładowania i wykonaj
-    loading_dialog = LoadingDialog()
+    # Jeśli jest coś do zrobienia - wykonaj z aktualizacją loading_dialog
 
     try:
         loading_dialog.update_status("Sprawdzanie baz danych...", "Łączenie z PostgreSQL")
@@ -3618,17 +3618,10 @@ def auto_initialize_on_startup():
 
         print("✅ Automatyczna inicjalizacja zakończona pomyślnie")
 
-        # Zwróć loading_dialog - zostanie zamknięty później w __init__
-        return loading_dialog
-
     except Exception as e:
-        # Zamknij okno ładowania w przypadku błędu
-        if 'loading_dialog' in locals():
-            loading_dialog.close()
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
         import traceback
         traceback.print_exc()
-        return None
 
 
 def auto_migrate_data_function(backup_folder, location_name=None):
