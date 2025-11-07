@@ -1587,10 +1587,13 @@ ADMIN_PASSWORD_HASH=
         print(f"⚠️ Nie można utworzyć pliku .env: {e}")
         return False
 
-def setup_postgres_config():
+def setup_postgres_config(parent=None):
     """
     Sprawdza czy plik .postgres.env istnieje.
     Jeśli nie - wyświetla okno z wymaganiem PostgreSQL i polem hasła z automatyczną walidacją.
+
+    Args:
+        parent: Okno rodzica (główne okno aplikacji). Jeśli None, utworzy własne.
     """
     # Sprawdź czy plik już istnieje
     if os.path.exists(POSTGRES_CONFIG_FILE):
@@ -1599,15 +1602,19 @@ def setup_postgres_config():
     print("⚠️ Brak pliku konfiguracji PostgreSQL (.postgres.env)")
     print("ℹ️ Launcher potrzebuje danych dostępu do PostgreSQL aby działać prawidłowo.")
 
-    # Utwórz okno z konfiguracją PostgreSQL
-    temp_root = tk.Tk()
-    temp_root.withdraw()  # Ukryj główne okno
+    # Jeśli nie ma parent, utwórz tymczasowe okno główne
+    if parent is None:
+        temp_root = tk.Tk()
+        temp_root.withdraw()
+        parent_window = temp_root
+    else:
+        parent_window = parent
 
     # Zmienna do przechowania wyniku
     config_result = {'success': False, 'password': None}
 
     # Utwórz dialog
-    dialog = tk.Toplevel(temp_root)
+    dialog = tk.Toplevel(parent_window)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
     dialog.geometry("700x550")
     dialog.resizable(False, False)
@@ -1805,14 +1812,19 @@ LAUNCHER_DB_PASSWORD={password}
             "Bez konfiguracji bazy danych launcher nie może być uruchomiony.\n\n"
             "Zainstaluj PostgreSQL i uruchom program ponownie."
         )
-        temp_root.destroy()
+        # Zamknij okno parent tylko jeśli stworzyliśmy je sami
+        if parent is None:
+            parent_window.destroy()
         sys.exit(1)
 
     dialog.protocol("WM_DELETE_WINDOW", on_closing)
 
     # Czekaj na zamknięcie okna
     dialog.wait_window()
-    temp_root.destroy()
+
+    # Zamknij tymczasowe okno główne jeśli stworzyliśmy je sami
+    if parent is None:
+        parent_window.destroy()
 
     return config_result['success']
 
@@ -2019,7 +2031,8 @@ class AppLauncher(tk.Tk):
         migrate_old_backup_structure()
 
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
-        setup_postgres_config()
+        # Przekazujemy self jako parent żeby dialog był przypisany do głównego okna
+        setup_postgres_config(parent=self)
 
         # POKAŻ główne okno po konfiguracji PostgreSQL
         self.deiconify()
