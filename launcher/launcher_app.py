@@ -2232,20 +2232,18 @@ class AppLauncher(tk.Tk):
 
         _auto_sync_site_icon()
 
-        # Automatycznie odśwież strony HTML z placeholderami
+        # Automatycznie odśwież strony HTML z placeholderami (w tle aby nie blokować startu)
         loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
 
-        self.refresh_html_pages()
+        def _async_refresh():
+            try:
+                self.refresh_html_pages()
+                print("✅ Strony HTML i konfiguracja zaktualizowane w tle")
+            except Exception as e:
+                print(f"⚠️ Błąd podczas generowania plików: {e}")
 
-        # Upewnij się, że location-config.js istnieje
-        loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
-
-        try:
-            generate_location_config_js()
-        except Exception as e:
-            print(f"⚠️ Błąd podczas generowania location-config.js: {e}")
-            import traceback
-            traceback.print_exc()
+        # Uruchom w tle - nie blokuj GUI
+        threading.Thread(target=_async_refresh, daemon=True).start()
 
         # Zamknij okno ładowania i pokaż podsumowanie
         loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
@@ -2393,7 +2391,7 @@ class AppLauncher(tk.Tk):
         except queue.Empty:
             pass
         finally:
-            self.after(100, self.process_queue)
+            self.after(150, self.process_queue)  # Zmniejszona częstotliwość (był 100ms)
 
     def handle_process_finished(self, key):
         """Obsługuje zdarzenie zakończenia procesu."""
@@ -2777,8 +2775,7 @@ class AppLauncher(tk.Tk):
                         print(f"❌ Błąd zmiany lokacji: {e}")
                         self.event_queue.put(('location_error', None, str(e)))
 
-                # Natychmiastowa odpowiedź UI
-                self.update_idletasks()
+                # Uruchom w tle natychmiast (bez update_idletasks - spowalnia)
                 threading.Thread(target=_change_location, daemon=True).start()
                 break
 
