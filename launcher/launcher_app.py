@@ -989,6 +989,10 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     protokoly_folder = os.path.join(location_folder, "protokoly")
     os.makedirs(protokoly_folder, exist_ok=True)
 
+    # Utwórz folder dla zdjęć historycznych
+    history_photos_folder = os.path.join(location_folder, "history_photos")
+    os.makedirs(history_photos_folder, exist_ok=True)
+
     # Utwórz wymagane pliki JSON jeśli nie istnieją
     ensure_location_data_files(location_folder)
 
@@ -1074,6 +1078,35 @@ LOCATION_CODE={name[:2].upper()}
                 print(msg)
             else:
                 print(f"⚠️ {msg}")
+
+        # Utwórz launcher_db_config.json dla nowej miejscowości
+        try:
+            config_file = os.path.join(location_folder, "launcher_db_config.json")
+            launcher_config = {
+                "default_location": {
+                    "name": name,
+                    "full_name": full_name,
+                    "powiat": powiat,
+                    "region": region,
+                    "homepage_template": homepage_template,
+                    "year": year,
+                    "century": century,
+                    "homepage_description": homepage_description,
+                    "history_paragraph1": history_paragraph1,
+                    "history_paragraph2": history_paragraph2,
+                    "history_paragraph3": history_paragraph3,
+                    "history_photos": history_photos,
+                    "favicon": "favicon.jpeg",
+                    "postgres_db_name": postgres_db_name
+                }
+            }
+
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+
+            print(f"✅ Utworzono launcher_db_config.json dla miejscowości {name}")
+        except Exception as e:
+            print(f"⚠️ Nie udało się utworzyć launcher_db_config.json: {e}")
 
         return location_id
 
@@ -1163,38 +1196,43 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
         cursor.close()
         conn.close()
 
-        # Jeśli to Czarna, zaktualizuj launcher_db_config.json
-        if name == "Czarna":
-            try:
-                config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        launcher_config = json.load(f)
+        # Zaktualizuj/utwórz launcher_db_config.json dla KAŻDEJ miejscowości
+        try:
+            location_folder = os.path.join(BASE_DIR, "backup", name)
+            os.makedirs(location_folder, exist_ok=True)
 
-                    # Aktualizuj dane
-                    launcher_config['default_location'] = {
-                        "name": name,
-                        "full_name": full_name,
-                        "powiat": powiat,
-                        "region": region,
-                        "homepage_template": homepage_template,
-                        "year": year,
-                        "century": century,
-                        "homepage_description": homepage_description,
-                        "history_paragraph1": history_paragraph1,
-                        "history_paragraph2": history_paragraph2,
-                        "history_paragraph3": history_paragraph3,
-                        "history_photos": history_photos,
-                        "postgres_db_name": postgres_db_name
-                    }
+            # Upewnij się że folder history_photos istnieje
+            history_photos_folder = os.path.join(location_folder, "history_photos")
+            os.makedirs(history_photos_folder, exist_ok=True)
 
-                    # Zapisz z powrotem
-                    with open(config_file, 'w', encoding='utf-8') as f:
-                        json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+            config_file = os.path.join(location_folder, "launcher_db_config.json")
 
-                    print(f"✅ Zaktualizowano launcher_db_config.json dla miejscowości {name}")
-            except Exception as e:
-                print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
+            launcher_config = {
+                "default_location": {
+                    "name": name,
+                    "full_name": full_name,
+                    "powiat": powiat,
+                    "region": region,
+                    "homepage_template": homepage_template,
+                    "year": year,
+                    "century": century,
+                    "homepage_description": homepage_description,
+                    "history_paragraph1": history_paragraph1,
+                    "history_paragraph2": history_paragraph2,
+                    "history_paragraph3": history_paragraph3,
+                    "history_photos": history_photos,
+                    "favicon": "favicon.jpeg",
+                    "postgres_db_name": postgres_db_name
+                }
+            }
+
+            # Zapisz
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+
+            print(f"✅ Zaktualizowano launcher_db_config.json dla miejscowości {name}")
+        except Exception as e:
+            print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
 
     except psycopg2.IntegrityError:
         if 'conn' in locals():
