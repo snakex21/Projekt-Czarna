@@ -32,6 +32,7 @@ Thumbs.db
 *.env.local
 .postgres.env
 backend/.env
+backend/.postgres.env
 Czarna/.env
 */.env
 

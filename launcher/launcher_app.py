@@ -281,7 +281,7 @@ ON CONFLICT (klucz) DO NOTHING;
 
 # Zmienne globalne
 POSTGRES_AVAILABLE = None
-POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "launcher", ".postgres.env")
+POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "backend", ".postgres.env")
 LOCATIONS_DB_INITIALIZED = False  # Cache - czy baza została już zainicjalizowana
 
 
@@ -664,7 +664,7 @@ def init_locations_db():
     # Sprawdź czy PostgreSQL jest dostępny
     if not check_postgres_available():
         print("❌ PostgreSQL nie jest dostępny!")
-        print("ℹ️ Program wymaga PostgreSQL. Skonfiguruj plik launcher/.postgres.env")
+        print("ℹ️ Program wymaga PostgreSQL. Skonfiguruj plik backend/.postgres.env")
         return
 
     try:
@@ -3633,7 +3633,7 @@ class DatabaseWizard(tk.Toplevel):
 
             messagebox.showinfo("Sukces",
                               "Połączenie z PostgreSQL działa!\n\n"
-                              "✅ Konfiguracja zapisana do launcher/.postgres.env\n\n"
+                              "✅ Konfiguracja zapisana do backend/.postgres.env\n\n"
                               "Program automatycznie utworzy bazy przy następnym uruchomieniu.",
                               parent=self)
         else:
