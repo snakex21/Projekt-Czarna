@@ -1162,6 +1162,39 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
         cursor.close()
         conn.close()
 
+        # Jeśli to Czarna, zaktualizuj launcher_db_config.json
+        if name == "Czarna":
+            try:
+                config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
+                if os.path.exists(config_file):
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        launcher_config = json.load(f)
+
+                    # Aktualizuj dane
+                    launcher_config['default_location'] = {
+                        "name": name,
+                        "full_name": full_name,
+                        "powiat": powiat,
+                        "region": region,
+                        "homepage_template": homepage_template,
+                        "year": year,
+                        "century": century,
+                        "homepage_description": homepage_description,
+                        "history_paragraph1": history_paragraph1,
+                        "history_paragraph2": history_paragraph2,
+                        "history_paragraph3": history_paragraph3,
+                        "history_photos": history_photos,
+                        "postgres_db_name": postgres_db_name
+                    }
+
+                    # Zapisz z powrotem
+                    with open(config_file, 'w', encoding='utf-8') as f:
+                        json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+
+                    print(f"✅ Zaktualizowano launcher_db_config.json dla miejscowości {name}")
+            except Exception as e:
+                print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
+
     except psycopg2.IntegrityError:
         if 'conn' in locals():
             conn.close()
