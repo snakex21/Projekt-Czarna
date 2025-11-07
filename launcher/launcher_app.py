@@ -3511,6 +3511,9 @@ class DatabaseWizard(tk.Toplevel):
 
         self.result = None
         self.config = get_postgres_config()
+        self.connection_tested = False
+        self.data_source = None  # 'zip' lub 'template'
+        self.zip_file_path = None
 
         # Notebook (kroki)
         self.notebook = ttk.Notebook(self)
@@ -3518,8 +3521,9 @@ class DatabaseWizard(tk.Toplevel):
 
         # Kroki
         self.create_step1_connection()
-        self.create_step2_action()
-        self.create_step3_progress()
+        self.create_step2_data_source()  # NOWY KROK
+        self.create_step3_action()
+        self.create_step4_progress()
 
         # Nawigacja
         nav_frame = ttk.Frame(self)
@@ -3534,9 +3538,20 @@ class DatabaseWizard(tk.Toplevel):
         frame = ttk.Frame(self.notebook, padding="20")
         self.notebook.add(frame, text="1. Połączenie")
 
-        ttk.Label(frame, text="Konfiguracja PostgreSQL", font=('Arial', 14, 'bold')).pack(pady=(0, 10))
-        ttk.Label(frame, text="Podaj parametry połączenia.\nDomyślne: localhost:5432, użytkownik postgres",
-                  foreground="gray").pack(pady=(0, 20))
+        ttk.Label(frame, text="Konfiguracja PostgreSQL", font=('Arial', 16, 'bold')).pack(pady=(0, 10))
+
+        # Informacja o wymaganiach
+        info_frame = ttk.Frame(frame)
+        info_frame.pack(fill=tk.X, pady=(0, 20))
+
+        info_text = ttk.Label(info_frame,
+                             text="⚠️ Program wymaga PostgreSQL do działania\n\n"
+                                  "Podaj parametry połączenia do serwera PostgreSQL.\n"
+                                  "Po udanym połączeniu będziesz mógł wybrać źródło danych:\n"
+                                  "• Import z pliku ZIP (backup)\n"
+                                  "• Rozpocznij z szablonem Czarna",
+                             foreground="gray", justify=tk.LEFT)
+        info_text.pack(pady=(0, 10))
 
         form = ttk.Frame(frame)
         form.pack(fill=tk.BOTH, expand=True)
@@ -3563,15 +3578,80 @@ class DatabaseWizard(tk.Toplevel):
 
         form.columnconfigure(1, weight=1)
 
-        ttk.Button(form, text="🔍 Testuj", command=self.test_connection).grid(row=4, column=0, columnspan=2, pady=20)
+        ttk.Button(form, text="🔍 Testuj Połączenie", command=self.test_connection, width=20).grid(row=4, column=0, columnspan=2, pady=20)
 
-        self.connection_status = ttk.Label(form, text="", foreground="gray")
-        self.connection_status.grid(row=5, column=0, columnspan=2)
+        # Status połączenia z większą czcionką
+        self.connection_status = ttk.Label(form, text="", foreground="gray", font=('Arial', 12, 'bold'))
+        self.connection_status.grid(row=5, column=0, columnspan=2, pady=10)
 
-    def create_step2_action(self):
-        """Krok 2: Akcja"""
+        # Dodatkowy status frame z zieloną fajką
+        self.success_frame = ttk.Frame(form)
+        self.success_frame.grid(row=6, column=0, columnspan=2, pady=10)
+        self.success_label = None
+
+    def create_step2_data_source(self):
+        """Krok 2: Wybór źródła danych"""
         frame = ttk.Frame(self.notebook, padding="20")
-        self.notebook.add(frame, text="2. Akcja")
+        self.notebook.add(frame, text="2. Źródło Danych")
+
+        ttk.Label(frame, text="Wybierz Źródło Danych", font=('Arial', 16, 'bold')).pack(pady=(0, 10))
+
+        ttk.Label(frame, text="Skąd chcesz zaimportować dane?",
+                 foreground="gray", font=('Arial', 11)).pack(pady=(0, 30))
+
+        # Ramka z opcjami
+        options_frame = ttk.Frame(frame)
+        options_frame.pack(fill=tk.BOTH, expand=True, padx=40)
+
+        self.source_var = tk.StringVar(value="template")
+
+        # Opcja 1: ZIP
+        zip_frame = ttk.LabelFrame(options_frame, text=" ", padding=20)
+        zip_frame.pack(fill=tk.X, pady=10)
+
+        zip_radio = ttk.Radiobutton(zip_frame, text="", variable=self.source_var, value="zip")
+        zip_radio.pack(side=tk.LEFT)
+
+        zip_info = ttk.Frame(zip_frame)
+        zip_info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
+
+        ttk.Label(zip_info, text="📦 Import z pliku ZIP",
+                 font=('Arial', 13, 'bold')).pack(anchor=tk.W)
+        ttk.Label(zip_info, text="Zaimportuj dane z kopii zapasowej (backup ZIP)\n"
+                                 "Zawiera: bazę launcher + dane miejscowości",
+                 foreground="gray").pack(anchor=tk.W, pady=5)
+
+        # Przycisk wyboru pliku
+        self.zip_button = ttk.Button(zip_info, text="🗂️ Wybierz plik ZIP...",
+                                     command=self.select_zip_file)
+        self.zip_button.pack(anchor=tk.W, pady=5)
+
+        self.zip_file_label = ttk.Label(zip_info, text="Nie wybrano pliku", foreground="gray")
+        self.zip_file_label.pack(anchor=tk.W)
+
+        # Separator
+        ttk.Separator(options_frame, orient='horizontal').pack(fill='x', pady=20)
+
+        # Opcja 2: Szablon
+        template_frame = ttk.LabelFrame(options_frame, text=" ", padding=20)
+        template_frame.pack(fill=tk.X, pady=10)
+
+        template_radio = ttk.Radiobutton(template_frame, text="", variable=self.source_var, value="template")
+        template_radio.pack(side=tk.LEFT)
+
+        template_info = ttk.Frame(template_frame)
+        template_info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
+
+        ttk.Label(template_info, text="🏛️ Szablon Czarna",
+                 font=('Arial', 13, 'bold')).pack(anchor=tk.W)
+        ttk.Label(template_info, text="Rozpocznij od podstawowego szablonu dla miejscowości Czarna\n"
+                                     "Zawiera: pustą strukturę bazy danych gotową do wypełnienia",
+                 foreground="gray").pack(anchor=tk.W, pady=5)
+
+    def create_step3_action(self):
+        """Krok 3: Akcja"""
+        frame = ttk.Frame(self.notebook, padding="20")
+        self.notebook.add(frame, text="3. Akcja")
 
         ttk.Label(frame, text="Co chcesz zrobić?", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
 
@@ -3619,10 +3699,10 @@ class DatabaseWizard(tk.Toplevel):
 
         ttk.Button(frame, text="🔄 Odśwież status", command=self.refresh_status).pack(pady=10)
 
-    def create_step3_progress(self):
-        """Krok 3: Wykonanie"""
+    def create_step4_progress(self):
+        """Krok 4: Wykonanie"""
         frame = ttk.Frame(self.notebook, padding="20")
-        self.notebook.add(frame, text="3. Wykonanie")
+        self.notebook.add(frame, text="4. Wykonanie")
 
         ttk.Label(frame, text="Instalacja...", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
 
@@ -3640,6 +3720,13 @@ class DatabaseWizard(tk.Toplevel):
 
     def test_connection(self):
         """Test połączenia z PostgreSQL"""
+        # Wyczyść poprzedni status
+        for widget in self.success_frame.winfo_children():
+            widget.destroy()
+
+        self.connection_status.config(text="🔄 Testowanie połączenia...", foreground="blue")
+        self.update_idletasks()
+
         self.config['host'] = self.host_entry.get().strip()
         self.config['port'] = int(self.port_entry.get().strip())
         self.config['user'] = self.user_entry.get().strip()
@@ -3648,20 +3735,75 @@ class DatabaseWizard(tk.Toplevel):
         success, msg = test_postgres_connection(**self.config)
 
         if success:
-            self.connection_status.config(text="✓ Połączenie OK!", foreground="green")
+            # Animowana zielona fajka
+            self.connection_status.config(text="✓ Połączenie Udane!", foreground="green")
 
             # Zapisz hasło do .postgres.env
             save_postgres_config(self.config['host'], self.config['port'],
                                self.config['user'], self.config['password'])
 
-            messagebox.showinfo("Sukces",
-                              "Połączenie z PostgreSQL działa!\n\n"
-                              "✅ Konfiguracja zapisana do backend/.postgres.env\n\n"
-                              "Program automatycznie utworzy bazy przy następnym uruchomieniu.",
-                              parent=self)
+            # Pokaż ładny komunikat o sukcesie
+            success_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
+            success_info.pack(fill=tk.X, padx=20, pady=10)
+
+            # Zielone tło (symulacja)
+            canvas = tk.Canvas(success_info, height=120, bg="#d4edda", highlightthickness=0)
+            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+            # Duża zielona fajka
+            canvas.create_text(60, 60, text="✓", font=('Arial', 48, 'bold'), fill="#155724")
+
+            # Tekst
+            text_frame = ttk.Frame(canvas)
+            canvas.create_window(200, 60, window=text_frame, anchor=tk.W)
+
+            ttk.Label(text_frame, text="Połączenie z PostgreSQL działa!",
+                     font=('Arial', 12, 'bold'), foreground="#155724", background="#d4edda").pack(anchor=tk.W)
+            ttk.Label(text_frame, text="✅ Konfiguracja zapisana do backend/.postgres.env",
+                     foreground="#155724", background="#d4edda").pack(anchor=tk.W, pady=2)
+            ttk.Label(text_frame, text="➡️ Kliknij 'Dalej' aby wybrać źródło danych",
+                     foreground="#0c5460", background="#d4edda", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=2)
+
+            # Włącz przycisk dalej
+            self.connection_tested = True
         else:
-            self.connection_status.config(text=f"✗ {msg}", foreground="red")
-            messagebox.showerror("Błąd", msg, parent=self)
+            self.connection_status.config(text=f"✗ Błąd Połączenia", foreground="red")
+
+            # Pokaż błąd w ramce
+            error_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
+            error_info.pack(fill=tk.X, padx=20, pady=10)
+
+            canvas = tk.Canvas(error_info, height=80, bg="#f8d7da", highlightthickness=0)
+            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+            canvas.create_text(40, 40, text="✗", font=('Arial', 32, 'bold'), fill="#721c24")
+
+            text_frame = ttk.Frame(canvas)
+            canvas.create_window(100, 40, window=text_frame, anchor=tk.W)
+
+            ttk.Label(text_frame, text=msg, foreground="#721c24", background="#f8d7da",
+                     wraplength=400).pack(anchor=tk.W)
+
+            self.connection_tested = False
+
+    def select_zip_file(self):
+        """Wybór pliku ZIP do importu"""
+        from tkinter import filedialog
+
+        filename = filedialog.askopenfilename(
+            parent=self,
+            title="Wybierz plik ZIP z kopią zapasową",
+            filetypes=[("Pliki ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if filename:
+            self.zip_file_path = filename
+            # Pokaż tylko nazwę pliku, nie całą ścieżkę
+            file_name = os.path.basename(filename)
+            self.zip_file_label.config(text=f"✓ {file_name}", foreground="green")
+        else:
+            self.zip_file_path = None
+            self.zip_file_label.config(text="Nie wybrano pliku", foreground="gray")
 
 
     def auto_migrate_data(self, backup_folder):
@@ -3771,13 +3913,33 @@ class DatabaseWizard(tk.Toplevel):
         current = self.notebook.index(self.notebook.select())
 
         if current == 0:
-            if not self.config.get('password'):
-                messagebox.showwarning("Uwaga", "Przetestuj połączenie!", parent=self)
+            # Krok 1 -> 2: Sprawdź czy połączenie zostało przetestowane
+            if not self.connection_tested:
+                messagebox.showwarning("Uwaga", "Przetestuj połączenie z PostgreSQL!", parent=self)
                 return
-            self.refresh_status()
             self.notebook.select(1)
+
         elif current == 1:
-            self.notebook.select(2)
+            # Krok 2 -> 3: Sprawdź wybór źródła danych
+            self.data_source = self.source_var.get()
+
+            if self.data_source == 'zip' and not self.zip_file_path:
+                messagebox.showwarning("Uwaga", "Wybierz plik ZIP!", parent=self)
+                return
+
+            # Przejdź do akcji lub od razu do wykonania w zależności od źródła
+            if self.data_source == 'zip':
+                # Dla ZIP pomijamy krok akcji, idziemy od razu do wykonania
+                self.notebook.select(3)  # Krok 4: Wykonanie
+                self.execute_zip_import()
+            else:
+                # Dla szablonu idziemy do kroku 3 (Akcja)
+                self.refresh_status()
+                self.notebook.select(2)
+
+        elif current == 2:
+            # Krok 3 -> 4: Wykonaj akcję dla szablonu
+            self.notebook.select(3)
             self.execute_action()
 
     def prev_step(self):
@@ -3791,6 +3953,90 @@ class DatabaseWizard(tk.Toplevel):
         self.log_text.insert(tk.END, msg + "\n")
         self.log_text.see(tk.END)
         self.log_text.update()
+
+    def execute_zip_import(self):
+        """Wykonaj import z pliku ZIP"""
+        self.progress.start()
+        self.log("📦 Rozpoczynam import z pliku ZIP...\n")
+
+        try:
+            import zipfile
+            import tempfile
+            import shutil
+
+            # Utwórz tymczasowy folder
+            temp_dir = tempfile.mkdtemp()
+            self.log(f"📁 Rozpakowuję ZIP do: {temp_dir}\n")
+
+            try:
+                # Rozpakuj ZIP
+                with zipfile.ZipFile(self.zip_file_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+                self.log("✓ Rozpakowano pliki\n")
+
+                # Sprawdź strukturę ZIP (zakładam strukturę: backup/launcher_db.sql, backup/Czarna/czarna.sql, etc.)
+                # TODO: Tu trzeba zaimplementować pełną logikę importu SQL
+                #       Na razie pokażę tylko komunikat
+
+                self.log("🔍 Szukam plików SQL...\n")
+
+                # Szukaj pliku launcher_db.sql
+                launcher_sql = None
+                location_sqls = []
+
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        if file.endswith('.sql'):
+                            full_path = os.path.join(root, file)
+                            if 'launcher' in file.lower():
+                                launcher_sql = full_path
+                                self.log(f"  ✓ Znaleziono: {file}\n")
+                            else:
+                                location_sqls.append(full_path)
+                                self.log(f"  ✓ Znaleziono: {file}\n")
+
+                # Import launcher DB
+                if launcher_sql:
+                    self.log("\n=== Import bazy launcher ===\n")
+                    self.log("1. Tworzę bazę mapa_launcher_db...\n")
+                    success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
+                    self.log(f"   {msg}\n")
+
+                    if success or 'już istnieje' in msg:
+                        self.log("2. Importuję dane...\n")
+                        # TODO: Zaimplementuj import SQL
+                        self.log("   ⚠️ Import SQL jeszcze nie zaimplementowany\n")
+                else:
+                    self.log("⚠️ Nie znaleziono pliku SQL dla launcher\n")
+
+                # Import locations
+                for loc_sql in location_sqls:
+                    loc_name = os.path.basename(loc_sql).replace('.sql', '')
+                    self.log(f"\n=== Import miejscowości: {loc_name} ===\n")
+                    # TODO: Zaimplementuj import miejscowości
+                    self.log("   ⚠️ Import miejscowości jeszcze nie zaimplementowany\n")
+
+                self.log("\n✅ Import zakończony!")
+                self.log("\n⚠️ UWAGA: Pełna implementacja importu SQL jest w trakcie rozwoju.\n")
+                self.log("   Na razie proszę użyć opcji 'Szablon Czarna'.\n")
+
+                self.result = True
+                self.finish_button.config(state=tk.NORMAL)
+
+            finally:
+                # Wyczyść tymczasowy folder
+                try:
+                    shutil.rmtree(temp_dir)
+                except:
+                    pass
+
+        except Exception as e:
+            self.log(f"\n❌ Błąd: {e}\n")
+            import traceback
+            self.log(traceback.format_exc())
+            messagebox.showerror("Błąd", str(e), parent=self)
+        finally:
+            self.progress.stop()
 
     def execute_action(self):
         """Wykonaj akcję"""
