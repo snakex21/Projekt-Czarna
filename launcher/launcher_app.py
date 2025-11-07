@@ -835,14 +835,15 @@ def generate_location_config_js():
         except (json.JSONDecodeError, TypeError):
             history_photos = []
 
-    # Ścieżka do pliku JS - BASE_DIR to już główny folder projektu
-    js_path = os.path.join(BASE_DIR, "assets", "js", "location-config.js")
+    # Ścieżka do pliku JS - zapisz w folderze static/js/
+    static_js_folder = os.path.join(BASE_DIR, "static", "js")
+    js_path = os.path.join(static_js_folder, "location-config.js")
 
     # Debug - pokaż gdzie zapisujemy plik
     print(f"📁 Zapisuję location-config.js do: {js_path}")
 
     # Stwórz folder jeśli nie istnieje
-    os.makedirs(os.path.dirname(js_path), exist_ok=True)
+    os.makedirs(static_js_folder, exist_ok=True)
 
     # Pomocnicza funkcja do escapowania cudzysłowów w JS
     def escape_js_string(s):
@@ -988,6 +989,10 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
     protokoly_folder = os.path.join(location_folder, "protokoly")
     os.makedirs(protokoly_folder, exist_ok=True)
 
+    # Utwórz folder dla zdjęć historycznych
+    history_photos_folder = os.path.join(location_folder, "history_photos")
+    os.makedirs(history_photos_folder, exist_ok=True)
+
     # Utwórz wymagane pliki JSON jeśli nie istnieją
     ensure_location_data_files(location_folder)
 
@@ -1073,6 +1078,35 @@ LOCATION_CODE={name[:2].upper()}
                 print(msg)
             else:
                 print(f"⚠️ {msg}")
+
+        # Utwórz launcher_db_config.json dla nowej miejscowości
+        try:
+            config_file = os.path.join(location_folder, "launcher_db_config.json")
+            launcher_config = {
+                "default_location": {
+                    "name": name,
+                    "full_name": full_name,
+                    "powiat": powiat,
+                    "region": region,
+                    "homepage_template": homepage_template,
+                    "year": year,
+                    "century": century,
+                    "homepage_description": homepage_description,
+                    "history_paragraph1": history_paragraph1,
+                    "history_paragraph2": history_paragraph2,
+                    "history_paragraph3": history_paragraph3,
+                    "history_photos": history_photos,
+                    "favicon": "favicon.jpeg",
+                    "postgres_db_name": postgres_db_name
+                }
+            }
+
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+
+            print(f"✅ Utworzono launcher_db_config.json dla miejscowości {name}")
+        except Exception as e:
+            print(f"⚠️ Nie udało się utworzyć launcher_db_config.json: {e}")
 
         return location_id
 
@@ -1162,38 +1196,43 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
         cursor.close()
         conn.close()
 
-        # Jeśli to Czarna, zaktualizuj launcher_db_config.json
-        if name == "Czarna":
-            try:
-                config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
-                if os.path.exists(config_file):
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        launcher_config = json.load(f)
+        # Zaktualizuj/utwórz launcher_db_config.json dla KAŻDEJ miejscowości
+        try:
+            location_folder = os.path.join(BASE_DIR, "backup", name)
+            os.makedirs(location_folder, exist_ok=True)
 
-                    # Aktualizuj dane
-                    launcher_config['default_location'] = {
-                        "name": name,
-                        "full_name": full_name,
-                        "powiat": powiat,
-                        "region": region,
-                        "homepage_template": homepage_template,
-                        "year": year,
-                        "century": century,
-                        "homepage_description": homepage_description,
-                        "history_paragraph1": history_paragraph1,
-                        "history_paragraph2": history_paragraph2,
-                        "history_paragraph3": history_paragraph3,
-                        "history_photos": history_photos,
-                        "postgres_db_name": postgres_db_name
-                    }
+            # Upewnij się że folder history_photos istnieje
+            history_photos_folder = os.path.join(location_folder, "history_photos")
+            os.makedirs(history_photos_folder, exist_ok=True)
 
-                    # Zapisz z powrotem
-                    with open(config_file, 'w', encoding='utf-8') as f:
-                        json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+            config_file = os.path.join(location_folder, "launcher_db_config.json")
 
-                    print(f"✅ Zaktualizowano launcher_db_config.json dla miejscowości {name}")
-            except Exception as e:
-                print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
+            launcher_config = {
+                "default_location": {
+                    "name": name,
+                    "full_name": full_name,
+                    "powiat": powiat,
+                    "region": region,
+                    "homepage_template": homepage_template,
+                    "year": year,
+                    "century": century,
+                    "homepage_description": homepage_description,
+                    "history_paragraph1": history_paragraph1,
+                    "history_paragraph2": history_paragraph2,
+                    "history_paragraph3": history_paragraph3,
+                    "history_photos": history_photos,
+                    "favicon": "favicon.jpeg",
+                    "postgres_db_name": postgres_db_name
+                }
+            }
+
+            # Zapisz
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(launcher_config, f, ensure_ascii=False, indent=2)
+
+            print(f"✅ Zaktualizowano launcher_db_config.json dla miejscowości {name}")
+        except Exception as e:
+            print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
 
     except psycopg2.IntegrityError:
         if 'conn' in locals():
@@ -4619,7 +4658,7 @@ class DatabaseWizard(tk.Toplevel):
 class PhotosManagerDialog(tk.Toplevel):
     """Dialog do zarządzania listą zdjęć historycznych (max 20)."""
 
-    def __init__(self, parent, photos_list, base_dir):
+    def __init__(self, parent, photos_list, base_dir, location_name="Czarna"):
         super().__init__(parent)
         self.title("📸 Zarządzaj zdjęciami historycznymi")
         self.geometry("700x500")
@@ -4628,7 +4667,9 @@ class PhotosManagerDialog(tk.Toplevel):
 
         self.photos_list = photos_list.copy() if photos_list else []
         self.base_dir = base_dir
-        self.assets_dir = os.path.join(base_dir, "strona_glowna", "assets_index")
+        self.location_name = location_name
+        # Ścieżka do folderu history_photos w miejscowości
+        self.assets_dir = os.path.join(base_dir, "backup", location_name, "history_photos")
         self.result = None
 
         # Główny frame
@@ -4786,8 +4827,21 @@ class PhotosManagerDialog(tk.Toplevel):
         photo = self.photos_list[idx]
 
         if messagebox.askyesno("Potwierdź usunięcie",
-                               f"Czy na pewno usunąć zdjęcie:\n{photo['filename']}?",
+                               f"Czy na pewno usunąć zdjęcie:\n{photo['filename']}?\n\nPlik zostanie trwale usunięty z folderu.",
                                parent=self):
+            # Usuń fizyczny plik z dysku
+            file_path = os.path.join(self.assets_dir, photo['filename'])
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"✓ Usunięto plik: {file_path}")
+                else:
+                    print(f"⚠️ Plik nie istnieje: {file_path}")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się usunąć pliku:\n{e}", parent=self)
+                return
+
+            # Usuń z listy
             del self.photos_list[idx]
             self.refresh_list()
 
@@ -5072,7 +5126,9 @@ class AddEditLocationDialog(tk.Toplevel):
 
     def manage_photos(self):
         """Otwiera dialog zarządzania zdjęciami."""
-        dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
+        # Pobierz nazwę miejscowości z pola
+        location_name = self.name_entry.get().strip() or "Czarna"
+        dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR, location_name)
         self.wait_window(dialog)
 
         if dialog.result is not None:
