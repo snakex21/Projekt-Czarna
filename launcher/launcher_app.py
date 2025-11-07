@@ -3567,7 +3567,7 @@ def auto_initialize_on_startup(loading_dialog):
             print("📍 Tworzę domyślną miejscowość 'Czarna'...")
 
             # Wczytaj konfigurację z pliku JSON
-            config_file = os.path.join(BASE_DIR, "launcher_db_config.json")
+            config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
             try:
                 with open(config_file, 'r', encoding='utf-8') as f:
                     launcher_config = json.load(f)
