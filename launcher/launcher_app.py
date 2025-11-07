@@ -1269,14 +1269,27 @@ def load_default_location_config():
     """Wczytuje konfigurację domyślnej lokalizacji z pliku JSON."""
     config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
     try:
+        print(f"📄 Próba wczytania konfiguracji z: {config_file}")
+        if not os.path.exists(config_file):
+            print(f"⚠️ Plik nie istnieje: {config_file}")
+            return {}
         with open(config_file, 'r', encoding='utf-8') as f:
             launcher_config = json.load(f)
+            print("✅ Konfiguracja wczytana pomyślnie z JSON")
             return launcher_config.get('default_location', {})
     except FileNotFoundError:
-        print("⚠️ Brak pliku launcher_db_config.json, używam domyślnych wartości")
+        print(f"⚠️ Brak pliku launcher_db_config.json w: {config_file}")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"⚠️ Błąd parsowania JSON: {e}")
+        print(f"   Plik: {config_file}")
+        print(f"   Wiersz: {e.lineno}, Kolumna: {e.colno}, Pozycja: {e.pos}")
         return {}
     except Exception as e:
-        print(f"⚠️ Błąd wczytywania konfiguracji: {e}, używam domyślnych wartości")
+        print(f"⚠️ Nieoczekiwany błąd wczytywania konfiguracji: {e}")
+        print(f"   Plik: {config_file}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 def ensure_default_location_exists():
