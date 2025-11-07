@@ -157,7 +157,7 @@
             imageWrapper.className = 'image-wrapper';
 
             const img = document.createElement('img');
-            img.src = `assets_index/${photo.filename}`;
+            img.src = `/history_photos/${photo.filename}`;
             img.alt = photo.caption || `Zdjęcie historyczne ${index + 1}`;
 
             const overlay = document.createElement('div');
