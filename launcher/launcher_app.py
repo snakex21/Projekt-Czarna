@@ -1991,8 +1991,9 @@ LAUNCHER_DB_PASSWORD={password}
     return config_result['success']
 
 def _auto_sync_site_icon():
-    """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę
-    z folderów icons → assets/site i zapisuje ścieżkę w konfiguracji bazy danych."""
+    """Automatycznie wykrywa istniejący favicon w assets/site, backup miejscowości,
+    lub kopiuje pierwszą znalezioną ikonę z folderów icons → assets/site
+    i zapisuje ścieżkę w konfiguracji bazy danych."""
 
     # OPTYMALIZACJA: Sprawdź najpierw czy favicon już jest zapisany w bazie
     try:
@@ -2013,8 +2014,26 @@ def _auto_sync_site_icon():
         print(f"🔍 Wykryto istniejący favicon: {existing_favicon}")
         _save_favicon_to_database(existing_favicon)
         return
-    
-    # KROK 2: Jeśli brak favicon w site/, szukaj w folderach icons i kopiuj pierwszy znaleziony  
+
+    # KROK 2: Sprawdź czy w folderze backup aktywnej miejscowości jest favicon.jpeg
+    try:
+        location_name = get_active_location_name()
+        if location_name:
+            backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+            favicon_in_backup = os.path.join(backup_location_folder, "favicon.jpeg")
+
+            if os.path.exists(favicon_in_backup):
+                # Znaleziono favicon w backup, skopiuj do site
+                os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
+                dest = os.path.join(SITE_ASSETS_FOLDER, "favicon.jpeg")
+                shutil.copy2(favicon_in_backup, dest)
+                print(f"📋 Skopiowano favicon z backup/{location_name}/favicon.jpeg")
+                _save_favicon_to_database("favicon.jpeg")
+                return
+    except Exception as e:
+        print(f"⚠️ Nie udało się sprawdzić favicon w backup: {e}")
+
+    # KROK 3: Jeśli brak favicon w site/ i backup/, szukaj w folderach icons i kopiuj pierwszy znaleziony
     for folder in ICONS_SCAN_FOLDERS:
         if not os.path.isdir(folder):
             continue
@@ -2023,13 +2042,13 @@ def _auto_sync_site_icon():
                 continue
             src = os.path.join(folder, fname)
             dest = os.path.join(SITE_ASSETS_FOLDER, fname)
-            
+
             # Kopiuj tylko jeśli plik nie istnieje lub jest różny
             if not os.path.exists(dest) or not filecmp.cmp(src, dest, shallow=False):
                 os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
                 shutil.copy2(src, dest)
                 print(f"📋 Skopiowano favicon z {folder}: {fname}")
-            
+
             _save_favicon_to_database(fname)
             return  # używamy tylko pierwszego pliku
 
