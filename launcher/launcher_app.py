@@ -2693,37 +2693,48 @@ class AppLauncher(tk.Tk):
 
         self._refresh_pending = True
 
-        def _do_refresh():
+        def _fetch_data():
+            """Pobierz dane z bazy (w wątku tła)."""
             try:
                 locations = get_all_locations()
-                self._cached_locations = locations  # Cache lokacji w instancji
-                location_names = [loc[1] for loc in locations]  # loc[1] to name
+                self._cached_locations = locations
+                # Aktualizuj GUI w głównym wątku przez after()
+                self.after(0, lambda: self._update_gui(locations))
+            except Exception as e:
+                print(f"❌ Błąd pobierania lokacji: {e}")
+                self._refresh_pending = False
+
+        def _update_gui(locations):
+            """Aktualizuj GUI - wykonywane w głównym wątku."""
+            try:
+                location_names = [loc[1] for loc in locations]
                 self.location_combo['values'] = location_names
 
-                # Ustaw aktywną miejscowość - znajdź w już pobranej liście
+                # Znajdź aktywną lokację
                 active_location = None
                 for loc in locations:
-                    if loc[5]:  # loc[5] to active (boolean)
+                    if loc[5]:  # loc[5] to active
                         active_location = loc
                         break
 
                 if active_location:
-                    self.location_var.set(active_location[1])  # active_location[1] to name
+                    self.location_var.set(active_location[1])
                 elif location_names:
-                    # Jeśli brak aktywnej, ale są miejscowości, ustaw pierwszą
                     self.location_var.set(location_names[0])
-                    # I ustaw ją jako aktywną w bazie (w wątku)
+                    # Ustaw jako aktywną w tle
                     threading.Thread(target=lambda: set_active_location(locations[0][0]), daemon=True).start()
                 else:
                     self.location_var.set("(brak miejscowości)")
             finally:
                 self._refresh_pending = False
 
-        # Wykonaj w tle jeśli nie wymuszono synchronicznie
+        # Wykonaj synchronicznie (force=True) lub asynchronicznie
         if force:
-            _do_refresh()
+            locations = get_all_locations()
+            self._cached_locations = locations
+            _update_gui(locations)
         else:
-            threading.Thread(target=_do_refresh, daemon=True).start()
+            threading.Thread(target=_fetch_data, daemon=True).start()
 
     def on_location_selected(self, event=None):
         """Obsługuje zmianę wybranej miejscowości (zoptymalizowana)."""
