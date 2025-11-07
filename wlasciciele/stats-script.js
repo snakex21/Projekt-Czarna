@@ -268,6 +268,24 @@ function initActionButtons() {
     window.location.href = `../mapa/mapa.html?highlightTopOwners=${encodeURIComponent(ownerKeys)}&ownership=${ownership}`;
   });
 
+  // Pokaż działki na mapie
+  document.getElementById('show-parcels-on-map')?.addEventListener('click', () => {
+    window.location.href = `../mapa/mapa.html`;
+    showToast('info', 'Przekierowanie', 'Przejście do mapy działek');
+  });
+
+  // Pokaż rzeki na mapie
+  document.getElementById('show-rivers-on-map')?.addEventListener('click', () => {
+    window.location.href = `../mapa/mapa.html`;
+    showToast('info', 'Przekierowanie', 'Przejście do mapy rzek');
+  });
+
+  // Pokaż drogi na mapie
+  document.getElementById('show-roads-on-map')?.addEventListener('click', () => {
+    window.location.href = `../mapa/mapa.html`;
+    showToast('info', 'Przekierowanie', 'Przejście do mapy dróg');
+  });
+
   // Narzędzia analityczne
   document.getElementById('compare-btn')?.addEventListener('click', openPeriodComparison);  // ← DODAJ TU
   document.getElementById('export-btn')?.addEventListener('click', exportToExcel);
@@ -722,7 +740,7 @@ function loadRiversRanking(riversData) {
   const container = document.getElementById('rivers-ranking-list');
   if (!container || !riversData) return;
 
-  container.innerHTML = riversData.slice(0, 20).map((river, i) => {
+  container.innerHTML = riversData.slice(0, 50).map((river, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = river.length_m || 0;
@@ -756,7 +774,7 @@ function loadRoadsRanking(roadsData) {
   const container = document.getElementById('roads-ranking-list');
   if (!container || !roadsData) return;
 
-  container.innerHTML = roadsData.slice(0, 20).map((road, i) => {
+  container.innerHTML = roadsData.slice(0, 50).map((road, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = road.length_m || 0;
