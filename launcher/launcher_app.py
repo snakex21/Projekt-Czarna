@@ -4658,7 +4658,7 @@ class DatabaseWizard(tk.Toplevel):
 class PhotosManagerDialog(tk.Toplevel):
     """Dialog do zarządzania listą zdjęć historycznych (max 20)."""
 
-    def __init__(self, parent, photos_list, base_dir):
+    def __init__(self, parent, photos_list, base_dir, location_name="Czarna"):
         super().__init__(parent)
         self.title("📸 Zarządzaj zdjęciami historycznymi")
         self.geometry("700x500")
@@ -4667,7 +4667,9 @@ class PhotosManagerDialog(tk.Toplevel):
 
         self.photos_list = photos_list.copy() if photos_list else []
         self.base_dir = base_dir
-        self.assets_dir = os.path.join(base_dir, "strona_glowna", "assets_index")
+        self.location_name = location_name
+        # Ścieżka do folderu history_photos w miejscowości
+        self.assets_dir = os.path.join(base_dir, "backup", location_name, "history_photos")
         self.result = None
 
         # Główny frame
@@ -5111,7 +5113,9 @@ class AddEditLocationDialog(tk.Toplevel):
 
     def manage_photos(self):
         """Otwiera dialog zarządzania zdjęciami."""
-        dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR)
+        # Pobierz nazwę miejscowości z pola
+        location_name = self.name_entry.get().strip() or "Czarna"
+        dialog = PhotosManagerDialog(self, self.history_photos, BASE_DIR, location_name)
         self.wait_window(dialog)
 
         if dialog.result is not None:
