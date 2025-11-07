@@ -835,14 +835,15 @@ def generate_location_config_js():
         except (json.JSONDecodeError, TypeError):
             history_photos = []
 
-    # Ścieżka do pliku JS - BASE_DIR to już główny folder projektu
-    js_path = os.path.join(BASE_DIR, "assets", "js", "location-config.js")
+    # Ścieżka do pliku JS - zapisz w folderze aktywnej miejscowości
+    location_folder = os.path.join(BASE_DIR, "backup", location_name)
+    js_path = os.path.join(location_folder, "location-config.js")
 
     # Debug - pokaż gdzie zapisujemy plik
     print(f"📁 Zapisuję location-config.js do: {js_path}")
 
     # Stwórz folder jeśli nie istnieje
-    os.makedirs(os.path.dirname(js_path), exist_ok=True)
+    os.makedirs(location_folder, exist_ok=True)
 
     # Pomocnicza funkcja do escapowania cudzysłowów w JS
     def escape_js_string(s):
@@ -877,6 +878,17 @@ window.LOCATION_CONFIG = {{
             f.write(js_content)
         print(f"✓ Wygenerowano location-config.js dla miejscowości: {location_full_name}")
         print(f"✓ Plik zapisany pomyślnie: {os.path.exists(js_path)}")
+
+        # Skopiuj location-data.js do folderu miejscowości (jeśli jeszcze nie istnieje)
+        location_data_source = os.path.join(BASE_DIR, "backup", "Czarna", "location-data.js")
+        location_data_dest = os.path.join(location_folder, "location-data.js")
+
+        if os.path.exists(location_data_source) and not os.path.exists(location_data_dest):
+            shutil.copy2(location_data_source, location_data_dest)
+            print(f"✓ Skopiowano location-data.js do {location_name}")
+        elif not os.path.exists(location_data_dest):
+            print(f"⚠️ Brak pliku location-data.js w Czarnej - miejsce docelowe: {location_data_dest}")
+
         return True
     except Exception as e:
         print(f"❌ Błąd podczas generowania location-config.js: {e}")
