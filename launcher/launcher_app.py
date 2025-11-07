@@ -2373,9 +2373,23 @@ class AppLauncher(tk.Tk):
         """Przetwarza zdarzenia z kolejki w pętli głównej."""
         try:
             while True:
-                key, event_type = self.event_queue.get_nowait()
-                if event_type == "finished":
-                    self.handle_process_finished(key)
+                event = self.event_queue.get_nowait()
+
+                # Obsługa różnych formatów eventów
+                if len(event) == 2:
+                    # Stary format: (key, event_type)
+                    key, event_type = event
+                    if event_type == "finished":
+                        self.handle_process_finished(key)
+                elif len(event) == 3:
+                    # Nowy format: (event_type, data1, data2)
+                    event_type, data1, data2 = event
+                    if event_type == "location_changed":
+                        messagebox.showinfo("✅ Zmieniono miejscowość",
+                                          f"Aktywna miejscowość: {data1}\n\n"
+                                          "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
+                    elif event_type == "location_error":
+                        messagebox.showerror("Błąd", f"Nie udało się zmienić miejscowości:\n{data2}")
         except queue.Empty:
             pass
         finally:
@@ -2686,55 +2700,37 @@ class AppLauncher(tk.Tk):
             print(f"⚠️ Nie udało się automatycznie zaktualizować danych miejscowości: {e}")
 
     def refresh_locations(self, force=False):
-        """Odświeża listę miejscowości w menu rozwijanym (z debounce)."""
+        """Odświeża listę miejscowości w menu rozwijanym (z debounce i cache)."""
         # Debounce - zapobiegaj wielokrotnemu odświeżaniu
         if self._refresh_pending and not force:
             return
 
-        self._refresh_pending = True
+        try:
+            self._refresh_pending = True
 
-        def _fetch_data():
-            """Pobierz dane z bazy (w wątku tła)."""
-            try:
-                locations = get_all_locations()
-                self._cached_locations = locations
-                # Aktualizuj GUI w głównym wątku przez after()
-                self.after(0, lambda: self._update_gui(locations))
-            except Exception as e:
-                print(f"❌ Błąd pobierania lokacji: {e}")
-                self._refresh_pending = False
-
-        def _update_gui(locations):
-            """Aktualizuj GUI - wykonywane w głównym wątku."""
-            try:
-                location_names = [loc[1] for loc in locations]
-                self.location_combo['values'] = location_names
-
-                # Znajdź aktywną lokację
-                active_location = None
-                for loc in locations:
-                    if loc[5]:  # loc[5] to active
-                        active_location = loc
-                        break
-
-                if active_location:
-                    self.location_var.set(active_location[1])
-                elif location_names:
-                    self.location_var.set(location_names[0])
-                    # Ustaw jako aktywną w tle
-                    threading.Thread(target=lambda: set_active_location(locations[0][0]), daemon=True).start()
-                else:
-                    self.location_var.set("(brak miejscowości)")
-            finally:
-                self._refresh_pending = False
-
-        # Wykonaj synchronicznie (force=True) lub asynchronicznie
-        if force:
+            # get_all_locations() ma własny cache 30s, więc jest szybkie
             locations = get_all_locations()
             self._cached_locations = locations
-            _update_gui(locations)
-        else:
-            threading.Thread(target=_fetch_data, daemon=True).start()
+            location_names = [loc[1] for loc in locations]
+            self.location_combo['values'] = location_names
+
+            # Znajdź aktywną lokację w pobranej liście (bez dodatkowego SQL)
+            active_location = None
+            for loc in locations:
+                if loc[5]:  # loc[5] to active
+                    active_location = loc
+                    break
+
+            if active_location:
+                self.location_var.set(active_location[1])
+            elif location_names:
+                self.location_var.set(location_names[0])
+                # Ustaw jako aktywną w tle
+                threading.Thread(target=lambda: set_active_location(locations[0][0]), daemon=True).start()
+            else:
+                self.location_var.set("(brak miejscowości)")
+        finally:
+            self._refresh_pending = False
 
     def on_location_selected(self, event=None):
         """Obsługuje zmianę wybranej miejscowości (zoptymalizowana)."""
@@ -2754,13 +2750,11 @@ class AppLauncher(tk.Tk):
                         # Odśwież DATA_FILES
                         global DATA_FILES
                         DATA_FILES = get_data_files()
-                        # Pokaż notification (w głównym wątku)
-                        self.after(0, lambda: messagebox.showinfo("✅ Zmieniono miejscowość",
-                                   f"Aktywna miejscowość: {selected_name}\n\n"
-                                   "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera."))
+                        # Dodaj do kolejki - będzie obsłużone w głównym wątku
+                        self.event_queue.put(('location_changed', selected_name, None))
                     except Exception as e:
                         print(f"❌ Błąd zmiany lokacji: {e}")
-                        self.after(0, lambda: messagebox.showerror("Błąd", f"Nie udało się zmienić miejscowości:\n{e}"))
+                        self.event_queue.put(('location_error', None, str(e)))
 
                 # Natychmiastowa odpowiedź UI
                 self.update_idletasks()
