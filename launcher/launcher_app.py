@@ -1174,7 +1174,7 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
 
 def delete_location(location_id):
     """
-    Usuwa miejscowość z bazy danych PostgreSQL i folder.
+    Usuwa miejscowość z bazy danych PostgreSQL, folder i bazę danych miejscowości.
 
     Args:
         location_id: ID miejscowości do usunięcia
@@ -1193,28 +1193,69 @@ def delete_location(location_id):
         conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT name, active FROM locations WHERE id = %s", (location_id,))
+        cursor.execute("SELECT name, active, postgres_db_name FROM locations WHERE id = %s", (location_id,))
         result = cursor.fetchone()
         if not result:
             cursor.close()
             conn.close()
             raise ValueError("Miejscowość nie istnieje")
 
-        name, active = result
+        name, active, postgres_db_name = result
 
         if active:
             cursor.close()
             conn.close()
             raise ValueError("Nie można usunąć aktywnej miejscowości")
 
+        # Usuń bazę danych PostgreSQL dla miejscowości (jeśli istnieje)
+        # Jeśli postgres_db_name jest puste, użyj standardowej nazwy
+        db_to_delete = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}"
+
+        try:
+            print(f"🗑️ Usuwanie bazy danych: {db_to_delete}")
+            config = get_postgres_config()
+
+            # Połącz się do bazy postgres (nie do usuwanej bazy)
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+            db_conn = psycopg2.connect(
+                host=config['host'],
+                port=config['port'],
+                user=config['user'],
+                password=config['password'],
+                database='postgres'
+            )
+            db_conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            db_cursor = db_conn.cursor()
+
+            # Zakończ wszystkie połączenia do bazy przed usunięciem
+            db_cursor.execute(f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{db_to_delete}'
+                AND pid <> pg_backend_pid()
+            """)
+
+            # Usuń bazę danych
+            db_cursor.execute(f'DROP DATABASE IF EXISTS "{db_to_delete}"')
+            db_cursor.close()
+            db_conn.close()
+            print(f"✅ Usunięto bazę danych: {db_to_delete}")
+        except Exception as db_err:
+            print(f"⚠️ Ostrzeżenie: Nie udało się usunąć bazy danych {db_to_delete}: {db_err}")
+            # Kontynuuj mimo błędu - folder i wpis w locations i tak zostaną usunięte
+
+        # Usuń folder z danymi
         location_folder = os.path.join(BACKUP_FOLDER, name)
         if os.path.exists(location_folder):
             shutil.rmtree(location_folder)
+            print(f"✅ Usunięto folder: {location_folder}")
 
+        # Usuń wpis z tabeli locations
         cursor.execute("DELETE FROM locations WHERE id = %s", (location_id,))
         conn.commit()
         cursor.close()
         conn.close()
+        print(f"✅ Usunięto miejscowość: {name}")
 
     except Exception as e:
         if 'conn' in locals():
@@ -1546,10 +1587,13 @@ ADMIN_PASSWORD_HASH=
         print(f"⚠️ Nie można utworzyć pliku .env: {e}")
         return False
 
-def setup_postgres_config():
+def setup_postgres_config(parent=None):
     """
     Sprawdza czy plik .postgres.env istnieje.
     Jeśli nie - wyświetla okno z wymaganiem PostgreSQL i polem hasła z automatyczną walidacją.
+
+    Args:
+        parent: Okno rodzica (główne okno aplikacji). Jeśli None, utworzy własne.
     """
     # Sprawdź czy plik już istnieje
     if os.path.exists(POSTGRES_CONFIG_FILE):
@@ -1558,15 +1602,19 @@ def setup_postgres_config():
     print("⚠️ Brak pliku konfiguracji PostgreSQL (.postgres.env)")
     print("ℹ️ Launcher potrzebuje danych dostępu do PostgreSQL aby działać prawidłowo.")
 
-    # Utwórz okno z konfiguracją PostgreSQL
-    temp_root = tk.Tk()
-    temp_root.withdraw()  # Ukryj główne okno
+    # Jeśli nie ma parent, utwórz tymczasowe okno główne
+    if parent is None:
+        temp_root = tk.Tk()
+        temp_root.withdraw()
+        parent_window = temp_root
+    else:
+        parent_window = parent
 
     # Zmienna do przechowania wyniku
     config_result = {'success': False, 'password': None}
 
     # Utwórz dialog
-    dialog = tk.Toplevel(temp_root)
+    dialog = tk.Toplevel(parent_window)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
     dialog.geometry("700x550")
     dialog.resizable(False, False)
@@ -1764,14 +1812,19 @@ LAUNCHER_DB_PASSWORD={password}
             "Bez konfiguracji bazy danych launcher nie może być uruchomiony.\n\n"
             "Zainstaluj PostgreSQL i uruchom program ponownie."
         )
-        temp_root.destroy()
+        # Zamknij okno parent tylko jeśli stworzyliśmy je sami
+        if parent is None:
+            parent_window.destroy()
         sys.exit(1)
 
     dialog.protocol("WM_DELETE_WINDOW", on_closing)
 
     # Czekaj na zamknięcie okna
     dialog.wait_window()
-    temp_root.destroy()
+
+    # Zamknij tymczasowe okno główne jeśli stworzyliśmy je sami
+    if parent is None:
+        parent_window.destroy()
 
     return config_result['success']
 
@@ -1978,36 +2031,37 @@ class AppLauncher(tk.Tk):
         migrate_old_backup_structure()
 
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
-        setup_postgres_config()
+        # Przekazujemy self jako parent żeby dialog był przypisany do głównego okna
+        setup_postgres_config(parent=self)
 
         # POKAŻ główne okno po konfiguracji PostgreSQL
         self.deiconify()
 
-        # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
-        # Zwraca loading_dialog jeśli było coś do zrobienia, None jeśli nie
-        loading_dialog = auto_initialize_on_startup()
+        # Zawsze tworzymy okno ładowania dla lepszej UX
+        loading_dialog = LoadingDialog()
+        loading_dialog.update_status("Inicjalizacja...", "Sprawdzanie konfiguracji")
 
-        # Kontynuuj inicjalizację z oknem ładowania (jeśli istnieje)
-        if loading_dialog:
-            loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
+        # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
+        # Przekazujemy loading_dialog żeby funkcja mogła aktualizować postęp
+        auto_initialize_on_startup(loading_dialog)
+
+        # Kontynuuj inicjalizację z oknem ładowania
+        loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
 
         check_env_configuration()
         check_backup_folder_files()
 
-        if loading_dialog:
-            loading_dialog.update_status("Synchronizacja ikon...", "Favicon i zasoby")
+        loading_dialog.update_status("Synchronizacja ikon...", "Favicon i zasoby")
 
         _auto_sync_site_icon()
 
         # Automatycznie odśwież strony HTML z placeholderami
-        if loading_dialog:
-            loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
+        loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
 
         self.refresh_html_pages()
 
         # Upewnij się, że location-config.js istnieje
-        if loading_dialog:
-            loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
+        loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
 
         try:
             generate_location_config_js()
@@ -2016,46 +2070,45 @@ class AppLauncher(tk.Tk):
             import traceback
             traceback.print_exc()
 
-        # Zamknij okno ładowania (jeśli było) i pokaż podsumowanie
-        if loading_dialog:
-            loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
-            import time
-            time.sleep(0.5)
-            loading_dialog.close()
+        # Zamknij okno ładowania i pokaż podsumowanie
+        loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
+        import time
+        time.sleep(0.5)
+        loading_dialog.close()
 
-            # Pokaż podsumowanie inicjalizacji
-            if hasattr(loading_dialog, 'init_summary'):
-                summary = loading_dialog.init_summary
-                if summary['created_launcher'] or summary['created_czarna_location'] or \
-                   summary['created_czarna_db'] or summary['migrated_data']:
+        # Pokaż podsumowanie inicjalizacji
+        if hasattr(loading_dialog, 'init_summary'):
+            summary = loading_dialog.init_summary
+            if summary['created_launcher'] or summary['created_czarna_location'] or \
+               summary['created_czarna_db'] or summary['migrated_data']:
 
-                    message = "🎉 System jest gotowy do użycia!\n\n"
+                message = "🎉 System jest gotowy do użycia!\n\n"
 
-                    if summary['created_launcher']:
-                        message += "✅ Utworzono bazę mapa_launcher_db\n"
-                    else:
-                        message += "✅ Baza mapa_launcher_db gotowa\n"
+                if summary['created_launcher']:
+                    message += "✅ Utworzono bazę mapa_launcher_db\n"
+                else:
+                    message += "✅ Baza mapa_launcher_db gotowa\n"
 
-                    if summary['created_czarna_location']:
-                        message += "✅ Utworzono miejscowość 'Czarna'\n"
-                    else:
-                        message += "✅ Miejscowość 'Czarna' gotowa\n"
+                if summary['created_czarna_location']:
+                    message += "✅ Utworzono miejscowość 'Czarna'\n"
+                else:
+                    message += "✅ Miejscowość 'Czarna' gotowa\n"
 
-                    if summary['created_czarna_db']:
-                        message += "✅ Utworzono bazę mapa_czarna_db\n"
-                    else:
-                        message += "✅ Baza mapa_czarna_db gotowa\n"
+                if summary['created_czarna_db']:
+                    message += "✅ Utworzono bazę mapa_czarna_db\n"
+                else:
+                    message += "✅ Baza mapa_czarna_db gotowa\n"
 
-                    if summary['migrated_data']:
-                        message += "✅ Dane zmigrowane z backup/Czarna\n"
+                if summary['migrated_data']:
+                    message += "✅ Dane zmigrowane z backup/Czarna\n"
 
-                    message += "\n💡 Możesz teraz:\n"
-                    message += "• Włączyć serwer i zobaczyć mapę\n"
-                    message += "• Edytować dane właścicieli\n"
-                    message += "• Kalibrować mapę\n"
-                    message += "• Zarządzać miejscowościami"
+                message += "\n💡 Możesz teraz:\n"
+                message += "• Włączyć serwer i zobaczyć mapę\n"
+                message += "• Edytować dane właścicieli\n"
+                message += "• Kalibrować mapę\n"
+                message += "• Zarządzać miejscowościami"
 
-                    messagebox.showinfo("System gotowy!", message)
+                messagebox.showinfo("System gotowy!", message)
 
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
@@ -3157,7 +3210,10 @@ class LocationManager(tk.Toplevel):
 
         if not messagebox.askyesno("⚠️ Potwierdzenie",
                                    f"Czy na pewno chcesz usunąć miejscowość '{name}'?\n\n"
-                                   "Zostanie usunięty cały folder z danymi!",
+                                   "Zostanie usunięte:\n"
+                                   "• Baza danych PostgreSQL\n"
+                                   "• Cały folder z danymi\n"
+                                   "• Konfiguracja miejscowości",
                                    parent=self):
             return
 
@@ -3392,7 +3448,7 @@ class LoadingDialog(tk.Toplevel):
         self.destroy()
 
 
-def auto_initialize_on_startup():
+def auto_initialize_on_startup(loading_dialog):
     """
     Automatyczna inicjalizacja przy pierwszym uruchomieniu programu.
 
@@ -3403,25 +3459,27 @@ def auto_initialize_on_startup():
     4. Istnieje baza mapa_czarna_db
     5. Dane są zmigrowane
 
-    Jeśli czegoś brakuje - automatycznie tworzy i pokazuje okno informacyjne.
+    Jeśli czegoś brakuje - automatycznie tworzy.
 
-    Returns:
-        LoadingDialog lub None - okno ładowania jeśli była inicjalizacja, None jeśli nie
+    Args:
+        loading_dialog: Okno LoadingDialog do aktualizacji postępu
     """
     # Sprawdź czy .postgres.env istnieje i ma hasło
     if not os.path.exists(POSTGRES_CONFIG_FILE):
-        return None  # Brak konfiguracji - user musi najpierw wpisać hasło
+        print("⚠️ Brak pliku .postgres.env")
+        return  # Brak konfiguracji - user musi najpierw wpisać hasło
 
     config = get_postgres_config()
     if not config.get('password'):
-        return None  # Brak hasła - nie można się połączyć
+        print("⚠️ Brak hasła w konfiguracji")
+        return  # Brak hasła - nie można się połączyć
 
-    # Szybkie sprawdzenie czy jest coś do zrobienia (bez tworzenia okna)
+    # Szybkie sprawdzenie czy jest coś do zrobienia
     try:
         success, msg = test_postgres_connection(**config)
         if not success:
             print(f"⚠️ Nie można połączyć się z PostgreSQL: {msg}")
-            return None
+            return
 
         # Sprawdź co trzeba zrobić
         needs_work = False
@@ -3450,14 +3508,13 @@ def auto_initialize_on_startup():
         # Jeśli nie ma nic do zrobienia - wyjdź
         if not needs_work:
             print("ℹ️ System już jest skonfigurowany")
-            return None
+            return
 
     except Exception as e:
         print(f"⚠️ Błąd sprawdzania: {e}")
-        return None
+        return
 
-    # Jeśli jest coś do zrobienia - pokaż okno ładowania i wykonaj
-    loading_dialog = LoadingDialog()
+    # Jeśli jest coś do zrobienia - wykonaj z aktualizacją loading_dialog
 
     try:
         loading_dialog.update_status("Sprawdzanie baz danych...", "Łączenie z PostgreSQL")
@@ -3557,7 +3614,7 @@ def auto_initialize_on_startup():
                     loading_dialog.update_status("Migracja danych...",
                                                 "Import z backup/Czarna - to może potrwać chwilę")
                     print("🔄 Automatyczna migracja danych z backup/Czarna...")
-                    auto_migrate_data_function(backup_czarna)
+                    auto_migrate_data_function(backup_czarna, "Czarna")
                     migrated_data = True
                 else:
                     print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
@@ -3574,25 +3631,19 @@ def auto_initialize_on_startup():
 
         print("✅ Automatyczna inicjalizacja zakończona pomyślnie")
 
-        # Zwróć loading_dialog - zostanie zamknięty później w __init__
-        return loading_dialog
-
     except Exception as e:
-        # Zamknij okno ładowania w przypadku błędu
-        if 'loading_dialog' in locals():
-            loading_dialog.close()
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
         import traceback
         traceback.print_exc()
-        return None
 
 
-def auto_migrate_data_function(backup_folder):
+def auto_migrate_data_function(backup_folder, location_name=None):
     """
     Funkcja pomocnicza do migracji danych (standalone, nie metoda klasy).
 
     Args:
         backup_folder: Ścieżka do folderu z danymi (np. backup/Czarna)
+        location_name: Nazwa miejscowości (opcjonalne, jeśli None to wyekstrahuje z backup_folder)
     """
     try:
         import subprocess
@@ -3605,10 +3656,16 @@ def auto_migrate_data_function(backup_folder):
             print(f"⚠️ Brak skryptu migracji: {migrate_script}")
             return
 
-        # Uruchom skrypt migracji
+        # Jeśli nie podano nazwy miejscowości, spróbuj wyekstrahować z folderu
+        if not location_name:
+            # backup_folder może być np. "C:/projekty/backup/Borowa" lub "backup/Borowa"
+            location_name = os.path.basename(backup_folder)
+            print(f"📍 Wykryta miejscowość: {location_name}")
+
+        # Uruchom skrypt migracji z nazwą miejscowości jako argument
         print(f"🔄 Migracja danych z {backup_folder}...")
         result = subprocess.run(
-            [sys.executable, migrate_script],
+            [sys.executable, migrate_script, location_name],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,
@@ -5813,9 +5870,114 @@ class InstructionsWindow(tk.Toplevel):
         self.geometry(f"+{x}+{y}")
         self.focus_set()
 
+def create_and_migrate_location_database(location_name, progress_callback=None):
+    """
+    Tworzy bazę danych dla miejscowości i migruje dane z backup/.
+
+    Args:
+        location_name: Nazwa miejscowości (np. "Borowa")
+        progress_callback: Funkcja callback do raportowania postępu
+
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        # Pobierz konfigurację PostgreSQL
+        config = get_postgres_config()
+        if not config:
+            return False, "Brak konfiguracji PostgreSQL"
+
+        # Określ nazwę bazy danych
+        db_name = f"mapa_{location_name.lower()}"
+
+        if progress_callback:
+            progress_callback(f"📊 Tworzenie bazy danych: {db_name}")
+
+        # 1. Utwórz bazę danych (jeśli nie istnieje)
+        success, msg = postgres_create_database(
+            config['host'], config['port'], config['user'], config['password'], db_name
+        )
+        if not success:
+            return False, f"Błąd tworzenia bazy: {msg}"
+
+        print(f"✅ {msg}")
+
+        # 2. Włącz PostGIS
+        if progress_callback:
+            progress_callback(f"🗺️ Włączanie PostGIS w bazie {db_name}")
+
+        success, msg = postgres_enable_postgis(
+            config['host'], config['port'], config['user'], config['password'], db_name
+        )
+        if not success:
+            print(f"⚠️ Ostrzeżenie PostGIS: {msg}")
+        else:
+            print(f"✅ {msg}")
+
+        # 3. Utwórz schemat tabel
+        if progress_callback:
+            progress_callback(f"📋 Tworzenie tabel w bazie {db_name}")
+
+        success, msg = postgres_execute_schema(
+            config['host'], config['port'], config['user'], config['password'],
+            db_name, LOCATION_DB_SCHEMA
+        )
+        if not success:
+            return False, f"Błąd tworzenia tabel: {msg}"
+
+        print(f"✅ {msg}")
+
+        # 4. Zaktualizuj nazwę bazy danych w tabeli locations
+        if progress_callback:
+            progress_callback(f"💾 Zapisywanie nazwy bazy w konfiguracji")
+
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE locations
+                SET postgres_db_name = %s
+                WHERE name = %s
+            """, (db_name, location_name))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            print(f"✅ Zapisano nazwę bazy danych: {db_name} dla {location_name}")
+        except Exception as e:
+            print(f"⚠️ Ostrzeżenie: Nie udało się zapisać nazwy bazy: {e}")
+
+        # 5. Zaktualizuj .env dla miejscowości
+        location_folder = os.path.join(BACKUP_FOLDER, location_name)
+        env_path = os.path.join(location_folder, ".env")
+
+        if os.path.exists(location_folder):
+            # Utwórz/zaktualizuj plik .env
+            env_content = f"""DB_HOST={config['host']}
+DB_PORT={config['port']}
+DB_NAME={db_name}
+DB_USER={config['user']}
+DB_PASSWORD={config['password']}
+"""
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.write(env_content)
+            print(f"✅ Zaktualizowano .env dla {location_name}")
+
+        # 6. Wywołaj migrację danych
+        if progress_callback:
+            progress_callback(f"🔄 Migracja danych z backup/{location_name}")
+
+        print(f"🔄 Migracja danych dla miejscowości: {location_name}")
+        auto_migrate_data_function(location_folder, location_name)
+
+        return True, f"Baza {db_name} utworzona i dane zmigrowane pomyślnie"
+
+    except Exception as e:
+        return False, f"Błąd: {str(e)}"
+
+
 class BackupManager(tk.Toplevel):
     """Okno dialogowe do zarządzania kopiami zapasowymi projektu."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
@@ -6245,6 +6407,9 @@ class BackupManager(tk.Toplevel):
                 # Sprawdź czy to nowy format (z folderami miejscowości) czy stary
                 has_location_folders = any('/' in f and not f.startswith('assets/') for f in archive_contents)
 
+                # Lista przywróconych miejscowości (do późniejszej migracji)
+                restored_locations = []
+
                 # Przywracanie skanów
                 scan_files = [f for f in archive_contents if f.startswith("assets/protokoly/")]
                 if scan_files:
@@ -6355,14 +6520,33 @@ class BackupManager(tk.Toplevel):
 
                                 conn.commit()
                                 print(f"✅ Przywrócono dane launcher dla {len(launcher_db_files)} miejscowości")
+
+                                # Dodaj przywrócone miejscowości do listy
+                                for launcher_file in launcher_db_files:
+                                    with zf.open(launcher_file) as json_file:
+                                        location_data = json.load(json_file)
+                                    restored_locations.append(location_data['name'])
+
                         except Exception as e:
                             print(f"⚠️ Nie udało się przywrócić danych z bazy launcher: {e}")
+
+                    # Jeśli nie było launcher_db_files, ale są foldery miejscowości - zbierz je z ZIP
+                    if not launcher_db_files and has_location_folders:
+                        # Wykryj miejscowości z struktury folderów w ZIP
+                        location_folders = set()
+                        for filename in archive_contents:
+                            if '/' in filename and not filename.startswith('assets/'):
+                                location_name = filename.split('/')[0]
+                                if location_name:
+                                    location_folders.add(location_name)
+                        restored_locations.extend(list(location_folders))
                 else:
                     # Stary format - pliki bezpośrednio w root ZIP
                     # Wyodrębnij do aktywnej miejscowości
                     active_location_name = get_active_location_name()
                     if active_location_name:
                         target_folder = os.path.join(BACKUP_FOLDER, active_location_name)
+                        restored_locations.append(active_location_name)
                     else:
                         target_folder = BACKUP_FOLDER
 
@@ -6380,10 +6564,86 @@ class BackupManager(tk.Toplevel):
                             if related_filename in archive_contents:
                                 zf.extract(related_filename, path=target_folder)
 
-            messagebox.showinfo("✅ Sukces",
-                              "Kopia zapasowa została przywrócona.\n\n"
-                              "Uruchom ponownie edytory, aby zobaczyć zmiany.",
-                              parent=self)
+            # Zapytaj użytkownika czy chce zmigrować dane do PostgreSQL
+            migration_success = []
+            migration_errors = []
+
+            if restored_locations:
+                locations_list = "\n".join([f"  • {loc}" for loc in restored_locations])
+                migrate_msg = (
+                    f"✅ Kopia zapasowa została przywrócona.\n\n"
+                    f"Znaleziono dane dla miejscowości:\n{locations_list}\n\n"
+                    f"Czy chcesz automatycznie utworzyć bazy danych i zmigrować dane do PostgreSQL?"
+                )
+
+                if messagebox.askyesno("🔄 Migracja Danych", migrate_msg, icon="question", parent=self):
+                    # Stwórz okno z postępem migracji
+                    progress_window = tk.Toplevel(self)
+                    progress_window.title("🔄 Migracja Danych")
+                    progress_window.transient(self)
+                    progress_window.grab_set()
+
+                    x = self.winfo_x() + (self.winfo_width() - 600) // 2
+                    y = self.winfo_y() + (self.winfo_height() - 400) // 2
+                    progress_window.geometry(f"600x400+{x}+{y}")
+
+                    ttk.Label(progress_window, text="Migracja danych do PostgreSQL",
+                             font=("Segoe UI", 12, "bold")).pack(pady=10)
+
+                    progress_text = scrolledtext.ScrolledText(progress_window, height=15, width=70)
+                    progress_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+                    def log_progress(message):
+                        progress_text.insert(tk.END, message + "\n")
+                        progress_text.see(tk.END)
+                        progress_text.update()
+
+                    # Migruj każdą miejscowość
+                    for location_name in restored_locations:
+                        log_progress(f"\n{'='*50}")
+                        log_progress(f"📍 Miejscowość: {location_name}")
+                        log_progress(f"{'='*50}")
+
+                        success, msg = create_and_migrate_location_database(
+                            location_name,
+                            progress_callback=log_progress
+                        )
+
+                        if success:
+                            migration_success.append(location_name)
+                            log_progress(f"✅ {msg}")
+                        else:
+                            migration_errors.append((location_name, msg))
+                            log_progress(f"❌ {msg}")
+
+                    log_progress(f"\n{'='*50}")
+                    log_progress("📊 Podsumowanie migracji:")
+                    log_progress(f"  ✅ Sukces: {len(migration_success)}/{len(restored_locations)}")
+                    if migration_errors:
+                        log_progress(f"  ❌ Błędy: {len(migration_errors)}")
+                    log_progress(f"{'='*50}")
+
+                    # Ramka na przycisk
+                    button_frame = ttk.Frame(progress_window)
+                    button_frame.pack(pady=15)
+
+                    # Przycisk zamknięcia
+                    close_btn = ttk.Button(button_frame, text="✅ Zamknij",
+                                          command=progress_window.destroy,
+                                          style="Primary.TButton")
+                    close_btn.pack()
+
+                    progress_window.wait_window()
+
+            # Pokaż końcowy komunikat
+            final_msg = "Kopia zapasowa została przywrócona.\n\n"
+            if migration_success:
+                final_msg += f"✅ Zmigrowano dane dla: {', '.join(migration_success)}\n"
+            if migration_errors:
+                final_msg += f"\n⚠️ Błędy migracji dla: {', '.join([loc for loc, _ in migration_errors])}\n"
+            final_msg += "\nUruchom ponownie edytory, aby zobaczyć zmiany."
+
+            messagebox.showinfo("✅ Sukces", final_msg, parent=self)
         except Exception as e:
             messagebox.showerror("❌ Błąd", f"Wystąpił błąd:\n{e}", parent=self)
 
