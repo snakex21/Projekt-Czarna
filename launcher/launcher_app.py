@@ -1549,7 +1549,7 @@ ADMIN_PASSWORD_HASH=
 def setup_postgres_config():
     """
     Sprawdza czy plik .postgres.env istnieje.
-    Jeśli nie - pyta użytkownika o dane PostgreSQL i tworzy plik.
+    Jeśli nie - wyświetla okno z wymaganiem PostgreSQL i polem hasła z automatyczną walidacją.
     """
     # Sprawdź czy plik już istnieje
     if os.path.exists(POSTGRES_CONFIG_FILE):
@@ -1558,69 +1558,175 @@ def setup_postgres_config():
     print("⚠️ Brak pliku konfiguracji PostgreSQL (.postgres.env)")
     print("ℹ️ Launcher potrzebuje danych dostępu do PostgreSQL aby działać prawidłowo.")
 
-    # Importuj simpledialog tylko gdy potrzebne
-    from tkinter import simpledialog, messagebox
-
-    # Utwórz tymczasowe okno (niezbędne dla dialogów)
+    # Utwórz okno z konfiguracją PostgreSQL
     temp_root = tk.Tk()
     temp_root.withdraw()  # Ukryj główne okno
 
-    # Wyświetl informację
-    result = messagebox.askokcancel(
-        "🔧 Konfiguracja PostgreSQL - WYMAGANE",
-        "⚠️ Program wymaga PostgreSQL do działania!\n\n"
-        "Launcher nie znalazł konfiguracji PostgreSQL.\n\n"
-        "Aby połączyć się z bazą danych, musisz podać hasło do PostgreSQL.\n\n"
-        "Czy chcesz skonfigurować teraz?",
-        icon='warning'
-    )
+    # Zmienna do przechowania wyniku
+    config_result = {'success': False, 'password': None}
 
-    if not result:
-        temp_root.destroy()
-        print("❌ Pominięto konfigurację PostgreSQL. Program nie może działać bez PostgreSQL!")
+    # Utwórz dialog
+    dialog = tk.Toplevel(temp_root)
+    dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
+    dialog.geometry("500x250")
+    dialog.resizable(False, False)
+
+    # Wyśrodkuj okno
+    dialog.update_idletasks()
+    x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (250 // 2)
+    dialog.geometry(f"500x250+{x}+{y}")
+
+    # Zablokuj interakcję z innymi oknami
+    dialog.grab_set()
+    dialog.focus_force()
+
+    # Ramka główna
+    main_frame = tk.Frame(dialog, bg='white', padx=30, pady=20)
+    main_frame.pack(fill='both', expand=True)
+
+    # Komunikat o wymaganiu PostgreSQL
+    warning_frame = tk.Frame(main_frame, bg='#FFF3CD', relief='solid', borderwidth=1, padx=15, pady=10)
+    warning_frame.pack(fill='x', pady=(0, 20))
+
+    warning_label = tk.Label(
+        warning_frame,
+        text="⚠️ Program wymaga PostgreSQL do działania!",
+        font=('Segoe UI', 12, 'bold'),
+        bg='#FFF3CD',
+        fg='#856404',
+        justify='center'
+    )
+    warning_label.pack()
+
+    # Pole hasła
+    password_frame = tk.Frame(main_frame, bg='white')
+    password_frame.pack(fill='x', pady=(0, 15))
+
+    password_label = tk.Label(
+        password_frame,
+        text="Hasło do PostgreSQL (użytkownik 'postgres'):",
+        font=('Segoe UI', 10),
+        bg='white',
+        anchor='w'
+    )
+    password_label.pack(fill='x', pady=(0, 5))
+
+    password_entry = tk.Entry(
+        password_frame,
+        font=('Segoe UI', 11),
+        show='*',
+        relief='solid',
+        borderwidth=1
+    )
+    password_entry.pack(fill='x', ipady=5)
+    password_entry.focus()
+
+    # Status label
+    status_label = tk.Label(
+        main_frame,
+        text="",
+        font=('Segoe UI', 28),
+        bg='white',
+        height=2
+    )
+    status_label.pack()
+
+    # Timer do debounce
+    test_timer = None
+
+    def test_password():
+        """Testuje hasło i wyświetla wynik"""
+        nonlocal test_timer
+        test_timer = None
+
+        password = password_entry.get()
+        if not password:
+            status_label.config(text="", fg='black')
+            return
+
+        # Testuj połączenie
+        try:
+            import psycopg2
+            conn = psycopg2.connect(
+                host='localhost',
+                port=5432,
+                user='postgres',
+                password=password,
+                connect_timeout=3
+            )
+            conn.close()
+
+            # Sukces - pokaż zieloną fajkę
+            status_label.config(text="✓", fg='#28a745')
+
+            # Zapisz konfigurację
+            config_content = f"""# =============================================================================
+# KONFIGURACJA BAZY DANYCH POSTGRESQL DLA LAUNCHERA
+# =============================================================================
+LAUNCHER_DB_HOST=localhost
+LAUNCHER_DB_PORT=5432
+LAUNCHER_DB_USER=postgres
+LAUNCHER_DB_PASSWORD={password}
+"""
+            with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
+                f.write(config_content)
+
+            print(f"✅ Utworzono plik konfiguracji: {POSTGRES_CONFIG_FILE}")
+
+            # Wyczyść cache sprawdzania dostępności PostgreSQL
+            global POSTGRES_AVAILABLE
+            POSTGRES_AVAILABLE = None
+
+            config_result['success'] = True
+            config_result['password'] = password
+
+            # Po 1.5 sekundy zamknij okno
+            dialog.after(1500, dialog.destroy)
+
+        except Exception as e:
+            # Błąd - pokaż czerwony X
+            status_label.config(text="✗", fg='#dc3545')
+
+    def on_password_change(event=None):
+        """Wywoływane gdy użytkownik wpisuje hasło"""
+        nonlocal test_timer
+
+        # Anuluj poprzedni timer
+        if test_timer is not None:
+            dialog.after_cancel(test_timer)
+
+        password = password_entry.get()
+        if not password:
+            status_label.config(text="", fg='black')
+            return
+
+        # Ustaw nowy timer (debouncing - 1 sekunda)
+        test_timer = dialog.after(1000, test_password)
+
+    # Bind event do automatycznego testowania
+    password_entry.bind('<KeyRelease>', on_password_change)
+
+    # Obsługa zamknięcia okna (X w prawym górnym rogu)
+    def on_closing():
+        print("❌ Anulowano konfigurację PostgreSQL. Program nie może działać bez PostgreSQL!")
+        from tkinter import messagebox
         messagebox.showerror(
             "Błąd - PostgreSQL Wymagany",
             "Program wymaga PostgreSQL do działania.\n\n"
             "Bez konfiguracji bazy danych launcher nie może być uruchomiony.\n\n"
             "Zainstaluj PostgreSQL i uruchom program ponownie."
         )
-        sys.exit(1)  # Zakończ program
+        temp_root.destroy()
+        sys.exit(1)
 
-    # Zapytaj o hasło
-    password = simpledialog.askstring(
-        "Hasło PostgreSQL",
-        "Podaj hasło do użytkownika 'postgres' w PostgreSQL:",
-        show='*'
-    )
+    dialog.protocol("WM_DELETE_WINDOW", on_closing)
 
+    # Czekaj na zamknięcie okna
+    dialog.wait_window()
     temp_root.destroy()
 
-    if not password:
-        print("⚠️ Nie podano hasła. Program wymaga PostgreSQL do działania!")
-        return False
-
-    # Utwórz plik konfiguracji
-    try:
-        config_content = f"""LAUNCHER_DB_HOST=localhost
-LAUNCHER_DB_PORT=5432
-LAUNCHER_DB_USER=postgres
-LAUNCHER_DB_PASSWORD={password}
-"""
-
-        with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            f.write(config_content)
-
-        print(f"✅ Utworzono plik konfiguracji: {POSTGRES_CONFIG_FILE}")
-
-        # Wyczyść cache sprawdzania dostępności PostgreSQL
-        global POSTGRES_AVAILABLE
-        POSTGRES_AVAILABLE = None
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Błąd tworzenia pliku konfiguracji: {e}")
-        return False
+    return config_result['success']
 
 def _auto_sync_site_icon():
     """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę 
