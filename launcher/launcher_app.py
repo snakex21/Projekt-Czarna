@@ -642,130 +642,15 @@ def init_location_database(db_name):
 
 def migrate_sqlite_to_postgres():
     """
-    Migruje dane z locations.db (SQLite) do mapa_launcher_db (PostgreSQL).
+    [DEPRECATED - SQLite został usunięty z systemu]
+    Program działa tylko z PostgreSQL.
 
-    - Odczytuje wszystkie rekordy z SQLite
-    - Wstawia je do PostgreSQL (locations i history_photos)
-    - Obsługuje zarówno stary format (photo1/2) jak i nowy (history_photos JSON)
-
-    Returns:
-        tuple: (success: bool, message: str, migrated_count: int)
+    Jeśli potrzebujesz zmigrować stare dane SQLite:
+    1. Przywróć wcześniejszą wersję programu
+    2. Użyj funkcji migracji
+    3. Wróć do tej wersji
     """
-    try:
-        # Sprawdź czy plik SQLite istnieje
-        if not os.path.exists(LOCATIONS_DB_PATH):
-            return False, "Plik locations.db nie istnieje", 0
-
-        # Połącz się z SQLite
-        sqlite_conn = sqlite3.connect(LOCATIONS_DB_PATH)
-        sqlite_cursor = sqlite_conn.cursor()
-
-        # Pobierz wszystkie miejscowości
-        sqlite_cursor.execute("""
-            SELECT id, name, full_name, powiat, region, active,
-                   homepage_template, year, century,
-                   homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                   photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos
-            FROM locations
-        """)
-        locations = sqlite_cursor.fetchall()
-        sqlite_conn.close()
-
-        if not locations:
-            return False, "Brak danych w locations.db do migracji", 0
-
-        # Inicjalizuj PostgreSQL
-        if not init_postgres_locations_db():
-            return False, "Nie można zainicjalizować bazy PostgreSQL", 0
-
-        # Połącz się z PostgreSQL
-        pg_conn = get_launcher_postgres_connection()
-        pg_cursor = pg_conn.cursor()
-
-        migrated = 0
-        for loc in locations:
-            (sqlite_id, name, full_name, powiat, region, active,
-             homepage_template, year, century,
-             homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-             photo1_path, photo1_caption, photo2_path, photo2_caption, history_photos_json) = loc
-
-            # Sprawdź czy miejscowość już istnieje w PostgreSQL
-            pg_cursor.execute("SELECT id FROM locations WHERE name = %s", (name,))
-            existing = pg_cursor.fetchone()
-
-            if existing:
-                # Zaktualizuj istniejący rekord
-                location_id = existing[0]
-                pg_cursor.execute("""
-                    UPDATE locations SET
-                        full_name = %s, powiat = %s, region = %s, active = %s,
-                        homepage_template = %s, year = %s, century = %s,
-                        homepage_description = %s, history_paragraph1 = %s,
-                        history_paragraph2 = %s, history_paragraph3 = %s,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = %s
-                """, (full_name, powiat, region, bool(active),
-                      homepage_template, year, century,
-                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      location_id))
-            else:
-                # Wstaw nowy rekord
-                pg_cursor.execute("""
-                    INSERT INTO locations (name, full_name, powiat, region, active,
-                                          homepage_template, year, century,
-                                          homepage_description, history_paragraph1,
-                                          history_paragraph2, history_paragraph3)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                """, (name, full_name, powiat, region, bool(active),
-                      homepage_template, year, century,
-                      homepage_description, history_paragraph1, history_paragraph2, history_paragraph3))
-                location_id = pg_cursor.fetchone()[0]
-
-            # Migruj zdjęcia historyczne
-            # Usuń stare zdjęcia dla tej lokalizacji
-            pg_cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
-
-            # Parsuj history_photos z JSON
-            photos = []
-            if history_photos_json:
-                try:
-                    photos = json.loads(history_photos_json)
-                except:
-                    pass
-
-            # Jeśli brak photos w JSON, użyj starych pól photo1/2
-            if not photos:
-                if photo1_path:
-                    photos.append({
-                        "filename": os.path.basename(photo1_path),
-                        "caption": photo1_caption or "Historyczne zdjęcie."
-                    })
-                if photo2_path:
-                    photos.append({
-                        "filename": os.path.basename(photo2_path),
-                        "caption": photo2_caption or "Fragment dokumentacji."
-                    })
-
-            # Wstaw zdjęcia do tabeli history_photos
-            for idx, photo in enumerate(photos):
-                pg_cursor.execute("""
-                    INSERT INTO history_photos (location_id, filename, caption, order_index)
-                    VALUES (%s, %s, %s, %s)
-                """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
-
-            migrated += 1
-
-        pg_conn.commit()
-        pg_cursor.close()
-        pg_conn.close()
-
-        return True, f"Zmigrowano {migrated} miejscowości", migrated
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return False, f"Błąd migracji: {str(e)}", 0
+    return (False, "Migracja SQLite została wyłączona. Program działa tylko z PostgreSQL.", 0)
 
 
 # =============================================================================
@@ -773,158 +658,101 @@ def migrate_sqlite_to_postgres():
 # =============================================================================
 def init_locations_db():
     """
-    Inicjalizuje bazę danych miejscowości.
-    Próbuje PostgreSQL, jeśli nie działa - używa SQLite jako fallback.
+    Inicjalizuje bazę danych miejscowości - TYLKO PostgreSQL.
+    Jeśli PostgreSQL nie działa, program nie może działać.
     """
     # Sprawdź czy PostgreSQL jest dostępny
-    if check_postgres_available():
-        try:
-            init_postgres_locations_db()
-            return
-        except Exception as e:
-            print(f"⚠️ Błąd inicjalizacji PostgreSQL: {e}")
-            print("⚠️ Używam SQLite jako fallback...")
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        print("ℹ️ Program wymaga PostgreSQL. Skonfiguruj plik launcher/.postgres.env")
+        return
 
-    # Jeśli plik .postgres.env istnieje ale PostgreSQL nie działa,
-    # to znaczy że user ma PostgreSQL ale jest wyłączony - nie tworzymy SQLite
-    if os.path.exists(POSTGRES_CONFIG_FILE):
-        print("ℹ️ PostgreSQL jest skonfigurowany ale niedostępny. Sprawdź czy serwer PostgreSQL jest uruchomiony.")
-        return  # Nie twórz SQLite jako fallback
-
-    # Fallback do SQLite - TYLKO jeśli użytkownik nie ma w ogóle PostgreSQL skonfigurowanego
-    if not os.path.exists(LOCATIONS_DB_PATH):
-        print("ℹ️ PostgreSQL niedostępny. Utwórz plik .postgres.env w folderze launcher z hasłem do PostgreSQL.")
-        print(f"ℹ️ Tworzę nową bazę SQLite: {LOCATIONS_DB_PATH}")
-
-    # Inicjalizuj SQLite (kopia starej wersji)
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS locations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            powiat TEXT,
-            region TEXT,
-            active INTEGER DEFAULT 0,
-            homepage_template TEXT DEFAULT 'standardowy',
-            year TEXT DEFAULT '1882',
-            century TEXT DEFAULT 'XIX w.',
-            homepage_description TEXT,
-            history_paragraph1 TEXT,
-            history_paragraph2 TEXT,
-            history_paragraph3 TEXT,
-            history_photos TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+    try:
+        init_postgres_locations_db()
+        return
+    except Exception as e:
+        print(f"❌ Błąd inicjalizacji PostgreSQL: {e}")
+        print("ℹ️ Sprawdź czy serwer PostgreSQL jest uruchomiony i konfiguracja jest poprawna.")
+        raise
 
 def get_all_locations():
     """
-    Zwraca wszystkie miejscowości z bazy danych (PostgreSQL lub SQLite fallback).
+    Zwraca wszystkie miejscowości z bazy danych PostgreSQL.
 
     Returns:
         list of tuples: Lista miejscowości posortowana po nazwie
         Format tuple: (id, name, full_name, powiat, region, active, homepage_template, year, century,
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                      None, None, None, None, history_photos_json)
+                      postgres_db_name, history_photos)
     """
     init_locations_db()
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        return []
 
-            cursor.execute("""
-                SELECT
-                    l.id, l.name, l.full_name, l.powiat, l.region, l.active,
-                    l.homepage_template, l.year, l.century,
-                    l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
-                    l.postgres_db_name,
-                    COALESCE(
-                        (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
-                         FROM history_photos WHERE location_id = l.id),
-                        '[]'::json
-                    )::text as history_photos
-                FROM locations l
-                ORDER BY l.name
-            """)
-            locations = cursor.fetchall()
-            cursor.close()
-            conn.close()
-
-            # Format: (id, name, full_name, powiat, region, active, homepage_template, year, century,
-            #          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-            #          postgres_db_name, history_photos)
-            return locations
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-
-    # Fallback do SQLite
-    if os.path.exists(LOCATIONS_DB_PATH):
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    try:
+        conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
-        cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
-                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          history_photos
-                          FROM locations ORDER BY name""")
-        locations = cursor.fetchall()
-        conn.close()
-        # Dodaj pola None dla photo1/2
-        return [loc[:13] + (None, None, None, None, loc[13]) for loc in locations]
 
-    return []
+        cursor.execute("""
+            SELECT
+                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                l.homepage_template, l.year, l.century,
+                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                l.postgres_db_name,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                     FROM history_photos WHERE location_id = l.id),
+                    '[]'::json
+                )::text as history_photos
+            FROM locations l
+            ORDER BY l.name
+        """)
+        locations = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return locations
+    except Exception as e:
+        print(f"❌ PostgreSQL błąd: {e}")
+        return []
 
 def get_active_location():
-    """Zwraca aktywną miejscowość (PostgreSQL lub SQLite fallback)."""
+    """Zwraca aktywną miejscowość z PostgreSQL."""
     init_locations_db()
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        return None
 
-            cursor.execute("""
-                SELECT
-                    l.id, l.name, l.full_name, l.powiat, l.region, l.active,
-                    l.homepage_template, l.year, l.century,
-                    l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
-                    COALESCE(
-                        (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
-                         FROM history_photos WHERE location_id = l.id),
-                        '[]'::json
-                    )::text as history_photos
-                FROM locations l
-                WHERE l.active = true
-            """)
-            location = cursor.fetchone()
-            cursor.close()
-            conn.close()
-
-            if location:
-                return location[:13] + (None, None, None, None, location[13])
-            return None
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-
-    # Fallback do SQLite
-    if os.path.exists(LOCATIONS_DB_PATH):
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    try:
+        conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
-        cursor.execute("""SELECT id, name, full_name, powiat, region, active, homepage_template, year, century,
-                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          history_photos
-                          FROM locations WHERE active = 1""")
+
+        cursor.execute("""
+            SELECT
+                l.id, l.name, l.full_name, l.powiat, l.region, l.active,
+                l.homepage_template, l.year, l.century,
+                l.homepage_description, l.history_paragraph1, l.history_paragraph2, l.history_paragraph3,
+                COALESCE(
+                    (SELECT json_agg(json_build_object('filename', filename, 'caption', caption) ORDER BY order_index)
+                     FROM history_photos WHERE location_id = l.id),
+                    '[]'::json
+                )::text as history_photos
+            FROM locations l
+            WHERE l.active = true
+        """)
         location = cursor.fetchone()
+        cursor.close()
         conn.close()
+
         if location:
             return location[:13] + (None, None, None, None, location[13])
-
-    return None
+        return None
+    except Exception as e:
+        print(f"❌ PostgreSQL błąd: {e}")
+        return None
 
 def get_active_location_name():
     """Zwraca nazwę aktywnej miejscowości lub None."""
@@ -932,48 +760,34 @@ def get_active_location_name():
     return location[1] if location else None
 
 def set_active_location(location_id):
-    """Ustawia miejscowość jako aktywną (PostgreSQL lub SQLite fallback)."""
+    """Ustawia miejscowość jako aktywną w PostgreSQL."""
     init_locations_db()
+
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        return
 
     template = "standardowy"
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (location_id,))
-            result = cursor.fetchone()
-            template = result[0] if result and result[0] else "standardowy"
-
-            cursor.execute("UPDATE locations SET active = true WHERE id = %s", (location_id,))
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-            apply_homepage_template(template)
-            generate_location_config_js()
-            return
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-
-    # Fallback do SQLite
-    if os.path.exists(LOCATIONS_DB_PATH):
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    try:
+        conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT homepage_template FROM locations WHERE id = ?", (location_id,))
+        cursor.execute("SELECT homepage_template FROM locations WHERE id = %s", (location_id,))
         result = cursor.fetchone()
         template = result[0] if result and result[0] else "standardowy"
 
-        cursor.execute("UPDATE locations SET active = 0")
-        cursor.execute("UPDATE locations SET active = 1 WHERE id = ?", (location_id,))
+        cursor.execute("UPDATE locations SET active = false")  # Wyłącz wszystkie
+        cursor.execute("UPDATE locations SET active = true WHERE id = %s", (location_id,))
         conn.commit()
+        cursor.close()
         conn.close()
 
         apply_homepage_template(template)
         generate_location_config_js()
+    except Exception as e:
+        print(f"❌ PostgreSQL błąd: {e}")
+        raise
 
 def generate_location_config_js():
     """
@@ -1086,29 +900,23 @@ window.LOCATION_CONFIG = {{
         return False
 
 def set_location_template(location_id, template_name):
-    """Ustawia szablon strony głównej dla danej miejscowości (PostgreSQL lub SQLite fallback)."""
+    """Ustawia szablon strony głównej dla danej miejscowości w PostgreSQL."""
     init_locations_db()
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
-            cursor.execute("UPDATE locations SET homepage_template = %s WHERE id = %s", (template_name, location_id))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        return
 
-    # Fallback do SQLite
-    if os.path.exists(LOCATIONS_DB_PATH):
-        conn = sqlite3.connect(LOCATIONS_DB_PATH)
+    try:
+        conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE locations SET homepage_template = ? WHERE id = ?", (template_name, location_id))
+        cursor.execute("UPDATE locations SET homepage_template = %s WHERE id = %s", (template_name, location_id))
         conn.commit()
+        cursor.close()
         conn.close()
+    except Exception as e:
+        print(f"❌ PostgreSQL błąd: {e}")
+        raise
 
 def ensure_location_data_files(location_folder):
     """
@@ -1224,75 +1032,58 @@ ADMIN_PASSWORD_HASH=
         with open(env_path, 'w', encoding='utf-8') as f:
             f.write(default_env)
 
-    # Dodaj do bazy danych (PostgreSQL lub SQLite fallback)
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
+    # Dodaj do bazy danych PostgreSQL
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        raise RuntimeError("PostgreSQL jest wymagany do działania programu")
 
-            cursor.execute("""
-                INSERT INTO locations (name, full_name, powiat, region, active,
-                                      homepage_template, year, century,
-                                      homepage_description, history_paragraph1,
-                                      history_paragraph2, history_paragraph3, postgres_db_name)
-                VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-            """, (name, full_name, powiat, region, homepage_template, year, century,
-                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name))
-
-            location_id = cursor.fetchone()[0]
-
-            # Wstaw zdjęcia historyczne
-            for idx, photo in enumerate(history_photos):
-                cursor.execute("""
-                    INSERT INTO history_photos (location_id, filename, caption, order_index)
-                    VALUES (%s, %s, %s, %s)
-                """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
-
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-            # Automatycznie utwórz bazę danych dla miejscowości (jeśli podano nazwę)
-            if postgres_db_name:
-                print(f"📦 Tworzę bazę danych: {postgres_db_name}...")
-                success, msg = init_location_database(postgres_db_name)
-                if success:
-                    print(msg)
-                else:
-                    print(f"⚠️ {msg}")
-
-            return location_id
-
-        except psycopg2.IntegrityError:
-            if 'conn' in locals():
-                conn.close()
-            raise ValueError(f"Miejscowość '{name}' już istnieje")
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-            if 'conn' in locals():
-                conn.close()
-
-    # Fallback do SQLite
-    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
     try:
-        cursor.execute("""INSERT INTO locations (name, full_name, powiat, region, active, homepage_template, year, century,
-                          homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                          history_photos)
-                          VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                      (name, full_name, powiat, region, homepage_template, year, century,
-                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       history_photos_json))
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO locations (name, full_name, powiat, region, active,
+                                  homepage_template, year, century,
+                                  homepage_description, history_paragraph1,
+                                  history_paragraph2, history_paragraph3, postgres_db_name)
+            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (name, full_name, powiat, region, homepage_template, year, century,
+              homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name))
+
+        location_id = cursor.fetchone()[0]
+
+        # Wstaw zdjęcia historyczne
+        for idx, photo in enumerate(history_photos):
+            cursor.execute("""
+                INSERT INTO history_photos (location_id, filename, caption, order_index)
+                VALUES (%s, %s, %s, %s)
+            """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
+
         conn.commit()
-        location_id = cursor.lastrowid
+        cursor.close()
         conn.close()
+
+        # Automatycznie utwórz bazę danych dla miejscowości (jeśli podano nazwę)
+        if postgres_db_name:
+            print(f"📦 Tworzę bazę danych: {postgres_db_name}...")
+            success, msg = init_location_database(postgres_db_name)
+            if success:
+                print(msg)
+            else:
+                print(f"⚠️ {msg}")
+
         return location_id
-    except sqlite3.IntegrityError:
-        conn.close()
+
+    except psycopg2.IntegrityError:
+        if 'conn' in locals():
+            conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
+    except Exception as e:
+        if 'conn' in locals():
+            conn.close()
+        print(f"❌ PostgreSQL błąd: {e}")
+        raise
 
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
@@ -1321,94 +1112,64 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
     if history_photos is None:
         history_photos = []
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("SELECT name FROM locations WHERE id = %s", (location_id,))
-            result = cursor.fetchone()
-            if not result:
-                cursor.close()
-                conn.close()
-                raise ValueError("Miejscowość nie istnieje")
-
-            old_name = result[0]
-
-            # Zmień nazwę folderu jeśli nazwa się zmieniła
-            if old_name != name:
-                old_folder = os.path.join(BACKUP_FOLDER, old_name)
-                new_folder = os.path.join(BACKUP_FOLDER, name)
-                if os.path.exists(old_folder):
-                    os.rename(old_folder, new_folder)
-
-            cursor.execute("""
-                UPDATE locations SET
-                    name = %s, full_name = %s, powiat = %s, region = %s,
-                    year = %s, century = %s,
-                    homepage_description = %s, history_paragraph1 = %s,
-                    history_paragraph2 = %s, history_paragraph3 = %s,
-                    postgres_db_name = %s, homepage_template = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-            """, (name, full_name, powiat, region, year, century,
-                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                  postgres_db_name, homepage_template, location_id))
-
-            cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
-            for idx, photo in enumerate(history_photos):
-                cursor.execute("""
-                    INSERT INTO history_photos (location_id, filename, caption, order_index)
-                    VALUES (%s, %s, %s, %s)
-                """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
-
-            conn.commit()
-            cursor.close()
-            conn.close()
-            return
-
-        except psycopg2.IntegrityError:
-            if 'conn' in locals():
-                conn.close()
-            raise ValueError(f"Miejscowość '{name}' już istnieje")
-        except Exception as e:
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-            if 'conn' in locals():
-                conn.close()
-
-    # Fallback do SQLite
-    history_photos_json = json.dumps(history_photos, ensure_ascii=False)
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT name FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
-        conn.close()
-        raise ValueError("Miejscowość nie istnieje")
-
-    old_name = result[0]
-
-    if old_name != name:
-        old_folder = os.path.join(BACKUP_FOLDER, old_name)
-        new_folder = os.path.join(BACKUP_FOLDER, name)
-        if os.path.exists(old_folder):
-            os.rename(old_folder, new_folder)
+    # PostgreSQL TYLKO
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        raise RuntimeError("PostgreSQL jest wymagany do działania programu")
 
     try:
-        cursor.execute("""UPDATE locations SET name = ?, full_name = ?, powiat = ?, region = ?, year = ?, century = ?,
-                          homepage_description = ?, history_paragraph1 = ?, history_paragraph2 = ?, history_paragraph3 = ?,
-                          history_photos = ?
-                          WHERE id = ?""",
-                      (name, full_name, powiat, region, year, century,
-                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       history_photos_json, location_id))
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT name FROM locations WHERE id = %s", (location_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            raise ValueError("Miejscowość nie istnieje")
+
+        old_name = result[0]
+
+        # Zmień nazwę folderu jeśli nazwa się zmieniła
+        if old_name != name:
+            old_folder = os.path.join(BACKUP_FOLDER, old_name)
+            new_folder = os.path.join(BACKUP_FOLDER, name)
+            if os.path.exists(old_folder):
+                os.rename(old_folder, new_folder)
+
+        cursor.execute("""
+            UPDATE locations SET
+                name = %s, full_name = %s, powiat = %s, region = %s,
+                year = %s, century = %s,
+                homepage_description = %s, history_paragraph1 = %s,
+                history_paragraph2 = %s, history_paragraph3 = %s,
+                postgres_db_name = %s, homepage_template = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (name, full_name, powiat, region, year, century,
+              homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+              postgres_db_name, homepage_template, location_id))
+
+        cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
+        for idx, photo in enumerate(history_photos):
+            cursor.execute("""
+                INSERT INTO history_photos (location_id, filename, caption, order_index)
+                VALUES (%s, %s, %s, %s)
+            """, (location_id, photo.get('filename', ''), photo.get('caption', ''), idx))
+
         conn.commit()
+        cursor.close()
         conn.close()
-    except sqlite3.IntegrityError:
-        conn.close()
+
+    except psycopg2.IntegrityError:
+        if 'conn' in locals():
+            conn.close()
         raise ValueError(f"Miejscowość '{name}' już istnieje")
+    except Exception as e:
+        if 'conn' in locals():
+            conn.close()
+        print(f"❌ PostgreSQL błąd: {e}")
+        raise
 
 def delete_location(location_id):
     """
@@ -1422,65 +1183,45 @@ def delete_location(location_id):
     """
     init_locations_db()
 
-    # Próbuj PostgreSQL
-    if check_postgres_available():
-        try:
-            conn = get_launcher_postgres_connection()
-            cursor = conn.cursor()
+    # PostgreSQL TYLKO
+    if not check_postgres_available():
+        print("❌ PostgreSQL nie jest dostępny!")
+        raise RuntimeError("PostgreSQL jest wymagany do działania programu")
 
-            cursor.execute("SELECT name, active FROM locations WHERE id = %s", (location_id,))
-            result = cursor.fetchone()
-            if not result:
-                cursor.close()
-                conn.close()
-                raise ValueError("Miejscowość nie istnieje")
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
 
-            name, active = result
-
-            if active:
-                cursor.close()
-                conn.close()
-                raise ValueError("Nie można usunąć aktywnej miejscowości")
-
-            location_folder = os.path.join(BACKUP_FOLDER, name)
-            if os.path.exists(location_folder):
-                shutil.rmtree(location_folder)
-
-            cursor.execute("DELETE FROM locations WHERE id = %s", (location_id,))
-            conn.commit()
+        cursor.execute("SELECT name, active FROM locations WHERE id = %s", (location_id,))
+        result = cursor.fetchone()
+        if not result:
             cursor.close()
             conn.close()
-            return
+            raise ValueError("Miejscowość nie istnieje")
 
-        except Exception as e:
-            if 'conn' in locals():
-                conn.close()
-            if isinstance(e, ValueError):
-                raise
-            print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
+        name, active = result
 
-    # Fallback do SQLite
-    conn = sqlite3.connect(LOCATIONS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name, active FROM locations WHERE id = ?", (location_id,))
-    result = cursor.fetchone()
-    if not result:
+        if active:
+            cursor.close()
+            conn.close()
+            raise ValueError("Nie można usunąć aktywnej miejscowości")
+
+        location_folder = os.path.join(BACKUP_FOLDER, name)
+        if os.path.exists(location_folder):
+            shutil.rmtree(location_folder)
+
+        cursor.execute("DELETE FROM locations WHERE id = %s", (location_id,))
+        conn.commit()
+        cursor.close()
         conn.close()
-        raise ValueError("Miejscowość nie istnieje")
 
-    name, active = result
-
-    if active:
-        conn.close()
-        raise ValueError("Nie można usunąć aktywnej miejscowości")
-
-    location_folder = os.path.join(BACKUP_FOLDER, name)
-    if os.path.exists(location_folder):
-        shutil.rmtree(location_folder)
-
-    cursor.execute("DELETE FROM locations WHERE id = ?", (location_id,))
-    conn.commit()
-    conn.close()
+    except Exception as e:
+        if 'conn' in locals():
+            conn.close()
+        if isinstance(e, ValueError):
+            raise
+        print(f"❌ PostgreSQL błąd: {e}")
+        raise
 
 def ensure_default_location_exists():
     """Upewnia się, że istnieje domyślna miejscowość."""
@@ -2069,22 +1810,78 @@ class AppLauncher(tk.Tk):
         setup_postgres_config()
 
         # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
-        auto_initialize_on_startup()
+        # Zwraca loading_dialog jeśli było coś do zrobienia, None jeśli nie
+        loading_dialog = auto_initialize_on_startup()
+
+        # Kontynuuj inicjalizację z oknem ładowania (jeśli istnieje)
+        if loading_dialog:
+            loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
 
         check_env_configuration()
         check_backup_folder_files()
+
+        if loading_dialog:
+            loading_dialog.update_status("Synchronizacja ikon...", "Favicon i zasoby")
+
         _auto_sync_site_icon()
 
         # Automatycznie odśwież strony HTML z placeholderami
+        if loading_dialog:
+            loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
+
         self.refresh_html_pages()
 
         # Upewnij się, że location-config.js istnieje
+        if loading_dialog:
+            loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
+
         try:
             generate_location_config_js()
         except Exception as e:
             print(f"⚠️ Błąd podczas generowania location-config.js: {e}")
             import traceback
             traceback.print_exc()
+
+        # Zamknij okno ładowania (jeśli było) i pokaż podsumowanie
+        if loading_dialog:
+            loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
+            import time
+            time.sleep(0.5)
+            loading_dialog.close()
+
+            # Pokaż podsumowanie inicjalizacji
+            if hasattr(loading_dialog, 'init_summary'):
+                summary = loading_dialog.init_summary
+                if summary['created_launcher'] or summary['created_czarna_location'] or \
+                   summary['created_czarna_db'] or summary['migrated_data']:
+
+                    message = "🎉 System jest gotowy do użycia!\n\n"
+
+                    if summary['created_launcher']:
+                        message += "✅ Utworzono bazę mapa_launcher_db\n"
+                    else:
+                        message += "✅ Baza mapa_launcher_db gotowa\n"
+
+                    if summary['created_czarna_location']:
+                        message += "✅ Utworzono miejscowość 'Czarna'\n"
+                    else:
+                        message += "✅ Miejscowość 'Czarna' gotowa\n"
+
+                    if summary['created_czarna_db']:
+                        message += "✅ Utworzono bazę mapa_czarna_db\n"
+                    else:
+                        message += "✅ Baza mapa_czarna_db gotowa\n"
+
+                    if summary['migrated_data']:
+                        message += "✅ Dane zmigrowane z backup/Czarna\n"
+
+                    message += "\n💡 Możesz teraz:\n"
+                    message += "• Włączyć serwer i zobaczyć mapę\n"
+                    message += "• Edytować dane właścicieli\n"
+                    message += "• Kalibrować mapę\n"
+                    message += "• Zarządzać miejscowościami"
+
+                    messagebox.showinfo("System gotowy!", message)
 
         self.create_widgets()
         self._last_port = self.load_flask_config().get("port")
@@ -2947,105 +2744,8 @@ if __name__ == '__main__':
 # MIGRACJA DANYCH
 # =============================================================================
 
-def migrate_sqlite_to_postgres():
-    """
-    Migruje dane miejscowości z SQLite do PostgreSQL.
-
-    Returns:
-        (success, message) - tuple z wynikiem i komunikatem
-    """
-    # Sprawdź czy PostgreSQL jest dostępny
-    if not check_postgres_available():
-        return (False, "PostgreSQL nie jest skonfigurowany.\nUtwórz plik launcher/.postgres.env z danymi dostępu.")
-
-    # Sprawdź czy baza mapa_launcher_db istnieje
-    config = get_postgres_config()
-    if not postgres_database_exists(**config, db_name='mapa_launcher_db'):
-        return (False, "Baza mapa_launcher_db nie istnieje.\nUruchom kreator bazy danych.")
-
-    # Sprawdź czy istnieje plik SQLite
-    if not os.path.exists(LOCATIONS_DB_PATH):
-        return (False, "Brak pliku locations.db do migracji.")
-
-    try:
-        # Połącz z SQLite
-        conn_sqlite = sqlite3.connect(LOCATIONS_DB_PATH)
-        cursor_sqlite = conn_sqlite.cursor()
-
-        # Pobierz wszystkie miejscowości z SQLite
-        cursor_sqlite.execute("""
-            SELECT name, full_name, powiat, region, active,
-                   homepage_template, year, century,
-                   homepage_description, history_paragraph1,
-                   history_paragraph2, history_paragraph3,
-                   history_photos
-            FROM locations
-        """)
-
-        locations = cursor_sqlite.fetchall()
-        conn_sqlite.close()
-
-        if not locations:
-            return (False, "Brak miejscowości do migracji w SQLite.")
-
-        # Połącz z PostgreSQL
-        import psycopg2
-        conn_pg = psycopg2.connect(
-            host=config['host'],
-            port=config['port'],
-            user=config['user'],
-            password=config['password'],
-            database='mapa_launcher_db'
-        )
-        cursor_pg = conn_pg.cursor()
-
-        migrated = 0
-        skipped = 0
-
-        # Migruj każdą miejscowość
-        for loc in locations:
-            name, full_name, powiat, region, active, homepage_template, year, century, \
-            homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, \
-            history_photos = loc
-
-            # Sprawdź czy miejscowość już istnieje
-            cursor_pg.execute("SELECT id FROM locations WHERE name = %s", (name,))
-            if cursor_pg.fetchone():
-                skipped += 1
-                continue
-
-            # Wstaw miejscowość
-            cursor_pg.execute("""
-                INSERT INTO locations (name, full_name, powiat, region, active,
-                                     homepage_template, year, century,
-                                     homepage_description, history_paragraph1,
-                                     history_paragraph2, history_paragraph3,
-                                     history_photos, postgres_db_name)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (name, full_name, powiat, region, active, homepage_template, year, century,
-                  homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                  history_photos, ""))  # postgres_db_name na razie puste
-
-            migrated += 1
-
-        conn_pg.commit()
-        cursor_pg.close()
-        conn_pg.close()
-
-        msg = f"✅ Migracja zakończona!\n\n"
-        msg += f"Zmigrowano: {migrated} miejscowości\n"
-        if skipped > 0:
-            msg += f"Pominięto (już istnieją): {skipped} miejscowości\n"
-        msg += f"\n⚠️ Po migracji możesz usunąć plik locations.db"
-
-        # Ustaw globalną zmienną aby system używał PostgreSQL
-        global POSTGRES_AVAILABLE
-        POSTGRES_AVAILABLE = True
-
-        return (True, msg)
-
-    except Exception as e:
-        return (False, f"Błąd migracji: {e}")
+# [DUPLICATE FUNCTION REMOVED - see line 643]
+# migrate_sqlite_to_postgres() is defined earlier in the file
 
 # =============================================================================
 # KLASY OKIEN DIALOGOWYCH
@@ -3129,9 +2829,6 @@ class LocationManager(tk.Toplevel):
         ttk.Button(buttons_frame, text="🔄 Odśwież", command=self.refresh_table,
                   style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(buttons_frame, text="⬆️ Migruj do PostgreSQL", command=self.migrate_to_postgres,
-                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
-
     def refresh_table(self):
         """Odświeża tabelkę z miejscowościami."""
         # Wyczyść tabelę
@@ -3186,68 +2883,59 @@ class LocationManager(tk.Toplevel):
         values = self.tree.item(selected[0], "values")
         loc_id = values[0]
 
-        # Pobierz pełne dane z bazy danych (PostgreSQL lub SQLite fallback)
+        # Pobierz pełne dane z bazy danych PostgreSQL
         name = full_name = powiat = region = year = century = ""
         homepage_desc = history_p1 = history_p2 = history_p3 = ""
         history_photos_json = "[]"
         postgres_db_name = ""
         homepage_template = "standardowy"
 
-        # Próbuj PostgreSQL
-        if check_postgres_available():
-            try:
-                conn = get_launcher_postgres_connection()
-                cursor = conn.cursor()
+        if not check_postgres_available():
+            messagebox.showerror("❌ Błąd", "PostgreSQL nie jest dostępny!", parent=self)
+            return
 
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT name, full_name, powiat, region, year, century,
+                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
+                       postgres_db_name, homepage_template
+                FROM locations WHERE id = %s
+            """, (loc_id,))
+            result = cursor.fetchone()
+
+            if result:
+                (name, full_name, powiat, region, year, century,
+                 homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template) = result
+                postgres_db_name = postgres_db_name or ""
+                homepage_template = homepage_template or "standardowy"
+
+                # Pobierz zdjęcia historyczne
                 cursor.execute("""
-                    SELECT name, full_name, powiat, region, year, century,
-                           homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                           postgres_db_name, homepage_template
-                    FROM locations WHERE id = %s
+                    SELECT filename, caption
+                    FROM history_photos
+                    WHERE location_id = %s
+                    ORDER BY order_index
                 """, (loc_id,))
-                result = cursor.fetchone()
-
-                if result:
-                    (name, full_name, powiat, region, year, century,
-                     homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template) = result
-                    postgres_db_name = postgres_db_name or ""
-                    homepage_template = homepage_template or "standardowy"
-
-                    # Pobierz zdjęcia historyczne
-                    cursor.execute("""
-                        SELECT filename, caption
-                        FROM history_photos
-                        WHERE location_id = %s
-                        ORDER BY order_index
-                    """, (loc_id,))
-                    photos_rows = cursor.fetchall()
-                    history_photos_json = json.dumps([
-                        {"filename": row[0], "caption": row[1]}
-                        for row in photos_rows
-                    ], ensure_ascii=False)
-
+                photos_rows = cursor.fetchall()
+                history_photos_json = json.dumps([
+                    {"filename": row[0], "caption": row[1]}
+                    for row in photos_rows
+                ], ensure_ascii=False)
+            else:
+                messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
                 cursor.close()
                 conn.close()
-            except Exception as e:
-                print(f"❌ PostgreSQL błąd: {e}, używam SQLite...")
-
-        # Fallback do SQLite (lub jeśli PostgreSQL nie miał danych)
-        if not name and os.path.exists(LOCATIONS_DB_PATH):
-            conn = sqlite3.connect(LOCATIONS_DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute("""SELECT name, full_name, powiat, region, year, century,
-                              homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                              history_photos
-                              FROM locations WHERE id = ?""", (loc_id,))
-            result = cursor.fetchone()
-            conn.close()
-
-            if not result:
-                messagebox.showerror("❌ Błąd", "Nie znaleziono miejscowości", parent=self)
                 return
 
-            (name, full_name, powiat, region, year, century,
-             homepage_desc, history_p1, history_p2, history_p3, history_photos_json) = result
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print(f"❌ PostgreSQL błąd: {e}")
+            messagebox.showerror("❌ Błąd", f"Błąd podczas pobierania danych: {e}", parent=self)
+            return
 
         # Ustaw domyślne wartości jeśli None
         year = year or "1882"
@@ -3344,30 +3032,6 @@ class LocationManager(tk.Toplevel):
         messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}\nZastosowano szablon strony dla tej miejscowości.", parent=self)
         self.refresh_table()
 
-    def migrate_to_postgres(self):
-        """Migruje dane z SQLite do PostgreSQL."""
-        # Pokaż dialog potwierdzenia
-        confirm = messagebox.askyesno(
-            "Migracja SQLite → PostgreSQL",
-            "Czy chcesz przenieść dane miejscowości z SQLite do PostgreSQL?\n\n"
-            "Upewnij się, że:\n"
-            "1. PostgreSQL jest skonfigurowany (.postgres.env)\n"
-            "2. Baza mapa_launcher_db istnieje\n\n"
-            "Operacja nie usuwa pliku locations.db.",
-            parent=self
-        )
-
-        if not confirm:
-            return
-
-        # Wykonaj migrację
-        success, msg = migrate_sqlite_to_postgres()
-
-        if success:
-            messagebox.showinfo("✅ Sukces", msg, parent=self)
-            self.refresh_table()
-        else:
-            messagebox.showerror("❌ Błąd", msg, parent=self)
 
 
 class TemplateChangeDialog(tk.Toplevel):
@@ -3573,21 +3237,24 @@ def auto_initialize_on_startup():
     5. Dane są zmigrowane
 
     Jeśli czegoś brakuje - automatycznie tworzy i pokazuje okno informacyjne.
+
+    Returns:
+        LoadingDialog lub None - okno ładowania jeśli była inicjalizacja, None jeśli nie
     """
     # Sprawdź czy .postgres.env istnieje i ma hasło
     if not os.path.exists(POSTGRES_CONFIG_FILE):
-        return  # Brak konfiguracji - user musi najpierw wpisać hasło
+        return None  # Brak konfiguracji - user musi najpierw wpisać hasło
 
     config = get_postgres_config()
     if not config.get('password'):
-        return  # Brak hasła - nie można się połączyć
+        return None  # Brak hasła - nie można się połączyć
 
     # Szybkie sprawdzenie czy jest coś do zrobienia (bez tworzenia okna)
     try:
         success, msg = test_postgres_connection(**config)
         if not success:
             print(f"⚠️ Nie można połączyć się z PostgreSQL: {msg}")
-            return
+            return None
 
         # Sprawdź co trzeba zrobić
         needs_work = False
@@ -3616,11 +3283,11 @@ def auto_initialize_on_startup():
         # Jeśli nie ma nic do zrobienia - wyjdź
         if not needs_work:
             print("ℹ️ System już jest skonfigurowany")
-            return
+            return None
 
     except Exception as e:
         print(f"⚠️ Błąd sprawdzania: {e}")
-        return
+        return None
 
     # Jeśli jest coś do zrobienia - pokaż okno ładowania i wykonaj
     loading_dialog = LoadingDialog()
@@ -3730,48 +3397,18 @@ def auto_initialize_on_startup():
             except Exception as e:
                 print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
 
-        # Finalizacja - daj użytkownikowi czas zobaczyć że wszystko gotowe
-        loading_dialog.update_status("Finalizowanie...", "Konfiguracja systemu - jeszcze chwila...")
+        # Zapisz informacje o tym co zostało zrobione (do pokazania później)
+        loading_dialog.init_summary = {
+            'created_launcher': created_launcher,
+            'created_czarna_location': created_czarna_location,
+            'created_czarna_db': created_czarna_db,
+            'migrated_data': migrated_data
+        }
 
-        # Małe opóźnienie żeby user widział że wszystko się kończy
-        import time
-        time.sleep(1)
+        print("✅ Automatyczna inicjalizacja zakończona pomyślnie")
 
-        # Zamknij okno ładowania
-        loading_dialog.close()
-
-        # 5. Wyświetl okno informacyjne jeśli coś zostało zrobione
-        if created_launcher or created_czarna_location or created_czarna_db or migrated_data:
-            message = "🎉 System jest gotowy do użycia!\n\n"
-
-            if created_launcher:
-                message += "✅ Utworzono bazę mapa_launcher_db\n"
-            else:
-                message += "✅ Baza mapa_launcher_db gotowa\n"
-
-            if created_czarna_location:
-                message += "✅ Utworzono miejscowość 'Czarna'\n"
-            else:
-                message += "✅ Miejscowość 'Czarna' gotowa\n"
-
-            if created_czarna_db:
-                message += "✅ Utworzono bazę mapa_czarna_db\n"
-            else:
-                message += "✅ Baza mapa_czarna_db gotowa\n"
-
-            if migrated_data:
-                message += "✅ Dane zmigrowane z backup/Czarna\n"
-
-            message += "\n💡 Możesz teraz:\n"
-            message += "• Włączyć serwer i zobaczyć mapę\n"
-            message += "• Edytować dane właścicieli\n"
-            message += "• Kalibrować mapę\n"
-            message += "• Zarządzać miejscowościami"
-
-            messagebox.showinfo("System gotowy!", message)
-            print("✅ Automatyczna inicjalizacja zakończona pomyślnie")
-        else:
-            print("ℹ️ System już jest skonfigurowany")
+        # Zwróć loading_dialog - zostanie zamknięty później w __init__
+        return loading_dialog
 
     except Exception as e:
         # Zamknij okno ładowania w przypadku błędu
@@ -3780,6 +3417,7 @@ def auto_initialize_on_startup():
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
         import traceback
         traceback.print_exc()
+        return None
 
 
 def auto_migrate_data_function(backup_folder):
