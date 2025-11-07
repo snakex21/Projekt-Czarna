@@ -1818,9 +1818,20 @@ def serve_history_photos(filename):
     # Ścieżka do zdjęć historycznych aktywnej miejscowości
     history_photos_path = os.path.join(base_dir, "backup", location_name, "history_photos")
 
+    # Automatycznie utwórz folder jeśli nie istnieje
     if not os.path.exists(history_photos_path):
-        print(f"❌ Folder history_photos nie istnieje: {history_photos_path}")
-        return "Folder history_photos nie istnieje", 404
+        try:
+            os.makedirs(history_photos_path, exist_ok=True)
+            print(f"✅ Utworzono folder history_photos: {history_photos_path}")
+        except Exception as e:
+            print(f"❌ Błąd podczas tworzenia folderu history_photos: {e}")
+            return "Nie można utworzyć folderu history_photos", 500
+
+    # Sprawdź czy plik istnieje
+    file_path = os.path.join(history_photos_path, filename)
+    if not os.path.exists(file_path):
+        print(f"❌ Plik nie znaleziony: {file_path}")
+        return "Plik nie znaleziony", 404
 
     return send_from_directory(history_photos_path, filename)
 
