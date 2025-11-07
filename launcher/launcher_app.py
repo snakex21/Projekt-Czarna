@@ -1265,6 +1265,20 @@ def delete_location(location_id):
         print(f"❌ PostgreSQL błąd: {e}")
         raise
 
+def load_default_location_config():
+    """Wczytuje konfigurację domyślnej lokalizacji z pliku JSON."""
+    config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
+    try:
+        with open(config_file, 'r', encoding='utf-8') as f:
+            launcher_config = json.load(f)
+            return launcher_config.get('default_location', {})
+    except FileNotFoundError:
+        print("⚠️ Brak pliku launcher_db_config.json, używam domyślnych wartości")
+        return {}
+    except Exception as e:
+        print(f"⚠️ Błąd wczytywania konfiguracji: {e}, używam domyślnych wartości")
+        return {}
+
 def ensure_default_location_exists():
     """Upewnia się, że istnieje domyślna miejscowość."""
     init_locations_db()
@@ -1279,10 +1293,25 @@ def ensure_default_location_exists():
             set_active_location(locations[0][0])
         return
 
-    # Utwórz domyślną miejscowość "Czarna"
-    default_name = "Czarna"
+    # Utwórz domyślną miejscowość używając konfiguracji z JSON
+    default_loc = load_default_location_config()
+    default_name = default_loc.get('name', 'Czarna')
     try:
-        location_id = add_location(default_name, "Czarna", "", "")
+        location_id = add_location(
+            name=default_loc.get('name', 'Czarna'),
+            full_name=default_loc.get('full_name', 'Czarna'),
+            powiat=default_loc.get('powiat', ''),
+            region=default_loc.get('region', ''),
+            homepage_template=default_loc.get('homepage_template', 'standardowy'),
+            year=default_loc.get('year', '1882'),
+            century=default_loc.get('century', 'XIX w.'),
+            homepage_description=default_loc.get('homepage_description', ''),
+            history_paragraph1=default_loc.get('history_paragraph1', ''),
+            history_paragraph2=default_loc.get('history_paragraph2', ''),
+            history_paragraph3=default_loc.get('history_paragraph3', ''),
+            history_photos=default_loc.get('history_photos', []),
+            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+        )
         set_active_location(location_id)
         print(f"✓ Utworzono domyślną miejscowość: {default_name}")
     except Exception as e:
@@ -1360,8 +1389,23 @@ def migrate_old_backup_structure():
             shutil.copy2(old_env_path, new_env_path)
             print(f"✅ Skopiowano: .env")
 
-        # Dodaj miejscowość do bazy danych
-        add_location(default_location_name, "Czarna", "", "")
+        # Dodaj miejscowość do bazy danych używając konfiguracji z JSON
+        default_loc = load_default_location_config()
+        add_location(
+            name=default_loc.get('name', 'Czarna'),
+            full_name=default_loc.get('full_name', 'Czarna'),
+            powiat=default_loc.get('powiat', ''),
+            region=default_loc.get('region', ''),
+            homepage_template=default_loc.get('homepage_template', 'standardowy'),
+            year=default_loc.get('year', '1882'),
+            century=default_loc.get('century', 'XIX w.'),
+            homepage_description=default_loc.get('homepage_description', ''),
+            history_paragraph1=default_loc.get('history_paragraph1', ''),
+            history_paragraph2=default_loc.get('history_paragraph2', ''),
+            history_paragraph3=default_loc.get('history_paragraph3', ''),
+            history_photos=default_loc.get('history_photos', []),
+            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+        )
         set_active_location(1)  # Ustaw jako aktywną (pierwsze ID to 1)
 
         print(f"✅ Migracja zakończona! Utworzono miejscowość: {default_location_name}")
@@ -3567,34 +3611,24 @@ def auto_initialize_on_startup(loading_dialog):
             print("📍 Tworzę domyślną miejscowość 'Czarna'...")
 
             # Wczytaj konfigurację z pliku JSON
-            config_file = os.path.join(BASE_DIR, "backup", "Czarna", "launcher_db_config.json")
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    launcher_config = json.load(f)
-                    default_loc = launcher_config.get('default_location', {})
+            default_loc = load_default_location_config()
 
-                    add_location(
-                        name=default_loc.get('name', 'Czarna'),
-                        full_name=default_loc.get('full_name', 'Czarna'),
-                        powiat=default_loc.get('powiat', ''),
-                        region=default_loc.get('region', ''),
-                        homepage_template=default_loc.get('homepage_template', 'standardowy'),
-                        year=default_loc.get('year', '1882'),
-                        century=default_loc.get('century', 'XIX w.'),
-                        homepage_description=default_loc.get('homepage_description', ''),
-                        history_paragraph1=default_loc.get('history_paragraph1', ''),
-                        history_paragraph2=default_loc.get('history_paragraph2', ''),
-                        history_paragraph3=default_loc.get('history_paragraph3', ''),
-                        history_photos=default_loc.get('history_photos', []),
-                        postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
-                    )
-                    print("✅ Wczytano konfigurację z launcher_db_config.json")
-            except FileNotFoundError:
-                print("⚠️ Brak pliku launcher_db_config.json, używam domyślnych wartości")
-                add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
-            except Exception as e:
-                print(f"⚠️ Błąd wczytywania konfiguracji: {e}, używam domyślnych wartości")
-                add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+            add_location(
+                name=default_loc.get('name', 'Czarna'),
+                full_name=default_loc.get('full_name', 'Czarna'),
+                powiat=default_loc.get('powiat', ''),
+                region=default_loc.get('region', ''),
+                homepage_template=default_loc.get('homepage_template', 'standardowy'),
+                year=default_loc.get('year', '1882'),
+                century=default_loc.get('century', 'XIX w.'),
+                homepage_description=default_loc.get('homepage_description', ''),
+                history_paragraph1=default_loc.get('history_paragraph1', ''),
+                history_paragraph2=default_loc.get('history_paragraph2', ''),
+                history_paragraph3=default_loc.get('history_paragraph3', ''),
+                history_photos=default_loc.get('history_photos', []),
+                postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+            )
+            print("✅ Wczytano konfigurację z launcher_db_config.json")
 
             created_czarna_location = True
 
