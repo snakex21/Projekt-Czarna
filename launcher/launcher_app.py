@@ -1568,69 +1568,107 @@ def setup_postgres_config():
     # Utwórz dialog
     dialog = tk.Toplevel(temp_root)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
-    dialog.geometry("500x250")
+    dialog.geometry("650x400")
     dialog.resizable(False, False)
 
     # Wyśrodkuj okno
     dialog.update_idletasks()
-    x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
-    y = (dialog.winfo_screenheight() // 2) - (250 // 2)
-    dialog.geometry(f"500x250+{x}+{y}")
+    x = (dialog.winfo_screenwidth() // 2) - (650 // 2)
+    y = (dialog.winfo_screenheight() // 2) - (400 // 2)
+    dialog.geometry(f"650x400+{x}+{y}")
 
     # Zablokuj interakcję z innymi oknami
     dialog.grab_set()
     dialog.focus_force()
+    dialog.attributes('-topmost', True)  # Zawsze na wierzchu
 
-    # Ramka główna
-    main_frame = tk.Frame(dialog, bg='white', padx=30, pady=20)
+    # Ramka główna z gradientem (symulacja przez ramki)
+    main_frame = tk.Frame(dialog, bg='#f8f9fa', padx=40, pady=30)
     main_frame.pack(fill='both', expand=True)
 
-    # Komunikat o wymaganiu PostgreSQL
-    warning_frame = tk.Frame(main_frame, bg='#FFF3CD', relief='solid', borderwidth=1, padx=15, pady=10)
-    warning_frame.pack(fill='x', pady=(0, 20))
+    # Komunikat o wymaganiu PostgreSQL - większy i bardziej widoczny
+    warning_frame = tk.Frame(main_frame, bg='#FFF3CD', relief='solid', borderwidth=2, padx=20, pady=15)
+    warning_frame.pack(fill='x', pady=(0, 25))
+
+    warning_icon = tk.Label(
+        warning_frame,
+        text="⚠️",
+        font=('Segoe UI', 32),
+        bg='#FFF3CD',
+        fg='#856404'
+    )
+    warning_icon.pack(pady=(0, 5))
 
     warning_label = tk.Label(
         warning_frame,
-        text="⚠️ Program wymaga PostgreSQL do działania!",
-        font=('Segoe UI', 12, 'bold'),
+        text="Program wymaga PostgreSQL do działania!",
+        font=('Segoe UI', 14, 'bold'),
         bg='#FFF3CD',
         fg='#856404',
         justify='center'
     )
     warning_label.pack()
 
+    warning_sublabel = tk.Label(
+        warning_frame,
+        text="Podaj hasło aby kontynuować",
+        font=('Segoe UI', 10),
+        bg='#FFF3CD',
+        fg='#856404',
+        justify='center'
+    )
+    warning_sublabel.pack(pady=(5, 0))
+
     # Pole hasła
-    password_frame = tk.Frame(main_frame, bg='white')
-    password_frame.pack(fill='x', pady=(0, 15))
+    password_frame = tk.Frame(main_frame, bg='#f8f9fa')
+    password_frame.pack(fill='x', pady=(0, 20))
 
     password_label = tk.Label(
         password_frame,
         text="Hasło do PostgreSQL (użytkownik 'postgres'):",
-        font=('Segoe UI', 10),
-        bg='white',
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
         anchor='w'
     )
-    password_label.pack(fill='x', pady=(0, 5))
+    password_label.pack(fill='x', pady=(0, 8))
 
     password_entry = tk.Entry(
         password_frame,
-        font=('Segoe UI', 11),
+        font=('Segoe UI', 12),
         show='*',
         relief='solid',
-        borderwidth=1
+        borderwidth=2
     )
-    password_entry.pack(fill='x', ipady=5)
+    password_entry.pack(fill='x', ipady=8)
     password_entry.focus()
 
-    # Status label
+    # Status label - większa ikona
     status_label = tk.Label(
         main_frame,
         text="",
-        font=('Segoe UI', 28),
-        bg='white',
-        height=2
+        font=('Segoe UI', 48),
+        bg='#f8f9fa',
+        height=1
     )
-    status_label.pack()
+    status_label.pack(pady=(10, 20))
+
+    # Przycisk OK
+    ok_button = tk.Button(
+        main_frame,
+        text="OK",
+        font=('Segoe UI', 12, 'bold'),
+        bg='#007bff',
+        fg='white',
+        activebackground='#0056b3',
+        activeforeground='white',
+        relief='flat',
+        cursor='hand2',
+        state='disabled',
+        padx=40,
+        pady=10,
+        command=lambda: dialog.destroy()
+    )
+    ok_button.pack()
 
     # Timer do debounce
     test_timer = None
@@ -1643,6 +1681,7 @@ def setup_postgres_config():
         password = password_entry.get()
         if not password:
             status_label.config(text="", fg='black')
+            ok_button.config(state='disabled', bg='#6c757d')
             return
 
         # Testuj połączenie
@@ -1659,6 +1698,7 @@ def setup_postgres_config():
 
             # Sukces - pokaż zieloną fajkę
             status_label.config(text="✓", fg='#28a745')
+            ok_button.config(state='normal', bg='#28a745')
 
             # Zapisz konfigurację
             config_content = f"""# =============================================================================
@@ -1681,12 +1721,10 @@ LAUNCHER_DB_PASSWORD={password}
             config_result['success'] = True
             config_result['password'] = password
 
-            # Po 1.5 sekundy zamknij okno
-            dialog.after(1500, dialog.destroy)
-
         except Exception as e:
             # Błąd - pokaż czerwony X
             status_label.config(text="✗", fg='#dc3545')
+            ok_button.config(state='disabled', bg='#6c757d')
 
     def on_password_change(event=None):
         """Wywoływane gdy użytkownik wpisuje hasło"""
@@ -1699,6 +1737,7 @@ LAUNCHER_DB_PASSWORD={password}
         password = password_entry.get()
         if not password:
             status_label.config(text="", fg='black')
+            ok_button.config(state='disabled', bg='#6c757d')
             return
 
         # Ustaw nowy timer (debouncing - 1 sekunda)
@@ -1706,6 +1745,13 @@ LAUNCHER_DB_PASSWORD={password}
 
     # Bind event do automatycznego testowania
     password_entry.bind('<KeyRelease>', on_password_change)
+
+    # Enter key obsługa - zamknij jeśli hasło jest poprawne
+    def on_enter(event=None):
+        if ok_button['state'] == 'normal':
+            dialog.destroy()
+
+    password_entry.bind('<Return>', on_enter)
 
     # Obsługa zamknięcia okna (X w prawym górnym rogu)
     def on_closing():
@@ -1919,16 +1965,22 @@ class AppLauncher(tk.Tk):
         super().__init__()
         self.title("🗺️ Centrum Zarządzania - System Mapy Katastralnej")
         self.setup_window_geometry()
-        
+
         self.managed_processes = {}
         self.event_queue = queue.Queue()
         self.setup_styles()
+
+        # UKRYJ główne okno przed konfiguracją PostgreSQL
+        self.withdraw()
 
         # Migracja starych danych
         migrate_old_backup_structure()
 
         # Sprawdź konfigurację PostgreSQL (pyta o hasło jeśli potrzebne)
         setup_postgres_config()
+
+        # POKAŻ główne okno po konfiguracji PostgreSQL
+        self.deiconify()
 
         # Automatyczna inicjalizacja baz przy pierwszym uruchomieniu
         # Zwraca loading_dialog jeśli było coś do zrobienia, None jeśli nie
