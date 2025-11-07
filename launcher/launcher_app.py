@@ -25,6 +25,8 @@ import filecmp
 import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from functools import lru_cache
+import time
 
 try:
     from PIL import Image, ImageTk
@@ -59,6 +61,19 @@ ICONS_SCAN_FOLDERS = [
     os.path.join(BASE_DIR, "icons"),
     os.path.join(ASSETS_FOLDER, "icons"),
 ]
+
+# =============================================================================
+# CACHE DLA OPTYMALIZACJI WYDAJNOŚCI
+# =============================================================================
+_locations_cache = None
+_locations_cache_time = 0
+_CACHE_TTL = 30  # Cache ważny przez 30 sekund
+
+def invalidate_locations_cache():
+    """Unieważnia cache miejscowości."""
+    global _locations_cache, _locations_cache_time
+    _locations_cache = None
+    _locations_cache_time = 0
 
 # =============================================================================
 # POSTGRESQL - FUNKCJE POMOCNICZE I SCHEMA
@@ -663,7 +678,7 @@ def init_locations_db():
 
 def get_all_locations():
     """
-    Zwraca wszystkie miejscowości z bazy danych PostgreSQL.
+    Zwraca wszystkie miejscowości z bazy danych PostgreSQL (z cache).
 
     Returns:
         list of tuples: Lista miejscowości posortowana po nazwie
@@ -671,6 +686,14 @@ def get_all_locations():
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
                       postgres_db_name, history_photos)
     """
+    global _locations_cache, _locations_cache_time
+
+    # Sprawdź cache
+    current_time = time.time()
+    if _locations_cache is not None and (current_time - _locations_cache_time) < _CACHE_TTL:
+        return _locations_cache
+
+    # Cache nieważny lub pusty - pobierz z bazy
     init_locations_db()
 
     if not check_postgres_available():
@@ -698,6 +721,10 @@ def get_all_locations():
         locations = cursor.fetchall()
         cursor.close()
         conn.close()
+
+        # Zapisz w cache
+        _locations_cache = locations
+        _locations_cache_time = current_time
 
         return locations
     except Exception as e:
@@ -769,6 +796,7 @@ def set_active_location(location_id):
         cursor.close()
         conn.close()
 
+        invalidate_locations_cache()  # Unieważnij cache po zmianie
         apply_homepage_template(template)
         generate_location_config_js()
     except Exception as e:
@@ -1108,6 +1136,7 @@ LOCATION_CODE={name[:2].upper()}
         except Exception as e:
             print(f"⚠️ Nie udało się utworzyć launcher_db_config.json: {e}")
 
+        invalidate_locations_cache()  # Unieważnij cache po dodaniu
         return location_id
 
     except psycopg2.IntegrityError:
@@ -1234,6 +1263,8 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
         except Exception as e:
             print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
 
+        invalidate_locations_cache()  # Unieważnij cache po aktualizacji
+
     except psycopg2.IntegrityError:
         if 'conn' in locals():
             conn.close()
@@ -1327,6 +1358,8 @@ def delete_location(location_id):
         conn.commit()
         cursor.close()
         conn.close()
+
+        invalidate_locations_cache()  # Unieważnij cache po usunięciu
         print(f"✅ Usunięto miejscowość: {name}")
 
     except Exception as e:
@@ -1958,9 +1991,22 @@ LAUNCHER_DB_PASSWORD={password}
     return config_result['success']
 
 def _auto_sync_site_icon():
-    """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę 
+    """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę
     z folderów icons → assets/site i zapisuje ścieżkę w konfiguracji bazy danych."""
-    
+
+    # OPTYMALIZACJA: Sprawdź najpierw czy favicon już jest zapisany w bazie
+    try:
+        active_loc = get_active_location()
+        if active_loc and len(active_loc) > 14:
+            # Sprawdź czy favicon istnieje fizycznie
+            stored_favicon = "favicon.jpeg"  # Domyślna nazwa
+            favicon_path = os.path.join(SITE_ASSETS_FOLDER, stored_favicon)
+            if os.path.exists(favicon_path):
+                # Favicon już istnieje, pomiń skanowanie
+                return
+    except:
+        pass  # Jeśli wystąpi błąd, kontynuuj normalną procedurę
+
     # KROK 1: Sprawdź czy w folderze site już istnieje favicon
     existing_favicon = _find_existing_favicon_in_site()
     if existing_favicon:
