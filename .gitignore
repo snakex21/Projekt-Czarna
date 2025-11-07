@@ -38,3 +38,7 @@ Czarna/.env
 
 # Logs
 *.log
+
+# Data files (large binaries)
+backup/*/protokoly/
+backup/*/history_photos/
