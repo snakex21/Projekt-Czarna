@@ -2197,6 +2197,8 @@ class AppLauncher(tk.Tk):
 
         self.managed_processes = {}
         self.event_queue = queue.Queue()
+        self._refresh_pending = False  # Debounce flag
+        self._cached_locations = None  # Cache lokacji w pamięci
         self.setup_styles()
 
         # UKRYJ główne okno przed konfiguracją PostgreSQL
@@ -2683,41 +2685,75 @@ class AppLauncher(tk.Tk):
         except Exception as e:
             print(f"⚠️ Nie udało się automatycznie zaktualizować danych miejscowości: {e}")
 
-    def refresh_locations(self):
-        """Odświeża listę miejscowości w menu rozwijanym."""
-        locations = get_all_locations()
-        location_names = [loc[1] for loc in locations]  # loc[1] to name
-        self.location_combo['values'] = location_names
+    def refresh_locations(self, force=False):
+        """Odświeża listę miejscowości w menu rozwijanym (z debounce)."""
+        # Debounce - zapobiegaj wielokrotnemu odświeżaniu
+        if self._refresh_pending and not force:
+            return
 
-        # Ustaw aktywną miejscowość
-        active_location = get_active_location()
-        if active_location:
-            self.location_var.set(active_location[1])  # active_location[1] to name
-        elif location_names:
-            # Jeśli brak aktywnej, ale są miejscowości, ustaw pierwszą
-            self.location_var.set(location_names[0])
-            # I ustaw ją jako aktywną w bazie
-            set_active_location(locations[0][0])
+        self._refresh_pending = True
+
+        def _do_refresh():
+            try:
+                locations = get_all_locations()
+                self._cached_locations = locations  # Cache lokacji w instancji
+                location_names = [loc[1] for loc in locations]  # loc[1] to name
+                self.location_combo['values'] = location_names
+
+                # Ustaw aktywną miejscowość - znajdź w już pobranej liście
+                active_location = None
+                for loc in locations:
+                    if loc[5]:  # loc[5] to active (boolean)
+                        active_location = loc
+                        break
+
+                if active_location:
+                    self.location_var.set(active_location[1])  # active_location[1] to name
+                elif location_names:
+                    # Jeśli brak aktywnej, ale są miejscowości, ustaw pierwszą
+                    self.location_var.set(location_names[0])
+                    # I ustaw ją jako aktywną w bazie (w wątku)
+                    threading.Thread(target=lambda: set_active_location(locations[0][0]), daemon=True).start()
+                else:
+                    self.location_var.set("(brak miejscowości)")
+            finally:
+                self._refresh_pending = False
+
+        # Wykonaj w tle jeśli nie wymuszono synchronicznie
+        if force:
+            _do_refresh()
         else:
-            self.location_var.set("(brak miejscowości)")
+            threading.Thread(target=_do_refresh, daemon=True).start()
 
     def on_location_selected(self, event=None):
-        """Obsługuje zmianę wybranej miejscowości."""
+        """Obsługuje zmianę wybranej miejscowości (zoptymalizowana)."""
         selected_name = self.location_var.get()
         if not selected_name or selected_name == "(brak miejscowości)":
             return
 
-        # Znajdź ID wybranej miejscowości
-        locations = get_all_locations()
+        # Użyj cache zamiast ponownego pobierania
+        locations = self._cached_locations if self._cached_locations else get_all_locations()
+
         for loc in locations:
             if loc[1] == selected_name:  # loc[1] to name
-                set_active_location(loc[0])  # loc[0] to id
-                messagebox.showinfo("✅ Zmieniono miejscowość",
+                # Zmień aktywną lokację w tle (nie blokuj UI)
+                def _change_location():
+                    try:
+                        set_active_location(loc[0])  # loc[0] to id
+                        # Odśwież DATA_FILES
+                        global DATA_FILES
+                        DATA_FILES = get_data_files()
+                        # Pokaż notification (w głównym wątku)
+                        self.after(0, lambda: messagebox.showinfo("✅ Zmieniono miejscowość",
                                    f"Aktywna miejscowość: {selected_name}\n\n"
-                                   "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
-                # Odśwież DATA_FILES
-                global DATA_FILES
-                DATA_FILES = get_data_files()
+                                   "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera."))
+                    except Exception as e:
+                        print(f"❌ Błąd zmiany lokacji: {e}")
+                        self.after(0, lambda: messagebox.showerror("Błąd", f"Nie udało się zmienić miejscowości:\n{e}"))
+
+                # Natychmiastowa odpowiedź UI
+                self.update_idletasks()
+                threading.Thread(target=_change_location, daemon=True).start()
                 break
 
     def open_location_manager(self):
