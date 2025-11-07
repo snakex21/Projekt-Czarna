@@ -23,6 +23,7 @@
         "order_index": 1
       }
     ],
+    "favicon": "favicon.jpeg",
     "postgres_db_name": "mapa_czarna_db"
   }
 }
