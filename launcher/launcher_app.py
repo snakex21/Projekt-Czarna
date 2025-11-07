@@ -281,7 +281,7 @@ ON CONFLICT (klucz) DO NOTHING;
 
 # Zmienne globalne
 POSTGRES_AVAILABLE = None
-POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "launcher", ".postgres.env")
+POSTGRES_CONFIG_FILE = os.path.join(BASE_DIR, "backend", ".postgres.env")
 LOCATIONS_DB_INITIALIZED = False  # Cache - czy baza została już zainicjalizowana
 
 
@@ -664,7 +664,7 @@ def init_locations_db():
     # Sprawdź czy PostgreSQL jest dostępny
     if not check_postgres_available():
         print("❌ PostgreSQL nie jest dostępny!")
-        print("ℹ️ Program wymaga PostgreSQL. Skonfiguruj plik launcher/.postgres.env")
+        print("ℹ️ Program wymaga PostgreSQL. Skonfiguruj plik backend/.postgres.env")
         return
 
     try:
@@ -1011,23 +1011,38 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
         # Użyj podanej nazwy bazy lub domyślnej
         db_name_for_env = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}_db"
 
-        default_env = f"""# Konfiguracja bazy danych PostgreSQL
-DB_HOST=localhost
-DB_NAME={db_name_for_env}
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_PORT=5432
+        default_env = f"""# =============================================================================
+# KONFIGURACJA DLA MIEJSCOWOŚCI: {name.upper()}
+# =============================================================================
+# Plik konfiguracyjny dla miejscowości {name}
+# Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
-# Konfiguracja serwera Flask
+# =============================================================================
+# BAZA DANYCH - NAZWA BAZY DLA TEJ MIEJSCOWOŚCI
+# =============================================================================
+DB_NAME={db_name_for_env}
+
+# =============================================================================
+# KONFIGURACJA FLASK
+# =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
-FLASK_SECRET_KEY=change-me-once
+FLASK_SECRET_KEY=change-me-{name.lower()}-secret
 
-# Ustawienia bezpieczeństwa
+# =============================================================================
+# AUTENTYKACJA ADMINISTRATORA
+# =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
+# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
+
+# =============================================================================
+# INFORMACJE O MIEJSCOWOŚCI
+# =============================================================================
+LOCATION_NAME={name}
+LOCATION_CODE={name[:2].upper()}
 """
         with open(env_path, 'w', encoding='utf-8') as f:
             f.write(default_env)
@@ -1509,22 +1524,30 @@ def check_env_configuration():
             return False
 
     try:
-        default_env = """# Konfiguracja bazy danych PostgreSQL
-DB_HOST=localhost
-DB_NAME=mapa_czarna_db
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_PORT=5432
+        default_env = """# =============================================================================
+# KONFIGURACJA MIEJSCOWOŚCI
+# =============================================================================
+# Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
-# Konfiguracja serwera Flask
+# =============================================================================
+# BAZA DANYCH - NAZWA BAZY
+# =============================================================================
+DB_NAME=mapa_czarna_db
+
+# =============================================================================
+# KONFIGURACJA FLASK
+# =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
 FLASK_SECRET_KEY=change-me-once
 
-# Ustawienia bezpieczeństwa
+# =============================================================================
+# AUTENTYKACJA ADMINISTRATORA
+# =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
+# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
 """
         # Upewnij się, że folder istnieje
@@ -3633,7 +3656,7 @@ class DatabaseWizard(tk.Toplevel):
 
             messagebox.showinfo("Sukces",
                               "Połączenie z PostgreSQL działa!\n\n"
-                              "✅ Konfiguracja zapisana do launcher/.postgres.env\n\n"
+                              "✅ Konfiguracja zapisana do backend/.postgres.env\n\n"
                               "Program automatycznie utworzy bazy przy następnym uruchomieniu.",
                               parent=self)
         else:
@@ -4954,17 +4977,30 @@ class EnvEditor(tk.Toplevel):
         if messagebox.askyesno("⚠️ Potwierdzenie",
                                "Czy na pewno chcesz przywrócić domyślną konfigurację?",
                                parent=self):
-            default_content = """# Konfiguracja bazy danych PostgreSQL
-DB_HOST=localhost
-DB_NAME=mapa_czarna_db
-DB_USER=postgres
-DB_PASSWORD=1234
-DB_PORT=5432
+            default_content = """# =============================================================================
+# KONFIGURACJA MIEJSCOWOŚCI
+# =============================================================================
+# Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
-# Konfiguracja serwera Flask
+# =============================================================================
+# BAZA DANYCH - NAZWA BAZY
+# =============================================================================
+DB_NAME=mapa_czarna_db
+
+# =============================================================================
+# KONFIGURACJA FLASK
+# =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
+FLASK_SECRET_KEY=change-me-once
+
+# =============================================================================
+# AUTENTYKACJA ADMINISTRATORA
+# =============================================================================
+ADMIN_AUTH_ENABLED=0
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=
 """
             self.text_editor.delete('1.0', tk.END)
             self.text_editor.insert('1.0', default_content)
