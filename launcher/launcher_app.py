@@ -1174,7 +1174,7 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
 
 def delete_location(location_id):
     """
-    Usuwa miejscowość z bazy danych PostgreSQL i folder.
+    Usuwa miejscowość z bazy danych PostgreSQL, folder i bazę danych miejscowości.
 
     Args:
         location_id: ID miejscowości do usunięcia
@@ -1193,28 +1193,67 @@ def delete_location(location_id):
         conn = get_launcher_postgres_connection()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT name, active FROM locations WHERE id = %s", (location_id,))
+        cursor.execute("SELECT name, active, postgres_db_name FROM locations WHERE id = %s", (location_id,))
         result = cursor.fetchone()
         if not result:
             cursor.close()
             conn.close()
             raise ValueError("Miejscowość nie istnieje")
 
-        name, active = result
+        name, active, postgres_db_name = result
 
         if active:
             cursor.close()
             conn.close()
             raise ValueError("Nie można usunąć aktywnej miejscowości")
 
+        # Usuń bazę danych PostgreSQL dla miejscowości (jeśli istnieje)
+        if postgres_db_name:
+            try:
+                print(f"🗑️ Usuwanie bazy danych: {postgres_db_name}")
+                config = get_postgres_config()
+
+                # Połącz się do bazy postgres (nie do usuwanej bazy)
+                from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+                db_conn = psycopg2.connect(
+                    host=config['host'],
+                    port=config['port'],
+                    user=config['user'],
+                    password=config['password'],
+                    database='postgres'
+                )
+                db_conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+                db_cursor = db_conn.cursor()
+
+                # Zakończ wszystkie połączenia do bazy przed usunięciem
+                db_cursor.execute(f"""
+                    SELECT pg_terminate_backend(pg_stat_activity.pid)
+                    FROM pg_stat_activity
+                    WHERE pg_stat_activity.datname = '{postgres_db_name}'
+                    AND pid <> pg_backend_pid()
+                """)
+
+                # Usuń bazę danych
+                db_cursor.execute(f'DROP DATABASE IF EXISTS "{postgres_db_name}"')
+                db_cursor.close()
+                db_conn.close()
+                print(f"✅ Usunięto bazę danych: {postgres_db_name}")
+            except Exception as db_err:
+                print(f"⚠️ Ostrzeżenie: Nie udało się usunąć bazy danych {postgres_db_name}: {db_err}")
+                # Kontynuuj mimo błędu - folder i wpis w locations i tak zostaną usunięte
+
+        # Usuń folder z danymi
         location_folder = os.path.join(BACKUP_FOLDER, name)
         if os.path.exists(location_folder):
             shutil.rmtree(location_folder)
+            print(f"✅ Usunięto folder: {location_folder}")
 
+        # Usuń wpis z tabeli locations
         cursor.execute("DELETE FROM locations WHERE id = %s", (location_id,))
         conn.commit()
         cursor.close()
         conn.close()
+        print(f"✅ Usunięto miejscowość: {name}")
 
     except Exception as e:
         if 'conn' in locals():
@@ -3157,7 +3196,10 @@ class LocationManager(tk.Toplevel):
 
         if not messagebox.askyesno("⚠️ Potwierdzenie",
                                    f"Czy na pewno chcesz usunąć miejscowość '{name}'?\n\n"
-                                   "Zostanie usunięty cały folder z danymi!",
+                                   "Zostanie usunięte:\n"
+                                   "• Baza danych PostgreSQL\n"
+                                   "• Cały folder z danymi\n"
+                                   "• Konfiguracja miejscowości",
                                    parent=self):
             return
 
@@ -6507,14 +6549,14 @@ class BackupManager(tk.Toplevel):
                     progress_window.transient(self)
                     progress_window.grab_set()
 
-                    x = self.winfo_x() + (self.winfo_width() - 500) // 2
-                    y = self.winfo_y() + (self.winfo_height() - 300) // 2
-                    progress_window.geometry(f"500x300+{x}+{y}")
+                    x = self.winfo_x() + (self.winfo_width() - 600) // 2
+                    y = self.winfo_y() + (self.winfo_height() - 400) // 2
+                    progress_window.geometry(f"600x400+{x}+{y}")
 
                     ttk.Label(progress_window, text="Migracja danych do PostgreSQL",
                              font=("Segoe UI", 12, "bold")).pack(pady=10)
 
-                    progress_text = scrolledtext.ScrolledText(progress_window, height=12, width=60)
+                    progress_text = scrolledtext.ScrolledText(progress_window, height=15, width=70)
                     progress_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
                     def log_progress(message):
@@ -6547,9 +6589,15 @@ class BackupManager(tk.Toplevel):
                         log_progress(f"  ❌ Błędy: {len(migration_errors)}")
                     log_progress(f"{'='*50}")
 
+                    # Ramka na przycisk
+                    button_frame = ttk.Frame(progress_window)
+                    button_frame.pack(pady=15)
+
                     # Przycisk zamknięcia
-                    ttk.Button(progress_window, text="Zamknij",
-                              command=progress_window.destroy).pack(pady=10)
+                    close_btn = ttk.Button(button_frame, text="✅ Zamknij",
+                                          command=progress_window.destroy,
+                                          style="Primary.TButton")
+                    close_btn.pack()
 
                     progress_window.wait_window()
 
