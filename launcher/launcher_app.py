@@ -4827,8 +4827,21 @@ class PhotosManagerDialog(tk.Toplevel):
         photo = self.photos_list[idx]
 
         if messagebox.askyesno("Potwierdź usunięcie",
-                               f"Czy na pewno usunąć zdjęcie:\n{photo['filename']}?",
+                               f"Czy na pewno usunąć zdjęcie:\n{photo['filename']}?\n\nPlik zostanie trwale usunięty z folderu.",
                                parent=self):
+            # Usuń fizyczny plik z dysku
+            file_path = os.path.join(self.assets_dir, photo['filename'])
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"✓ Usunięto plik: {file_path}")
+                else:
+                    print(f"⚠️ Plik nie istnieje: {file_path}")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Nie udało się usunąć pliku:\n{e}", parent=self)
+                return
+
+            # Usuń z listy
             del self.photos_list[idx]
             self.refresh_list()
 
