@@ -50,11 +50,36 @@ if os.path.exists(launcher_postgres_env):
     except Exception as e:
         print(f"⚠️ Błąd wczytywania launcher/.postgres.env: {e}")
 
-# Funkcja do określenia aktywnej miejscowości i ścieżki do .env
-def get_active_location_info():
-    """Zwraca informacje o aktywnej miejscowości (nazwa, ścieżka do .env, folder backup)."""
+# Funkcja do określenia miejscowości do migracji
+def get_location_info_for_migration(location_name=None):
+    """
+    Zwraca informacje o miejscowości do migracji.
+
+    Args:
+        location_name: Nazwa miejscowości (opcjonalne). Jeśli None, użyje aktywnej miejscowości.
+
+    Returns:
+        dict: Informacje o miejscowości (nazwa, ścieżka do .env, folder backup)
+    """
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+    # Jeśli podano konkretną miejscowość, użyj jej
+    if location_name:
+        backup_folder = os.path.join(base_dir, "backup", location_name)
+        env_path = os.path.join(backup_folder, ".env")
+
+        if os.path.exists(env_path):
+            print(f"✅ Używam danych z miejscowości: {location_name}")
+            return {
+                'name': location_name,
+                'env_path': env_path,
+                'backup_dir': backup_folder
+            }
+        else:
+            print(f"⚠️ Brak pliku .env dla miejscowości {location_name}: {env_path}")
+            print(f"⚠️ Próbuję pobrać aktywną miejscowość...")
+
+    # Jeśli nie podano miejscowości lub nie ma .env, pobierz aktywną miejscowość
     # Najpierw spróbuj PostgreSQL (baza launcher)
     try:
         # Pobierz konfigurację postgres z zmiennych środowiskowych (jeśli są)
@@ -123,8 +148,11 @@ def get_active_location_info():
         'backup_dir': os.path.join(base_dir, "backup")
     }
 
-# Pobierz informacje o aktywnej miejscowości
-location_info = get_active_location_info()
+# Sprawdź czy podano nazwę miejscowości jako argument wiersza poleceń
+location_name_arg = sys.argv[1] if len(sys.argv) > 1 else None
+
+# Pobierz informacje o miejscowości do migracji
+location_info = get_location_info_for_migration(location_name_arg)
 
 # Własna funkcja do wczytania .env z obsługą różnych kodowań
 def load_env_with_encoding(env_path):

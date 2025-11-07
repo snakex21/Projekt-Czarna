@@ -3601,7 +3601,7 @@ def auto_initialize_on_startup():
                     loading_dialog.update_status("Migracja danych...",
                                                 "Import z backup/Czarna - to może potrwać chwilę")
                     print("🔄 Automatyczna migracja danych z backup/Czarna...")
-                    auto_migrate_data_function(backup_czarna)
+                    auto_migrate_data_function(backup_czarna, "Czarna")
                     migrated_data = True
                 else:
                     print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
@@ -3631,12 +3631,13 @@ def auto_initialize_on_startup():
         return None
 
 
-def auto_migrate_data_function(backup_folder):
+def auto_migrate_data_function(backup_folder, location_name=None):
     """
     Funkcja pomocnicza do migracji danych (standalone, nie metoda klasy).
 
     Args:
         backup_folder: Ścieżka do folderu z danymi (np. backup/Czarna)
+        location_name: Nazwa miejscowości (opcjonalne, jeśli None to wyekstrahuje z backup_folder)
     """
     try:
         import subprocess
@@ -3649,10 +3650,16 @@ def auto_migrate_data_function(backup_folder):
             print(f"⚠️ Brak skryptu migracji: {migrate_script}")
             return
 
-        # Uruchom skrypt migracji
+        # Jeśli nie podano nazwy miejscowości, spróbuj wyekstrahować z folderu
+        if not location_name:
+            # backup_folder może być np. "C:/projekty/backup/Borowa" lub "backup/Borowa"
+            location_name = os.path.basename(backup_folder)
+            print(f"📍 Wykryta miejscowość: {location_name}")
+
+        # Uruchom skrypt migracji z nazwą miejscowości jako argument
         print(f"🔄 Migracja danych z {backup_folder}...")
         result = subprocess.run(
-            [sys.executable, migrate_script],
+            [sys.executable, migrate_script, location_name],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,
@@ -5954,7 +5961,7 @@ DB_PASSWORD={config['password']}
             progress_callback(f"🔄 Migracja danych z backup/{location_name}")
 
         print(f"🔄 Migracja danych dla miejscowości: {location_name}")
-        auto_migrate_data_function(location_folder)
+        auto_migrate_data_function(location_folder, location_name)
 
         return True, f"Baza {db_name} utworzona i dane zmigrowane pomyślnie"
 
