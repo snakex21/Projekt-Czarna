@@ -1208,39 +1208,41 @@ def delete_location(location_id):
             raise ValueError("Nie można usunąć aktywnej miejscowości")
 
         # Usuń bazę danych PostgreSQL dla miejscowości (jeśli istnieje)
-        if postgres_db_name:
-            try:
-                print(f"🗑️ Usuwanie bazy danych: {postgres_db_name}")
-                config = get_postgres_config()
+        # Jeśli postgres_db_name jest puste, użyj standardowej nazwy
+        db_to_delete = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}"
 
-                # Połącz się do bazy postgres (nie do usuwanej bazy)
-                from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-                db_conn = psycopg2.connect(
-                    host=config['host'],
-                    port=config['port'],
-                    user=config['user'],
-                    password=config['password'],
-                    database='postgres'
-                )
-                db_conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-                db_cursor = db_conn.cursor()
+        try:
+            print(f"🗑️ Usuwanie bazy danych: {db_to_delete}")
+            config = get_postgres_config()
 
-                # Zakończ wszystkie połączenia do bazy przed usunięciem
-                db_cursor.execute(f"""
-                    SELECT pg_terminate_backend(pg_stat_activity.pid)
-                    FROM pg_stat_activity
-                    WHERE pg_stat_activity.datname = '{postgres_db_name}'
-                    AND pid <> pg_backend_pid()
-                """)
+            # Połącz się do bazy postgres (nie do usuwanej bazy)
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+            db_conn = psycopg2.connect(
+                host=config['host'],
+                port=config['port'],
+                user=config['user'],
+                password=config['password'],
+                database='postgres'
+            )
+            db_conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            db_cursor = db_conn.cursor()
 
-                # Usuń bazę danych
-                db_cursor.execute(f'DROP DATABASE IF EXISTS "{postgres_db_name}"')
-                db_cursor.close()
-                db_conn.close()
-                print(f"✅ Usunięto bazę danych: {postgres_db_name}")
-            except Exception as db_err:
-                print(f"⚠️ Ostrzeżenie: Nie udało się usunąć bazy danych {postgres_db_name}: {db_err}")
-                # Kontynuuj mimo błędu - folder i wpis w locations i tak zostaną usunięte
+            # Zakończ wszystkie połączenia do bazy przed usunięciem
+            db_cursor.execute(f"""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{db_to_delete}'
+                AND pid <> pg_backend_pid()
+            """)
+
+            # Usuń bazę danych
+            db_cursor.execute(f'DROP DATABASE IF EXISTS "{db_to_delete}"')
+            db_cursor.close()
+            db_conn.close()
+            print(f"✅ Usunięto bazę danych: {db_to_delete}")
+        except Exception as db_err:
+            print(f"⚠️ Ostrzeżenie: Nie udało się usunąć bazy danych {db_to_delete}: {db_err}")
+            # Kontynuuj mimo błędu - folder i wpis w locations i tak zostaną usunięte
 
         # Usuń folder z danymi
         location_folder = os.path.join(BACKUP_FOLDER, name)
@@ -5912,7 +5914,26 @@ def create_and_migrate_location_database(location_name, progress_callback=None):
 
         print(f"✅ {msg}")
 
-        # 4. Zaktualizuj .env dla miejscowości
+        # 4. Zaktualizuj nazwę bazy danych w tabeli locations
+        if progress_callback:
+            progress_callback(f"💾 Zapisywanie nazwy bazy w konfiguracji")
+
+        try:
+            conn = get_launcher_postgres_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE locations
+                SET postgres_db_name = %s
+                WHERE name = %s
+            """, (db_name, location_name))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            print(f"✅ Zapisano nazwę bazy danych: {db_name} dla {location_name}")
+        except Exception as e:
+            print(f"⚠️ Ostrzeżenie: Nie udało się zapisać nazwy bazy: {e}")
+
+        # 5. Zaktualizuj .env dla miejscowości
         location_folder = os.path.join(BACKUP_FOLDER, location_name)
         env_path = os.path.join(location_folder, ".env")
 
@@ -5928,7 +5949,7 @@ DB_PASSWORD={config['password']}
                 f.write(env_content)
             print(f"✅ Zaktualizowano .env dla {location_name}")
 
-        # 5. Wywołaj migrację danych
+        # 6. Wywołaj migrację danych
         if progress_callback:
             progress_callback(f"🔄 Migracja danych z backup/{location_name}")
 
