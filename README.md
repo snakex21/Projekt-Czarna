@@ -39,33 +39,19 @@ cd Projekt-Czarna
 pip install -r requirements.txt
 ```
 
-3. **Skonfiguruj bazę danych**
+3. **Uruchom Centrum Zarządzania i przejdź przez konfigurację**
 
-Skopiuj plik przykładowy i dostosuj dane dostępowe:
-```bash
-cp backend/.env.example backend/.env
-```
-
-Edytuj `backend/.env` i uzupełnij dane PostgreSQL:
-```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=mapa_czarna
-DB_USER=twoj_uzytkownik
-DB_PASSWORD=twoje_haslo
-```
-
-4. **Uruchom aplikację**
-
-Najprościej przez centrum zarządzania (launcher):
 ```bash
 python launcher/launcher_app.py
 ```
 
-Lub bezpośrednio backend:
-```bash
-python backend/app.py
-```
+Launcher przeprowadzi Cię przez intuicyjną konfigurację graficzną (GUI), gdzie:
+- Skonfigurujesz połączenie z bazą danych PostgreSQL
+- Zweryfikujesz poprawność konfiguracji
+- Uruchomisz serwer backendu
+- Otworzysz aplikację w przeglądarce
+
+Wszystko w jednym miejscu, bez ręcznej edycji plików konfiguracyjnych!
 
 ## 🏗️ Architektura
 
@@ -99,14 +85,6 @@ Pełna dokumentacja projektu, w tym opis techniczny, proces digitalizacji danych
 ```bash
 pytest backend/tests/
 ```
-
-### Uruchomienie backendu w trybie deweloperskim
-```bash
-cd backend
-python app.py
-```
-
-Backend domyślnie startuje na `http://localhost:5000`
 
 ### Dodawanie nowych funkcjonalności
 
