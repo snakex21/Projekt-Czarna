@@ -1818,9 +1818,20 @@ def serve_history_photos(filename):
     # Ścieżka do zdjęć historycznych aktywnej miejscowości
     history_photos_path = os.path.join(base_dir, "backup", location_name, "history_photos")
 
+    # Automatycznie utwórz folder jeśli nie istnieje
     if not os.path.exists(history_photos_path):
-        print(f"❌ Folder history_photos nie istnieje: {history_photos_path}")
-        return "Folder history_photos nie istnieje", 404
+        try:
+            os.makedirs(history_photos_path, exist_ok=True)
+            print(f"✅ Utworzono folder history_photos: {history_photos_path}")
+        except Exception as e:
+            print(f"❌ Błąd podczas tworzenia folderu history_photos: {e}")
+            return "Nie można utworzyć folderu history_photos", 500
+
+    # Sprawdź czy plik istnieje
+    file_path = os.path.join(history_photos_path, filename)
+    if not os.path.exists(file_path):
+        print(f"❌ Plik nie znaleziony: {file_path}")
+        return "Plik nie znaleziony", 404
 
     return send_from_directory(history_photos_path, filename)
 
@@ -1893,6 +1904,19 @@ def serve_location_favicon():
 
     print(f"❌ Brak pliku favicon w: {location_path}")
     return "Favicon nie znaleziony", 404
+
+@app.route('/location_js/<path:filename>')
+def serve_location_js(filename):
+    """Serwuje pliki JS konfiguracyjne ze static/js/."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    static_path = os.path.join(base_dir, "static", "js")
+
+    js_file_path = os.path.join(static_path, filename)
+    if os.path.exists(js_file_path):
+        return send_from_directory(static_path, filename, mimetype='application/javascript')
+
+    print(f"❌ Plik {filename} nie znaleziony w static/js/")
+    return "Plik JS nie znaleziony", 404
 
 @app.route('/assets/<path:filename>')
 def serve_root_asset(filename):

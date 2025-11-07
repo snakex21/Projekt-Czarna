@@ -740,7 +740,8 @@ class OwnerEditorApp(tk.Tk):
             return False
 
         # Zarządzanie folderami
-        protokoly_path = os.path.join(script_dir, "..", "assets", "protokoly")
+        backup_folder = get_active_location_backup_folder()
+        protokoly_path = os.path.join(backup_folder, "protokoly")
 
         try:
             if original_key and original_key != new_key:
@@ -1240,7 +1241,8 @@ class EditWindow(tk.Toplevel):
         current_key = self.fields["unikalny_klucz"].get().strip()
         if not current_key:
             return None
-        return os.path.join(script_dir, "..", "assets", "protokoly", current_key)
+        backup_folder = get_active_location_backup_folder()
+        return os.path.join(backup_folder, "protokoly", current_key)
 
     def populate_scans_list(self):
         """Wypełnia listę skanów."""
@@ -1928,7 +1930,8 @@ class BackupManagerWindow(tk.Toplevel):
             try:
                 from datetime import datetime
 
-                protokoly_path = os.path.join(script_dir, "..", "assets", "protokoly")
+                backup_folder = get_active_location_backup_folder()
+                protokoly_path = os.path.join(backup_folder, "protokoly")
                 files_to_backup = [JSON_FILE_PATH]
                 
                 if os.path.exists(DEMOGRAFIA_JSON_PATH):
@@ -1955,7 +1958,7 @@ class BackupManagerWindow(tk.Toplevel):
                         self.update_idletasks()
 
                     for i, file_path in enumerate(scan_files):
-                        arcname = os.path.join("assets", "protokoly", os.path.relpath(file_path, protokoly_path))
+                        arcname = os.path.join("protokoly", os.path.relpath(file_path, protokoly_path))
                         if (i % 10 == 0) or (i == len(scan_files) - 1):
                             status_label.config(text=f"Archiwizuję skany: {i+1}/{len(scan_files)}")
                         zf.write(file_path, arcname)
@@ -2020,16 +2023,26 @@ class BackupManagerWindow(tk.Toplevel):
                     zf.extractall(temp_restore_path)
 
                 temp_json_owner = os.path.join(temp_restore_path, "owner_data_to_import.json")
-                temp_protokoly = os.path.join(temp_restore_path, "assets", "protokoly")
-                
-                if not os.path.exists(temp_json_owner) or not os.path.exists(temp_protokoly):
-                    raise FileNotFoundError("Archiwum ZIP jest niekompletne.")
+                # Obsłuż stare i nowe archiwa
+                temp_protokoly_old = os.path.join(temp_restore_path, "assets", "protokoly")
+                temp_protokoly_new = os.path.join(temp_restore_path, "protokoly")
 
-                protokoly_path = os.path.join(script_dir, "..", "assets", "protokoly")
+                if os.path.exists(temp_protokoly_new):
+                    temp_protokoly = temp_protokoly_new
+                elif os.path.exists(temp_protokoly_old):
+                    temp_protokoly = temp_protokoly_old
+                else:
+                    raise FileNotFoundError("Archiwum ZIP nie zawiera folderu protokoly.")
+
+                if not os.path.exists(temp_json_owner):
+                    raise FileNotFoundError("Archiwum ZIP jest niekompletne - brak owner_data_to_import.json.")
+
+                backup_folder = get_active_location_backup_folder()
+                protokoly_path = os.path.join(backup_folder, "protokoly")
                 if os.path.exists(protokoly_path):
                     shutil.rmtree(protokoly_path)
 
-                shutil.move(temp_protokoly, os.path.join(script_dir, "..", "assets"))
+                shutil.move(temp_protokoly, protokoly_path)
                 shutil.move(temp_json_owner, JSON_FILE_PATH)
 
                 temp_json_demo = os.path.join(temp_restore_path, "demografia.json")
