@@ -3565,7 +3565,37 @@ def auto_initialize_on_startup(loading_dialog):
             loading_dialog.update_status("Tworzenie miejscowości 'Czarna'...",
                                         "Domyślna lokalizacja")
             print("📍 Tworzę domyślną miejscowość 'Czarna'...")
-            add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+
+            # Wczytaj konfigurację z pliku JSON
+            config_file = os.path.join(BASE_DIR, "launcher_db_config.json")
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    launcher_config = json.load(f)
+                    default_loc = launcher_config.get('default_location', {})
+
+                    add_location(
+                        name=default_loc.get('name', 'Czarna'),
+                        full_name=default_loc.get('full_name', 'Czarna'),
+                        powiat=default_loc.get('powiat', ''),
+                        region=default_loc.get('region', ''),
+                        homepage_template=default_loc.get('homepage_template', 'standardowy'),
+                        year=default_loc.get('year', '1882'),
+                        century=default_loc.get('century', 'XIX w.'),
+                        homepage_description=default_loc.get('homepage_description', ''),
+                        history_paragraph1=default_loc.get('history_paragraph1', ''),
+                        history_paragraph2=default_loc.get('history_paragraph2', ''),
+                        history_paragraph3=default_loc.get('history_paragraph3', ''),
+                        history_photos=default_loc.get('history_photos', []),
+                        postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+                    )
+                    print("✅ Wczytano konfigurację z launcher_db_config.json")
+            except FileNotFoundError:
+                print("⚠️ Brak pliku launcher_db_config.json, używam domyślnych wartości")
+                add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+            except Exception as e:
+                print(f"⚠️ Błąd wczytywania konfiguracji: {e}, używam domyślnych wartości")
+                add_location("Czarna", "Czarna", "", "", postgres_db_name="mapa_czarna_db")
+
             created_czarna_location = True
 
             # Ustaw jako aktywną
