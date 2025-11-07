@@ -4093,11 +4093,6 @@ class DatabaseWizard(tk.Toplevel):
                                           foreground="#856404", font=('Arial', 12, 'bold'))
         self.connection_status.grid(row=4, column=0, columnspan=2, pady=20)
 
-        # Dodatkowy status frame z zieloną fajką
-        self.success_frame = ttk.Frame(form)
-        self.success_frame.grid(row=5, column=0, columnspan=2, pady=10)
-        self.success_label = None
-
         # Test początkowy jeśli hasło już istnieje
         if self.config['password']:
             self.after(100, self.test_connection)
@@ -4187,10 +4182,6 @@ class DatabaseWizard(tk.Toplevel):
 
     def test_connection(self):
         """Test połączenia z PostgreSQL"""
-        # Wyczyść poprzedni status
-        for widget in self.success_frame.winfo_children():
-            widget.destroy()
-
         self.connection_status.config(text="🔄 Testowanie połączenia...", foreground="blue")
         self.update_idletasks()
 
@@ -4202,58 +4193,18 @@ class DatabaseWizard(tk.Toplevel):
         success, msg = test_postgres_connection(**self.config)
 
         if success:
-            # Animowana zielona fajka
+            # Zielona fajka - połączenie OK
             self.connection_status.config(text="✓ Połączenie Udane!", foreground="green")
 
             # Zapisz hasło do .postgres.env
             save_postgres_config(self.config['host'], self.config['port'],
                                self.config['user'], self.config['password'])
 
-            # Pokaż ładny komunikat o sukcesie
-            success_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
-            success_info.pack(fill=tk.X, padx=20, pady=10)
-
-            # Zielone tło (symulacja)
-            canvas = tk.Canvas(success_info, height=120, bg="#d4edda", highlightthickness=0)
-            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-
-            # Duża zielona fajka
-            canvas.create_text(60, 60, text="✓", font=('Arial', 48, 'bold'), fill="#155724")
-
-            # Tekst
-            text_frame = ttk.Frame(canvas)
-            canvas.create_window(200, 60, window=text_frame, anchor=tk.W)
-
-            ttk.Label(text_frame, text="Połączenie z PostgreSQL działa!",
-                     font=('Arial', 12, 'bold'), foreground="#155724", background="#d4edda").pack(anchor=tk.W)
-            ttk.Label(text_frame, text="✅ Konfiguracja zapisana do backend/.postgres.env",
-                     foreground="#155724", background="#d4edda").pack(anchor=tk.W, pady=2)
-            ttk.Label(text_frame, text="⏳ Przechodzę do wyboru źródła danych...",
-                     foreground="#0c5460", background="#d4edda", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=2)
-
-            # Włącz przycisk dalej
+            # Włącz możliwość przejścia dalej
             self.connection_tested = True
-
-            # Automatycznie przejdź do następnego kroku po 1.5 sekundy
-            self.after(1500, lambda: self.notebook.select(1))
         else:
-            self.connection_status.config(text=f"✗ Błąd Połączenia", foreground="red")
-
-            # Pokaż błąd w ramce
-            error_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
-            error_info.pack(fill=tk.X, padx=20, pady=10)
-
-            canvas = tk.Canvas(error_info, height=80, bg="#f8d7da", highlightthickness=0)
-            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-
-            canvas.create_text(40, 40, text="✗", font=('Arial', 32, 'bold'), fill="#721c24")
-
-            text_frame = ttk.Frame(canvas)
-            canvas.create_window(100, 40, window=text_frame, anchor=tk.W)
-
-            ttk.Label(text_frame, text=msg, foreground="#721c24", background="#f8d7da",
-                     wraplength=400).pack(anchor=tk.W)
-
+            # Czerwony krzyżyk - błąd
+            self.connection_status.config(text=f"✗ Błąd: {msg}", foreground="red")
             self.connection_tested = False
 
     def auto_migrate_data(self, backup_folder):
