@@ -270,20 +270,41 @@ function initActionButtons() {
 
   // Pokaż działki na mapie
   document.getElementById('show-parcels-on-map')?.addEventListener('click', () => {
-    window.location.href = `../mapa/mapa.html`;
-    showToast('info', 'Przekierowanie', 'Przejście do mapy działek');
+    const topParcels = getTop10Parcels();
+    const parcelNumbers = topParcels.map(p => p.parcel_number).join(',');
+    if (parcelNumbers) {
+      window.location.href = `../mapa/mapa.html?highlightParcels=${encodeURIComponent(parcelNumbers)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 działek na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
   });
 
   // Pokaż rzeki na mapie
   document.getElementById('show-rivers-on-map')?.addEventListener('click', () => {
-    window.location.href = `../mapa/mapa.html`;
-    showToast('info', 'Przekierowanie', 'Przejście do mapy rzek');
+    const topRivers = getTop10Rivers();
+    const riverNames = topRivers.map(r => r.river_name).join(',');
+    if (riverNames) {
+      window.location.href = `../mapa/mapa.html?highlightRivers=${encodeURIComponent(riverNames)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 rzek na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
   });
 
   // Pokaż drogi na mapie
   document.getElementById('show-roads-on-map')?.addEventListener('click', () => {
-    window.location.href = `../mapa/mapa.html`;
-    showToast('info', 'Przekierowanie', 'Przejście do mapy dróg');
+    const topRoads = getTop10Roads();
+    const roadNames = topRoads.map(r => r.road_name).join(',');
+    if (roadNames) {
+      window.location.href = `../mapa/mapa.html?highlightRoads=${encodeURIComponent(roadNames)}`;
+      showToast('success', 'Przekierowanie', 'Pokazywanie TOP 10 dróg na mapie');
+    } else {
+      window.location.href = `../mapa/mapa.html`;
+      showToast('info', 'Przekierowanie', 'Przejście do mapy');
+    }
   });
 
   // Narzędzia analityczne
@@ -1757,7 +1778,7 @@ function getTop10Owners(ownership, category) {
   const data = ownership === 'real' ? statsData.rankings_real : statsData.rankings_protocol;
   let rankingData = category === 'all' ? data.all_plots : data[category];
   const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
-  
+
   if (rankingData) {
     rankingData = [...rankingData].sort((a, b) => {
       if (sortBy === 'area') {
@@ -1767,8 +1788,34 @@ function getTop10Owners(ownership, category) {
       }
     });
   }
-  
+
   return rankingData?.slice(0, 10) || [];
+}
+
+/**
+ * Zwraca Top 10 działek według powierzchni.
+ */
+function getTop10Parcels() {
+  const category = document.getElementById('parcel-category-filter')?.value || 'all';
+  const parcelsData = statsData?.parcels_ranking;
+  if (!parcelsData) return [];
+
+  const rankingData = category === 'all' ? parcelsData.all : parcelsData[category];
+  return (rankingData || []).slice(0, 10);
+}
+
+/**
+ * Zwraca Top 10 rzek według długości.
+ */
+function getTop10Rivers() {
+  return (statsData?.rivers_ranking || []).slice(0, 10);
+}
+
+/**
+ * Zwraca Top 10 dróg według długości.
+ */
+function getTop10Roads() {
+  return (statsData?.roads_ranking || []).slice(0, 10);
 }
 
 /**
