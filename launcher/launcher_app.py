@@ -1775,14 +1775,14 @@ def setup_postgres_config(parent=None):
     # Utwórz dialog
     dialog = tk.Toplevel(parent_window)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
-    dialog.geometry("700x550")
+    dialog.geometry("700x680")
     dialog.resizable(False, False)
 
     # Wyśrodkuj okno
     dialog.update_idletasks()
     x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
-    y = (dialog.winfo_screenheight() // 2) - (550 // 2)
-    dialog.geometry(f"700x550+{x}+{y}")
+    y = (dialog.winfo_screenheight() // 2) - (680 // 2)
+    dialog.geometry(f"700x680+{x}+{y}")
 
     # Zablokuj interakcję z innymi oknami
     dialog.grab_set()
@@ -1818,7 +1818,7 @@ def setup_postgres_config(parent=None):
 
     warning_sublabel = tk.Label(
         warning_frame,
-        text="Podaj hasło aby kontynuować",
+        text="Podaj dane połączenia z PostgreSQL",
         font=('Segoe UI', 10),
         bg='#FFF3CD',
         fg='#856404',
@@ -1826,28 +1826,89 @@ def setup_postgres_config(parent=None):
     )
     warning_sublabel.pack(pady=(5, 0))
 
-    # Pole hasła
-    password_frame = tk.Frame(main_frame, bg='#f8f9fa')
-    password_frame.pack(fill='x', pady=(0, 20))
+    # Formularz z polami konfiguracji
+    form_frame = tk.Frame(main_frame, bg='#f8f9fa')
+    form_frame.pack(fill='x', pady=(0, 20))
 
-    password_label = tk.Label(
-        password_frame,
-        text="Hasło do PostgreSQL (użytkownik 'postgres'):",
+    # Host
+    host_label = tk.Label(
+        form_frame,
+        text="Host:",
         font=('Segoe UI', 11, 'bold'),
         bg='#f8f9fa',
         anchor='w'
     )
-    password_label.pack(fill='x', pady=(0, 8))
+    host_label.grid(row=0, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    host_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    host_entry.insert(0, 'localhost')
+    host_entry.grid(row=0, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Port
+    port_label = tk.Label(
+        form_frame,
+        text="Port:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    port_label.grid(row=1, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    port_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    port_entry.insert(0, '5432')
+    port_entry.grid(row=1, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Użytkownik
+    user_label = tk.Label(
+        form_frame,
+        text="Użytkownik:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    user_label.grid(row=2, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    user_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    user_entry.insert(0, 'postgres')
+    user_entry.grid(row=2, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Hasło
+    password_label = tk.Label(
+        form_frame,
+        text="Hasło:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    password_label.grid(row=3, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
 
     password_entry = tk.Entry(
-        password_frame,
+        form_frame,
         font=('Segoe UI', 12),
         show='*',
         relief='solid',
         borderwidth=2
     )
-    password_entry.pack(fill='x', ipady=8)
+    password_entry.grid(row=3, column=1, sticky='ew', pady=(0, 5), ipady=6)
     password_entry.focus()
+
+    # Konfiguracja kolumn - druga kolumna rozciągliwa
+    form_frame.columnconfigure(1, weight=1)
 
     # Status label - większa ikona
     status_label = tk.Label(
@@ -1886,9 +1947,30 @@ def setup_postgres_config(parent=None):
         nonlocal test_timer
         test_timer = None
 
+        # Pobierz wartości ze wszystkich pól
+        host = host_entry.get().strip()
+        port = port_entry.get().strip()
+        user = user_entry.get().strip()
         password = password_entry.get()
+
+        # Walidacja podstawowa
         if not password:
             status_label.config(text="", fg='black')
+            ok_button.config(state='disabled', bg='#6c757d')
+            return
+
+        if not host or not port or not user:
+            status_label.config(text="✗", fg='#dc3545')
+            ok_button.config(state='disabled', bg='#6c757d')
+            return
+
+        # Walidacja portu
+        try:
+            port_int = int(port)
+            if port_int < 1 or port_int > 65535:
+                raise ValueError("Port poza zakresem")
+        except ValueError:
+            status_label.config(text="✗", fg='#dc3545')
             ok_button.config(state='disabled', bg='#6c757d')
             return
 
@@ -1896,9 +1978,9 @@ def setup_postgres_config(parent=None):
         try:
             import psycopg2
             conn = psycopg2.connect(
-                host='localhost',
-                port=5432,
-                user='postgres',
+                host=host,
+                port=port_int,
+                user=user,
                 password=password,
                 connect_timeout=3
             )
@@ -1912,9 +1994,9 @@ def setup_postgres_config(parent=None):
             config_content = f"""# =============================================================================
 # KONFIGURACJA BAZY DANYCH POSTGRESQL DLA LAUNCHERA
 # =============================================================================
-LAUNCHER_DB_HOST=localhost
-LAUNCHER_DB_PORT=5432
-LAUNCHER_DB_USER=postgres
+LAUNCHER_DB_HOST={host}
+LAUNCHER_DB_PORT={port_int}
+LAUNCHER_DB_USER={user}
 LAUNCHER_DB_PASSWORD={password}
 """
             with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -1934,14 +2016,15 @@ LAUNCHER_DB_PASSWORD={password}
             status_label.config(text="✗", fg='#dc3545')
             ok_button.config(state='disabled', bg='#6c757d')
 
-    def on_password_change(event=None):
-        """Wywoływane gdy użytkownik wpisuje hasło"""
+    def on_field_change(event=None):
+        """Wywoływane gdy użytkownik zmienia wartość w jakimkolwiek polu"""
         nonlocal test_timer
 
         # Anuluj poprzedni timer
         if test_timer is not None:
             dialog.after_cancel(test_timer)
 
+        # Sprawdź czy hasło jest wypełnione
         password = password_entry.get()
         if not password:
             status_label.config(text="", fg='black')
@@ -1951,8 +2034,11 @@ LAUNCHER_DB_PASSWORD={password}
         # Ustaw nowy timer (debouncing - 1 sekunda)
         test_timer = dialog.after(1000, test_password)
 
-    # Bind event do automatycznego testowania
-    password_entry.bind('<KeyRelease>', on_password_change)
+    # Bind event do automatycznego testowania dla wszystkich pól
+    host_entry.bind('<KeyRelease>', on_field_change)
+    port_entry.bind('<KeyRelease>', on_field_change)
+    user_entry.bind('<KeyRelease>', on_field_change)
+    password_entry.bind('<KeyRelease>', on_field_change)
 
     # Enter key obsługa - zamknij jeśli hasło jest poprawne
     def on_enter(event=None):
@@ -2999,18 +3085,33 @@ class AppLauncher(tk.Tk):
         """Czyta wyjście z procesu."""
         if key not in self.managed_processes:
             return
-        
+
         info = self.managed_processes.get(key)
         if not info:
             return
-        
+
         process = info["process"]
         console = info["console"]
-        
+
         for line in iter(process.stdout.readline, ""):
             self.after(0, self.log, line, console)
-        
-        self.event_queue.put((key, "finished"))
+
+        # Poczekaj aż proces rzeczywiście się zakończy
+        # (stdout może się zamknąć wcześniej niż proces)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Proces wciąż działa mimo zamkniętego stdout
+            # Sprawdzaj co sekundę czy proces się zakończył
+            import time
+            for _ in range(60):  # Maksymalnie 60 sekund
+                if process.poll() is not None:
+                    break
+                time.sleep(1)
+
+        # Tylko jeśli proces rzeczywiście się zakończył, wyślij event
+        if process.poll() is not None:
+            self.event_queue.put((key, "finished"))
 
     def run_script_in_thread(self, script_info, script_name):
         """Uruchamia jednorazowy skrypt w wątku."""
@@ -3940,10 +4041,21 @@ def auto_initialize_on_startup(loading_dialog):
                     print("🔄 Automatyczna migracja danych z backup/Czarna...")
                     auto_migrate_data_function(backup_czarna, "Czarna")
                     migrated_data = True
+
+                    # Automatyczna kalibracja mapy po migracji
+                    loading_dialog.update_status("Kalibracja mapy...",
+                                                "Wczytywanie konfiguracji z backup")
+                    auto_calibrate_map_from_backup()
                 else:
                     print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
             except Exception as e:
                 print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
+
+        # Kalibruj mapę jeśli była utworzona nowa baza (nawet jeśli dane nie były migrowane)
+        if created_czarna_db and not migrated_data:
+            loading_dialog.update_status("Kalibracja mapy...",
+                                        "Wczytywanie konfiguracji z backup")
+            auto_calibrate_map_from_backup()
 
         # Zapisz informacje o tym co zostało zrobione (do pokazania później)
         loading_dialog.init_summary = {
@@ -3957,6 +4069,70 @@ def auto_initialize_on_startup(loading_dialog):
 
     except Exception as e:
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def auto_calibrate_map_from_backup():
+    """
+    Automatycznie wczytuje kalibrację mapy z pliku map_config.json
+    z folderu backup aktywnej miejscowości i zapisuje do bazy danych.
+
+    Ta funkcja jest wywoływana automatycznie przy pierwszym uruchomieniu.
+    """
+    try:
+        # Pobierz nazwę aktywnej miejscowości
+        location_name = get_active_location_name()
+        if not location_name:
+            return
+
+        # Ścieżka do pliku map_config.json w backupie
+        map_config_path = os.path.join(BACKUP_FOLDER, location_name, "map_config.json")
+
+        if not os.path.exists(map_config_path):
+            print(f"ℹ️ Brak pliku map_config.json w backup/{location_name}")
+            return
+
+        # Wczytaj konfigurację z pliku
+        with open(map_config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        calibration = config.get('calibration')
+        defaults = config.get('defaults')
+
+        if not calibration:
+            print("⚠️ Brak danych kalibracji w map_config.json")
+            return
+
+        # Połącz się z bazą danych miejscowości
+        db_config = get_db_config_from_env()
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+
+        # Zapisz kalibrację do bazy
+        cur.execute(
+            "INSERT INTO konfiguracja_systemu (klucz, wartosc) VALUES ('map_calibration', %s) "
+            "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
+            (json.dumps(calibration),)
+        )
+
+        # Zapisz domyślne ustawienia mapy jeśli są
+        if defaults:
+            cur.execute(
+                "INSERT INTO konfiguracja_systemu (klucz, wartosc) VALUES ('map_defaults', %s) "
+                "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
+                (json.dumps(defaults),)
+            )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"✅ Automatyczna kalibracja mapy z {map_config_path}")
+        print(f"   SW: {calibration.get('sw')}, NE: {calibration.get('ne')}")
+
+    except Exception as e:
+        print(f"⚠️ Błąd podczas automatycznej kalibracji mapy: {e}")
         import traceback
         traceback.print_exc()
 
