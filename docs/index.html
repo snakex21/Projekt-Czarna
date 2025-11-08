@@ -33,7 +33,6 @@
             <a href="#opis-techniczny"><span>Opis Techniczny</span></a>
             <a href="#launcher"><span>Launcher</span></a>
             <a href="#instalacja"><span>Instalacja</span></a>
-            <a href="deployment.html"><span>🚀 Wdrożenie</span></a>
             <a href="#narzedzia"><span>Narzędzia</span></a>
             <a href="#galeria-aplikacji"><span>Galeria</span></a>
             <a href="#podsumowanie"><span>Podsumowanie i Bibliografia</span></a>
@@ -794,181 +793,106 @@ erDiagram
           </div>
         </section>
 
-<!-- Sekcja: Konfiguracja bazy danych -->
+<!-- Sekcja: Automatyczna konfiguracja -->
         <section>
-          <h2 id="instalacja">Krok 2: Konfiguracja Bazy Danych</h2>
+          <h2 id="instalacja">Krok 2: Uruchomienie i Automatyczna Konfiguracja</h2>
           <p>
-            Po zainstalowaniu oprogramowania, należy przygotować bazę danych do
-            przyjęcia danych z projektu. Poniższe kroki pokazują, jak to zrobić
-            przy użyciu narzędzia <strong>pgAdmin 4</strong>.
+            Po zainstalowaniu PostgreSQL możemy uruchomić projekt.
+            <strong>Launcher automatycznie wykrywa pierwsze uruchomienie</strong> i przeprowadzi Cię
+            przez prostą konfigurację - wystarczy podać hasło do PostgreSQL.
           </p>
-          <ol>
-            <li>Uruchom pgAdmin 4 (możesz go znaleźć w menu Start).</li>
-            <li><img src="assets/instalacja_pgadmin_krok_1_uruchomienie.png" alt="Uruchamianie pgAdmin 4" class="screenshot" /></li>
-            <li>W panelu po lewej stronie rozwiń drzewo "Servers" (klikając małą strzałkę).</li>
-            <li><img src="assets/instalacja_pgadmin_krok_2_drzewo_serwerow.png" alt="Rozwinięcie drzewa serwerów" class="screenshot" /></li>
-            <li>Zostaniesz poproszony o hasło, które ustawiłeś podczas instalacji PostgreSQL. Wpisz je i (opcjonalnie) zaznacz "Save Password". Kliknij "OK".</li>
-            <li><img src="assets/instalacja_pgadmin_krok_3_logowanie.png" alt="Okno logowania do serwera" class="screenshot" /></li>
-            <li>Po pomyślnym zalogowaniu, kliknij prawym przyciskiem myszy na "Databases" i wybierz <strong>Create -> Database...</strong></li>
-            <li><img src="assets/instalacja_pgadmin_krok_4_tworzenie_bazy.png" alt="Okno tworzenia nowej bazy danych" class="screenshot" /></li>
-            <li>W oknie, które się pojawi, w zakładce "General" wpisz nazwę bazy: <code>mapa_czarna_db</code>.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_5_nazwa_bazy.png" alt="Wprowadzanie nazwy bazy (mapa_czarna_db)" class="screenshot" /></li>
-            <li>Następnie przejdź do zakładki "Definition". Upewnij się, że w polu "Template" wybrane jest <code>template1</code>, a w polu "Encoding" wybierz z listy <strong>UTF8</strong>. Kliknij "Save", aby utworzyć bazę.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_6_kodowanie.png" alt="Ustawianie kodowania UTF8 w zakładce Definition" class="screenshot" /></li>
-            <li>W drzewie po lewej stronie, pod Twoją nową bazą <code>mapa_czarna_db</code>, rozwiń "Extensions". Kliknij prawym przyciskiem myszy na "Extensions" i wybierz <strong>Create -> Extension...</strong></li>
-            <li><img src="assets/instalacja_pgadmin_krok_7_tworzenie_rozszerzenia.png" alt="Rozwinięcie gałęzi Extensions w drzewie bazy. Opcja Create Extension... po kliknięciu prawym przyciskiem myszy na Extensions." class="screenshot" /></li>
-            <li>W nowym oknie, w polu "Name", zacznij wpisywać <code>postgis</code> lub wybierz je z rozwijanej listy. Następnie kliknij "Save".</li>
-            <li><img src="assets/instalacja_pgadmin_krok_8_wybor_postgis.png" alt="Wybór rozszerzenia postgis" class="screenshot" /></li>
-            <li>Po chwili rozszerzenie PostGIS zostanie dodane do Twojej bazy danych.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_9_potwierdzenie_postgis.png" alt="Potwierdzenie dodania PostGIS" class="screenshot" /></li>
-            <li>Teraz musimy stworzyć strukturę tabel. Kliknij prawym przyciskiem myszy na bazę <code>mapa_czarna_db</code> i wybierz <strong>Query Tool</strong>.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_10_query_tool.png" alt="Opcja Query Tool po kliknięciu prawym przyciskiem myszy na bazie" class="screenshot" /></li>
-            <li>W oknie edytora zapytań, które się pojawi, wklej <strong>cały poniższy skrypt SQL</strong>.</li>
-            
-            <!-- Skrypt SQL tworzący strukturę bazy danych -->
-            <div class="code-block">
-              <pre><code class="language-sql">-- Skrypt tworzący kompletną strukturę bazy danych dla projektu mapy katastralnej
 
--- Czyszczenie istniejących tabel (jeśli istnieją)
-DROP TABLE IF EXISTS malzenstwa, osoby_genealogia, powiazania_protokolow, dzialki_wlasciciele, wlasciciele, obiekty_geograficzne, demografia, login_attempts, blocked_ips, konfiguracja_systemu CASCADE;
+          <h3>2.1. Instalacja zależności Python</h3>
+          <p>Najpierw zainstaluj wymagane biblioteki:</p>
+          <div class="code-block">
+            <pre><code>pip install -r requirements.txt</code></pre>
+            <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+          </div>
+          <img src="assets/instalacja_zaleznosci_pip_proces.png" alt="Proces instalacji zależności za pomocą pip" class="screenshot" />
 
--- Tabela globalnej konfiguracji systemu
-CREATE TABLE konfiguracja_systemu (
-    klucz VARCHAR(50) PRIMARY KEY,
-    wartosc JSONB NOT NULL,
-    opis TEXT
-);
+          <h3>2.2. Uruchomienie Launchera</h3>
+          <p>Uruchom Launcher poleceniem:</p>
+          <div class="code-block">
+            <pre><code>python launcher/launcher_app.py</code></pre>
+            <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+          </div>
 
--- Tabela obiektów geograficznych (działki, drogi, budynki)
-CREATE TABLE obiekty_geograficzne (
-    id SERIAL PRIMARY KEY,
-    nazwa_lub_numer VARCHAR(50) NOT NULL,
-    kategoria       VARCHAR(50) NOT NULL,
-    geometria GEOMETRY(GEOMETRY, 4326),
-    UNIQUE (nazwa_lub_numer, kategoria)
-);
-
--- Tabela protokołów właścicieli
-CREATE TABLE wlasciciele (
-    id SERIAL PRIMARY KEY,
-    unikalny_klucz VARCHAR(100) NOT NULL UNIQUE,
-    nazwa_wlasciciela VARCHAR(255) NOT NULL,
-    numer_protokolu INTEGER,
-    numer_domu VARCHAR(50),
-    data_protokolu DATE,
-    miejsce_protokolu VARCHAR(100),
-    genealogia TEXT,
-    historia_wlasnosci TEXT,
-    uwagi TEXT,
-    wspolwlasnosc TEXT,
-    powiazania_i_transakcje TEXT,
-    interpretacja_i_wnioski TEXT
-);
-
--- Tabela genealogii osób
-CREATE TABLE osoby_genealogia (
-    id SERIAL PRIMARY KEY,
-    json_id INTEGER UNIQUE NOT NULL,
-    imie_nazwisko VARCHAR(255) NOT NULL,
-    plec VARCHAR(1),
-    numer_domu VARCHAR(50),
-    rok_urodzenia INTEGER,
-    rok_smierci INTEGER,
-    id_ojca INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
-    id_matki INTEGER REFERENCES osoby_genealogia(id) ON DELETE SET NULL,
-    id_protokolu INTEGER REFERENCES wlasciciele(id) ON DELETE SET NULL,
-    uwagi TEXT
-);
-
--- Tabela relacji małżeńskich
-CREATE TABLE malzenstwa (
-    malzonek1_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
-    malzonek2_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
-    PRIMARY KEY (malzonek1_id, malzonek2_id),
-    CONSTRAINT rozne_osoby CHECK (malzonek1_id <> malzonek2_id)
-);
-
--- Tabela łącząca właścicieli z obiektami
-CREATE TABLE dzialki_wlasciciele (
-    id SERIAL PRIMARY KEY,
-    wlasciciel_id INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
-    obiekt_id INTEGER NOT NULL REFERENCES obiekty_geograficzne(id) ON DELETE CASCADE,
-    typ_posiadania VARCHAR(50),
-    opis_udzialu TEXT,
-    UNIQUE (wlasciciel_id, obiekt_id, typ_posiadania)
-);
-
--- Tabela danych demograficznych
-CREATE TABLE demografia (
-    id SERIAL PRIMARY KEY,
-    rok INTEGER NOT NULL UNIQUE,
-    populacja_ogolem INTEGER,
-    katolicy INTEGER,
-    zydzi INTEGER,
-    inni INTEGER,
-    opis TEXT
-);
-
--- Tabela powiązań między protokołami
-CREATE TABLE powiazania_protokolow (
-    id SERIAL PRIMARY KEY,
-    wlasciciel_id_1 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
-    wlasciciel_id_2 INTEGER NOT NULL REFERENCES wlasciciele(id) ON DELETE CASCADE,
-    typ_relacji VARCHAR(50),
-    opis_relacji TEXT
-);
-
--- Tabela logów prób logowania
-CREATE TABLE login_attempts (
-    id SERIAL PRIMARY KEY,
-    ip_address VARCHAR(45) NOT NULL,
-    username_attempt VARCHAR(255),
-    timestamp TIMESTAMPTZ DEFAULT NOW(),
-    successful BOOLEAN NOT NULL
-);
-
--- Tabela zablokowanych adresów IP
-CREATE TABLE blocked_ips (
-    id SERIAL PRIMARY KEY,
-    ip_address VARCHAR(45) NOT NULL UNIQUE,
-    reason TEXT,
-    timestamp TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Indeksy dla optymalizacji zapytań
-CREATE INDEX idx_obiekty_geometria ON obiekty_geograficzne USING GIST (geometria);
-CREATE INDEX idx_wlasciciele_nazwa ON wlasciciele (nazwa_wlasciciela);
-CREATE INDEX idx_osoby_genealogia_protokol ON osoby_genealogia (id_protokolu);
-CREATE INDEX idx_login_attempts_ip ON login_attempts (ip_address);
-
--- Wstawienie domyślnej konfiguracji mapy
-INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) VALUES
-('map_calibration', '{"sw": {"lat": 50.0414, "lng": 21.2261}, "ne": {"lat": 50.0814, "lng": 21.2661}}', 'Współrzędne kalibracji mapy historycznej (Południowy-Zachód i Północny-Wschód).'),
-('map_defaults', '{"center": {"lat": 50.0614, "lng": 21.2461}, "zoom": 14}', 'Domyślny widok startowy mapy (centrum i poziom przybliżenia).')
-ON CONFLICT (klucz) DO NOTHING;
-
--- Struktura bazy danych jest gotowa do użycia</code></pre>
-              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
-            </div>
-            
-            <li>Następnie kliknij ikonę <strong>"Execute/Refresh" (trójkąt Play)</strong> lub wciśnij klawisz F5, aby wykonać skrypt.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_11_wykonanie_skryptu.png" alt="Wykonywanie skryptu SQL - ikona Play" class="screenshot" /></li>
-            <li>Po pomyślnym wykonaniu skryptu, w panelu "Messages" na dole pojawi się komunikat "Query returned successfully".</li>
-            <li><img src="assets/instalacja_pgadmin_krok_12_sukces.png" alt="Potwierdzenie pomyślnego wykonania skryptu SQL" class="screenshot" /></li>
-            <li>Aby zobaczyć nowo utworzone tabele, kliknij prawym przyciskiem myszy na "Tables" (znajdujące się pod bazą danych <code>mapa_czarna_db</code>) i wybierz "Refresh...".</li>
-            <li><img src="assets/instalacja_pgadmin_krok_13_odswiezanie_tabel.png" alt="Odświeżanie widoku Tables" class="screenshot" /></li>
-            <li>Po odświeżeniu, pod gałęzią "Tables" zobaczysz wszystkie nowo utworzone tabele, w tym: <code>wlasciciele</code>, <code>obiekty_geograficzne</code>, <code>osoby_genealogia</code>, <code>malzenstwa</code>, <code>demografia</code> i inne.</li>
-            <li><img src="assets/instalacja_pgadmin_krok_14_widok_tabel.png" alt="Widok nowo utworzonych tabel" class="screenshot" /></li>
-          </ol>
+          <h3>2.3. Pierwsza konfiguracja (automatyczna)</h3>
           <div class="important-note">
-            <strong>Gratulacje!</strong> Twoja baza danych jest teraz w pełni
-            skonfigurowana i gotowa na przyjęcie danych z projektu.
+            <strong>Uwaga:</strong> Przy pierwszym uruchomieniu Launcher automatycznie wykryje brak konfiguracji
+            i poprowadzi Cię przez proces inicjalizacji.
+          </div>
+
+          <p><strong>Co się dzieje krok po kroku:</strong></p>
+          <ol>
+            <li>
+              <strong>Okno konfiguracji PostgreSQL</strong><br>
+              Launcher wyświetli okno z prośbą o dane połączenia:
+              <ul>
+                <li>Host: <code>localhost</code> (pozostaw domyślnie)</li>
+                <li>Port: <code>5432</code> (pozostaw domyślnie)</li>
+                <li>Użytkownik: <code>postgres</code> (pozostaw domyślnie)</li>
+                <li><strong>Hasło:</strong> Wpisz hasło które ustawiłeś podczas instalacji PostgreSQL</li>
+              </ul>
+              Po wpisaniu hasła Launcher automatycznie przetestuje połączenie i wyświetli <code>✓ Połączenie Udane!</code>
+            </li>
+            <li>
+              <strong>Okno ładowania</strong><br>
+              Launcher automatycznie:
+              <ul>
+                <li>Utworzy bazę <code>mapa_launcher_db</code> (zarządzanie miejscowościami)</li>
+                <li>Utworzy bazę <code>mapa_czarna_db</code> (dane dla miejscowości Czarna)</li>
+                <li>Włączy rozszerzenie PostGIS</li>
+                <li>Utworzy wszystkie tabele (właściciele, działki, genealogia, itd.)</li>
+                <li>Utworzy miejscowość "Czarna" jako szablon</li>
+                <li>Zmigruje dane z folderu <code>backup/Czarna/</code></li>
+              </ul>
+              <div class="important-note">
+                <strong>Pierwsze uruchomienie może zająć 1-2 minuty.</strong> To normalne - Launcher tworzy bazy danych i importuje dane.
+              </div>
+            </li>
+            <li>
+              <strong>Główne okno Launchera</strong><br>
+              Po zakończeniu inicjalizacji zobaczysz główne okno z sekcjami:
+              <ul>
+                <li><strong>📍 Miejscowość:</strong> Aktywna miejscowość (domyślnie: Czarna)</li>
+                <li><strong>⚙️ Operacje Główne:</strong> Uruchomienie serwera, narzędzia</li>
+                <li><strong>🛠️ Narzędzia Deweloperskie:</strong> Edytory danych</li>
+                <li><strong>🌐 Szybki Dostęp:</strong> Linki do aplikacji webowej</li>
+              </ul>
+              <img src="assets/launcher_okno_glowne.png" alt="Główne okno launchera po inicjalizacji" class="screenshot" />
+            </li>
+          </ol>
+
+          <h3>2.4. Uruchomienie serwera i dostęp do aplikacji</h3>
+          <ol>
+            <li>W Launcherze kliknij <strong>"🚀 Uruchom Serwer Backend"</strong></li>
+            <li>Poczekaj aż w konsoli pojawi się: <code>✓ Running on http://127.0.0.1:5000</code></li>
+            <li>Kliknij <strong>"🗺️ Mapa Interaktywna"</strong> w sekcji Szybki Dostęp</li>
+            <li>Przeglądarka otworzy aplikację webową - gotowe!</li>
+          </ol>
+
+          <div class="important-note">
+            <strong>Gratulacje!</strong> System jest w pełni skonfigurowany i gotowy do użycia.
+            Możesz teraz przeglądać mapę katastralną, dane właścicieli, statystyki i genealogię.
           </div>
         </section>
 
-        <!-- Sekcja: Uruchomienie aplikacji -->
+        <!-- Sekcja: Opcjonalna kalibracja mapy -->
         <section>
-            <h2 id="instalacja">Krok 3: Uruchomienie Aplikacji</h2>
+            <h2 id="instalacja">Dodatkowa Konfiguracja (Opcjonalnie)</h2>
+            <p>
+              Po pierwszym uruchomieniu możesz dostosować dodatkowe ustawienia.
+              <strong>Te kroki są opcjonalne</strong> - system już działa z domyślną konfiguracją.
+            </p>
+
+            <h3>Kalibracja Mapy (Zalecane przy pierwszym uruchomieniu)</h3>
+            <ol>
+              <li>W Launcherze kliknij przycisk <strong>"📍 Kalibracja Mapy"</strong></li>
+              <li>Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok</li>
+              <li>Dane te są kluczowe dla poprawnego działania zarówno edytora, jak i głównej mapy</li>
+              <li>Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>map_config.json</code> (dla edytora) oraz bazę danych (dla aplikacji głównej), gwarantując spójność</li>
+            </ol>
             <p>
               Gdy środowisko i baza danych są gotowe, możemy uruchomić projekt.
               Zalecaną i jedyną opisaną metodą jest użycie
@@ -998,9 +922,7 @@ ON CONFLICT (klucz) DO NOTHING;
               <li>
                 <p>W oknie Launchera wykonaj następujące kroki w podanej kolejności:</p>
                 <ol type="a">
-                  <li><strong>Konfiguracja połączenia z bazą danych (Kluczowy krok!):</strong> Przed pierwszą migracją danych należy powiedzieć aplikacji, jak połączyć się z bazą. Kliknij przycisk <strong>"Konfiguracja Bazy Danych"</strong>. Otworzy się edytor, w którym należy uzupełnić dane logowania (użytkownik, hasło), które ustawiłeś podczas instalacji PostgreSQL. Po zapisaniu zmian zamknij edytor.</li>
-                  <img src="assets/instalacja_launcher_konfiguracja_db.png" alt="Launcher z otwartym oknem edycji pliku konfiguracyjnego bazy danych" class="screenshot">
-                  <li><strong>Kalibracja Mapy (Zalecane przy pierwszym uruchomieniu):</strong> Kliknij przycisk <strong>"Kalibracja Mapy"</strong>. Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok. Dane te są kluczowe dla poprawnego działania zarówno edytora, jak i głównej mapy. Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>map_config.json</code> (dla edytora) oraz bazę danych (dla aplikacji głównej), gwarantując spójność.</li>
+<li><strong>Kalibracja Mapy (Zalecane przy pierwszym uruchomieniu):</strong> Kliknij przycisk <strong>"Kalibracja Mapy"</strong>. Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok. Dane te są kluczowe dla poprawnego działania zarówno edytora, jak i głównej mapy. Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>map_config.json</code> (dla edytora) oraz bazę danych (dla aplikacji głównej), gwarantując spójność.</li>
                   <div class="gallery">
                     <figure>
                       <img src="assets/launcher_kalibrator_mapy_glowne.png" alt="Okno Kalibratora Mapy w Launcherze" />
