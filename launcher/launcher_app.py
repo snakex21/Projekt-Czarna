@@ -25,6 +25,8 @@ import filecmp
 import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from functools import lru_cache
+import time
 
 try:
     from PIL import Image, ImageTk
@@ -59,6 +61,19 @@ ICONS_SCAN_FOLDERS = [
     os.path.join(BASE_DIR, "icons"),
     os.path.join(ASSETS_FOLDER, "icons"),
 ]
+
+# =============================================================================
+# CACHE DLA OPTYMALIZACJI WYDAJNOŚCI
+# =============================================================================
+_locations_cache = None
+_locations_cache_time = 0
+_CACHE_TTL = 30  # Cache ważny przez 30 sekund
+
+def invalidate_locations_cache():
+    """Unieważnia cache miejscowości."""
+    global _locations_cache, _locations_cache_time
+    _locations_cache = None
+    _locations_cache_time = 0
 
 # =============================================================================
 # POSTGRESQL - FUNKCJE POMOCNICZE I SCHEMA
@@ -663,7 +678,7 @@ def init_locations_db():
 
 def get_all_locations():
     """
-    Zwraca wszystkie miejscowości z bazy danych PostgreSQL.
+    Zwraca wszystkie miejscowości z bazy danych PostgreSQL (z cache).
 
     Returns:
         list of tuples: Lista miejscowości posortowana po nazwie
@@ -671,6 +686,14 @@ def get_all_locations():
                       homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
                       postgres_db_name, history_photos)
     """
+    global _locations_cache, _locations_cache_time
+
+    # Sprawdź cache
+    current_time = time.time()
+    if _locations_cache is not None and (current_time - _locations_cache_time) < _CACHE_TTL:
+        return _locations_cache
+
+    # Cache nieważny lub pusty - pobierz z bazy
     init_locations_db()
 
     if not check_postgres_available():
@@ -698,6 +721,10 @@ def get_all_locations():
         locations = cursor.fetchall()
         cursor.close()
         conn.close()
+
+        # Zapisz w cache
+        _locations_cache = locations
+        _locations_cache_time = current_time
 
         return locations
     except Exception as e:
@@ -769,6 +796,7 @@ def set_active_location(location_id):
         cursor.close()
         conn.close()
 
+        invalidate_locations_cache()  # Unieważnij cache po zmianie
         apply_homepage_template(template)
         generate_location_config_js()
     except Exception as e:
@@ -1003,18 +1031,17 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
         db_name_for_env = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}_db"
 
         default_env = f"""# =============================================================================
-# KONFIGURACJA DLA MIEJSCOWOŚCI: {name.upper()}
+# KONFIGURACJA MIEJSCOWOŚCI
 # =============================================================================
-# Plik konfiguracyjny dla miejscowości {name}
 # Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
 # =============================================================================
-# BAZA DANYCH - NAZWA BAZY DLA TEJ MIEJSCOWOŚCI
+# BAZA DANYCH
 # =============================================================================
 DB_NAME={db_name_for_env}
 
 # =============================================================================
-# KONFIGURACJA FLASK
+# SERWER FLASK
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
@@ -1026,7 +1053,6 @@ FLASK_SECRET_KEY=change-me-{name.lower()}-secret
 # =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
-# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
 
 # =============================================================================
@@ -1108,6 +1134,7 @@ LOCATION_CODE={name[:2].upper()}
         except Exception as e:
             print(f"⚠️ Nie udało się utworzyć launcher_db_config.json: {e}")
 
+        invalidate_locations_cache()  # Unieważnij cache po dodaniu
         return location_id
 
     except psycopg2.IntegrityError:
@@ -1234,6 +1261,8 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
         except Exception as e:
             print(f"⚠️ Nie udało się zaktualizować launcher_db_config.json: {e}")
 
+        invalidate_locations_cache()  # Unieważnij cache po aktualizacji
+
     except psycopg2.IntegrityError:
         if 'conn' in locals():
             conn.close()
@@ -1327,6 +1356,8 @@ def delete_location(location_id):
         conn.commit()
         cursor.close()
         conn.close()
+
+        invalidate_locations_cache()  # Unieważnij cache po usunięciu
         print(f"✅ Usunięto miejscowość: {name}")
 
     except Exception as e:
@@ -1686,12 +1717,12 @@ def check_env_configuration():
 # Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
 # =============================================================================
-# BAZA DANYCH - NAZWA BAZY
+# BAZA DANYCH
 # =============================================================================
 DB_NAME=mapa_czarna_db
 
 # =============================================================================
-# KONFIGURACJA FLASK
+# SERWER FLASK
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
@@ -1703,7 +1734,6 @@ FLASK_SECRET_KEY=change-me-once
 # =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
-# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
 """
         # Upewnij się, że folder istnieje
@@ -1958,17 +1988,49 @@ LAUNCHER_DB_PASSWORD={password}
     return config_result['success']
 
 def _auto_sync_site_icon():
-    """Automatycznie wykrywa istniejący favicon w assets/site lub kopiuje pierwszą znalezioną ikonę 
-    z folderów icons → assets/site i zapisuje ścieżkę w konfiguracji bazy danych."""
-    
+    """Automatycznie wykrywa istniejący favicon w assets/site, backup miejscowości,
+    lub kopiuje pierwszą znalezioną ikonę z folderów icons → assets/site
+    i zapisuje ścieżkę w konfiguracji bazy danych."""
+
+    # OPTYMALIZACJA: Sprawdź najpierw czy favicon już jest zapisany w bazie
+    try:
+        active_loc = get_active_location()
+        if active_loc and len(active_loc) > 14:
+            # Sprawdź czy favicon istnieje fizycznie
+            stored_favicon = "favicon.jpeg"  # Domyślna nazwa
+            favicon_path = os.path.join(SITE_ASSETS_FOLDER, stored_favicon)
+            if os.path.exists(favicon_path):
+                # Favicon już istnieje, pomiń skanowanie
+                return
+    except:
+        pass  # Jeśli wystąpi błąd, kontynuuj normalną procedurę
+
     # KROK 1: Sprawdź czy w folderze site już istnieje favicon
     existing_favicon = _find_existing_favicon_in_site()
     if existing_favicon:
         print(f"🔍 Wykryto istniejący favicon: {existing_favicon}")
         _save_favicon_to_database(existing_favicon)
         return
-    
-    # KROK 2: Jeśli brak favicon w site/, szukaj w folderach icons i kopiuj pierwszy znaleziony  
+
+    # KROK 2: Sprawdź czy w folderze backup aktywnej miejscowości jest favicon.jpeg
+    try:
+        location_name = get_active_location_name()
+        if location_name:
+            backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+            favicon_in_backup = os.path.join(backup_location_folder, "favicon.jpeg")
+
+            if os.path.exists(favicon_in_backup):
+                # Znaleziono favicon w backup, skopiuj do site
+                os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
+                dest = os.path.join(SITE_ASSETS_FOLDER, "favicon.jpeg")
+                shutil.copy2(favicon_in_backup, dest)
+                print(f"📋 Skopiowano favicon z backup/{location_name}/favicon.jpeg")
+                _save_favicon_to_database("favicon.jpeg")
+                return
+    except Exception as e:
+        print(f"⚠️ Nie udało się sprawdzić favicon w backup: {e}")
+
+    # KROK 3: Jeśli brak favicon w site/ i backup/, szukaj w folderach icons i kopiuj pierwszy znaleziony
     for folder in ICONS_SCAN_FOLDERS:
         if not os.path.isdir(folder):
             continue
@@ -1977,13 +2039,13 @@ def _auto_sync_site_icon():
                 continue
             src = os.path.join(folder, fname)
             dest = os.path.join(SITE_ASSETS_FOLDER, fname)
-            
+
             # Kopiuj tylko jeśli plik nie istnieje lub jest różny
             if not os.path.exists(dest) or not filecmp.cmp(src, dest, shallow=False):
                 os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
                 shutil.copy2(src, dest)
                 print(f"📋 Skopiowano favicon z {folder}: {fname}")
-            
+
             _save_favicon_to_database(fname)
             return  # używamy tylko pierwszego pliku
 
@@ -2151,6 +2213,11 @@ class AppLauncher(tk.Tk):
 
         self.managed_processes = {}
         self.event_queue = queue.Queue()
+        self._refresh_pending = False  # Debounce flag
+        self._cached_locations = None  # Cache lokacji w pamięci
+        self._displayed_processes = {}  # Cache wyświetlanych procesów (unikaj przebudowy UI)
+        self._log_buffer = {}  # Buffer logów dla każdej konsoli (batching)
+        self._log_flush_pending = False  # Flaga pending flush
         self.setup_styles()
 
         # UKRYJ główne okno przed konfiguracją PostgreSQL
@@ -2184,20 +2251,18 @@ class AppLauncher(tk.Tk):
 
         _auto_sync_site_icon()
 
-        # Automatycznie odśwież strony HTML z placeholderami
+        # Automatycznie odśwież strony HTML z placeholderami (w tle aby nie blokować startu)
         loading_dialog.update_status("Aktualizacja stron HTML...", "Generowanie szablonów")
 
-        self.refresh_html_pages()
+        def _async_refresh():
+            try:
+                self.refresh_html_pages()
+                print("✅ Strony HTML i konfiguracja zaktualizowane w tle")
+            except Exception as e:
+                print(f"⚠️ Błąd podczas generowania plików: {e}")
 
-        # Upewnij się, że location-config.js istnieje
-        loading_dialog.update_status("Generowanie konfiguracji...", "location-config.js")
-
-        try:
-            generate_location_config_js()
-        except Exception as e:
-            print(f"⚠️ Błąd podczas generowania location-config.js: {e}")
-            import traceback
-            traceback.print_exc()
+        # Uruchom w tle - nie blokuj GUI
+        threading.Thread(target=_async_refresh, daemon=True).start()
 
         # Zamknij okno ładowania i pokaż podsumowanie
         loading_dialog.update_status("System gotowy!", "Uruchamianie interfejsu...")
@@ -2240,8 +2305,13 @@ class AppLauncher(tk.Tk):
                 messagebox.showinfo("System gotowy!", message)
 
         self.create_widgets()
-        self._last_port = self.load_flask_config().get("port")
-        
+
+        # Odroczone operacje I/O - wykonaj po pełnej inicjalizacji GUI (nie blokuj startu)
+        self.after(10, self.refresh_locations)  # Załaduj lokacje asynchronicznie
+        self.after(30, self.refresh_quick_links)  # Konfiguruj przyciski szybkiego dostępu
+        self.after(40, self.start_env_watcher)  # Uruchom watcher pliku .env
+        self.after(20, lambda: setattr(self, '_last_port', self.load_flask_config().get("port")))
+
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.process_queue()
 
@@ -2325,13 +2395,27 @@ class AppLauncher(tk.Tk):
         """Przetwarza zdarzenia z kolejki w pętli głównej."""
         try:
             while True:
-                key, event_type = self.event_queue.get_nowait()
-                if event_type == "finished":
-                    self.handle_process_finished(key)
+                event = self.event_queue.get_nowait()
+
+                # Obsługa różnych formatów eventów
+                if len(event) == 2:
+                    # Stary format: (key, event_type)
+                    key, event_type = event
+                    if event_type == "finished":
+                        self.handle_process_finished(key)
+                elif len(event) == 3:
+                    # Nowy format: (event_type, data1, data2)
+                    event_type, data1, data2 = event
+                    if event_type == "location_changed":
+                        messagebox.showinfo("✅ Zmieniono miejscowość",
+                                          f"Aktywna miejscowość: {data1}\n\n"
+                                          "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
+                    elif event_type == "location_error":
+                        messagebox.showerror("Błąd", f"Nie udało się zmienić miejscowości:\n{data2}")
         except queue.Empty:
             pass
         finally:
-            self.after(100, self.process_queue)
+            self.after(150, self.process_queue)  # Zmniejszona częstotliwość (był 100ms)
 
     def handle_process_finished(self, key):
         """Obsługuje zdarzenie zakończenia procesu."""
@@ -2400,7 +2484,8 @@ class AppLauncher(tk.Tk):
         ttk.Button(location_controls, text="🔧 Zarządzanie Bazą Danych", command=self.open_database_wizard,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
-        self.refresh_locations()
+        # Odłóż refresh_locations() - wykonaj po pełnej inicjalizacji GUI
+        # Usuń: self.refresh_locations() - zostanie wywołane w __init__ po create_widgets()
 
         # Sekcja operacji głównych
         operations_frame = ttk.LabelFrame(main_frame, text="⚙️ Operacje Główne", padding="10")
@@ -2475,10 +2560,10 @@ class AppLauncher(tk.Tk):
             btn = ttk.Button(links_container, text=text, style=f"{style}.TButton")
             btn.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
             self.quick_link_buttons.append((btn, path))
-        
+
         self._env_mtime = None
-        self.refresh_quick_links()
-        self.start_env_watcher()
+        # Odłóż refresh_quick_links() - zostanie wykonane asynchronicznie w __init__
+        # Odłóż start_env_watcher() - zostanie wykonane asynchronicznie w __init__
         
         # Sekcja procesów
         self.processes_frame = ttk.LabelFrame(main_frame, text="📊 Uruchomione Procesy", padding="10")
@@ -2504,33 +2589,77 @@ class AppLauncher(tk.Tk):
         self.log("ℹ️ Użyj przycisków powyżej, aby uruchomić komponenty.\n\n")
 
     def log(self, message, console=None):
-        """Wypisuje wiadomość do konsoli."""
+        """Wypisuje wiadomość do konsoli (zoptymalizowane z batchingiem)."""
         target_console = console or self.main_console
-        target_console.configure(state="normal")
-        target_console.insert(tk.END, message)
-        target_console.see(tk.END)
-        target_console.configure(state="disabled")
+
+        # Dodaj do bufora zamiast natychmiastowego zapisu
+        console_id = id(target_console)
+        if console_id not in self._log_buffer:
+            self._log_buffer[console_id] = {'console': target_console, 'messages': []}
+
+        self._log_buffer[console_id]['messages'].append(message)
+
+        # Zaplanuj flush jeśli jeszcze nie zaplanowano
+        if not self._log_flush_pending:
+            self._log_flush_pending = True
+            self.after(50, self._flush_logs)  # Flush co 50ms (batching)
+
+    def _flush_logs(self):
+        """Flush wszystkich zabuforowanych logów na raz."""
+        try:
+            for console_id, data in self._log_buffer.items():
+                console = data['console']
+                messages = data['messages']
+
+                if messages:
+                    # Jeden update zamiast wielu
+                    console.configure(state="normal")
+                    console.insert(tk.END, ''.join(messages))
+                    console.see(tk.END)
+                    console.configure(state="disabled")
+
+                    data['messages'].clear()
+        finally:
+            self._log_flush_pending = False
 
     def update_processes_ui(self):
-        """Odświeża listę uruchomionych procesów."""
-        for widget in self.processes_frame.winfo_children():
-            widget.destroy()
-        
-        if not self.managed_processes:
-            ttk.Label(self.processes_frame, text="📭 Brak uruchomionych procesów",
-                     foreground=COLORS['secondary']).pack(pady=10)
+        """Odświeża listę uruchomionych procesów (zoptymalizowane - bez przebudowy UI)."""
+        # Sprawdź czy lista procesów się zmieniła
+        current_keys = set(self.managed_processes.keys())
+        displayed_keys = set(self._displayed_processes.keys())
+
+        # Jeśli identyczne - pomiń aktualizację
+        if current_keys == displayed_keys:
             return
-        
-        for key, info in self.managed_processes.items():
+
+        # Usuń procesy, które już nie istnieją
+        for key in displayed_keys - current_keys:
+            if key in self._displayed_processes:
+                self._displayed_processes[key].destroy()
+                del self._displayed_processes[key]
+
+        # Dodaj nowe procesy
+        for key in current_keys - displayed_keys:
+            info = self.managed_processes[key]
             proc_frame = ttk.Frame(self.processes_frame)
             proc_frame.pack(fill=tk.X, pady=3, padx=5)
-            
+
             ttk.Label(proc_frame, text=f"🟢 {info['name']} (PID: {info['process'].pid})",
                      font=("Segoe UI", 10)).pack(side=tk.LEFT)
-            
+
             ttk.Button(proc_frame, text="⏹️ Zatrzymaj", style="Danger.TButton",
                       command=lambda k=key: self.stop_managed_process(k),
                       width=12).pack(side=tk.RIGHT, padx=5)
+
+            self._displayed_processes[key] = proc_frame
+
+        # Wyświetl "brak procesów" jeśli puste
+        if not self.managed_processes:
+            for widget in self.processes_frame.winfo_children():
+                widget.destroy()
+            self._displayed_processes.clear()
+            ttk.Label(self.processes_frame, text="📭 Brak uruchomionych procesów",
+                     foreground=COLORS['secondary']).pack(pady=10)
 
     def load_flask_config(self):
         """Czyta aktualny host/port z backend/.env."""
@@ -2559,7 +2688,7 @@ class AppLauncher(tk.Tk):
             return None
 
     def start_env_watcher(self):
-        """Cyklicznie sprawdza zmiany w pliku .env."""
+        """Cyklicznie sprawdza zmiany w pliku .env (zoptymalizowane - mniej częste sprawdzanie)."""
         def _tick():
             try:
                 mtime = self.get_env_mtime()
@@ -2569,7 +2698,7 @@ class AppLauncher(tk.Tk):
                     self._env_mtime = mtime
                     self.on_env_changed()
             finally:
-                self.after(2000, _tick)
+                self.after(5000, _tick)  # 5s zamiast 2s - zmniejsza obciążenie CPU
         _tick()
 
     def on_env_changed(self):
@@ -2637,55 +2766,101 @@ class AppLauncher(tk.Tk):
         except Exception as e:
             print(f"⚠️ Nie udało się automatycznie zaktualizować danych miejscowości: {e}")
 
-    def refresh_locations(self):
-        """Odświeża listę miejscowości w menu rozwijanym."""
-        locations = get_all_locations()
-        location_names = [loc[1] for loc in locations]  # loc[1] to name
-        self.location_combo['values'] = location_names
+    def refresh_locations(self, force=False):
+        """Odświeża listę miejscowości w menu rozwijanym (ultra zoptymalizowane)."""
+        # Debounce - zapobiegaj wielokrotnemu odświeżaniu
+        if self._refresh_pending and not force:
+            return
 
-        # Ustaw aktywną miejscowość
-        active_location = get_active_location()
-        if active_location:
-            self.location_var.set(active_location[1])  # active_location[1] to name
-        elif location_names:
-            # Jeśli brak aktywnej, ale są miejscowości, ustaw pierwszą
-            self.location_var.set(location_names[0])
-            # I ustaw ją jako aktywną w bazie
-            set_active_location(locations[0][0])
-        else:
-            self.location_var.set("(brak miejscowości)")
+        # Jeśli mamy cache i nie wymuszamy - użyj cache bez SQL
+        if self._cached_locations and not force:
+            try:
+                self._refresh_pending = True
+                locations = self._cached_locations
+                location_names = [loc[1] for loc in locations]
+
+                # Sprawdź czy dane się zmieniły
+                current_values = self.location_combo['values']
+                if tuple(current_values) == tuple(location_names):
+                    # Dane identyczne - pomiń odświeżanie
+                    return
+
+                self.location_combo['values'] = location_names
+
+                # Znajdź aktywną
+                active_location = next((loc for loc in locations if loc[5]), None)
+                if active_location:
+                    self.location_var.set(active_location[1])
+                elif location_names:
+                    self.location_var.set(location_names[0])
+                else:
+                    self.location_var.set("(brak miejscowości)")
+            finally:
+                self._refresh_pending = False
+            return
+
+        # Pełne odświeżenie z bazy (tylko jeśli force=True lub brak cache)
+        try:
+            self._refresh_pending = True
+            locations = get_all_locations()
+            self._cached_locations = locations
+            location_names = [loc[1] for loc in locations]
+            self.location_combo['values'] = location_names
+
+            # Znajdź aktywną lokację
+            active_location = next((loc for loc in locations if loc[5]), None)
+            if active_location:
+                self.location_var.set(active_location[1])
+            elif location_names:
+                self.location_var.set(location_names[0])
+                # Ustaw jako aktywną w tle
+                threading.Thread(target=lambda: set_active_location(locations[0][0]), daemon=True).start()
+            else:
+                self.location_var.set("(brak miejscowości)")
+        finally:
+            self._refresh_pending = False
 
     def on_location_selected(self, event=None):
-        """Obsługuje zmianę wybranej miejscowości."""
+        """Obsługuje zmianę wybranej miejscowości (zoptymalizowana)."""
         selected_name = self.location_var.get()
         if not selected_name or selected_name == "(brak miejscowości)":
             return
 
-        # Znajdź ID wybranej miejscowości
-        locations = get_all_locations()
+        # Użyj cache zamiast ponownego pobierania
+        locations = self._cached_locations if self._cached_locations else get_all_locations()
+
         for loc in locations:
             if loc[1] == selected_name:  # loc[1] to name
-                set_active_location(loc[0])  # loc[0] to id
-                messagebox.showinfo("✅ Zmieniono miejscowość",
-                                   f"Aktywna miejscowość: {selected_name}\n\n"
-                                   "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
-                # Odśwież DATA_FILES
-                global DATA_FILES
-                DATA_FILES = get_data_files()
+                # Zmień aktywną lokację w tle (nie blokuj UI)
+                def _change_location():
+                    try:
+                        set_active_location(loc[0])  # loc[0] to id
+                        # Odśwież DATA_FILES
+                        global DATA_FILES
+                        DATA_FILES = get_data_files()
+                        # Dodaj do kolejki - będzie obsłużone w głównym wątku
+                        self.event_queue.put(('location_changed', selected_name, None))
+                    except Exception as e:
+                        print(f"❌ Błąd zmiany lokacji: {e}")
+                        self.event_queue.put(('location_error', None, str(e)))
+
+                # Uruchom w tle natychmiast (bez update_idletasks - spowalnia)
+                threading.Thread(target=_change_location, daemon=True).start()
                 break
 
     def open_location_manager(self):
         """Otwiera okno zarządzania miejscowościami."""
         manager = LocationManager(self)
         self.wait_window(manager)
-        self.refresh_locations()
+        # Opóźnione odświeżenie - nie blokuj GUI natychmiast
+        self.after(50, lambda: self.refresh_locations(force=True))
 
     def open_database_wizard(self):
         """Otwiera narzędzie zarządzania bazą danych PostgreSQL."""
         wizard = DatabaseWizard(self)
         self.wait_window(wizard)
-        # Po zamknięciu narzędzia odśwież listę miejscowości (w razie nowej konfiguracji)
-        self.refresh_locations()
+        # Opóźnione odświeżenie - nie blokuj GUI natychmiast
+        self.after(50, lambda: self.refresh_locations(force=True))
 
     def open_backup_manager(self):
         """Otwiera okno menedżera kopii zapasowych."""
@@ -3862,8 +4037,6 @@ class DatabaseWizard(tk.Toplevel):
         self.result = None
         self.config = get_postgres_config()
         self.connection_tested = False
-        self.data_source = None  # 'zip' lub 'template'
-        self.zip_file_path = None
 
         # Notebook (kroki)
         self.notebook = ttk.Notebook(self)
@@ -3871,7 +4044,6 @@ class DatabaseWizard(tk.Toplevel):
 
         # Kroki
         self.create_step1_connection()
-        self.create_step2_data_source()  # NOWY KROK
         self.create_step3_action()
         self.create_step4_progress()
 
@@ -3937,78 +4109,14 @@ class DatabaseWizard(tk.Toplevel):
                                           foreground="#856404", font=('Arial', 12, 'bold'))
         self.connection_status.grid(row=4, column=0, columnspan=2, pady=20)
 
-        # Dodatkowy status frame z zieloną fajką
-        self.success_frame = ttk.Frame(form)
-        self.success_frame.grid(row=5, column=0, columnspan=2, pady=10)
-        self.success_label = None
-
         # Test początkowy jeśli hasło już istnieje
         if self.config['password']:
             self.after(100, self.test_connection)
 
-    def create_step2_data_source(self):
-        """Krok 2: Wybór źródła danych"""
-        frame = ttk.Frame(self.notebook, padding="20")
-        self.notebook.add(frame, text="2. Źródło Danych")
-
-        ttk.Label(frame, text="Wybierz Źródło Danych", font=('Arial', 16, 'bold')).pack(pady=(0, 10))
-
-        ttk.Label(frame, text="Skąd chcesz zaimportować dane?",
-                 foreground="gray", font=('Arial', 11)).pack(pady=(0, 30))
-
-        # Ramka z opcjami
-        options_frame = ttk.Frame(frame)
-        options_frame.pack(fill=tk.BOTH, expand=True, padx=40)
-
-        self.source_var = tk.StringVar(value="template")
-
-        # Opcja 1: ZIP
-        zip_frame = ttk.LabelFrame(options_frame, text=" ", padding=20)
-        zip_frame.pack(fill=tk.X, pady=10)
-
-        zip_radio = ttk.Radiobutton(zip_frame, text="", variable=self.source_var, value="zip")
-        zip_radio.pack(side=tk.LEFT)
-
-        zip_info = ttk.Frame(zip_frame)
-        zip_info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-
-        ttk.Label(zip_info, text="📦 Import z pliku ZIP",
-                 font=('Arial', 13, 'bold')).pack(anchor=tk.W)
-        ttk.Label(zip_info, text="Zaimportuj dane z kopii zapasowej (backup ZIP)\n"
-                                 "Zawiera: bazę launcher + dane miejscowości",
-                 foreground="gray").pack(anchor=tk.W, pady=5)
-
-        # Przycisk wyboru pliku
-        self.zip_button = ttk.Button(zip_info, text="🗂️ Wybierz plik ZIP...",
-                                     command=self.select_zip_file)
-        self.zip_button.pack(anchor=tk.W, pady=5)
-
-        self.zip_file_label = ttk.Label(zip_info, text="Nie wybrano pliku", foreground="gray")
-        self.zip_file_label.pack(anchor=tk.W)
-
-        # Separator
-        ttk.Separator(options_frame, orient='horizontal').pack(fill='x', pady=20)
-
-        # Opcja 2: Szablon
-        template_frame = ttk.LabelFrame(options_frame, text=" ", padding=20)
-        template_frame.pack(fill=tk.X, pady=10)
-
-        template_radio = ttk.Radiobutton(template_frame, text="", variable=self.source_var, value="template")
-        template_radio.pack(side=tk.LEFT)
-
-        template_info = ttk.Frame(template_frame)
-        template_info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-
-        ttk.Label(template_info, text="🏛️ Szablon Czarna",
-                 font=('Arial', 13, 'bold')).pack(anchor=tk.W)
-        ttk.Label(template_info, text="Rozpocznij od podstawowego szablonu dla miejscowości Czarna\n"
-                                     "Zawiera: pustą strukturę bazy danych gotową do wypełnienia",
-                 foreground="gray").pack(anchor=tk.W, pady=5)
-
     def create_step3_action(self):
-        """Krok 3: Akcja"""
+        """Krok 2: Akcja"""
         frame = ttk.Frame(self.notebook, padding="20")
-        self.notebook.add(frame, text="3. Akcja")
+        self.notebook.add(frame, text="2. Akcja")
 
         ttk.Label(frame, text="Co chcesz zrobić?", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
 
@@ -4057,9 +4165,9 @@ class DatabaseWizard(tk.Toplevel):
         ttk.Button(frame, text="🔄 Odśwież status", command=self.refresh_status).pack(pady=10)
 
     def create_step4_progress(self):
-        """Krok 4: Wykonanie"""
+        """Krok 3: Wykonanie"""
         frame = ttk.Frame(self.notebook, padding="20")
-        self.notebook.add(frame, text="4. Wykonanie")
+        self.notebook.add(frame, text="3. Wykonanie")
 
         ttk.Label(frame, text="Instalacja...", font=('Arial', 14, 'bold')).pack(pady=(0, 20))
 
@@ -4090,10 +4198,6 @@ class DatabaseWizard(tk.Toplevel):
 
     def test_connection(self):
         """Test połączenia z PostgreSQL"""
-        # Wyczyść poprzedni status
-        for widget in self.success_frame.winfo_children():
-            widget.destroy()
-
         self.connection_status.config(text="🔄 Testowanie połączenia...", foreground="blue")
         self.update_idletasks()
 
@@ -4105,79 +4209,19 @@ class DatabaseWizard(tk.Toplevel):
         success, msg = test_postgres_connection(**self.config)
 
         if success:
-            # Animowana zielona fajka
+            # Zielona fajka - połączenie OK
             self.connection_status.config(text="✓ Połączenie Udane!", foreground="green")
 
             # Zapisz hasło do .postgres.env
             save_postgres_config(self.config['host'], self.config['port'],
                                self.config['user'], self.config['password'])
 
-            # Pokaż ładny komunikat o sukcesie
-            success_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
-            success_info.pack(fill=tk.X, padx=20, pady=10)
-
-            # Zielone tło (symulacja)
-            canvas = tk.Canvas(success_info, height=120, bg="#d4edda", highlightthickness=0)
-            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-
-            # Duża zielona fajka
-            canvas.create_text(60, 60, text="✓", font=('Arial', 48, 'bold'), fill="#155724")
-
-            # Tekst
-            text_frame = ttk.Frame(canvas)
-            canvas.create_window(200, 60, window=text_frame, anchor=tk.W)
-
-            ttk.Label(text_frame, text="Połączenie z PostgreSQL działa!",
-                     font=('Arial', 12, 'bold'), foreground="#155724", background="#d4edda").pack(anchor=tk.W)
-            ttk.Label(text_frame, text="✅ Konfiguracja zapisana do backend/.postgres.env",
-                     foreground="#155724", background="#d4edda").pack(anchor=tk.W, pady=2)
-            ttk.Label(text_frame, text="⏳ Przechodzę do wyboru źródła danych...",
-                     foreground="#0c5460", background="#d4edda", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=2)
-
-            # Włącz przycisk dalej
+            # Włącz możliwość przejścia dalej
             self.connection_tested = True
-
-            # Automatycznie przejdź do następnego kroku po 1.5 sekundy
-            self.after(1500, lambda: self.notebook.select(1))
         else:
-            self.connection_status.config(text=f"✗ Błąd Połączenia", foreground="red")
-
-            # Pokaż błąd w ramce
-            error_info = ttk.Frame(self.success_frame, relief=tk.RIDGE, borderwidth=2)
-            error_info.pack(fill=tk.X, padx=20, pady=10)
-
-            canvas = tk.Canvas(error_info, height=80, bg="#f8d7da", highlightthickness=0)
-            canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
-
-            canvas.create_text(40, 40, text="✗", font=('Arial', 32, 'bold'), fill="#721c24")
-
-            text_frame = ttk.Frame(canvas)
-            canvas.create_window(100, 40, window=text_frame, anchor=tk.W)
-
-            ttk.Label(text_frame, text=msg, foreground="#721c24", background="#f8d7da",
-                     wraplength=400).pack(anchor=tk.W)
-
+            # Czerwony krzyżyk - błąd
+            self.connection_status.config(text=f"✗ Błąd: {msg}", foreground="red")
             self.connection_tested = False
-
-    def select_zip_file(self):
-        """Wybór pliku ZIP do importu"""
-        from tkinter import filedialog
-
-        filename = filedialog.askopenfilename(
-            parent=self,
-            title="Wybierz plik ZIP z kopią zapasową",
-            filetypes=[("Pliki ZIP", "*.zip"), ("Wszystkie pliki", "*.*")]
-        )
-
-        if filename:
-            self.zip_file_path = filename
-            # Pokaż tylko nazwę pliku, nie całą ścieżkę
-            file_name = os.path.basename(filename)
-            self.zip_file_label.config(text=f"✓ {file_name}", foreground="green")
-        else:
-            self.zip_file_path = None
-            self.zip_file_label.config(text="Nie wybrano pliku", foreground="gray")
-
 
     def auto_migrate_data(self, backup_folder):
         """
@@ -4290,29 +4334,13 @@ class DatabaseWizard(tk.Toplevel):
             if not self.connection_tested:
                 messagebox.showwarning("Uwaga", "Przetestuj połączenie z PostgreSQL!", parent=self)
                 return
+            # Przejdź do kroku 2 (Akcja) i odśwież status
+            self.refresh_status()
             self.notebook.select(1)
 
         elif current == 1:
-            # Krok 2 -> 3: Sprawdź wybór źródła danych
-            self.data_source = self.source_var.get()
-
-            if self.data_source == 'zip' and not self.zip_file_path:
-                messagebox.showwarning("Uwaga", "Wybierz plik ZIP!", parent=self)
-                return
-
-            # Przejdź do akcji lub od razu do wykonania w zależności od źródła
-            if self.data_source == 'zip':
-                # Dla ZIP pomijamy krok akcji, idziemy od razu do wykonania
-                self.notebook.select(3)  # Krok 4: Wykonanie
-                self.execute_zip_import()
-            else:
-                # Dla szablonu idziemy do kroku 3 (Akcja)
-                self.refresh_status()
-                self.notebook.select(2)
-
-        elif current == 2:
-            # Krok 3 -> 4: Wykonaj akcję dla szablonu
-            self.notebook.select(3)
+            # Krok 2 -> 3: Wykonaj akcję
+            self.notebook.select(2)
             self.execute_action()
 
     def prev_step(self):
@@ -4326,90 +4354,6 @@ class DatabaseWizard(tk.Toplevel):
         self.log_text.insert(tk.END, msg + "\n")
         self.log_text.see(tk.END)
         self.log_text.update()
-
-    def execute_zip_import(self):
-        """Wykonaj import z pliku ZIP"""
-        self.progress.start()
-        self.log("📦 Rozpoczynam import z pliku ZIP...\n")
-
-        try:
-            import zipfile
-            import tempfile
-            import shutil
-
-            # Utwórz tymczasowy folder
-            temp_dir = tempfile.mkdtemp()
-            self.log(f"📁 Rozpakowuję ZIP do: {temp_dir}\n")
-
-            try:
-                # Rozpakuj ZIP
-                with zipfile.ZipFile(self.zip_file_path, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                self.log("✓ Rozpakowano pliki\n")
-
-                # Sprawdź strukturę ZIP (zakładam strukturę: backup/launcher_db.sql, backup/Czarna/czarna.sql, etc.)
-                # TODO: Tu trzeba zaimplementować pełną logikę importu SQL
-                #       Na razie pokażę tylko komunikat
-
-                self.log("🔍 Szukam plików SQL...\n")
-
-                # Szukaj pliku launcher_db.sql
-                launcher_sql = None
-                location_sqls = []
-
-                for root, dirs, files in os.walk(temp_dir):
-                    for file in files:
-                        if file.endswith('.sql'):
-                            full_path = os.path.join(root, file)
-                            if 'launcher' in file.lower():
-                                launcher_sql = full_path
-                                self.log(f"  ✓ Znaleziono: {file}\n")
-                            else:
-                                location_sqls.append(full_path)
-                                self.log(f"  ✓ Znaleziono: {file}\n")
-
-                # Import launcher DB
-                if launcher_sql:
-                    self.log("\n=== Import bazy launcher ===\n")
-                    self.log("1. Tworzę bazę mapa_launcher_db...\n")
-                    success, msg = postgres_create_database(**self.config, db_name='mapa_launcher_db')
-                    self.log(f"   {msg}\n")
-
-                    if success or 'już istnieje' in msg:
-                        self.log("2. Importuję dane...\n")
-                        # TODO: Zaimplementuj import SQL
-                        self.log("   ⚠️ Import SQL jeszcze nie zaimplementowany\n")
-                else:
-                    self.log("⚠️ Nie znaleziono pliku SQL dla launcher\n")
-
-                # Import locations
-                for loc_sql in location_sqls:
-                    loc_name = os.path.basename(loc_sql).replace('.sql', '')
-                    self.log(f"\n=== Import miejscowości: {loc_name} ===\n")
-                    # TODO: Zaimplementuj import miejscowości
-                    self.log("   ⚠️ Import miejscowości jeszcze nie zaimplementowany\n")
-
-                self.log("\n✅ Import zakończony!")
-                self.log("\n⚠️ UWAGA: Pełna implementacja importu SQL jest w trakcie rozwoju.\n")
-                self.log("   Na razie proszę użyć opcji 'Szablon Czarna'.\n")
-
-                self.result = True
-                self.finish_button.config(state=tk.NORMAL)
-
-            finally:
-                # Wyczyść tymczasowy folder
-                try:
-                    shutil.rmtree(temp_dir)
-                except:
-                    pass
-
-        except Exception as e:
-            self.log(f"\n❌ Błąd: {e}\n")
-            import traceback
-            self.log(traceback.format_exc())
-            messagebox.showerror("Błąd", str(e), parent=self)
-        finally:
-            self.progress.stop()
 
     def execute_action(self):
         """Wykonaj akcję"""
@@ -5779,30 +5723,58 @@ class AdminSettings(tk.Toplevel):
             self.destroy()
 
     def _save_env_file(self, env_path):
-        """Zapisuje plik .env z zachowaniem struktury."""
-        order = ['DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','DB_PORT',
-                'FLASK_HOST','FLASK_PORT','FLASK_DEBUG','FLASK_SECRET_KEY',
-                'ADMIN_AUTH_ENABLED','ADMIN_USERNAME','ADMIN_PASSWORD_HASH']
-        
-        lines = []
-        for k in order:
-            if k in self.env:
-                lines.append(f"{k}={self.env[k]}")
-        
-        for k, v in self.env.items():
-            if k not in order:
-                lines.append(f"{k}={v}")
-        
+        """Zapisuje plik .env z ładnym, jednolitym formatem."""
+        # Pobierz wartości
+        db_name = self.env.get('DB_NAME', 'mapa_czarna_db')
+        flask_host = self.env.get('FLASK_HOST', '127.0.0.1')
+        flask_port = self.env.get('FLASK_PORT', '5000')
+        flask_debug = self.env.get('FLASK_DEBUG', 'True')
+        flask_secret = self.env.get('FLASK_SECRET_KEY', 'change-me-once')
+        admin_enabled = self.env.get('ADMIN_AUTH_ENABLED', '0')
+        admin_user = self.env.get('ADMIN_USERNAME', 'admin')
+        admin_hash = self.env.get('ADMIN_PASSWORD_HASH', '')
+        location_name = self.env.get('LOCATION_NAME', '')
+        location_code = self.env.get('LOCATION_CODE', '')
+
+        # Jednolity szablon
+        content = f"""# =============================================================================
+# KONFIGURACJA MIEJSCOWOŚCI
+# =============================================================================
+# Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
+
+# =============================================================================
+# BAZA DANYCH
+# =============================================================================
+DB_NAME={db_name}
+
+# =============================================================================
+# SERWER FLASK
+# =============================================================================
+FLASK_HOST={flask_host}
+FLASK_PORT={flask_port}
+FLASK_DEBUG={flask_debug}
+FLASK_SECRET_KEY={flask_secret}
+
+# =============================================================================
+# AUTENTYKACJA ADMINISTRATORA
+# =============================================================================
+ADMIN_AUTH_ENABLED={admin_enabled}
+ADMIN_USERNAME={admin_user}
+ADMIN_PASSWORD_HASH={admin_hash}
+"""
+
+        # Dodaj sekcję miejscowości jeśli istnieje
+        if location_name:
+            content += f"""
+# =============================================================================
+# INFORMACJE O MIEJSCOWOŚCI
+# =============================================================================
+LOCATION_NAME={location_name}
+LOCATION_CODE={location_code}
+"""
+
         with open(env_path, 'w', encoding='utf-8') as f:
-            f.write("# Konfiguracja bazy danych PostgreSQL\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','DB_PORT'}]))
-            f.write("\n\n# Konfiguracja serwera Flask\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'FLASK_HOST','FLASK_PORT','FLASK_DEBUG','FLASK_SECRET_KEY'}]))
-            f.write("\n\n# Ustawienia bezpieczeństwa\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'ADMIN_AUTH_ENABLED','ADMIN_USERNAME','ADMIN_PASSWORD_HASH'}]))
+            f.write(content)
 
     def center_window(self):
         """Wyśrodkowuje okno."""
