@@ -1775,14 +1775,14 @@ def setup_postgres_config(parent=None):
     # Utwórz dialog
     dialog = tk.Toplevel(parent_window)
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
-    dialog.geometry("700x550")
+    dialog.geometry("700x680")
     dialog.resizable(False, False)
 
     # Wyśrodkuj okno
     dialog.update_idletasks()
     x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
-    y = (dialog.winfo_screenheight() // 2) - (550 // 2)
-    dialog.geometry(f"700x550+{x}+{y}")
+    y = (dialog.winfo_screenheight() // 2) - (680 // 2)
+    dialog.geometry(f"700x680+{x}+{y}")
 
     # Zablokuj interakcję z innymi oknami
     dialog.grab_set()
@@ -3085,18 +3085,33 @@ class AppLauncher(tk.Tk):
         """Czyta wyjście z procesu."""
         if key not in self.managed_processes:
             return
-        
+
         info = self.managed_processes.get(key)
         if not info:
             return
-        
+
         process = info["process"]
         console = info["console"]
-        
+
         for line in iter(process.stdout.readline, ""):
             self.after(0, self.log, line, console)
-        
-        self.event_queue.put((key, "finished"))
+
+        # Poczekaj aż proces rzeczywiście się zakończy
+        # (stdout może się zamknąć wcześniej niż proces)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Proces wciąż działa mimo zamkniętego stdout
+            # Sprawdzaj co sekundę czy proces się zakończył
+            import time
+            for _ in range(60):  # Maksymalnie 60 sekund
+                if process.poll() is not None:
+                    break
+                time.sleep(1)
+
+        # Tylko jeśli proces rzeczywiście się zakończył, wyślij event
+        if process.poll() is not None:
+            self.event_queue.put((key, "finished"))
 
     def run_script_in_thread(self, script_info, script_name):
         """Uruchamia jednorazowy skrypt w wątku."""
@@ -4026,10 +4041,21 @@ def auto_initialize_on_startup(loading_dialog):
                     print("🔄 Automatyczna migracja danych z backup/Czarna...")
                     auto_migrate_data_function(backup_czarna, "Czarna")
                     migrated_data = True
+
+                    # Automatyczna kalibracja mapy po migracji
+                    loading_dialog.update_status("Kalibracja mapy...",
+                                                "Wczytywanie konfiguracji z backup")
+                    auto_calibrate_map_from_backup()
                 else:
                     print(f"ℹ️ Baza mapa_czarna_db już zawiera dane ({count} właścicieli)")
             except Exception as e:
                 print(f"⚠️ Nie można sprawdzić danych w bazie: {e}")
+
+        # Kalibruj mapę jeśli była utworzona nowa baza (nawet jeśli dane nie były migrowane)
+        if created_czarna_db and not migrated_data:
+            loading_dialog.update_status("Kalibracja mapy...",
+                                        "Wczytywanie konfiguracji z backup")
+            auto_calibrate_map_from_backup()
 
         # Zapisz informacje o tym co zostało zrobione (do pokazania później)
         loading_dialog.init_summary = {
@@ -4043,6 +4069,70 @@ def auto_initialize_on_startup(loading_dialog):
 
     except Exception as e:
         print(f"⚠️ Błąd podczas automatycznej inicjalizacji: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def auto_calibrate_map_from_backup():
+    """
+    Automatycznie wczytuje kalibrację mapy z pliku map_config.json
+    z folderu backup aktywnej miejscowości i zapisuje do bazy danych.
+
+    Ta funkcja jest wywoływana automatycznie przy pierwszym uruchomieniu.
+    """
+    try:
+        # Pobierz nazwę aktywnej miejscowości
+        location_name = get_active_location_name()
+        if not location_name:
+            return
+
+        # Ścieżka do pliku map_config.json w backupie
+        map_config_path = os.path.join(BACKUP_FOLDER, location_name, "map_config.json")
+
+        if not os.path.exists(map_config_path):
+            print(f"ℹ️ Brak pliku map_config.json w backup/{location_name}")
+            return
+
+        # Wczytaj konfigurację z pliku
+        with open(map_config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        calibration = config.get('calibration')
+        defaults = config.get('defaults')
+
+        if not calibration:
+            print("⚠️ Brak danych kalibracji w map_config.json")
+            return
+
+        # Połącz się z bazą danych miejscowości
+        db_config = get_db_config_from_env()
+        conn = psycopg2.connect(**db_config)
+        cur = conn.cursor()
+
+        # Zapisz kalibrację do bazy
+        cur.execute(
+            "INSERT INTO konfiguracja_systemu (klucz, wartosc) VALUES ('map_calibration', %s) "
+            "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
+            (json.dumps(calibration),)
+        )
+
+        # Zapisz domyślne ustawienia mapy jeśli są
+        if defaults:
+            cur.execute(
+                "INSERT INTO konfiguracja_systemu (klucz, wartosc) VALUES ('map_defaults', %s) "
+                "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
+                (json.dumps(defaults),)
+            )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"✅ Automatyczna kalibracja mapy z {map_config_path}")
+        print(f"   SW: {calibration.get('sw')}, NE: {calibration.get('ne')}")
+
+    except Exception as e:
+        print(f"⚠️ Błąd podczas automatycznej kalibracji mapy: {e}")
         import traceback
         traceback.print_exc()
 
