@@ -2718,6 +2718,12 @@ class AppLauncher(tk.Tk):
         if current_keys == displayed_keys:
             return
 
+        # Jeśli przechodzimy z 0 na >0 procesów, usuń napis "brak procesów"
+        if not displayed_keys and current_keys:
+            for widget in self.processes_frame.winfo_children():
+                widget.destroy()
+            self._displayed_processes.clear()
+
         # Usuń procesy, które już nie istnieją
         for key in displayed_keys - current_keys:
             if key in self._displayed_processes:
@@ -4073,16 +4079,22 @@ def auto_initialize_on_startup(loading_dialog):
         traceback.print_exc()
 
 
-def auto_calibrate_map_from_backup():
+def auto_calibrate_map_from_backup(location_name=None, db_name=None):
     """
     Automatycznie wczytuje kalibrację mapy z pliku map_config.json
-    z folderu backup aktywnej miejscowości i zapisuje do bazy danych.
+    z folderu backup miejscowości i zapisuje do bazy danych.
 
-    Ta funkcja jest wywoływana automatycznie przy pierwszym uruchomieniu.
+    Ta funkcja jest wywoływana automatycznie przy pierwszym uruchomieniu
+    oraz przy wczytywaniu miejscowości z backupu.
+
+    Args:
+        location_name: Nazwa miejscowości (opcjonalne, domyślnie aktywna)
+        db_name: Nazwa bazy danych (opcjonalne, domyślnie z .env)
     """
     try:
-        # Pobierz nazwę aktywnej miejscowości
-        location_name = get_active_location_name()
+        # Pobierz nazwę miejscowości
+        if not location_name:
+            location_name = get_active_location_name()
         if not location_name:
             return
 
@@ -4105,8 +4117,21 @@ def auto_calibrate_map_from_backup():
             return
 
         # Połącz się z bazą danych miejscowości
-        db_config = get_db_config_from_env()
-        conn = psycopg2.connect(**db_config)
+        if db_name:
+            # Podano konkretną bazę danych
+            pg_config = get_postgres_config()
+            conn = psycopg2.connect(
+                host=pg_config['host'],
+                port=pg_config['port'],
+                user=pg_config['user'],
+                password=pg_config['password'],
+                dbname=db_name
+            )
+        else:
+            # Użyj aktywnej miejscowości
+            db_config = get_db_config_from_env()
+            conn = psycopg2.connect(**db_config)
+
         cur = conn.cursor()
 
         # Zapisz kalibrację do bazy
@@ -6282,6 +6307,12 @@ DB_PASSWORD={config['password']}
 
         print(f"🔄 Migracja danych dla miejscowości: {location_name}")
         auto_migrate_data_function(location_folder, location_name)
+
+        # 7. Automatyczna kalibracja mapy z map_config.json
+        if progress_callback:
+            progress_callback(f"📍 Kalibracja mapy z map_config.json")
+
+        auto_calibrate_map_from_backup(location_name=location_name, db_name=db_name)
 
         return True, f"Baza {db_name} utworzona i dane zmigrowane pomyślnie"
 
