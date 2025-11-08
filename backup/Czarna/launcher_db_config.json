@@ -4,7 +4,7 @@
     "full_name": "Czarna",
     "powiat": "Pilźnieński",
     "region": "Galicja",
-    "homepage_template": "standardowy",
+    "homepage_template": "praca_inzynierska",
     "year": "1882",
     "century": "XIX w.",
     "homepage_description": "Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
@@ -14,13 +14,11 @@
     "history_photos": [
       {
         "filename": "dworzec_czarna.png",
-        "caption": "Historyczne zdjęcie dworca kolejowego w Czarnej, kluczowego dla rozwoju wsi w XIX wieku.",
-        "order_index": 0
+        "caption": "Historyczne zdjęcie dworca kolejowego w Czarnej, kluczowego dla rozwoju wsi w XIX wieku."
       },
       {
         "filename": "protokol.jpg",
-        "caption": "Fragment dokumentacji katastralnej.",
-        "order_index": 1
+        "caption": "Fragment dokumentacji katastralnej."
       }
     ],
     "favicon": "favicon.jpeg",
