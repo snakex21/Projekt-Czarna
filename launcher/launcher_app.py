@@ -1031,18 +1031,17 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
         db_name_for_env = postgres_db_name if postgres_db_name else f"mapa_{name.lower()}_db"
 
         default_env = f"""# =============================================================================
-# KONFIGURACJA DLA MIEJSCOWOŚCI: {name.upper()}
+# KONFIGURACJA MIEJSCOWOŚCI
 # =============================================================================
-# Plik konfiguracyjny dla miejscowości {name}
 # Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
 # =============================================================================
-# BAZA DANYCH - NAZWA BAZY DLA TEJ MIEJSCOWOŚCI
+# BAZA DANYCH
 # =============================================================================
 DB_NAME={db_name_for_env}
 
 # =============================================================================
-# KONFIGURACJA FLASK
+# SERWER FLASK
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
@@ -1054,7 +1053,6 @@ FLASK_SECRET_KEY=change-me-{name.lower()}-secret
 # =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
-# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
 
 # =============================================================================
@@ -1719,12 +1717,12 @@ def check_env_configuration():
 # Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
 
 # =============================================================================
-# BAZA DANYCH - NAZWA BAZY
+# BAZA DANYCH
 # =============================================================================
 DB_NAME=mapa_czarna_db
 
 # =============================================================================
-# KONFIGURACJA FLASK
+# SERWER FLASK
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
@@ -1736,7 +1734,6 @@ FLASK_SECRET_KEY=change-me-once
 # =============================================================================
 ADMIN_AUTH_ENABLED=0
 ADMIN_USERNAME=admin
-# Wygeneruj hash hasła używając: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('twoje_haslo'))"
 ADMIN_PASSWORD_HASH=
 """
         # Upewnij się, że folder istnieje
@@ -5726,30 +5723,58 @@ class AdminSettings(tk.Toplevel):
             self.destroy()
 
     def _save_env_file(self, env_path):
-        """Zapisuje plik .env z zachowaniem struktury."""
-        order = ['DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','DB_PORT',
-                'FLASK_HOST','FLASK_PORT','FLASK_DEBUG','FLASK_SECRET_KEY',
-                'ADMIN_AUTH_ENABLED','ADMIN_USERNAME','ADMIN_PASSWORD_HASH']
-        
-        lines = []
-        for k in order:
-            if k in self.env:
-                lines.append(f"{k}={self.env[k]}")
-        
-        for k, v in self.env.items():
-            if k not in order:
-                lines.append(f"{k}={v}")
-        
+        """Zapisuje plik .env z ładnym, jednolitym formatem."""
+        # Pobierz wartości
+        db_name = self.env.get('DB_NAME', 'mapa_czarna_db')
+        flask_host = self.env.get('FLASK_HOST', '127.0.0.1')
+        flask_port = self.env.get('FLASK_PORT', '5000')
+        flask_debug = self.env.get('FLASK_DEBUG', 'True')
+        flask_secret = self.env.get('FLASK_SECRET_KEY', 'change-me-once')
+        admin_enabled = self.env.get('ADMIN_AUTH_ENABLED', '0')
+        admin_user = self.env.get('ADMIN_USERNAME', 'admin')
+        admin_hash = self.env.get('ADMIN_PASSWORD_HASH', '')
+        location_name = self.env.get('LOCATION_NAME', '')
+        location_code = self.env.get('LOCATION_CODE', '')
+
+        # Jednolity szablon
+        content = f"""# =============================================================================
+# KONFIGURACJA MIEJSCOWOŚCI
+# =============================================================================
+# Konfiguracja PostgreSQL (host, port, user, password) jest w backend/.postgres.env
+
+# =============================================================================
+# BAZA DANYCH
+# =============================================================================
+DB_NAME={db_name}
+
+# =============================================================================
+# SERWER FLASK
+# =============================================================================
+FLASK_HOST={flask_host}
+FLASK_PORT={flask_port}
+FLASK_DEBUG={flask_debug}
+FLASK_SECRET_KEY={flask_secret}
+
+# =============================================================================
+# AUTENTYKACJA ADMINISTRATORA
+# =============================================================================
+ADMIN_AUTH_ENABLED={admin_enabled}
+ADMIN_USERNAME={admin_user}
+ADMIN_PASSWORD_HASH={admin_hash}
+"""
+
+        # Dodaj sekcję miejscowości jeśli istnieje
+        if location_name:
+            content += f"""
+# =============================================================================
+# INFORMACJE O MIEJSCOWOŚCI
+# =============================================================================
+LOCATION_NAME={location_name}
+LOCATION_CODE={location_code}
+"""
+
         with open(env_path, 'w', encoding='utf-8') as f:
-            f.write("# Konfiguracja bazy danych PostgreSQL\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'DB_HOST','DB_NAME','DB_USER','DB_PASSWORD','DB_PORT'}]))
-            f.write("\n\n# Konfiguracja serwera Flask\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'FLASK_HOST','FLASK_PORT','FLASK_DEBUG','FLASK_SECRET_KEY'}]))
-            f.write("\n\n# Ustawienia bezpieczeństwa\n")
-            f.write("\n".join([l for l in lines if l.split('=')[0] in 
-                             {'ADMIN_AUTH_ENABLED','ADMIN_USERNAME','ADMIN_PASSWORD_HASH'}]))
+            f.write(content)
 
     def center_window(self):
         """Wyśrodkowuje okno."""
