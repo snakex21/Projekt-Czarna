@@ -1373,3 +1373,75 @@ body.light-mode .folder-structure li {
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
 }
+/* ==========================================================================
+   DEPLOYMENT GUIDE - DODATKOWE STYLE
+   ========================================================================== */
+
+/* Info box - niebieski */
+.info-box {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 4px solid #3b82f6;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 8px;
+}
+
+.info-box h4 {
+  color: #3b82f6;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+/* Warning box - pomarańczowy */
+.warning-box {
+  background: rgba(251, 146, 60, 0.1);
+  border-left: 4px solid #fb923c;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 8px;
+}
+
+.warning-box i {
+  color: #fb923c;
+  margin-right: 0.5rem;
+}
+
+/* Success box - zielony */
+.success-box {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 4px solid #22c55e;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 8px;
+}
+
+.success-box i {
+  color: #22c55e;
+  margin-right: 0.5rem;
+}
+
+/* Solution box - fioletowy */
+.solution-box {
+  background: rgba(168, 85, 247, 0.1);
+  border-left: 4px solid #a855f7;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 8px;
+}
+
+/* Light mode adjustments for boxes */
+.light-mode .info-box {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.light-mode .warning-box {
+  background: rgba(251, 146, 60, 0.15);
+}
+
+.light-mode .success-box {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.light-mode .solution-box {
+  background: rgba(168, 85, 247, 0.15);
+}
