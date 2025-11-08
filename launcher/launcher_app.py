@@ -2074,131 +2074,34 @@ LAUNCHER_DB_PASSWORD={password}
     return config_result['success']
 
 def _auto_sync_site_icon():
-    """Automatycznie wykrywa istniejący favicon w assets/site, backup miejscowości,
-    lub kopiuje pierwszą znalezioną ikonę z folderów icons → assets/site
-    i zapisuje ścieżkę w konfiguracji bazy danych."""
+    """Sprawdza czy favicon istnieje w folderze backup aktywnej miejscowości.
+    Favicon jest serwowany bezpośrednio z folderu backup przez endpoint /location_favicon,
+    więc nie ma potrzeby kopiowania go do assets/site."""
 
-    # OPTYMALIZACJA: Sprawdź najpierw czy favicon już jest zapisany w bazie
-    try:
-        active_loc = get_active_location()
-        if active_loc and len(active_loc) > 14:
-            # Sprawdź czy favicon istnieje fizycznie
-            stored_favicon = "favicon.jpeg"  # Domyślna nazwa
-            favicon_path = os.path.join(SITE_ASSETS_FOLDER, stored_favicon)
-            if os.path.exists(favicon_path):
-                # Favicon już istnieje, pomiń skanowanie
-                return
-    except:
-        pass  # Jeśli wystąpi błąd, kontynuuj normalną procedurę
-
-    # KROK 1: Sprawdź czy w folderze site już istnieje favicon
-    existing_favicon = _find_existing_favicon_in_site()
-    if existing_favicon:
-        print(f"🔍 Wykryto istniejący favicon: {existing_favicon}")
-        _save_favicon_to_database(existing_favicon)
-        return
-
-    # KROK 2: Sprawdź czy w folderze backup aktywnej miejscowości jest favicon.jpeg
     try:
         location_name = get_active_location_name()
-        if location_name:
-            backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
-            favicon_in_backup = os.path.join(backup_location_folder, "favicon.jpeg")
+        if not location_name:
+            print("ℹ️ Brak aktywnej miejscowości dla favicon")
+            return
 
-            if os.path.exists(favicon_in_backup):
-                # Znaleziono favicon w backup, skopiuj do site
-                os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
-                dest = os.path.join(SITE_ASSETS_FOLDER, "favicon.jpeg")
-                shutil.copy2(favicon_in_backup, dest)
-                print(f"📋 Skopiowano favicon z backup/{location_name}/favicon.jpeg")
-                _save_favicon_to_database("favicon.jpeg")
-                return
+        backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+
+        # Sprawdź czy istnieje favicon w różnych formatach
+        favicon_extensions = ['.ico', '.png', '.jpg', '.jpeg']
+        favicon_found = False
+
+        for ext in favicon_extensions:
+            favicon_path = os.path.join(backup_location_folder, f"favicon{ext}")
+            if os.path.exists(favicon_path):
+                print(f"✅ Favicon znaleziony w backup/{location_name}/favicon{ext}")
+                favicon_found = True
+                break
+
+        if not favicon_found:
+            print(f"ℹ️ Brak favicon w backup/{location_name}/ - favicon będzie używał domyślnej ikony")
+
     except Exception as e:
-        print(f"⚠️ Nie udało się sprawdzić favicon w backup: {e}")
-
-    # KROK 3: Jeśli brak favicon w site/ i backup/, szukaj w folderach icons i kopiuj pierwszy znaleziony
-    for folder in ICONS_SCAN_FOLDERS:
-        if not os.path.isdir(folder):
-            continue
-        for fname in os.listdir(folder):
-            if not fname.lower().endswith((".png", ".ico", ".jpg", ".jpeg")):
-                continue
-            src = os.path.join(folder, fname)
-            dest = os.path.join(SITE_ASSETS_FOLDER, fname)
-
-            # Kopiuj tylko jeśli plik nie istnieje lub jest różny
-            if not os.path.exists(dest) or not filecmp.cmp(src, dest, shallow=False):
-                os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
-                shutil.copy2(src, dest)
-                print(f"📋 Skopiowano favicon z {folder}: {fname}")
-
-            _save_favicon_to_database(fname)
-            return  # używamy tylko pierwszego pliku
-
-def _find_existing_favicon_in_site():
-    """Szuka istniejącego pliku favicon w folderze assets/site.
-    Zwraca nazwę pliku lub None jeśli nie znaleziono."""
-    
-    if not os.path.isdir(SITE_ASSETS_FOLDER):
-        return None
-    
-    # Standardowe nazwy favicon (z priorytetem)
-    standard_names = ["favicon.ico", "favicon.png", "favicon.jpg", "favicon.jpeg"]
-    
-    # Najpierw sprawdź standardowe nazwy
-    for name in standard_names:
-        full_path = os.path.join(SITE_ASSETS_FOLDER, name)
-        if os.path.isfile(full_path):
-            return name
-    
-    # Jeśli nie ma standardowych nazw, szukaj plików zaczynających się od "favicon"
-    try:
-        for fname in os.listdir(SITE_ASSETS_FOLDER):
-            if (fname.lower().startswith("favicon") and 
-                any(fname.lower().endswith(ext) for ext in [".png", ".ico", ".jpg", ".jpeg"])):
-                return fname
-    except OSError:
-        pass
-    
-    return None
-
-def _save_favicon_to_database(filename):
-    """Zapisuje ścieżkę favicon do bazy danych."""
-    try:
-        db_cfg = get_db_config_from_env()
-
-        # Upewnij się, że wszystkie wartości są poprawnie enkodowane jako UTF-8 stringi
-        db_cfg_normalized = {}
-        for key, value in db_cfg.items():
-            if isinstance(value, str):
-                # Normalizuj string do UTF-8
-                try:
-                    # Jeśli string jest poprawny, zostaw go
-                    value.encode('utf-8')
-                    db_cfg_normalized[key] = value
-                except UnicodeEncodeError:
-                    # Jeśli nie, spróbuj przekonwertować
-                    db_cfg_normalized[key] = value.encode('latin-1').decode('utf-8', errors='ignore')
-            else:
-                db_cfg_normalized[key] = value
-
-        # Dodaj client_encoding dla lepszej obsługi znaków
-        db_cfg_normalized['client_encoding'] = 'UTF8'
-
-        with psycopg2.connect(**db_cfg_normalized) as conn, conn.cursor() as cur:
-            rel_path = os.path.join("site", filename).replace("\\", "/")
-            cur.execute(
-                "INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) "
-                "VALUES ('site_favicon', %s, %s) "
-                "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
-                (json.dumps({"path": rel_path}), "Ścieżka do ikony witryny (favicon)")
-            )
-            conn.commit()
-            print(f"✅ Zapisano favicon do bazy danych: {rel_path}")
-    except (psycopg2.Error, UnicodeDecodeError, UnicodeEncodeError) as e:
-        # Baza może jeszcze nie istnieć lub problem z kodowaniem – to nie błąd krytyczny przy pierwszym uruchomieniu
-        print(f"ℹ️ Nie można zapisać favicon do bazy (baza może nie istnieć lub problem z kodowaniem): {e}")
-        pass
+        print(f"⚠️ Błąd podczas sprawdzania favicon: {e}")
 
 def check_backup_folder_files():
     """Sprawdza folder aktywnej miejscowości i tworzy brakujące pliki JSON."""
@@ -7102,38 +7005,40 @@ class SiteSettingsManager(tk.Toplevel):
         ttk.Button(button_frame, text="Zamknij", command=self.destroy).pack(side=tk.RIGHT)
 
     def load_current_settings(self):
-        """Wczytuje aktualną ścieżkę do faviconu z bazy."""
-        conn = None
+        """Wczytuje aktualny favicon z folderu backup aktywnej miejscowości."""
         try:
-            conn = psycopg2.connect(**self.db_config)
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            cur.execute("SELECT wartosc FROM konfiguracja_systemu WHERE klucz = 'site_favicon';")
-            result = cur.fetchone()
-            
-            if result and isinstance(result['wartosc'], dict) and result['wartosc'].get('path'):
-                self.current_favicon_path = result['wartosc']['path']
-                self.update_preview()
-            else:
-                self.path_label.config(text="Obecna ikona: Brak (używana domyślna)")
-        except psycopg2.Error as e:
-            if "does not exist" not in str(e):
-                messagebox.showerror("Błąd Bazy", f"Nie można wczytać konfiguracji: {e}", parent=self)
-        finally:
-            if conn:
-                conn.close()
+            location_name = get_active_location_name()
+            if not location_name:
+                self.path_label.config(text="Obecna ikona: Brak aktywnej miejscowości")
+                return
+
+            backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+
+            # Sprawdź różne rozszerzenia favicon
+            favicon_extensions = ['.ico', '.png', '.jpg', '.jpeg']
+            for ext in favicon_extensions:
+                favicon_path = os.path.join(backup_location_folder, f"favicon{ext}")
+                if os.path.exists(favicon_path):
+                    self.current_favicon_path = favicon_path
+                    self.update_preview()
+                    return
+
+            self.path_label.config(text="Obecna ikona: Brak (używana domyślna)")
+        except Exception as e:
+            self.path_label.config(text=f"Błąd: {e}")
 
     def update_preview(self):
         """Aktualizuje podgląd ikony."""
         if not self.current_favicon_path:
             self.path_label.config(text="Obecna ikona: Brak (używana domyślna)")
             return
-        
-        full_path = os.path.join(ASSETS_FOLDER, self.current_favicon_path)
-        
-        if os.path.exists(full_path):
+
+        if os.path.exists(self.current_favicon_path):
             try:
-                self.path_label.config(text=f"Obecna ikona: {self.current_favicon_path}")
-                img = Image.open(full_path)
+                # Pokaż ścieżkę relatywną do backup
+                rel_path = os.path.relpath(self.current_favicon_path, BACKUP_FOLDER)
+                self.path_label.config(text=f"Obecna ikona: backup/{rel_path}")
+                img = Image.open(self.current_favicon_path)
                 img.thumbnail((64, 64), Image.Resampling.LANCZOS)
                 self.image_preview = ImageTk.PhotoImage(img)
                 self.preview_canvas.delete("all")
@@ -7149,56 +7054,44 @@ class SiteSettingsManager(tk.Toplevel):
             self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
     def select_favicon(self):
-        """Otwiera dialog wyboru pliku i przetwarza go."""
+        """Otwiera dialog wyboru pliku i kopiuje go do folderu backup aktywnej miejscowości."""
         filepath = filedialog.askopenfilename(
             title="Wybierz plik ikony",
             filetypes=[("Obrazy", "*.png *.ico *.jpg *.jpeg"), ("Wszystkie pliki", "*.*")]
         )
-        
+
         if not filepath:
             return
-        
-        os.makedirs(SITE_ASSETS_FOLDER, exist_ok=True)
-        
+
+        # Pobierz nazwę aktywnej miejscowości
+        try:
+            location_name = get_active_location_name()
+            if not location_name:
+                messagebox.showerror("Błąd", "Brak aktywnej miejscowości.", parent=self)
+                return
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie można pobrać aktywnej miejscowości: {e}", parent=self)
+            return
+
+        # Ścieżka do folderu backup miejscowości
+        backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+        os.makedirs(backup_location_folder, exist_ok=True)
+
         file_extension = os.path.splitext(filepath)[1]
         dest_filename = f"favicon{file_extension}"
-        dest_path = os.path.join(SITE_ASSETS_FOLDER, dest_filename)
-        
+        dest_path = os.path.join(backup_location_folder, dest_filename)
+
         try:
             shutil.copy(filepath, dest_path)
-            relative_path = os.path.join("site", dest_filename).replace("\\", "/")
-            self.save_path_to_db(relative_path)
+            self.parent_app.log(f"🖼️ Ustawiono nowy favicon w backup/{location_name}/{dest_filename}\n")
+            messagebox.showinfo("Sukces",
+                              f"Nowa ikona została zapisana w backup/{location_name}/\n"
+                              "Zmiany będą widoczne po odświeżeniu strony.",
+                              parent=self)
+            self.current_favicon_path = dest_path
+            self.update_preview()
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się przetworzyć pliku: {e}", parent=self)
-
-    def save_path_to_db(self, path):
-        """Zapisuje ścieżkę do faviconu w bazie."""
-        conn = None
-        try:
-            conn = psycopg2.connect(**self.db_config)
-            cur = conn.cursor()
-            
-            config_value = json.dumps({"path": path})
-            
-            cur.execute(
-                "INSERT INTO konfiguracja_systemu (klucz, wartosc, opis) VALUES (%s, %s, %s) "
-                "ON CONFLICT (klucz) DO UPDATE SET wartosc = EXCLUDED.wartosc;",
-                ('site_favicon', config_value, 'Ścieżka do ikony witryny.')
-            )
-            conn.commit()
-            
-            self.parent_app.log(f"🖼️ Ustawiono nowy favicon: {path}\n")
-            messagebox.showinfo("Sukces", "Nowa ikona została ustawiona.\nZrestartuj serwer, aby zobaczyć zmiany.", parent=self)
-            
-            self.current_favicon_path = path
-            self.update_preview()
-        except psycopg2.Error as e:
-            if conn:
-                conn.rollback()
-            messagebox.showerror("Błąd Bazy", f"Nie można zapisać konfiguracji: {e}", parent=self)
-        finally:
-            if conn:
-                conn.close()
 
     def center_window(self):
         """Wyśrodkowuje okno."""
