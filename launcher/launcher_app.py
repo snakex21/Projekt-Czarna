@@ -1818,7 +1818,7 @@ def setup_postgres_config(parent=None):
 
     warning_sublabel = tk.Label(
         warning_frame,
-        text="Podaj hasło aby kontynuować",
+        text="Podaj dane połączenia z PostgreSQL",
         font=('Segoe UI', 10),
         bg='#FFF3CD',
         fg='#856404',
@@ -1826,28 +1826,89 @@ def setup_postgres_config(parent=None):
     )
     warning_sublabel.pack(pady=(5, 0))
 
-    # Pole hasła
-    password_frame = tk.Frame(main_frame, bg='#f8f9fa')
-    password_frame.pack(fill='x', pady=(0, 20))
+    # Formularz z polami konfiguracji
+    form_frame = tk.Frame(main_frame, bg='#f8f9fa')
+    form_frame.pack(fill='x', pady=(0, 20))
 
-    password_label = tk.Label(
-        password_frame,
-        text="Hasło do PostgreSQL (użytkownik 'postgres'):",
+    # Host
+    host_label = tk.Label(
+        form_frame,
+        text="Host:",
         font=('Segoe UI', 11, 'bold'),
         bg='#f8f9fa',
         anchor='w'
     )
-    password_label.pack(fill='x', pady=(0, 8))
+    host_label.grid(row=0, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    host_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    host_entry.insert(0, 'localhost')
+    host_entry.grid(row=0, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Port
+    port_label = tk.Label(
+        form_frame,
+        text="Port:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    port_label.grid(row=1, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    port_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    port_entry.insert(0, '5432')
+    port_entry.grid(row=1, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Użytkownik
+    user_label = tk.Label(
+        form_frame,
+        text="Użytkownik:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    user_label.grid(row=2, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
+
+    user_entry = tk.Entry(
+        form_frame,
+        font=('Segoe UI', 12),
+        relief='solid',
+        borderwidth=2
+    )
+    user_entry.insert(0, 'postgres')
+    user_entry.grid(row=2, column=1, sticky='ew', pady=(0, 5), ipady=6)
+
+    # Hasło
+    password_label = tk.Label(
+        form_frame,
+        text="Hasło:",
+        font=('Segoe UI', 11, 'bold'),
+        bg='#f8f9fa',
+        anchor='w'
+    )
+    password_label.grid(row=3, column=0, sticky='w', pady=(0, 5), padx=(0, 10))
 
     password_entry = tk.Entry(
-        password_frame,
+        form_frame,
         font=('Segoe UI', 12),
         show='*',
         relief='solid',
         borderwidth=2
     )
-    password_entry.pack(fill='x', ipady=8)
+    password_entry.grid(row=3, column=1, sticky='ew', pady=(0, 5), ipady=6)
     password_entry.focus()
+
+    # Konfiguracja kolumn - druga kolumna rozciągliwa
+    form_frame.columnconfigure(1, weight=1)
 
     # Status label - większa ikona
     status_label = tk.Label(
@@ -1886,9 +1947,30 @@ def setup_postgres_config(parent=None):
         nonlocal test_timer
         test_timer = None
 
+        # Pobierz wartości ze wszystkich pól
+        host = host_entry.get().strip()
+        port = port_entry.get().strip()
+        user = user_entry.get().strip()
         password = password_entry.get()
+
+        # Walidacja podstawowa
         if not password:
             status_label.config(text="", fg='black')
+            ok_button.config(state='disabled', bg='#6c757d')
+            return
+
+        if not host or not port or not user:
+            status_label.config(text="✗", fg='#dc3545')
+            ok_button.config(state='disabled', bg='#6c757d')
+            return
+
+        # Walidacja portu
+        try:
+            port_int = int(port)
+            if port_int < 1 or port_int > 65535:
+                raise ValueError("Port poza zakresem")
+        except ValueError:
+            status_label.config(text="✗", fg='#dc3545')
             ok_button.config(state='disabled', bg='#6c757d')
             return
 
@@ -1896,9 +1978,9 @@ def setup_postgres_config(parent=None):
         try:
             import psycopg2
             conn = psycopg2.connect(
-                host='localhost',
-                port=5432,
-                user='postgres',
+                host=host,
+                port=port_int,
+                user=user,
                 password=password,
                 connect_timeout=3
             )
@@ -1912,9 +1994,9 @@ def setup_postgres_config(parent=None):
             config_content = f"""# =============================================================================
 # KONFIGURACJA BAZY DANYCH POSTGRESQL DLA LAUNCHERA
 # =============================================================================
-LAUNCHER_DB_HOST=localhost
-LAUNCHER_DB_PORT=5432
-LAUNCHER_DB_USER=postgres
+LAUNCHER_DB_HOST={host}
+LAUNCHER_DB_PORT={port_int}
+LAUNCHER_DB_USER={user}
 LAUNCHER_DB_PASSWORD={password}
 """
             with open(POSTGRES_CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -1934,14 +2016,15 @@ LAUNCHER_DB_PASSWORD={password}
             status_label.config(text="✗", fg='#dc3545')
             ok_button.config(state='disabled', bg='#6c757d')
 
-    def on_password_change(event=None):
-        """Wywoływane gdy użytkownik wpisuje hasło"""
+    def on_field_change(event=None):
+        """Wywoływane gdy użytkownik zmienia wartość w jakimkolwiek polu"""
         nonlocal test_timer
 
         # Anuluj poprzedni timer
         if test_timer is not None:
             dialog.after_cancel(test_timer)
 
+        # Sprawdź czy hasło jest wypełnione
         password = password_entry.get()
         if not password:
             status_label.config(text="", fg='black')
@@ -1951,8 +2034,11 @@ LAUNCHER_DB_PASSWORD={password}
         # Ustaw nowy timer (debouncing - 1 sekunda)
         test_timer = dialog.after(1000, test_password)
 
-    # Bind event do automatycznego testowania
-    password_entry.bind('<KeyRelease>', on_password_change)
+    # Bind event do automatycznego testowania dla wszystkich pól
+    host_entry.bind('<KeyRelease>', on_field_change)
+    port_entry.bind('<KeyRelease>', on_field_change)
+    user_entry.bind('<KeyRelease>', on_field_change)
+    password_entry.bind('<KeyRelease>', on_field_change)
 
     # Enter key obsługa - zamknij jeśli hasło jest poprawne
     def on_enter(event=None):
