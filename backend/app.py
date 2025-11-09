@@ -1217,14 +1217,27 @@ def get_stats():
     # ——— Ranking dróg
     cur.execute("""
         SELECT
-            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Droga ' || id) as road_number,
+            id,
+            COALESCE(
+                NULLIF(TRIM(nazwa_lub_numer), ''),
+                'Droga ' || id
+            ) as road_number,
             ST_Length(ST_Transform(geometria, 32634)) as length_m
         FROM obiekty_geograficzne
         WHERE kategoria = 'droga' AND geometria IS NOT NULL
         ORDER BY length_m DESC
         LIMIT 20;
     """)
-    roads_ranking = cur.fetchall()
+    roads_ranking_raw = cur.fetchall()
+
+    # Konwersja i upewnienie się że road_number nie jest pusty
+    roads_ranking = []
+    for row in roads_ranking_raw:
+        road_dict = dict(row)
+        # Dodatkowe zabezpieczenie
+        if not road_dict.get('road_number') or str(road_dict['road_number']).strip() == '':
+            road_dict['road_number'] = f"Droga {road_dict['id']}"
+        roads_ranking.append(road_dict)
 
     cur.close()
     conn.close()
