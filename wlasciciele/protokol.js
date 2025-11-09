@@ -161,11 +161,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderOwnerData = (data) => {
         // Aktualizacja tytułu strony
         document.title = `Protokół - ${data.nazwa_wlasciciela || 'Nieznany'}`;
-        
+
         // Metadane protokołu
         fillField(orderNumberEl, data.numer_protokolu);
         fillField(protocolDateEl, formatDate(data.data_protokolu));
         fillField(protocolLocationEl, data.miejsce_protokolu);
+
+        // Dynamiczne ustawienie gminy katastralnej w tytule
+        const protocolLocationTitle = document.getElementById('protocol-location-title');
+        if (protocolLocationTitle && data.gmina_katastralna) {
+            protocolLocationTitle.textContent = `w gminie katastralnej ${data.gmina_katastralna}`;
+        }
         
         // Informacje o właścicielu
         const ownerHtml = `
