@@ -1020,7 +1020,8 @@ function createDemographicsTimeline(data) {
   const span = Math.max(1, maxYear - minYear);
 
   container.innerHTML = events.map(ev => {
-    const left = ((ev.year - minYear) / span) * 100;
+    const position = (ev.year - minYear) / span;
+    const left = 8 + (position * 84); // Zakres 8%-92% aby wydarzenia mieściły się w ekranie
     return `
       <div class="timeline-event ${ev.major ? 'major' : ''}" style="left: ${left}%">
         <span>${ev.icon}</span><span>${ev.year}</span>
