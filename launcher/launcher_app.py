@@ -5449,34 +5449,33 @@ class MapCalibrator(tk.Toplevel):
                 conn.close()
 
     def check_current_map_status(self):
-        """Sprawdza status plików mapy."""
-        map_path_main = os.path.join(BASE_DIR, "mapa", "mapa.jpg")
-        map_path_editor = os.path.join(TOOLS_DIR, "parcel_editor", "static", "mapa.jpg")
-        
-        main_exists = os.path.exists(map_path_main)
-        editor_exists = os.path.exists(map_path_editor)
-        
-        if main_exists and editor_exists:
-            if filecmp.cmp(map_path_main, map_path_editor, shallow=False):
-                self.map_status_label.config(text="✅ Status mapy: OK (pliki spójne)", foreground="green")
-            else:
-                self.map_status_label.config(text="⚠️ Status mapy: Niespójne pliki!", foreground="orange")
-        elif main_exists or editor_exists:
-            self.map_status_label.config(text="⚠️ Status mapy: Brakuje pliku!", foreground="orange")
+        """Sprawdza status pliku mapy w backup aktywnej miejscowości."""
+        location_name = get_active_location_name()
+
+        if not location_name:
+            self.map_status_label.config(text="❌ Brak aktywnej miejscowości!", foreground="red")
+            self.map_preview_canvas.delete("all")
+            self.map_preview_label.config(text="Brak\nmiejscowości")
+            self.map_preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+            return
+
+        backup_map_path = os.path.join(BASE_DIR, "backup", location_name, "mapa.jpg")
+        map_exists = os.path.exists(backup_map_path)
+
+        if map_exists:
+            self.map_status_label.config(text=f"✅ Status mapy: OK ({location_name})", foreground="green")
         else:
-            self.map_status_label.config(text="❌ Status mapy: Brak plików mapy!", foreground="red")
-        
+            self.map_status_label.config(text=f"❌ Brak mapy dla {location_name}", foreground="red")
+
         # Aktualizacja podglądu
-        map_to_preview = map_path_main if main_exists else (map_path_editor if editor_exists else None)
-        
-        if map_to_preview:
+        if map_exists:
             try:
-                img = Image.open(map_to_preview)
+                img = Image.open(backup_map_path)
                 w, h = img.size
                 ratio = min(200/w, 120/h)
                 new_w, new_h = int(w * ratio), int(h * ratio)
                 img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                
+
                 self.map_image_preview = ImageTk.PhotoImage(img)
                 self.map_preview_canvas.delete("all")
                 self.map_preview_canvas.create_image(100, 60, image=self.map_image_preview)
@@ -5500,29 +5499,27 @@ class MapCalibrator(tk.Toplevel):
         if not filepath:
             return
 
-        dest_paths = [
-            os.path.join(BASE_DIR, "mapa", "mapa.jpg"),
-            os.path.join(TOOLS_DIR, "parcel_editor", "static", "mapa.jpg")
-        ]
-
-        # Dodaj ścieżkę do backup aktywnej miejscowości
+        # Zapisz mapę tylko do backup aktywnej miejscowości
         location_name = get_active_location_name()
-        if location_name:
-            backup_map_path = os.path.join(BASE_DIR, "backup", location_name, "mapa.jpg")
-            dest_paths.append(backup_map_path)
-            self.parent_app.log(f"📍 Zapisuję mapę również do backup/{location_name}/\n")
+        if not location_name:
+            messagebox.showerror("Błąd",
+                              "Brak aktywnej miejscowości!\n\n"
+                              "Proszę wybrać miejscowość przed dodaniem mapy.",
+                              parent=self)
+            return
+
+        backup_map_path = os.path.join(BASE_DIR, "backup", location_name, "mapa.jpg")
 
         try:
-            for dest_path in dest_paths:
-                os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                shutil.copy(filepath, dest_path)
+            os.makedirs(os.path.dirname(backup_map_path), exist_ok=True)
+            shutil.copy(filepath, backup_map_path)
 
             messagebox.showinfo("Sukces",
-                              "Plik mapy został zaktualizowany.\n\n"
+                              f"Plik mapy został zapisany dla miejscowości: {location_name}\n\n"
                               "WAŻNE: Upewnij się, że współrzędne odpowiadają nowej mapie!",
                               parent=self)
 
-            self.parent_app.log(f"🗺️ Zaktualizowano plik mapy: {os.path.basename(filepath)}\n")
+            self.parent_app.log(f"🗺️ Zapisano mapę do backup/{location_name}/mapa.jpg: {os.path.basename(filepath)}\n")
             self.check_current_map_status()
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się skopiować pliku: {e}", parent=self)
