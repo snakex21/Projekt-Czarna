@@ -763,11 +763,22 @@ def get_stats():
                 with open(genealogy_json_path, 'r', encoding='utf-8') as f:
                     genealogy_data = json.load(f)
 
-                # Wyciągnij lata z pola marriages
+                persons_dict = {p['id']: p for p in genealogy_data.get('persons', [])}
+                processed_marriages = set()  # Aby uniknąć duplikatów (każde małżeństwo jest w 2 osobach)
+
+                # Wyciągnij lata z pola marriages (jeśli istnieje)
                 for person in genealogy_data.get('persons', []):
                     marriages_list = person.get('marriages', [])
                     for marriage in marriages_list:
+                        spouse_id = marriage.get('spouseId')
                         marriage_date = marriage.get('date')
+
+                        # Unikaj duplikatów - sortuj IDs
+                        marriage_key = tuple(sorted([person['id'], spouse_id]))
+                        if marriage_key in processed_marriages:
+                            continue
+                        processed_marriages.add(marriage_key)
+
                         # marriage_date może być int (rok) lub dict z rokiem
                         if isinstance(marriage_date, int) and 0 < marriage_date <= current_year:
                             marriage_years.append(marriage_date)
@@ -776,7 +787,41 @@ def get_stats():
                             if isinstance(year, int) and 0 < year <= current_year:
                                 marriage_years.append(year)
 
-                print(f"✅ Załadowano {len(marriage_years)} ślubów z genealogia.json")
+                # Dla małżeństw bez dat - estymuj na podstawie dzieci
+                for person in genealogy_data.get('persons', []):
+                    spouse_ids = person.get('spouseIds', [])
+
+                    for spouse_id in spouse_ids:
+                        # Unikaj duplikatów
+                        marriage_key = tuple(sorted([person['id'], spouse_id]))
+                        if marriage_key in processed_marriages:
+                            continue
+                        processed_marriages.add(marriage_key)
+
+                        # Znajdź dzieci tej pary
+                        children = [
+                            p for p in genealogy_data.get('persons', [])
+                            if (p.get('fatherId') == person['id'] and p.get('motherId') == spouse_id)
+                            or (p.get('fatherId') == spouse_id and p.get('motherId') == person['id'])
+                        ]
+
+                        # Znajdź najstarsze dziecko
+                        oldest_child_year = None
+                        for child in children:
+                            birth_date = child.get('birthDate')
+                            if birth_date:
+                                year = birth_date.get('year') if isinstance(birth_date, dict) else birth_date
+                                if isinstance(year, int) and 0 < year <= current_year:
+                                    if oldest_child_year is None or year < oldest_child_year:
+                                        oldest_child_year = year
+
+                        # Estymuj ślub jako 1-2 lata przed urodzeniem pierwszego dziecka
+                        if oldest_child_year:
+                            estimated_marriage_year = oldest_child_year - 1
+                            if 0 < estimated_marriage_year <= current_year:
+                                marriage_years.append(estimated_marriage_year)
+
+                print(f"✅ Załadowano {len(marriage_years)} ślubów z genealogia.json (z estymacją na podstawie dzieci)")
         except Exception as e:
             print(f"⚠️  Błąd podczas ładowania genealogia.json: {e}")
 
