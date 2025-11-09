@@ -2120,13 +2120,18 @@ def serve_location_favicon():
 
 @app.route('/location_js/<path:filename>')
 def serve_location_js(filename):
-    """Serwuje pliki JS konfiguracyjne ze static/js/."""
+    """Serwuje pliki JS konfiguracyjne ze static/js/ z wyłączonym cache."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     static_path = os.path.join(base_dir, "static", "js")
 
     js_file_path = os.path.join(static_path, filename)
     if os.path.exists(js_file_path):
-        return send_from_directory(static_path, filename, mimetype='application/javascript')
+        response = send_from_directory(static_path, filename, mimetype='application/javascript')
+        # Dodaj nagłówki wyłączające cache
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
     print(f"❌ Plik {filename} nie znaleziony w static/js/")
     return "Plik JS nie znaleziony", 404
