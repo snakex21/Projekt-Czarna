@@ -1671,10 +1671,72 @@ def serve_map_page():
     )
 
 @app.route('/mapa/<path:filename>')
-def serve_map_files(filename): 
+def serve_map_files(filename):
     # Ta funkcja obsługuje teraz tylko pliki statyczne (JS, CSS)
     if filename == 'mapa.html':
         return redirect(url_for('serve_map_page'))
+
+    # Specjalne traktowanie dla mapa.jpg - serwuj z backup/[miejscowość]/
+    if filename == 'mapa.jpg':
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        launcher_dir = os.path.join(base_dir, "launcher")
+
+        # Spróbuj PostgreSQL najpierw
+        location_name = None
+        try:
+            # Pobierz konfigurację postgres
+            launcher_db_config = {
+                "host": os.getenv("DB_HOST", "localhost"),
+                "dbname": "mapa_launcher_db",
+                "user": os.getenv("DB_USER", "postgres"),
+                "password": os.getenv("DB_PASSWORD", "1234"),
+                "port": os.getenv("DB_PORT", "5432"),
+                "client_encoding": "UTF8"
+            }
+
+            conn = psycopg2.connect(**launcher_db_config)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                location_name = result[0]
+        except Exception as e:
+            print(f"⚠️  PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+        # Fallback do SQLite jeśli PostgreSQL nie działa
+        if not location_name:
+            locations_db_path = os.path.join(launcher_dir, "locations.db")
+            if os.path.exists(locations_db_path):
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(locations_db_path)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM locations WHERE active = 1")
+                    result = cursor.fetchone()
+                    conn.close()
+
+                    if result:
+                        location_name = result[0]
+                except Exception as e:
+                    print(f"⚠️  Błąd podczas odczytu SQLite: {e}")
+
+        if not location_name:
+            print(f"❌ Brak aktywnej miejscowości, serwuję mapę z domyślnej lokalizacji")
+            return send_from_directory(MAPA_PATH, filename)
+
+        # Ścieżka do mapy w folderze backup aktywnej miejscowości
+        mapa_backup_path = os.path.join(base_dir, "backup", location_name)
+        mapa_file_path = os.path.join(mapa_backup_path, "mapa.jpg")
+
+        if os.path.exists(mapa_file_path):
+            print(f"✅ Serwuję mapa.jpg z backup/{location_name}/")
+            return send_from_directory(mapa_backup_path, "mapa.jpg")
+        else:
+            print(f"⚠️  Brak mapa.jpg w backup/{location_name}/, serwuję z domyślnej lokalizacji")
+            return send_from_directory(MAPA_PATH, filename)
+
     return send_from_directory(MAPA_PATH, filename)
 
 @app.route('/wlasciciele/<path:filename>')

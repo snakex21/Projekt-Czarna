@@ -5496,25 +5496,32 @@ class MapCalibrator(tk.Toplevel):
             title="Wybierz plik mapy tła",
             filetypes=[("Obrazy", "*.jpg *.jpeg *.png"), ("Wszystkie pliki", "*.*")]
         )
-        
+
         if not filepath:
             return
-        
+
         dest_paths = [
             os.path.join(BASE_DIR, "mapa", "mapa.jpg"),
             os.path.join(TOOLS_DIR, "parcel_editor", "static", "mapa.jpg")
         ]
-        
+
+        # Dodaj ścieżkę do backup aktywnej miejscowości
+        location_name = get_active_location_name()
+        if location_name:
+            backup_map_path = os.path.join(BASE_DIR, "backup", location_name, "mapa.jpg")
+            dest_paths.append(backup_map_path)
+            self.parent_app.log(f"📍 Zapisuję mapę również do backup/{location_name}/\n")
+
         try:
             for dest_path in dest_paths:
                 os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                 shutil.copy(filepath, dest_path)
-            
+
             messagebox.showinfo("Sukces",
                               "Plik mapy został zaktualizowany.\n\n"
                               "WAŻNE: Upewnij się, że współrzędne odpowiadają nowej mapie!",
                               parent=self)
-            
+
             self.parent_app.log(f"🗺️ Zaktualizowano plik mapy: {os.path.basename(filepath)}\n")
             self.check_current_map_status()
         except Exception as e:
