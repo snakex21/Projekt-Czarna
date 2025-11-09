@@ -2617,8 +2617,9 @@ class AppLauncher(tk.Tk):
         current_keys = set(self.managed_processes.keys())
         displayed_keys = set(self._displayed_processes.keys())
 
-        # Jeśli identyczne - pomiń aktualizację
-        if current_keys == displayed_keys:
+        # Jeśli identyczne i UI już wyświetla poprawny stan - pomiń aktualizację
+        # (przy pierwszym uruchomieniu winfo_children() == 0, więc kontynuuj aby wyświetlić "brak procesów")
+        if current_keys == displayed_keys and len(self.processes_frame.winfo_children()) > 0:
             return
 
         # Jeśli przechodzimy z 0 na >0 procesów, usuń napis "brak procesów"
