@@ -2232,9 +2232,9 @@ function generateReportHTML(sections) {
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${parcel.parcel_number || '-'}</td>
-          <td style="text-transform: capitalize;">${parcel.category || '-'}</td>
+          <td style="text-transform: capitalize;">${parcel.kategoria || parcel.category || '-'}</td>
           <td>${area_ha.toFixed(2)} ha</td>
-          <td>${parcel.owner_name || '-'}</td>
+          <td>${parcel.nazwa_wlasciciela || parcel.owner_name || '-'}</td>
         </tr>
         `;
         }).join('')}
