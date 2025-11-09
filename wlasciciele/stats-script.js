@@ -1347,17 +1347,21 @@ function loadGenealogyStats(data) {
   // ——— Przełącznik (radio) – delegacja zdarzeń
   const toggle = document.getElementById('genealogy-series-toggle');
   if (toggle) {
-    // Wygaszaj niedostępne, jeśli brak danych
-    const deathsEmpty = (stats.deaths_by_decade?.labels?.length || 0) === 0;
-    const marriagesEmpty = (stats.marriages_by_decade?.labels?.length || 0) === 0;
-    const deathsInput = document.getElementById('gen-series-deaths');
-    const marriagesInput = document.getElementById('gen-series-marriages');
-    if (deathsInput) deathsInput.disabled = deathsEmpty;
-    if (marriagesInput) marriagesInput.disabled = marriagesEmpty;
+    // Debug: wyświetl dane w konsoli
+    console.log('🔍 Dane genealogiczne:', {
+      births: stats.births_by_decade,
+      deaths: stats.deaths_by_decade,
+      marriages: stats.marriages_by_decade
+    });
+
+    // USUNIĘTO logikę disabled - wszystkie przyciski są zawsze aktywne
+    // Jeśli nie ma danych, wykres będzie pusty
+    // Użytkownik może swobodnie przełączać między seriami
 
     toggle.addEventListener('change', (e) => {
       const target = e.target;
       if (target?.name === 'gen-series') {
+        console.log('🔄 Przełączanie na:', target.value);
         updateGenealogySeries(target.value);
       }
     });
