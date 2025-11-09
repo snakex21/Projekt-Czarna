@@ -1794,7 +1794,10 @@ function generatePrintReport() {
     categories: document.getElementById('print-categories')?.checked,
     demographics: document.getElementById('print-demographics')?.checked,
     genealogy: document.getElementById('print-genealogy')?.checked,
-    insights: document.getElementById('print-insights')?.checked
+    insights: document.getElementById('print-insights')?.checked,
+    rankingsCount: document.getElementById('print-rankings-count')?.checked,
+    parcels: document.getElementById('print-parcels')?.checked,
+    roads: document.getElementById('print-roads')?.checked
   };
 
   // Sprawdź czy wybrano choć jedną sekcję
@@ -1945,6 +1948,8 @@ function generateReportHTML(sections) {
   // Sekcja: Statystyki ogólne
   if (sections.general && statsData?.general_stats) {
     const stats = statsData.general_stats;
+    const total_area_ha = (stats.total_area_m2 || stats.total_area || 0) / 10000;
+    const avg_plot_ha = (stats.avg_plot_size_m2 || stats.avg_plot_size || 0) / 10000;
     html += `
   <div class="report-section">
     <h2 class="section-title"><i class="fas fa-chart-pie"></i> Statystyki Ogólne</h2>
@@ -1959,11 +1964,11 @@ function generateReportHTML(sections) {
       </div>
       <div class="stat-card">
         <div class="stat-label">Całkowita powierzchnia</div>
-        <div class="stat-value">${(stats.total_area || 0).toFixed(2)} ha</div>
+        <div class="stat-value">${total_area_ha.toFixed(2)} ha</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Średnia wielkość działki</div>
-        <div class="stat-value">${stats.avg_plot_size ? stats.avg_plot_size.toFixed(2) : '0'} ha</div>
+        <div class="stat-value">${avg_plot_ha.toFixed(2)} ha</div>
       </div>
     </div>
   </div>
@@ -1986,14 +1991,18 @@ function generateReportHTML(sections) {
         </tr>
       </thead>
       <tbody>
-        ${rankings.map((owner, idx) => `
+        ${rankings.map((owner, idx) => {
+          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
           <td>${owner.plot_count || 0}</td>
-          <td>${(owner.total_area || 0).toFixed(2)} ha</td>
+          <td>${area_ha.toFixed(2)} ha</td>
         </tr>
-        `).join('')}
+        `;
+        }).join('')}
       </tbody>
     </table>
   </div>
@@ -2035,16 +2044,20 @@ function generateReportHTML(sections) {
       <thead>
         <tr>
           <th>Rok</th>
-          <th>Liczba ludności</th>
-          <th>Liczba domów</th>
+          <th>Populacja ogółem</th>
+          <th>Katolicy</th>
+          <th>Żydzi</th>
+          <th>Inni</th>
         </tr>
       </thead>
       <tbody>
         ${statsData.demografia.map(d => `
         <tr>
           <td>${d.rok}</td>
-          <td>${d.liczba_ludnosci || '-'}</td>
-          <td>${d.liczba_domow || '-'}</td>
+          <td>${d.populacja_ogolem || '-'}</td>
+          <td>${d.katolicy || '-'}</td>
+          <td>${d.zydzi || '-'}</td>
+          <td>${d.inni || '-'}</td>
         </tr>
         `).join('')}
       </tbody>
@@ -2090,6 +2103,26 @@ function generateReportHTML(sections) {
     </table>
     ` : ''}
 
+    ${gen.deaths_by_decade?.labels?.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Zgony wg dekad</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Dekada</th>
+          <th>Liczba zgonów</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gen.deaths_by_decade.labels.map((label, idx) => `
+        <tr>
+          <td>${label}</td>
+          <td>${gen.deaths_by_decade.data[idx] || 0}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+
     ${gen.marriages_by_decade?.labels?.length > 0 ? `
     <h3 style="margin: 2rem 0 1rem; color: #667eea;">Śluby wg dekad</h3>
     <table class="ranking-table">
@@ -2127,6 +2160,108 @@ function generateReportHTML(sections) {
       <p style="margin-bottom: 1rem;"><strong>Trend własności:</strong> ${ownershipTrend}</p>
       <p><strong>Koncentracja:</strong> ${concentration}</p>
     </div>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 właścicieli według ilości działek
+  if (sections.rankingsCount && statsData?.rankings_real?.all_plots) {
+    const rankings = [...statsData.rankings_real.all_plots]
+      .sort((a, b) => (b.plot_count || 0) - (a.plot_count || 0))
+      .slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-list-ol"></i> Top 10 Właścicieli (według ilości działek)</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Właściciel</th>
+          <th>Liczba działek</th>
+          <th>Powierzchnia (ha)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rankings.map((owner, idx) => {
+          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
+          <td>${owner.plot_count || 0}</td>
+          <td>${area_ha.toFixed(2)} ha</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 największych działek
+  if (sections.parcels && statsData?.parcels_ranking?.all) {
+    const parcels = statsData.parcels_ranking.all.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-map"></i> Top 10 Największych Działek</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Numer działki</th>
+          <th>Kategoria</th>
+          <th>Powierzchnia (ha)</th>
+          <th>Właściciel</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${parcels.map((parcel, idx) => {
+          const area_m2 = parcel.area_m2 || parcel.area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${parcel.parcel_number || '-'}</td>
+          <td style="text-transform: capitalize;">${parcel.category || '-'}</td>
+          <td>${area_ha.toFixed(2)} ha</td>
+          <td>${parcel.owner_name || '-'}</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 najdłuższych dróg
+  if (sections.roads && statsData?.roads_ranking) {
+    const roads = statsData.roads_ranking.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-road"></i> Top 10 Najdłuższych Dróg</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Numer drogi</th>
+          <th>Klasa</th>
+          <th>Długość (m)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${roads.map((road, idx) => `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${road.road_number || road.numer_drogi || '-'}</td>
+          <td>${road.road_class || road.klasa || '-'}</td>
+          <td>${(road.length_m || road.dlugosc || 0).toFixed(2)} m</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
   </div>
 `;
   }
