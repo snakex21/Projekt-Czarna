@@ -1347,17 +1347,21 @@ function loadGenealogyStats(data) {
   // ——— Przełącznik (radio) – delegacja zdarzeń
   const toggle = document.getElementById('genealogy-series-toggle');
   if (toggle) {
-    // Wygaszaj niedostępne, jeśli brak danych
-    const deathsEmpty = (stats.deaths_by_decade?.labels?.length || 0) === 0;
-    const marriagesEmpty = (stats.marriages_by_decade?.labels?.length || 0) === 0;
-    const deathsInput = document.getElementById('gen-series-deaths');
-    const marriagesInput = document.getElementById('gen-series-marriages');
-    if (deathsInput) deathsInput.disabled = deathsEmpty;
-    if (marriagesInput) marriagesInput.disabled = marriagesEmpty;
+    // Debug: wyświetl dane w konsoli
+    console.log('🔍 Dane genealogiczne:', {
+      births: stats.births_by_decade,
+      deaths: stats.deaths_by_decade,
+      marriages: stats.marriages_by_decade
+    });
+
+    // USUNIĘTO logikę disabled - wszystkie przyciski są zawsze aktywne
+    // Jeśli nie ma danych, wykres będzie pusty
+    // Użytkownik może swobodnie przełączać między seriami
 
     toggle.addEventListener('change', (e) => {
       const target = e.target;
       if (target?.name === 'gen-series') {
+        console.log('🔄 Przełączanie na:', target.value);
         updateGenealogySeries(target.value);
       }
     });
@@ -1393,7 +1397,7 @@ function updateGenealogySeries(series) {
     'marriages': { key: 'marriages_by_decade', label: 'Liczba ślubów',    color: '#10b981' }
   };
 
-  const cfg = map[series] || map.births;
+  const cfg = map[series] || map['births'];
   const ds = s[cfg.key] || { labels: [], data: [] };
 
   const chart = charts.genealogyBirths;
@@ -1401,6 +1405,21 @@ function updateGenealogySeries(series) {
   chart.data.datasets[0].data = ds.data;
   chart.data.datasets[0].label = cfg.label;
   chart.data.datasets[0].borderColor = cfg.color;
+
+  // Aktualizuj gradient dla wybranej serii
+  const gradient = chart.ctx.createLinearGradient(0, 0, 0, 400);
+  if (series === 'deaths') {
+    gradient.addColorStop(0, 'rgba(239,68,68,0.6)');
+    gradient.addColorStop(1, 'rgba(239,68,68,0.1)');
+  } else if (series === 'marriages') {
+    gradient.addColorStop(0, 'rgba(16,185,129,0.6)');
+    gradient.addColorStop(1, 'rgba(16,185,129,0.1)');
+  } else {
+    gradient.addColorStop(0, 'rgba(118,75,162,0.6)');
+    gradient.addColorStop(1, 'rgba(102,126,234,0.1)');
+  }
+  chart.data.datasets[0].backgroundColor = gradient;
+
   chart.update();
 }
 
@@ -1750,10 +1769,546 @@ function exportToExcel() {
   }
 }
 
-/** Drukuj raport (tryb print CSS) */
+/** Drukuj raport - otwiera modal wyboru sekcji */
 function printReport() {
-  window.print();
-  showToast('info', 'Drukowanie', 'Przygotowano raport do druku');
+  const modal = document.getElementById('print-modal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+/** Zamyka modal wyboru sekcji do druku */
+function closePrintModal() {
+  const modal = document.getElementById('print-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+/** Generuje raport do druku w nowym oknie */
+function generatePrintReport() {
+  // Zbierz wybrane sekcje
+  const sections = {
+    general: document.getElementById('print-general')?.checked,
+    rankings: document.getElementById('print-rankings')?.checked,
+    categories: document.getElementById('print-categories')?.checked,
+    demographics: document.getElementById('print-demographics')?.checked,
+    genealogy: document.getElementById('print-genealogy')?.checked,
+    insights: document.getElementById('print-insights')?.checked,
+    rankingsCount: document.getElementById('print-rankings-count')?.checked,
+    parcels: document.getElementById('print-parcels')?.checked,
+    rivers: document.getElementById('print-rivers')?.checked,
+    roads: document.getElementById('print-roads')?.checked
+  };
+
+  // Sprawdź czy wybrano choć jedną sekcję
+  if (!Object.values(sections).some(v => v)) {
+    showToast('warning', 'Wybierz sekcje', 'Zaznacz przynajmniej jedną sekcję do wydruku');
+    return;
+  }
+
+  // Zamknij modal
+  closePrintModal();
+
+  // Generuj HTML raportu
+  const reportHTML = generateReportHTML(sections);
+
+  // Otwórz w nowym oknie
+  const printWindow = window.open('', '_blank', 'width=1024,height=768');
+  printWindow.document.write(reportHTML);
+  printWindow.document.close();
+
+  // Automatycznie otwórz okno drukowania po załadowaniu
+  printWindow.onload = function() {
+    printWindow.print();
+  };
+
+  showToast('success', 'Raport wygenerowany', 'Raport został otwarty w nowym oknie');
+}
+
+/** Generuje HTML raportu z wybranymi sekcjami */
+function generateReportHTML(sections) {
+  const locationName = window.LOCATION_NAME || 'Czarna';
+  const locationFullName = window.LOCATION_FULL_NAME || 'Gmina Czarna';
+  const year = window.LOCATION_YEAR || '1882';
+
+  let html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raport Analityczny - ${locationFullName}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      padding: 2rem;
+      background: #ffffff;
+    }
+    .report-header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 3px solid #667eea;
+    }
+    .report-header h1 {
+      font-size: 2.5rem;
+      color: #667eea;
+      margin-bottom: 0.5rem;
+    }
+    .report-header p {
+      font-size: 1.1rem;
+      color: #64748b;
+    }
+    .report-section {
+      margin-bottom: 3rem;
+      page-break-inside: avoid;
+    }
+    .section-title {
+      font-size: 1.8rem;
+      color: #667eea;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: #f8fafc;
+      padding: 1.5rem;
+      border-radius: 12px;
+      border-left: 4px solid #667eea;
+    }
+    .stat-label {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .ranking-table th {
+      background: #667eea;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .ranking-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .ranking-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .ranking-position {
+      font-weight: 700;
+      color: #667eea;
+      font-size: 1.2rem;
+    }
+    .footer {
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 2px solid #e2e8f0;
+      text-align: center;
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+    @media print {
+      body { padding: 1rem; }
+      .report-section { page-break-inside: avoid; }
+      @page { margin: 1.5cm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report-header">
+    <h1><i class="fas fa-chart-line"></i> Raport Analityczny</h1>
+    <p>${locationFullName} - Dane Katastralne ${year}</p>
+    <p style="font-size: 0.9rem; margin-top: 0.5rem;">Wygenerowano: ${new Date().toLocaleString('pl-PL')}</p>
+  </div>
+`;
+
+  // Sekcja: Statystyki ogólne
+  if (sections.general && statsData?.general_stats) {
+    const stats = statsData.general_stats;
+    const areaStats = statsData.area_stats || {};
+    const total_area_ha = areaStats.total_area_ha || 0;
+    const avg_plot_ha = (areaStats.avg_area_ares || 0) / 100; // ary na hektary
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-chart-pie"></i> Statystyki Ogólne</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Liczba właścicieli</div>
+        <div class="stat-value">${stats.total_owners || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Liczba działek</div>
+        <div class="stat-value">${stats.total_plots || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Całkowita powierzchnia</div>
+        <div class="stat-value">${total_area_ha.toFixed(2)} ha</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Średnia wielkość działki</div>
+        <div class="stat-value">${avg_plot_ha.toFixed(2)} ha</div>
+      </div>
+    </div>
+  </div>
+`;
+  }
+
+  // Sekcja: Rankingi (według powierzchni)
+  if (sections.rankings && statsData?.rankings_real?.all_plots) {
+    const rankings = [...statsData.rankings_real.all_plots]
+      .sort((a, b) => {
+        const aArea = a.total_area_m2 || a.total_area || 0;
+        const bArea = b.total_area_m2 || b.total_area || 0;
+        return bArea - aArea;
+      })
+      .slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-trophy"></i> Top 10 Właścicieli (według powierzchni)</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Właściciel</th>
+          <th>Liczba działek</th>
+          <th>Powierzchnia (ha)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rankings.map((owner, idx) => {
+          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
+          <td>${owner.plot_count || 0}</td>
+          <td>${area_ha.toFixed(2)} ha</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Kategorie działek
+  if (sections.categories && statsData?.category_counts) {
+    const categories = statsData.category_counts;
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-layer-group"></i> Kategorie Działek</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Kategoria</th>
+          <th>Liczba działek</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Object.entries(categories).map(([cat, count]) => `
+        <tr>
+          <td style="text-transform: capitalize;">${cat}</td>
+          <td>${count}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Demografia
+  if (sections.demographics && statsData?.demografia?.length > 0) {
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-users-cog"></i> Demografia</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Rok</th>
+          <th>Populacja ogółem</th>
+          <th>Katolicy</th>
+          <th>Żydzi</th>
+          <th>Inni</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${statsData.demografia.map(d => `
+        <tr>
+          <td>${d.rok}</td>
+          <td>${d.populacja_ogolem || '-'}</td>
+          <td>${d.katolicy || '-'}</td>
+          <td>${d.zydzi || '-'}</td>
+          <td>${d.inni || '-'}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Genealogia
+  if (sections.genealogy && statsData?.genealogy_stats) {
+    const gen = statsData.genealogy_stats;
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-sitemap"></i> Statystyki Genealogiczne</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Liczba osób w bazie</div>
+        <div class="stat-value">${gen.total_people || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Mężczyźni / Kobiety</div>
+        <div class="stat-value">${gen.male_count || 0} / ${gen.female_count || 0}</div>
+      </div>
+    </div>
+
+    ${gen.births_by_decade?.labels?.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Urodzenia wg dekad</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Dekada</th>
+          <th>Liczba urodzeń</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gen.births_by_decade.labels.map((label, idx) => `
+        <tr>
+          <td>${label}</td>
+          <td>${gen.births_by_decade.data[idx] || 0}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+
+    ${gen.deaths_by_decade?.labels?.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Zgony wg dekad</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Dekada</th>
+          <th>Liczba zgonów</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gen.deaths_by_decade.labels.map((label, idx) => `
+        <tr>
+          <td>${label}</td>
+          <td>${gen.deaths_by_decade.data[idx] || 0}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+
+    ${gen.marriages_by_decade?.labels?.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Śluby wg dekad</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>Dekada</th>
+          <th>Liczba ślubów</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gen.marriages_by_decade.labels.map((label, idx) => `
+        <tr>
+          <td>${label}</td>
+          <td>${gen.marriages_by_decade.data[idx] || 0}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+  </div>
+`;
+  }
+
+  // Sekcja: Wnioski analityczne
+  if (sections.insights) {
+    const biggestOwner = document.getElementById('biggest-owner')?.textContent || 'Brak danych';
+    const ownershipTrend = document.getElementById('ownership-trend')?.textContent || 'Brak danych';
+    const concentration = document.getElementById('concentration')?.textContent || 'Brak danych';
+
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-lightbulb"></i> Wnioski Analityczne</h2>
+    <div style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; border-left: 4px solid #667eea;">
+      <p style="margin-bottom: 1rem;"><strong>Największy właściciel:</strong> ${biggestOwner}</p>
+      <p style="margin-bottom: 1rem;"><strong>Trend własności:</strong> ${ownershipTrend}</p>
+      <p><strong>Koncentracja:</strong> ${concentration}</p>
+    </div>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 właścicieli według ilości działek
+  if (sections.rankingsCount && statsData?.rankings_real?.all_plots) {
+    const rankings = [...statsData.rankings_real.all_plots]
+      .sort((a, b) => (b.plot_count || 0) - (a.plot_count || 0))
+      .slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-list-ol"></i> Top 10 Właścicieli (według ilości działek)</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Właściciel</th>
+          <th>Liczba działek</th>
+          <th>Powierzchnia (ha)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rankings.map((owner, idx) => {
+          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
+          <td>${owner.plot_count || 0}</td>
+          <td>${area_ha.toFixed(2)} ha</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 największych działek
+  if (sections.parcels && statsData?.parcels_ranking?.all) {
+    const parcels = statsData.parcels_ranking.all.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-map"></i> Top 10 Największych Działek</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Numer działki</th>
+          <th>Kategoria</th>
+          <th>Powierzchnia (ha)</th>
+          <th>Właściciel</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${parcels.map((parcel, idx) => {
+          const area_m2 = parcel.area_m2 || parcel.area || 0;
+          const area_ha = area_m2 / 10000;
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${parcel.parcel_number || '-'}</td>
+          <td style="text-transform: capitalize;">${parcel.kategoria || parcel.category || '-'}</td>
+          <td>${area_ha.toFixed(2)} ha</td>
+          <td>${parcel.nazwa_wlasciciela || parcel.owner_name || '-'}</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 najdłuższych rzek
+  if (sections.rivers && statsData?.rivers_ranking) {
+    const rivers = statsData.rivers_ranking.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-water"></i> Top 10 Najdłuższych Rzek</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nazwa rzeki</th>
+          <th>Długość (m)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rivers.map((river, idx) => `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${river.river_name || river.nazwa || '-'}</td>
+          <td>${(river.length_m || river.dlugosc || 0).toFixed(2)} m</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 najdłuższych dróg
+  if (sections.roads && statsData?.roads_ranking) {
+    const roads = statsData.roads_ranking.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-road"></i> Top 10 Najdłuższych Dróg</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Numer drogi</th>
+          <th>Długość (m)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${roads.map((road, idx) => `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${road.road_number || '-'}</td>
+          <td>${(road.length_m || 0).toFixed(2)} m</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  html += `
+  <div class="footer">
+    <p>Raport wygenerowany automatycznie przez Centrum Analityczne - ${locationFullName}</p>
+    <p>© ${new Date().getFullYear()} Projekt Czarna - Historyczna Baza Danych Katastralnych</p>
+  </div>
+</body>
+</html>`;
+
+  return html;
 }
 
 /** Web Share API / fallback do schowka */
