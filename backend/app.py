@@ -696,35 +696,90 @@ def get_stats():
     death_years = only_valid_years([p.get('rok_smierci') for p in genealogia_raw])
     deaths_by_decade_ctr = Counter((y // 10) * 10 for y in death_years)
 
-    # Śluby wg dekad (z tabeli malzenstwa – bierzemy rok_slubu / rok / data_slubu)
+    # Śluby wg dekad
+    # Najpierw spróbuj z tabeli malzenstwa (PostgreSQL)
+    marriage_years = []
     try:
         cur.execute("SELECT * FROM malzenstwa;")
         malzenstwa_rows = cur.fetchall()
-    except Exception:
-        malzenstwa_rows = []
 
-    def extract_marriage_year(row):
-        # preferowane kolumny numeryczne
-        for key in ('rok_slubu', 'rok'):
-            v = row.get(key)
-            if isinstance(v, int) and 0 < v <= current_year:
-                return v
-            if isinstance(v, str) and v.isdigit():
-                vi = int(v)
-                if 0 < vi <= current_year:
-                    return vi
-        # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
-        txt = row.get('data_slubu') or ''
-        if isinstance(txt, str):
-            m = re.search(r'(17|18|19|20)\d{2}', txt)
-            if m:
-                year = int(m.group(0))
-                if 0 < year <= current_year:
-                    return year
-        return None
+        def extract_marriage_year(row):
+            # preferowane kolumny numeryczne
+            for key in ('rok_slubu', 'rok'):
+                v = row.get(key)
+                if isinstance(v, int) and 0 < v <= current_year:
+                    return v
+                if isinstance(v, str) and v.isdigit():
+                    vi = int(v)
+                    if 0 < vi <= current_year:
+                        return vi
+            # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
+            txt = row.get('data_slubu') or ''
+            if isinstance(txt, str):
+                m = re.search(r'(17|18|19|20)\d{2}', txt)
+                if m:
+                    year = int(m.group(0))
+                    if 0 < year <= current_year:
+                        return year
+            return None
 
-    marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
-    marriage_years = [y for y in marriage_years if y is not None]
+        marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
+        marriage_years = [y for y in marriage_years if y is not None]
+    except Exception as e:
+        print(f"⚠️  Tabela malzenstwa niedostępna: {e}")
+
+    # Jeśli brak danych z tabeli, spróbuj z pliku genealogia.json
+    if not marriage_years:
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            # Pobierz nazwę aktywnej lokalizacji
+            location_name = None
+            try:
+                launcher_db_config = {
+                    "host": os.getenv("DB_HOST", "localhost"),
+                    "dbname": "mapa_launcher_db",
+                    "user": os.getenv("DB_USER", "postgres"),
+                    "password": os.getenv("DB_PASSWORD", "1234"),
+                    "port": os.getenv("DB_PORT", "5432"),
+                    "client_encoding": "UTF8"
+                }
+                launcher_conn = psycopg2.connect(**launcher_db_config)
+                launcher_cursor = launcher_conn.cursor()
+                launcher_cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+                result = launcher_cursor.fetchone()
+                launcher_cursor.close()
+                launcher_conn.close()
+                if result:
+                    location_name = result[0]
+            except Exception:
+                # Fallback do nazwy z .env jeśli PostgreSQL nie działa
+                location_name = os.getenv("LOCATION_NAME", "Czarna")
+
+            genealogy_json_path = os.path.join(base_dir, "backup", location_name, "genealogia.json")
+
+            if os.path.exists(genealogy_json_path):
+                import json
+                with open(genealogy_json_path, 'r', encoding='utf-8') as f:
+                    genealogy_data = json.load(f)
+
+                # Wyciągnij lata z pola marriages
+                for person in genealogy_data.get('persons', []):
+                    marriages_list = person.get('marriages', [])
+                    for marriage in marriages_list:
+                        marriage_date = marriage.get('date')
+                        # marriage_date może być int (rok) lub dict z rokiem
+                        if isinstance(marriage_date, int) and 0 < marriage_date <= current_year:
+                            marriage_years.append(marriage_date)
+                        elif isinstance(marriage_date, dict) and 'year' in marriage_date:
+                            year = marriage_date['year']
+                            if isinstance(year, int) and 0 < year <= current_year:
+                                marriage_years.append(year)
+
+                print(f"✅ Załadowano {len(marriage_years)} ślubów z genealogia.json")
+        except Exception as e:
+            print(f"⚠️  Błąd podczas ładowania genealogia.json: {e}")
+
     marriages_by_decade_ctr = Counter((y // 10) * 10 for y in marriage_years)
 
     # Jednolita funkcja budowania serii (etykiety „1850s”, „1860s”, …)
