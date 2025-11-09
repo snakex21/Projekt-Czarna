@@ -2146,6 +2146,64 @@ kbd {
   }
 }
 
+/* ==========================================================================
+   Checkbox labels dla wyboru sekcji raportu
+   ========================================================================== */
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+
+.checkbox-label:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-top: 2px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked + span {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.checkbox-label span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  transition: var(--transition-fast);
+}
+
+.checkbox-label span i {
+  margin-right: 8px;
+  color: var(--primary);
+}
+
+.checkbox-label small {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
 /* Tablet styles */
 @media (min-width: 769px) and (max-width: 1024px) {
   .dashboard-grid {
