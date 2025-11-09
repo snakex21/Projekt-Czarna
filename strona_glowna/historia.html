@@ -83,7 +83,10 @@
 
             <!-- Galeria historycznych zdjęć (generowana dynamicznie przez location-data.js) -->
             <div id="history-photo-gallery" class="image-gallery">
-                <!-- Zdjęcia zostaną wygenerowane automatycznie przez JavaScript -->
+                <p class="no-photos">Ładowanie zdjęć historycznych...</p>
+                <noscript>
+                    <p class="no-photos">JavaScript jest wyłączony. Galeria zdjęć wymaga JavaScript do działania.</p>
+                </noscript>
             </div>
 
             <!-- Główna część historyczna -->
@@ -139,7 +142,7 @@
          * Obsługa przycisku przewijania do góry strony
          */
         const scrollBtn = document.getElementById('scrollToTop');
-        
+
         // Pokazywanie/ukrywanie przycisku w zależności od pozycji przewijania
         window.addEventListener('scroll', () => {
             if (window.pageYOffset > 300) {
@@ -148,7 +151,7 @@
                 scrollBtn.classList.remove('visible');
             }
         });
-        
+
         // Płynne przewijanie do góry po kliknięciu
         scrollBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,35 +159,37 @@
 
         /**
          * Modal do powiększania zdjęć w galerii
+         * Uwaga: event listenery dla .image-wrapper są już dodawane przez location-data.js
+         * Ten kod jest pozostawiony jako fallback, ale nie będzie działał dla dynamicznie generowanych zdjęć
          */
-        document.querySelectorAll('.image-wrapper').forEach(wrapper => {
-            wrapper.addEventListener('click', function() {
-                const img = this.querySelector('img');
-                
-                // Tworzenie modalu z powiększonym obrazem
-                const modal = document.createElement('div');
-                modal.className = 'image-modal';
-                modal.innerHTML = `
-                    <div class="modal-content">
-                        <span class="modal-close">&times;</span>
-                        <img src="${img.src}" alt="${img.alt}">
-                        <p>${img.alt}</p>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-                
-                // Zamykanie modalu po kliknięciu
-                modal.addEventListener('click', function(e) {
-                    if (e.target === modal || e.target.className === 'modal-close') {
-                        modal.remove();
-                    }
-                });
-            });
-        });
     </script>
 
     <!-- Dane miejscowości (automatycznie generowane przez launcher) -->
     <script src="/location_js/location-config.js"></script>
     <script src="/location_js/location-data.js"></script>
+
+    <!-- Sprawdzenie czy skrypty zostały załadowane -->
+    <script>
+        // Poczekaj na załadowanie DOM
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const gallery = document.getElementById('history-photo-gallery');
+                if (!window.LOCATION_CONFIG) {
+                    console.error('❌ LOCATION_CONFIG nie został załadowany!');
+                    console.error('Upewnij się, że otwierasz stronę przez backend server (http://localhost:5000/strona_glowna/historia.html)');
+                    if (gallery) {
+                        gallery.innerHTML = '<p class="no-photos">⚠️ Błąd: Brak konfiguracji miejscowości. Upewnij się, że otwierasz stronę przez backend server (http://localhost:5000/strona_glowna/historia.html)</p>';
+                    }
+                } else if (!window.LOCATION_CONFIG.historyPhotos || window.LOCATION_CONFIG.historyPhotos.length === 0) {
+                    console.warn('⚠️ Brak zdjęć historycznych w konfiguracji');
+                    if (gallery && gallery.innerHTML.includes('Ładowanie')) {
+                        gallery.innerHTML = '<p class="no-photos">Brak zdjęć historycznych dla tej miejscowości.</p>';
+                    }
+                } else {
+                    console.log(`✓ Załadowano ${window.LOCATION_CONFIG.historyPhotos.length} zdjęć historycznych`);
+                }
+            }, 500);
+        });
+    </script>
 </body>
 </html>
