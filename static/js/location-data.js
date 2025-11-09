@@ -139,7 +139,13 @@
             return;
         }
 
+        console.log('🔍 DEBUG: config.historyPhotos =', config.historyPhotos);
+        console.log('🔍 DEBUG: typeof config.historyPhotos =', typeof config.historyPhotos);
+
         const photos = config.historyPhotos || [];
+        console.log('🔍 DEBUG: photos =', photos);
+        console.log('🔍 DEBUG: photos.length =', photos.length);
+
         if (photos.length === 0) {
             console.log('ℹ️ Brak zdjęć historycznych do wygenerowania');
             gallery.innerHTML = '<p class="no-photos">Brak zdjęć historycznych.</p>';
@@ -150,6 +156,8 @@
         gallery.innerHTML = ''; // Wyczyść zawartość
 
         photos.forEach((photo, index) => {
+            console.log(`🔍 DEBUG: Generuję zdjęcie ${index}:`, photo);
+
             const figure = document.createElement('figure');
             figure.className = 'gallery-item';
 
@@ -159,6 +167,8 @@
             const img = document.createElement('img');
             img.src = `/history_photos/${photo.filename}`;
             img.alt = photo.caption || `Zdjęcie historyczne ${index + 1}`;
+
+            console.log(`🔍 DEBUG: img.src = ${img.src}`);
 
             const overlay = document.createElement('div');
             overlay.className = 'image-overlay';
