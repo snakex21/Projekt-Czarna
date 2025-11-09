@@ -2283,7 +2283,6 @@ function generateReportHTML(sections) {
         <tr>
           <th>#</th>
           <th>Numer drogi</th>
-          <th>Klasa</th>
           <th>Długość (m)</th>
         </tr>
       </thead>
@@ -2291,9 +2290,8 @@ function generateReportHTML(sections) {
         ${roads.map((road, idx) => `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
-          <td>${road.road_number || road.numer_drogi || '-'}</td>
-          <td>${road.road_class || road.klasa || '-'}</td>
-          <td>${(road.length_m || road.dlugosc || 0).toFixed(2)} m</td>
+          <td>${road.road_number || '-'}</td>
+          <td>${(road.length_m || 0).toFixed(2)} m</td>
         </tr>
         `).join('')}
       </tbody>
