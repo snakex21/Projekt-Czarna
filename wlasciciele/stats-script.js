@@ -1393,7 +1393,7 @@ function updateGenealogySeries(series) {
     'marriages': { key: 'marriages_by_decade', label: 'Liczba ślubów',    color: '#10b981' }
   };
 
-  const cfg = map[series] || map.births;
+  const cfg = map[series] || map['births'];
   const ds = s[cfg.key] || { labels: [], data: [] };
 
   const chart = charts.genealogyBirths;
@@ -1401,6 +1401,21 @@ function updateGenealogySeries(series) {
   chart.data.datasets[0].data = ds.data;
   chart.data.datasets[0].label = cfg.label;
   chart.data.datasets[0].borderColor = cfg.color;
+
+  // Aktualizuj gradient dla wybranej serii
+  const gradient = chart.ctx.createLinearGradient(0, 0, 0, 400);
+  if (series === 'deaths') {
+    gradient.addColorStop(0, 'rgba(239,68,68,0.6)');
+    gradient.addColorStop(1, 'rgba(239,68,68,0.1)');
+  } else if (series === 'marriages') {
+    gradient.addColorStop(0, 'rgba(16,185,129,0.6)');
+    gradient.addColorStop(1, 'rgba(16,185,129,0.1)');
+  } else {
+    gradient.addColorStop(0, 'rgba(118,75,162,0.6)');
+    gradient.addColorStop(1, 'rgba(102,126,234,0.1)');
+  }
+  chart.data.datasets[0].backgroundColor = gradient;
+
   chart.update();
 }
 

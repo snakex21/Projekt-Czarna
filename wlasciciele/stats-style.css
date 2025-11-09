@@ -838,6 +838,11 @@ body {
   background: var(--gradient-primary);
   color: #fff;
 }
+.segmented input[type="radio"]:disabled + label {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 select {
   padding: 0.5rem 1rem;
