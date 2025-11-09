@@ -57,7 +57,6 @@ body.dark-mode {
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 body {
@@ -875,6 +874,7 @@ select {
 
 .ranking-list { 
   display: grid; gap: 0.75rem; 
+  box-sizing: content-box;
 }
 
 .ranking-item {
@@ -1438,55 +1438,108 @@ kbd {
   transform: translateY(-50%);
 }
 
+/* Poprawione style dla lat na osi czasu */
 .timeline-event {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: var(--bg-primary);
-  padding: 0.5rem 1rem;
-  border-radius: 999px; 
-  border: 3px solid var(--primary);
+  background: var(--gradient-primary);
+  color: white;
+  padding: 0.5rem 1.25rem;
+  border-radius: 12px;
+  border: none;
   cursor: pointer;
   transition: var(--transition);
   z-index: 2;
-  display: flex; 
+  display: flex;
   align-items: center;
-  gap: 0.5rem; 
-  max-width: 220px;       
-  white-space: normal;  
-  word-wrap: break-word;  
-  text-align: center;     
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .timeline-event:hover {
-  transform: translate(-50%, -60%);
-  box-shadow: 0 10px 30px var(--shadow);
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
 .timeline-event.major {
   background: var(--gradient-primary);
   color: white;
-  border-color: transparent;
+  border: none;
+  font-size: 1.1rem;
+  padding: 0.6rem 1.5rem;
 }
 
 .timeline-event-tooltip {
   position: absolute;
-  bottom: 120%;
+  bottom: 130%;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--bg-primary); 
-  color: var(--text-primary); 
+  background: var(--bg-primary);
+  color: var(--text-primary);
   padding: 0.75rem 1rem;
   border-radius: 8px;
   box-shadow: 0 4px 20px var(--shadow);
+  border: 1px solid var(--border);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s;
   min-width: 200px;
+  max-width: 300px;
   text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  white-space: normal;
+  z-index: 10;
 }
 
-.timeline-event:hover .timeline-event-tooltip { opacity: 1; }
+.timeline-event:hover .timeline-event-tooltip { 
+  opacity: 1; 
+}
+
+/* Poprawione style dla pól z opisem wydarzeń */
+.demo-event {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  border-left: 3px solid var(--primary);
+  border-radius: 8px;
+  margin-top: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.event-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.event-text {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin-top: 0.25rem;
+}
+
+/* Style dla stopki karty demograficznej */
+.demo-card-footer {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
 /* Karty roczne */
 .demo-cards-grid {
@@ -1641,31 +1694,6 @@ kbd {
 .religion-fill.other { background: linear-gradient(135deg, #a78bfa, #8b5cf6); }
 
 /* Wydarzenia */
-.demo-event {
-  padding: 1rem;
-  background: var(--bg-secondary);
-  border-left: 4px solid var(--primary);
-  border-radius: 8px;
-  margin-bottom: 1rem;
-}
-
-.event-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--gradient-primary);
-  color: white;
-  border-radius: 8px;
-  margin-right: 0.75rem;
-}
-
-.event-text {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
 
 /* Wskaźniki zmian */
 .demo-change {
@@ -2127,3 +2155,4 @@ kbd {
     padding: 0 1.5rem 2.5rem;
   }
 }
+
