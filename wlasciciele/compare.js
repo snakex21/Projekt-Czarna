@@ -982,7 +982,7 @@ ${error.stack}
         <div class="protocol-number-badge">L.p. ${d.numer_protokolu || "—"}</div>
         <h2 class="protocol-main-title">
           Protokół dochodzeń miejscowych
-          <span class="protocol-location">w gminie katastralnej Czarna</span>
+          <span class="protocol-location">${d.gmina_katastralna ? `w gminie katastralnej ${d.gmina_katastralna}` : ''}</span>
         </h2>
         <div class="protocol-actions">
           <button id="downloadPdfBtn-${uid}" class="action-btn">
