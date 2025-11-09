@@ -383,6 +383,43 @@ def get_wlasciciel_by_key(unikalny_klucz):
     if not wlasciciel:
         return jsonify({"error": "Właściciel nie znaleziony"}), 404
 
+    # Pobranie gminy katastralnej i miejscowości protokołu z aktywnej lokalizacji
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    launcher_dir = os.path.join(base_dir, "launcher")
+
+    gmina_katastralna = None
+    miejscowosc_protokolu = None
+
+    # Spróbuj PostgreSQL najpierw
+    location_name = None
+    try:
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+
+        launcher_conn = psycopg2.connect(**launcher_db_config)
+        launcher_cursor = launcher_conn.cursor()
+        launcher_cursor.execute("SELECT gmina_katastralna, miejscowosc_protokolu FROM locations WHERE active = TRUE LIMIT 1")
+        result = launcher_cursor.fetchone()
+        launcher_cursor.close()
+        launcher_conn.close()
+
+        if result:
+            gmina_katastralna = result[0]
+            miejscowosc_protokolu = result[1]
+    except Exception as e:
+        print(f"⚠️ Błąd podczas pobierania danych lokalizacji: {e}")
+
+    wlasciciel['gmina_katastralna'] = gmina_katastralna
+    # Nadpisz miejsce_protokolu jeśli jest w bazie locations
+    if miejscowosc_protokolu:
+        wlasciciel['miejsce_protokolu'] = miejscowosc_protokolu
+
     # Sprawdzenie drzewa genealogicznego
     cur.execute("SELECT EXISTS (SELECT 1 FROM osoby_genealogia WHERE id_protokolu = %s) AS ma_drzewo;", (wlasciciel['id'],))
     wlasciciel['ma_drzewo_genealogiczne'] = cur.fetchone()['ma_drzewo']
@@ -659,35 +696,135 @@ def get_stats():
     death_years = only_valid_years([p.get('rok_smierci') for p in genealogia_raw])
     deaths_by_decade_ctr = Counter((y // 10) * 10 for y in death_years)
 
-    # Śluby wg dekad (z tabeli malzenstwa – bierzemy rok_slubu / rok / data_slubu)
+    # Śluby wg dekad
+    # Najpierw spróbuj z tabeli malzenstwa (PostgreSQL)
+    marriage_years = []
     try:
         cur.execute("SELECT * FROM malzenstwa;")
         malzenstwa_rows = cur.fetchall()
-    except Exception:
-        malzenstwa_rows = []
 
-    def extract_marriage_year(row):
-        # preferowane kolumny numeryczne
-        for key in ('rok_slubu', 'rok'):
-            v = row.get(key)
-            if isinstance(v, int) and 0 < v <= current_year:
-                return v
-            if isinstance(v, str) and v.isdigit():
-                vi = int(v)
-                if 0 < vi <= current_year:
-                    return vi
-        # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
-        txt = row.get('data_slubu') or ''
-        if isinstance(txt, str):
-            m = re.search(r'(17|18|19|20)\d{2}', txt)
-            if m:
-                year = int(m.group(0))
-                if 0 < year <= current_year:
-                    return year
-        return None
+        def extract_marriage_year(row):
+            # preferowane kolumny numeryczne
+            for key in ('rok_slubu', 'rok'):
+                v = row.get(key)
+                if isinstance(v, int) and 0 < v <= current_year:
+                    return v
+                if isinstance(v, str) and v.isdigit():
+                    vi = int(v)
+                    if 0 < vi <= current_year:
+                        return vi
+            # spróbuj wyłuskać rok z tekstu (np. "12-05-1879")
+            txt = row.get('data_slubu') or ''
+            if isinstance(txt, str):
+                m = re.search(r'(17|18|19|20)\d{2}', txt)
+                if m:
+                    year = int(m.group(0))
+                    if 0 < year <= current_year:
+                        return year
+            return None
 
-    marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
-    marriage_years = [y for y in marriage_years if y is not None]
+        marriage_years = [extract_marriage_year(r) for r in malzenstwa_rows]
+        marriage_years = [y for y in marriage_years if y is not None]
+    except Exception as e:
+        print(f"⚠️  Tabela malzenstwa niedostępna: {e}")
+
+    # Jeśli brak danych z tabeli, spróbuj z pliku genealogia.json
+    if not marriage_years:
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+            # Pobierz nazwę aktywnej lokalizacji
+            location_name = None
+            try:
+                launcher_db_config = {
+                    "host": os.getenv("DB_HOST", "localhost"),
+                    "dbname": "mapa_launcher_db",
+                    "user": os.getenv("DB_USER", "postgres"),
+                    "password": os.getenv("DB_PASSWORD", "1234"),
+                    "port": os.getenv("DB_PORT", "5432"),
+                    "client_encoding": "UTF8"
+                }
+                launcher_conn = psycopg2.connect(**launcher_db_config)
+                launcher_cursor = launcher_conn.cursor()
+                launcher_cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+                result = launcher_cursor.fetchone()
+                launcher_cursor.close()
+                launcher_conn.close()
+                if result:
+                    location_name = result[0]
+            except Exception:
+                # Fallback do nazwy z .env jeśli PostgreSQL nie działa
+                location_name = os.getenv("LOCATION_NAME", "Czarna")
+
+            genealogy_json_path = os.path.join(base_dir, "backup", location_name, "genealogia.json")
+
+            if os.path.exists(genealogy_json_path):
+                import json
+                with open(genealogy_json_path, 'r', encoding='utf-8') as f:
+                    genealogy_data = json.load(f)
+
+                persons_dict = {p['id']: p for p in genealogy_data.get('persons', [])}
+                processed_marriages = set()  # Aby uniknąć duplikatów (każde małżeństwo jest w 2 osobach)
+
+                # Wyciągnij lata z pola marriages (jeśli istnieje)
+                for person in genealogy_data.get('persons', []):
+                    marriages_list = person.get('marriages', [])
+                    for marriage in marriages_list:
+                        spouse_id = marriage.get('spouseId')
+                        marriage_date = marriage.get('date')
+
+                        # Unikaj duplikatów - sortuj IDs
+                        marriage_key = tuple(sorted([person['id'], spouse_id]))
+                        if marriage_key in processed_marriages:
+                            continue
+                        processed_marriages.add(marriage_key)
+
+                        # marriage_date może być int (rok) lub dict z rokiem
+                        if isinstance(marriage_date, int) and 0 < marriage_date <= current_year:
+                            marriage_years.append(marriage_date)
+                        elif isinstance(marriage_date, dict) and 'year' in marriage_date:
+                            year = marriage_date['year']
+                            if isinstance(year, int) and 0 < year <= current_year:
+                                marriage_years.append(year)
+
+                # Dla małżeństw bez dat - estymuj na podstawie dzieci
+                for person in genealogy_data.get('persons', []):
+                    spouse_ids = person.get('spouseIds', [])
+
+                    for spouse_id in spouse_ids:
+                        # Unikaj duplikatów
+                        marriage_key = tuple(sorted([person['id'], spouse_id]))
+                        if marriage_key in processed_marriages:
+                            continue
+                        processed_marriages.add(marriage_key)
+
+                        # Znajdź dzieci tej pary
+                        children = [
+                            p for p in genealogy_data.get('persons', [])
+                            if (p.get('fatherId') == person['id'] and p.get('motherId') == spouse_id)
+                            or (p.get('fatherId') == spouse_id and p.get('motherId') == person['id'])
+                        ]
+
+                        # Znajdź najstarsze dziecko
+                        oldest_child_year = None
+                        for child in children:
+                            birth_date = child.get('birthDate')
+                            if birth_date:
+                                year = birth_date.get('year') if isinstance(birth_date, dict) else birth_date
+                                if isinstance(year, int) and 0 < year <= current_year:
+                                    if oldest_child_year is None or year < oldest_child_year:
+                                        oldest_child_year = year
+
+                        # Estymuj ślub jako 1-2 lata przed urodzeniem pierwszego dziecka
+                        if oldest_child_year:
+                            estimated_marriage_year = oldest_child_year - 1
+                            if 0 < estimated_marriage_year <= current_year:
+                                marriage_years.append(estimated_marriage_year)
+
+                print(f"✅ Załadowano {len(marriage_years)} ślubów z genealogia.json (z estymacją na podstawie dzieci)")
+        except Exception as e:
+            print(f"⚠️  Błąd podczas ładowania genealogia.json: {e}")
+
     marriages_by_decade_ctr = Counter((y // 10) * 10 for y in marriage_years)
 
     # Jednolita funkcja budowania serii (etykiety „1850s”, „1860s”, …)
@@ -1077,16 +1214,30 @@ def get_stats():
             'min_length_m': 0.0
         }
 
+    # ——— Ranking dróg
     cur.execute("""
-        SELECT 
-            COALESCE(NULLIF(nazwa_lub_numer, ''), 'Droga ' || id) as road_name,
+        SELECT
+            id,
+            COALESCE(
+                NULLIF(TRIM(nazwa_lub_numer), ''),
+                'Droga ' || id
+            ) as road_number,
             ST_Length(ST_Transform(geometria, 32634)) as length_m
         FROM obiekty_geograficzne
         WHERE kategoria = 'droga' AND geometria IS NOT NULL
         ORDER BY length_m DESC
         LIMIT 20;
     """)
-    roads_ranking = cur.fetchall()
+    roads_ranking_raw = cur.fetchall()
+
+    # Konwersja i upewnienie się że road_number nie jest pusty
+    roads_ranking = []
+    for row in roads_ranking_raw:
+        road_dict = dict(row)
+        # Dodatkowe zabezpieczenie
+        if not road_dict.get('road_number') or str(road_dict['road_number']).strip() == '':
+            road_dict['road_number'] = f"Droga {road_dict['id']}"
+        roads_ranking.append(road_dict)
 
     cur.close()
     conn.close()
@@ -1671,10 +1822,72 @@ def serve_map_page():
     )
 
 @app.route('/mapa/<path:filename>')
-def serve_map_files(filename): 
+def serve_map_files(filename):
     # Ta funkcja obsługuje teraz tylko pliki statyczne (JS, CSS)
     if filename == 'mapa.html':
         return redirect(url_for('serve_map_page'))
+
+    # Specjalne traktowanie dla mapa.jpg - serwuj z backup/[miejscowość]/
+    if filename == 'mapa.jpg':
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        launcher_dir = os.path.join(base_dir, "launcher")
+
+        # Spróbuj PostgreSQL najpierw
+        location_name = None
+        try:
+            # Pobierz konfigurację postgres
+            launcher_db_config = {
+                "host": os.getenv("DB_HOST", "localhost"),
+                "dbname": "mapa_launcher_db",
+                "user": os.getenv("DB_USER", "postgres"),
+                "password": os.getenv("DB_PASSWORD", "1234"),
+                "port": os.getenv("DB_PORT", "5432"),
+                "client_encoding": "UTF8"
+            }
+
+            conn = psycopg2.connect(**launcher_db_config)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+            result = cursor.fetchone()
+            conn.close()
+
+            if result:
+                location_name = result[0]
+        except Exception as e:
+            print(f"⚠️  PostgreSQL niedostępny, próbuję SQLite: {e}")
+
+        # Fallback do SQLite jeśli PostgreSQL nie działa
+        if not location_name:
+            locations_db_path = os.path.join(launcher_dir, "locations.db")
+            if os.path.exists(locations_db_path):
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(locations_db_path)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM locations WHERE active = 1")
+                    result = cursor.fetchone()
+                    conn.close()
+
+                    if result:
+                        location_name = result[0]
+                except Exception as e:
+                    print(f"⚠️  Błąd podczas odczytu SQLite: {e}")
+
+        if not location_name:
+            print(f"❌ Brak aktywnej miejscowości, serwuję mapę z domyślnej lokalizacji")
+            return send_from_directory(MAPA_PATH, filename)
+
+        # Ścieżka do mapy w folderze backup aktywnej miejscowości
+        mapa_backup_path = os.path.join(base_dir, "backup", location_name)
+        mapa_file_path = os.path.join(mapa_backup_path, "mapa.jpg")
+
+        if os.path.exists(mapa_file_path):
+            print(f"✅ Serwuję mapa.jpg z backup/{location_name}/")
+            return send_from_directory(mapa_backup_path, "mapa.jpg")
+        else:
+            print(f"⚠️  Brak mapa.jpg w backup/{location_name}/, serwuję z domyślnej lokalizacji")
+            return send_from_directory(MAPA_PATH, filename)
+
     return send_from_directory(MAPA_PATH, filename)
 
 @app.route('/wlasciciele/<path:filename>')
@@ -1907,13 +2120,18 @@ def serve_location_favicon():
 
 @app.route('/location_js/<path:filename>')
 def serve_location_js(filename):
-    """Serwuje pliki JS konfiguracyjne ze static/js/."""
+    """Serwuje pliki JS konfiguracyjne ze static/js/ z wyłączonym cache."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     static_path = os.path.join(base_dir, "static", "js")
 
     js_file_path = os.path.join(static_path, filename)
     if os.path.exists(js_file_path):
-        return send_from_directory(static_path, filename, mimetype='application/javascript')
+        response = send_from_directory(static_path, filename, mimetype='application/javascript')
+        # Dodaj nagłówki wyłączające cache
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
     print(f"❌ Plik {filename} nie znaleziony w static/js/")
     return "Plik JS nie znaleziony", 404

@@ -12,7 +12,7 @@ import shutil
 import threading
 import webbrowser
 from datetime import datetime
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory
 import sqlite3
 import psycopg2
 
@@ -438,6 +438,23 @@ def root():
 def index():
     """Renderuje interfejs edytora z konfiguracją mapy."""
     return render_template("template.html", map_config_data=map_config)
+
+@app.route("/static/mapa.jpg")
+def serve_map_image():
+    """Serwuje mapa.jpg z folderu backup aktywnej miejscowości."""
+    mapa_path = os.path.join(BACKUP_DIR, "mapa.jpg")
+
+    if os.path.exists(mapa_path):
+        print(f"✅ Edytor działek: Serwuję mapa.jpg z {BACKUP_DIR}")
+        return send_from_directory(BACKUP_DIR, "mapa.jpg")
+    else:
+        # Fallback do starego folderu static jeśli mapa nie istnieje w backup
+        print(f"⚠️ Brak mapa.jpg w backup, próbuję z static/")
+        static_path = os.path.join(BASE_DIR, "static", "mapa.jpg")
+        if os.path.exists(static_path):
+            return send_from_directory(os.path.join(BASE_DIR, "static"), "mapa.jpg")
+        else:
+            return "Mapa nie znaleziona", 404
 
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():

@@ -944,6 +944,95 @@
     </div>
 
     <!-- ==========================================================================
+         MODAL WYBORU SEKCJI DO DRUKU
+         ========================================================================== -->
+    <div class="modal" id="print-modal">
+        <div class="modal-content print-modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-print"></i> Generuj raport do druku</h2>
+                <button class="modal-close" onclick="closePrintModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body print-modal-body">
+                <p class="modal-description">
+                    Wybierz sekcje które chcesz uwzględnić w raporcie. Raport zostanie otwarty w nowym oknie i przygotowany do druku.
+                </p>
+
+                <div class="checkbox-grid">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-general" checked>
+                        <span><i class="fas fa-chart-pie"></i> Statystyki ogólne</span>
+                        <small>Liczba właścicieli, działek, powierzchnia</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-rankings" checked>
+                        <span><i class="fas fa-trophy"></i> Rankingi właścicieli</span>
+                        <small>Top 10 właścicieli według powierzchni</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-categories">
+                        <span><i class="fas fa-layer-group"></i> Kategorie działek</span>
+                        <small>Rozkład według typu użytkowania</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-demographics">
+                        <span><i class="fas fa-users-cog"></i> Demografia</span>
+                        <small>Dane demograficzne w czasie</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-genealogy" checked>
+                        <span><i class="fas fa-sitemap"></i> Genealogia</span>
+                        <small>Urodzenia, zgony, śluby według dekad</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-insights">
+                        <span><i class="fas fa-lightbulb"></i> Wnioski analityczne</span>
+                        <small>Automatycznie wygenerowane wnioski</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-rankings-count">
+                        <span><i class="fas fa-list-ol"></i> Top 10 właścicieli (wg ilości działek)</span>
+                        <small>Właściciele z największą liczbą działek</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-parcels">
+                        <span><i class="fas fa-map"></i> Top 10 największych działek</span>
+                        <small>Ranking największych działek według powierzchni</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-rivers">
+                        <span><i class="fas fa-water"></i> Top 10 najdłuższych rzek</span>
+                        <small>Ranking rzek według długości</small>
+                    </label>
+
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="print-roads">
+                        <span><i class="fas fa-road"></i> Top 10 najdłuższych dróg</span>
+                        <small>Ranking dróg według długości</small>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePrintModal()">
+                    <i class="fas fa-times"></i> Anuluj
+                </button>
+                <button class="btn-primary" onclick="generatePrintReport()">
+                    <i class="fas fa-file-pdf"></i> Generuj raport
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
          SKRYPTY ZEWNĘTRZNE I APLIKACJI
          ========================================================================== -->
     <!-- SheetJS - obsługa plików Excel -->
