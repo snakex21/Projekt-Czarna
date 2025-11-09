@@ -387,8 +387,8 @@ def get_wlasciciel_by_key(unikalny_klucz):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     launcher_dir = os.path.join(base_dir, "launcher")
 
-    gmina_katastralna = "Czarna"  # domyślna wartość
-    miejscowosc_protokolu = "Pilzno"  # domyślna wartość
+    gmina_katastralna = None
+    miejscowosc_protokolu = None
 
     # Spróbuj PostgreSQL najpierw
     location_name = None
@@ -410,8 +410,8 @@ def get_wlasciciel_by_key(unikalny_klucz):
         launcher_conn.close()
 
         if result:
-            gmina_katastralna = result[0] or "Czarna"
-            miejscowosc_protokolu = result[1] or "Pilzno"
+            gmina_katastralna = result[0]
+            miejscowosc_protokolu = result[1]
     except Exception as e:
         print(f"⚠️ Błąd podczas pobierania danych lokalizacji: {e}")
 

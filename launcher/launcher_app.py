@@ -97,8 +97,8 @@ CREATE TABLE IF NOT EXISTS locations (
     history_paragraph2 TEXT,
     history_paragraph3 TEXT,
     postgres_db_name VARCHAR(100),
-    gmina_katastralna VARCHAR(100) DEFAULT 'Czarna',
-    miejscowosc_protokolu VARCHAR(100) DEFAULT 'Pilzno',
+    gmina_katastralna VARCHAR(100),
+    miejscowosc_protokolu VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -619,7 +619,7 @@ def init_postgres_locations_db():
             WHERE table_name='locations' AND column_name='gmina_katastralna'
         """)
         if not cursor.fetchone():
-            cursor.execute("ALTER TABLE locations ADD COLUMN gmina_katastralna VARCHAR(100) DEFAULT 'Czarna'")
+            cursor.execute("ALTER TABLE locations ADD COLUMN gmina_katastralna VARCHAR(100)")
             print("✓ Dodano kolumnę gmina_katastralna")
 
         # Sprawdź czy kolumna miejscowosc_protokolu istnieje
@@ -629,7 +629,7 @@ def init_postgres_locations_db():
             WHERE table_name='locations' AND column_name='miejscowosc_protokolu'
         """)
         if not cursor.fetchone():
-            cursor.execute("ALTER TABLE locations ADD COLUMN miejscowosc_protokolu VARCHAR(100) DEFAULT 'Pilzno'")
+            cursor.execute("ALTER TABLE locations ADD COLUMN miejscowosc_protokolu VARCHAR(100)")
             print("✓ Dodano kolumnę miejscowosc_protokolu")
 
         conn.commit()
