@@ -90,9 +90,8 @@
           <div class="folder-structure">
             <ul>
               <li><code><b>admin/</b></code> - Kompletna aplikacja panelu administracyjnego (SPA) do zarządzania danymi w bazie.</li>
-              <li><code><b>assets/</b></code> - Przechowuje kluczowe zasoby cyfrowe, przede wszystkim zeskanowane oryginały protokołów katastralnych.</li>
               <li><code><b>backend/</b></code> - Serce aplikacji. Zawiera serwer API (Flask), skrypt migracyjny oraz testy jednostkowe.</li>
-              <li><code><b>backup/</b></code> - Przechowuje "surowe" dane źródłowe w formacie <code>.json</code>, generowane przez narzędzia deweloperskie.</li>
+              <li><code><b>backup/</b></code> - Przechowuje "surowe" dane źródłowe w formacie <code>.json</code> dla każdej miejscowości osobno (np. <code>backup/Czarna/</code>). Każdy folder miejscowości zawiera pliki konfiguracyjne (<code>map_config.json</code>, <code>launcher_db_config.json</code>), dane (<code>owner_data_to_import.json</code>, <code>parcels_data.json</code>, <code>demografia.json</code>, <code>genealogia.json</code>), folder ze skanami protokołów (<code>protokoly/</code>), zdjęcia historyczne (<code>history_photos/</code>) oraz opcjonalnie <code>favicon.jpeg</code>.</li>
               <li><code><b>docs/</b></code> - Zawiera interaktywną dokumentację techniczną i wdrożeniową (plik, który właśnie czytasz).</li>
               <li><code><b>dokumentacja/</b></code> - Materiały źródłowe do pracy inżynierskiej (pliki Markdown, bibliografia).</li>
               <li><code><b>genealogia/</b></code> - Komponenty frontendowe odpowiedzialne za wizualizację interaktywnych drzew genealogicznych.</li>
@@ -110,9 +109,18 @@
           <div class="code-block">
             <pre><code>.
 ├── admin/
-├── assets/
 ├── backend/
 ├── backup/
+│   └── Czarna/                     # Folder miejscowości
+│       ├── map_config.json         # Konfiguracja kalibracji mapy
+│       ├── launcher_db_config.json # Konfiguracja bazy danych
+│       ├── owner_data_to_import.json
+│       ├── parcels_data.json
+│       ├── demografia.json
+│       ├── genealogia.json
+│       ├── favicon.jpeg            # Ikona witryny
+│       ├── protokoly/              # Skany protokołów
+│       └── history_photos/         # Zdjęcia historyczne
 ├── docs/
 ├── dokumentacja/
 ├── genealogia/
@@ -241,14 +249,14 @@
               kluczowym elementem jest centralne zarządzanie współrzędnymi mapy.
               Użytkownik wprowadza je w jednym miejscu – <strong>Kalibratorze Mapy</strong>
               w Launcherze. Narzędzie to zapisuje dane jednocześnie w dwóch
-              miejscach: w pliku <code>backup/map_config.json</code> (dla Edytora
-              Działek) oraz w bazie danych (dla głównej aplikacji mapy).
+              miejscach: w pliku <code>backup/{miejscowość}/map_config.json</code> (dla Edytora
+              Działek) oraz w bazie danych aktywnej miejscowości (dla głównej aplikacji mapy).
               <strong>Gwarantuje to absolutną spójność</strong> i pewność, że
               obiekty narysowane w edytorze idealnie wpasują się w mapę główną.
             </div>
             <ol>
               <li><b>Tworzenie Danych Źródłowych:</b> Dane opisowe (właściciele, demografia) są wprowadzane za pomocą dedykowanego edytora GUI <code>tools/owner_editor.py</code>. Dane przestrzenne (działki, drogi) są rysowane w wizualnym edytorze <code>tools/parcel_editor/</code>. Narzędzia te zostały zaprojektowane z myślą o niezawodności i odporności na błędy użytkownika, minimalizując ryzyko błędów formalnych i wymuszając poprawny format danych już na etapie wprowadzania, co jest kluczowe dla integralności historycznych danych.</li>
-              <li><b>Zapis do Plików Wsadowych:</b> Edytory zapisują wyniki swojej pracy w postaci ustrukturyzowanych plików <code>.json</code> w folderze <code>backup/</code>. Pliki te stanowią "surowe", łatwe do edycji i przenoszenia źródło prawdy, które może być również wykorzystane do archiwizacji oraz jako punkt wyjścia do dalszych analiz poza systemem.</li>
+              <li><b>Zapis do Plików Wsadowych:</b> Edytory zapisują wyniki swojej pracy w postaci ustrukturyzowanych plików <code>.json</code> w folderze aktywnej miejscowości (np. <code>backup/Czarna/</code>). Pliki te stanowią "surowe", łatwe do edycji i przenoszenia źródło prawdy, które może być również wykorzystane do archiwizacji oraz jako punkt wyjścia do dalszych analiz poza systemem.</li>
               <li><b>Migracja do Bazy Danych:</b> Skrypt <code>backend/migrate_data.py</code> odczytuje pliki JSON i w sposób zautomatyzowany wypełnia tabelami bazy danych PostgreSQL. Skrypt dba o poprawne typy danych, ustanawia relacje (klucze obce) oraz wykonuje niezbędną konwersję współrzędnych geograficznych do formatu WKT (Well-Known Text) wymaganego przez PostGIS, zapewniając gotowość danych do analiz przestrzennych i spójność z modelem danych.</li>
               <li><b>Udostępnienie przez API:</b> Działający serwer Flask (<code>backend/app.py</code>) udostępnia dane z bazy poprzez REST API (endpointy pod ścieżką <code>/api/...</code>) do aplikacji front-endowej. API jest zaprojektowane tak, aby dostarczać dane w formacie zoptymalizowanym pod kątem wyświetlania na mapie i w panelach informacyjnych, minimalizując obciążenie sieci i czas ładowania.</li>
               <li><b>Zarządzanie i Edycja:</b> Panel Admina (<code>admin/</code>) pozwala na modyfikację danych bezpośrednio w bazie, z pominięciem plików JSON. Jest to narzędzie dla administratorów do bieżącej korekty i aktualizacji danych, oferujące interfejs CRUD (Create, Read, Update, Delete) dla kluczowych tabel.</li>
@@ -260,18 +268,58 @@
           <div class="tech-subsection">
             <h3>4. Struktura Bazy Danych</h3>
             <p>
-              Sercem systemu jest relacyjna baza danych PostgreSQL, rozszerzona
-              o PostGIS. Model danych został zaprojektowany z naciskiem na
+              System wykorzystuje <strong>dwie osobne bazy danych PostgreSQL</strong>, rozszerzone
+              o PostGIS:
+            </p>
+            <ul>
+              <li><strong><code>mapa_launcher_db</code></strong> - Baza zarządzająca miejscowościami. Przechowuje listę wszystkich miejscowości w systemie, informacje o aktywnej miejscowości oraz konfigurację połączeń do poszczególnych baz danych miejscowości.</li>
+              <li><strong><code>mapa_{miejscowość}_db</code></strong> - Osobna baza danych dla każdej miejscowości (np. <code>mapa_czarna_db</code> dla miejscowości Czarna). Zawiera wszystkie dane historyczne: właścicieli, obiekty geograficzne, demografię, genealogię oraz konfigurację mapy. Każda miejscowość działa niezależnie ze swoją dedykowaną bazą danych.</li>
+            </ul>
+            <p>
+              Model danych został zaprojektowany z naciskiem na
               integralność, normalizację i wydajność zapytań. Poniższy diagram
               związków encji (ERD) wizualizuje, w jaki sposób dane o
               właścicielach, obiektach, demografii i genealogii są ze sobą
-              połączone.
+              połączone w bazie danych miejscowości.
             </p>
 
 <!-- Diagram ERD w formacie Mermaid -->
             <div class="mermaid-diagram">
               <pre class="mermaid">
 erDiagram
+    %% ========================================
+    %% BAZA: mapa_launcher_db
+    %% ========================================
+
+    locations {
+        int id PK
+        varchar name UK
+        varchar full_name
+        varchar powiat
+        varchar region
+        boolean active
+        varchar homepage_template
+        varchar year
+        varchar century
+        text homepage_description
+        varchar postgres_db_name
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    history_photos {
+        int id PK
+        int location_id FK
+        varchar filename
+        text caption
+        int order_index
+        timestamp created_at
+    }
+
+    %% ========================================
+    %% BAZA: mapa_{miejscowość}_db
+    %% ========================================
+
     wlasciciele {
         int id PK
         varchar unikalny_klucz UK
@@ -337,6 +385,14 @@ erDiagram
         timestamp timestamp
     }
 
+    %% ========================================
+    %% RELACJE - mapa_launcher_db
+    %% ========================================
+    locations ||--o{ history_photos : "posiada zdjęcia"
+
+    %% ========================================
+    %% RELACJE - mapa_{miejscowość}_db
+    %% ========================================
     wlasciciele ||--o{ dzialki_wlasciciele : "posiada"
     obiekty_geograficzne ||--o{ dzialki_wlasciciele : "jest posiadany przez"
     wlasciciele ||--o{ osoby_genealogia : "jest głównym protokołem dla"
@@ -350,12 +406,29 @@ erDiagram
 <table>
               <thead>
                 <tr>
+                  <th>Baza Danych</th>
                   <th>Tabela</th>
                   <th>Opis</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
+                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_launcher_db</td>
+                </tr>
+                <tr>
+                  <td rowspan="2" style="vertical-align: middle;">mapa_launcher_db</td>
+                  <td><code>locations</code></td>
+                  <td>Główna tabela zarządzająca miejscowościami. Przechowuje listę wszystkich miejscowości w systemie wraz z ich konfiguracją (nazwa, powiat, szablon strony głównej, opis historyczny). Pole <code>postgres_db_name</code> wskazuje na nazwę dedykowanej bazy danych miejscowości. Pole <code>active</code> określa aktualnie wybraną miejscowość.</td>
+                </tr>
+                <tr>
+                  <td><code>history_photos</code></td>
+                  <td>Przechowuje metadane zdjęć historycznych przypisanych do miejscowości. Pliki graficzne znajdują się w <code>backup/{miejscowość}/history_photos/</code>. Tabela zawiera nazwę pliku, podpis i kolejność wyświetlania.</td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_{miejscowość}_db</td>
+                </tr>
+                <tr>
+                  <td rowspan="10" style="vertical-align: middle;">mapa_{miejscowość}_db</td>
                   <td><code>wlasciciele</code></td>
                   <td>Przechowuje dane opisowe z protokołów katastralnych. Każdy rekord to jeden protokół.</td>
                 </tr>
@@ -558,11 +631,14 @@ erDiagram
               które pozwalają na:
             </p>
             <ul>
-              <li><b>Uruchomienie i zatrzymanie serwera backendowego:</b> Jedno kliknięcie uruchamia aplikację Flask, która serwuje API i całą stronę.</li>
-              <li><b>Przeprowadzenie migracji danych:</b> Uruchomienie skryptu <code>migrate_data.py</code>, który przenosi dane z plików JSON do bazy danych.</li>
-              <li><b>Szybki dostęp do narzędzi:</b> Bezpośrednie uruchamianie edytora właścicieli i edytora działek.</li>
-              <li><b>Zarządzanie Mapą:</b> Zintegrowane okno ("Konfigurator Mapy") pozwala na jednoczesną <strong>kalibrację współrzędnych</strong> oraz <strong>wybór pliku mapy tła</strong> (.jpg/.png). Gwarantuje to spójność między edytorem a główną aplikacją.</li>
-              <li><b>Ustawienia Witryny:</b> Dedykowane okno do zarządzania globalnym wyglądem, np. do ustawienia <strong>własnej ikony (favicon)</strong> dla wszystkich stron aplikacji bez modyfikacji kodu.</li>
+              <li><b>Zarządzanie Miejscowościami:</b> Launcher obsługuje wiele miejscowości - każda ma własną bazę danych i folder w <code>backup/</code>. Możesz łatwo przełączać się między miejscowościami, tworzyć nowe, edytować ustawienia lub eksportować/importować kopie zapasowe.</li>
+              <li><b>Uruchomienie i zatrzymanie serwera backendowego:</b> Jedno kliknięcie uruchamia aplikację Flask dla aktywnej miejscowości, która serwuje API i całą stronę.</li>
+              <li><b>Przeprowadzenie migracji danych:</b> Uruchomienie skryptu <code>migrate_data.py</code>, który przenosi dane z plików JSON aktywnej miejscowości do jej bazy danych.</li>
+              <li><b>Szybki dostęp do narzędzi:</b> Bezpośrednie uruchamianie edytora właścicieli, edytora działek i edytora genealogii dla aktywnej miejscowości.</li>
+              <li><b>Zarządzanie Mapą:</b> Zintegrowane okno ("Konfigurator Mapy") pozwala na jednoczesną <strong>kalibrację współrzędnych</strong> oraz <strong>wybór pliku mapy tła</strong> (.jpg/.png). Dane zapisywane są do <code>backup/{miejscowość}/map_config.json</code> i bazy danych, gwarantując spójność między edytorem a główną aplikacją.</li>
+              <li><b>Ustawienia Witryny:</b> Dedykowane okno do zarządzania globalnym wyglądem, np. do ustawienia <strong>własnej ikony (favicon)</strong>. Favicon jest zapisywany bezpośrednio w folderze aktywnej miejscowości (<code>backup/{miejscowość}/favicon.jpeg</code>) i automatycznie serwowany przez aplikację webową z endpointu <code>/location_favicon</code>.</li>
+              <li><b>Menedżer Kopii Zapasowych:</b> Zaawansowane narzędzie do tworzenia i przywracania pełnych kopii zapasowych miejscowości (baza danych + pliki). Eksportuje do archiwum ZIP, które można łatwo przenieść lub zaimportować.</li>
+              <li><b>Menedżer Bezpieczeństwa:</b> Monitorowanie prób logowania do panelu admina, przeglądanie logów bezpieczeństwa i zarządzanie zablokowanymi adresami IP.</li>
             </ul>
             <p>
               Wszystkie operacje są logowane w czasie rzeczywistym w oknie
@@ -585,7 +661,7 @@ erDiagram
             </p>
             <p><b>Proces działania:</b></p>
             <ol>
-              <li><b>Odczyt plików:</b> Skrypt wczytuje dwa główne pliki: <code>backup/owner_data_to_import.json</code> (z danymi właścicieli) oraz <code>backup/parcels_data.json</code> (z danymi przestrzennymi działek).</li>
+              <li><b>Odczyt plików:</b> Skrypt wczytuje pliki JSON z folderu aktywnej miejscowości: <code>backup/{miejscowość}/owner_data_to_import.json</code> (dane właścicieli), <code>backup/{miejscowość}/parcels_data.json</code> (dane przestrzenne), <code>backup/{miejscowość}/demografia.json</code> i <code>backup/{miejscowość}/genealogia.json</code>.</li>
               <li><b>Czyszczenie bazy:</b> Przed importem skrypt usuwa wszystkie istniejące dane z docelowych tabel, aby zapewnić "czysty start" i uniknąć duplikatów.</li>
               <li><b>Import danych:</b> Rekord po rekordzie, dane są wstawiane do odpowiednich tabel (<code>wlasciciele</code>, <code>obiekty_geograficzne</code>, <code>dzialki_wlasciciele</code>), z zachowaniem odpowiednich typów danych i relacji.</li>
               <li><b>Transformacja geometrii:</b> Kluczowym krokiem jest konwersja współrzędnych geograficznych z formatu JSON do formatu WKT (Well-Known Text), który jest zrozumiały dla rozszerzenia PostGIS. To umożliwia późniejsze wykonywanie zapytań przestrzennych.</li>
@@ -840,12 +916,14 @@ erDiagram
               <strong>Okno ładowania</strong><br>
               Launcher automatycznie:
               <ul>
-                <li>Utworzy bazę <code>mapa_launcher_db</code> (zarządzanie miejscowościami)</li>
-                <li>Utworzy bazę <code>mapa_czarna_db</code> (dane dla miejscowości Czarna)</li>
-                <li>Włączy rozszerzenie PostGIS</li>
-                <li>Utworzy wszystkie tabele (właściciele, działki, genealogia, itd.)</li>
-                <li>Utworzy miejscowość "Czarna" jako szablon</li>
-                <li>Zmigruje dane z folderu <code>backup/Czarna/</code></li>
+                <li>Utworzy bazę <code>mapa_launcher_db</code> - główną bazę zarządzającą miejscowościami</li>
+                <li>Utworzy bazę <code>mapa_czarna_db</code> - dedykowaną bazę danych dla miejscowości Czarna</li>
+                <li>Włączy rozszerzenie PostGIS w obu bazach danych</li>
+                <li>Utworzy wszystkie tabele w bazie launcher (miejscowości, konfiguracja)</li>
+                <li>Utworzy wszystkie tabele w bazie miejscowości (właściciele, działki, genealogia, demografia, konfiguracja mapy, itd.)</li>
+                <li>Zarejestruje miejscowość "Czarna" w bazie launcher i ustawi ją jako aktywną</li>
+                <li>Automatycznie zmigruje dane z folderu <code>backup/Czarna/</code> do bazy <code>mapa_czarna_db</code></li>
+                <li>Skopiuje konfigurację mapy z <code>backup/Czarna/map_config.json</code> do bazy <code>mapa_czarna_db</code></li>
               </ul>
               <div class="important-note">
                 <strong>Pierwsze uruchomienie może zająć 1-2 minuty.</strong> To normalne - Launcher tworzy bazy danych i importuje dane.
@@ -855,10 +933,11 @@ erDiagram
               <strong>Główne okno Launchera</strong><br>
               Po zakończeniu inicjalizacji zobaczysz główne okno z sekcjami:
               <ul>
-                <li><strong>📍 Miejscowość:</strong> Aktywna miejscowość (domyślnie: Czarna)</li>
-                <li><strong>⚙️ Operacje Główne:</strong> Uruchomienie serwera, narzędzia</li>
-                <li><strong>🛠️ Narzędzia Deweloperskie:</strong> Edytory danych</li>
-                <li><strong>🌐 Szybki Dostęp:</strong> Linki do aplikacji webowej</li>
+                <li><strong>📍 Miejscowość:</strong> Wyświetla aktywną miejscowość (domyślnie: Czarna) z możliwością przełączania, dodawania nowych lub zarządzania miejscowościami</li>
+                <li><strong>⚙️ Operacje Główne:</strong> Uruchomienie serwera, migracja danych, kalibracja mapy</li>
+                <li><strong>🛠️ Narzędzia Deweloperskie:</strong> Edytory danych (właściciele, działki, genealogia)</li>
+                <li><strong>🔧 Zarządzanie:</strong> Menedżer kopii zapasowych, menedżer bezpieczeństwa, ustawienia witryny (favicon, szablon)</li>
+                <li><strong>🌐 Szybki Dostęp:</strong> Linki do aplikacji webowej (mapa, panel admina, strona główna)</li>
               </ul>
               <img src="assets/launcher_okno_glowne.png" alt="Główne okno launchera po inicjalizacji" class="screenshot" />
             </li>
@@ -890,8 +969,8 @@ erDiagram
             <ol>
               <li>W Launcherze kliknij przycisk <strong>"📍 Kalibracja Mapy"</strong></li>
               <li>Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok</li>
-              <li>Dane te są kluczowe dla poprawnego działania zarówno edytora, jak i głównej mapy</li>
-              <li>Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>map_config.json</code> (dla edytora) oraz bazę danych (dla aplikacji głównej), gwarantując spójność</li>
+              <li>Dane te są kluczowe dla poprawnego działania zarówno edytora działek, jak i głównej mapy</li>
+              <li>Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>backup/{miejscowość}/map_config.json</code> (dla edytora) oraz bazę danych aktywnej miejscowości (dla aplikacji głównej), gwarantując spójność</li>
             </ol>
             <p>
               Gdy środowisko i baza danych są gotowe, możemy uruchomić projekt.
@@ -922,7 +1001,7 @@ erDiagram
               <li>
                 <p>W oknie Launchera wykonaj następujące kroki w podanej kolejności:</p>
                 <ol type="a">
-<li><strong>Kalibracja Mapy (Zalecane przy pierwszym uruchomieniu):</strong> Kliknij przycisk <strong>"Kalibracja Mapy"</strong>. Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok. Dane te są kluczowe dla poprawnego działania zarówno edytora, jak i głównej mapy. Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>map_config.json</code> (dla edytora) oraz bazę danych (dla aplikacji głównej), gwarantując spójność.</li>
+<li><strong>Kalibracja Mapy (Zalecane przy pierwszym uruchomieniu):</strong> Kliknij przycisk <strong>"Kalibracja Mapy"</strong>. Otworzy się okno, w którym możesz wprowadzić dokładne współrzędne geograficzne dla narożników mapy oraz jej domyślny widok. Dane te są kluczowe dla poprawnego działania zarówno edytora działek, jak i głównej mapy. Zapisanie zmian w tym oknie aktualizuje jednocześnie plik <code>backup/{miejscowość}/map_config.json</code> (dla edytora) oraz bazę danych aktywnej miejscowości (dla aplikacji głównej), gwarantując spójność.</li>
                   <div class="gallery">
                     <figure>
                       <img src="assets/launcher_kalibrator_mapy_glowne.png" alt="Okno Kalibratora Mapy w Launcherze" />
@@ -962,8 +1041,9 @@ erDiagram
               użyciem biblioteki Tkinter. Stanowi "idiotoodporne" narzędzie dla
               historyków do zarządzania danymi tekstowymi. Umożliwia edycję
               protokołów w formularzu, zarządzanie skanami, a także posiada
-              wbudowany edytor danych demograficznych. Wynikiem pracy jest
-              pojedynczy plik <code>backup/owner_data_to_import.json</code>.
+              wbudowany edytor danych demograficznych. Wynikiem pracy są pliki
+              <code>backup/{miejscowość}/owner_data_to_import.json</code> i
+              <code>backup/{miejscowość}/demografia.json</code> dla aktywnej miejscowości.
             </p>
             <strong>Uruchomienie:</strong>
             <div class="code-block">
@@ -981,7 +1061,7 @@ erDiagram
               na podkładzie historycznej mapy. To intuicyjne rozwiązanie
               zastępuje ręczne wpisywanie współrzędnych i zapewnia wysoką
               dokładność. Wszystkie narysowane obiekty są zapisywane do pliku
-              <code>backup/parcels_data.json</code> w standardzie GeoJSON.
+              <code>backup/{miejscowość}/parcels_data.json</code> aktywnej miejscowości w standardzie GeoJSON.
             </p>
             <strong>Uruchomienie:</strong>
             <div class="code-block">
@@ -999,7 +1079,7 @@ erDiagram
               (nazwisk). Pola do definiowania relacji (ojciec, matka, małżonek)
               posiadają <strong>dynamiczne autouzupełnianie</strong>, które
               sugeruje pasujące osoby z bazy, eliminując błędy. Wynik pracy jest
-              zapisywany do pliku <code>backup/genealogia.json</code>.
+              zapisywany do pliku <code>backup/{miejscowość}/genealogia.json</code> aktywnej miejscowości.
             </p>
             <strong>Uruchomienie:</strong>
             <div class="code-block">
