@@ -1797,6 +1797,7 @@ function generatePrintReport() {
     insights: document.getElementById('print-insights')?.checked,
     rankingsCount: document.getElementById('print-rankings-count')?.checked,
     parcels: document.getElementById('print-parcels')?.checked,
+    rivers: document.getElementById('print-rivers')?.checked,
     roads: document.getElementById('print-roads')?.checked
   };
 
@@ -1948,8 +1949,9 @@ function generateReportHTML(sections) {
   // Sekcja: Statystyki ogólne
   if (sections.general && statsData?.general_stats) {
     const stats = statsData.general_stats;
-    const total_area_ha = (stats.total_area_m2 || stats.total_area || 0) / 10000;
-    const avg_plot_ha = (stats.avg_plot_size_m2 || stats.avg_plot_size || 0) / 10000;
+    const areaStats = statsData.area_stats || {};
+    const total_area_ha = areaStats.total_area_ha || 0;
+    const avg_plot_ha = (areaStats.avg_area_ares || 0) / 100; // ary na hektary
     html += `
   <div class="report-section">
     <h2 class="section-title"><i class="fas fa-chart-pie"></i> Statystyki Ogólne</h2>
@@ -1975,9 +1977,15 @@ function generateReportHTML(sections) {
 `;
   }
 
-  // Sekcja: Rankingi
+  // Sekcja: Rankingi (według powierzchni)
   if (sections.rankings && statsData?.rankings_real?.all_plots) {
-    const rankings = statsData.rankings_real.all_plots.slice(0, 10);
+    const rankings = [...statsData.rankings_real.all_plots]
+      .sort((a, b) => {
+        const aArea = a.total_area_m2 || a.total_area || 0;
+        const bArea = b.total_area_m2 || b.total_area || 0;
+        return bArea - aArea;
+      })
+      .slice(0, 10);
     html += `
   <div class="report-section">
     <h2 class="section-title"><i class="fas fa-trophy"></i> Top 10 Właścicieli (według powierzchni)</h2>
@@ -2230,6 +2238,34 @@ function generateReportHTML(sections) {
         </tr>
         `;
         }).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Top 10 najdłuższych rzek
+  if (sections.rivers && statsData?.rivers_ranking) {
+    const rivers = statsData.rivers_ranking.slice(0, 10);
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-water"></i> Top 10 Najdłuższych Rzek</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nazwa rzeki</th>
+          <th>Długość (m)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rivers.map((river, idx) => `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${river.river_name || river.nazwa || '-'}</td>
+          <td>${(river.length_m || river.dlugosc || 0).toFixed(2)} m</td>
+        </tr>
+        `).join('')}
       </tbody>
     </table>
   </div>
