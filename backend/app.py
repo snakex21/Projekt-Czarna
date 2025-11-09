@@ -1218,16 +1218,6 @@ def get_stats():
     cur.execute("""
         SELECT
             COALESCE(NULLIF(nazwa_lub_numer, ''), 'Droga ' || id) as road_number,
-            CASE
-                WHEN nazwa_lub_numer ILIKE '%I klasy%' OR nazwa_lub_numer ILIKE '%klasa I%' THEN 'I'
-                WHEN nazwa_lub_numer ILIKE '%II klasy%' OR nazwa_lub_numer ILIKE '%klasa II%' THEN 'II'
-                WHEN nazwa_lub_numer ILIKE '%III klasy%' OR nazwa_lub_numer ILIKE '%klasa III%' THEN 'III'
-                WHEN nazwa_lub_numer ILIKE '%IV klasy%' OR nazwa_lub_numer ILIKE '%klasa IV%' THEN 'IV'
-                WHEN nazwa_lub_numer ILIKE '%lokalna%' THEN 'lokalna'
-                WHEN nazwa_lub_numer ILIKE '%gminna%' THEN 'gminna'
-                WHEN nazwa_lub_numer ILIKE '%polna%' THEN 'polna'
-                ELSE '-'
-            END as road_class,
             ST_Length(ST_Transform(geometria, 32634)) as length_m
         FROM obiekty_geograficzne
         WHERE kategoria = 'droga' AND geometria IS NOT NULL
