@@ -797,7 +797,7 @@ def get_active_location():
         conn.close()
 
         if location:
-            return location[:13] + (None, None, None, None, location[13])
+            return location[:13] + (location[13], location[14], location[15], None, location[16])
         return None
     except Exception as e:
         print(f"❌ PostgreSQL błąd: {e}")

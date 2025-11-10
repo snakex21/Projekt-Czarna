@@ -2024,6 +2024,22 @@ def serve_history_photos(filename):
             except Exception as e:
                 print(f"⚠️  Błąd podczas odczytu SQLite: {e}")
 
+    # Fallback: jeśli nie można pobrać z bazy, spróbuj odczytać z location-config.js
+    if not location_name:
+        try:
+            config_path = os.path.join(base_dir, "static", "js", "location-config.js")
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_content = f.read()
+                    # Szukaj linii: name: "Czarna",
+                    import re
+                    match = re.search(r'name:\s*"([^"]+)"', config_content)
+                    if match:
+                        location_name = match.group(1)
+                        print(f"ℹ️  Użyto nazwy miejscowości z location-config.js: {location_name}")
+        except Exception as e:
+            print(f"⚠️  Nie udało się odczytać location-config.js: {e}")
+
     if not location_name:
         print(f"❌ Brak aktywnej miejscowości, nie można załadować zdjęcia: {filename}")
         return "Brak aktywnej miejscowości", 404
