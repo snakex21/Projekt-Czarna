@@ -786,7 +786,8 @@ html, body {
 }
 
 /* Przesuń legendę w prawo gdy lewy panel jest zwinięty (żeby nie nachodzić na przycisk "Właściciele") */
-#map-wrapper.expanded-left .map-overlay.bottom-left {
+#map-wrapper.expanded-left .map-overlay.bottom-left,
+#map-wrapper.full-width .map-overlay.bottom-left {
     left: 80px;
 }
 
