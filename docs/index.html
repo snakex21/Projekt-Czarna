@@ -8,7 +8,7 @@
          ========================================================================== -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dokumentacja i Przewodnik Wdrożeniowy - Mapa Katastralna Gminy Czarna</title>
+    <title>Dokumentacja i Przewodnik Wdrożeniowy - System Mapy Katastralnej</title>
     
     <!-- Zewnętrzne zasoby -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,8 +20,8 @@
            NAGŁÓWEK DOKUMENTACJI
            ========================================================================== -->
       <header>
-        <h1>Interaktywna Mapa Katastralna Gminy Czarna z XIX wieku</h1>
-        <p class="subtitle">Przewodnik Wdrożeniowy i Dokumentacja Techniczna</p>
+        <h1>System Interaktywnej Mapy Katastralnej</h1>
+        <p class="subtitle">Przewodnik Wdrożeniowy i Dokumentacja Techniczna<br><small>Przykład implementacji: Gmina Czarna z XIX wieku</small></p>
       </header>
 
       <!-- ==========================================================================
@@ -31,6 +31,7 @@
         <div class="nav-links">
             <a href="#struktura-projektu"><span>Struktura</span></a>
             <a href="#opis-techniczny"><span>Opis Techniczny</span></a>
+            <a href="#wielomiejscowowosc"><span>Wielomiejscowość</span></a>
             <a href="#launcher"><span>Launcher</span></a>
             <a href="#instalacja"><span>Instalacja</span></a>
             <a href="#narzedzia"><span>Narzędzia</span></a>
@@ -84,21 +85,47 @@
           <h2 id="struktura-projektu">Struktura Projektu</h2>
           <p>
             Zrozumienie organizacji folderów jest kluczowe do nawigacji po
-            kodzie źródłowym i zasobach. Poniżej przedstawiono opis
+            kodzie źródłowym i zasobach. System został zaprojektowany z myślą o
+            obsłudze wielu miejscowości, gdzie każda lokalizacja posiada własny
+            folder w katalogu <code>backup/</code>. Poniżej przedstawiono opis
             najważniejszych katalogów w projekcie:
           </p>
           <div class="folder-structure">
             <ul>
               <li><code><b>admin/</b></code> - Kompletna aplikacja panelu administracyjnego (SPA) do zarządzania danymi w bazie.</li>
               <li><code><b>backend/</b></code> - Serce aplikacji. Zawiera serwer API (Flask), skrypt migracyjny oraz testy jednostkowe.</li>
-              <li><code><b>backup/</b></code> - Przechowuje "surowe" dane źródłowe w formacie <code>.json</code> dla każdej miejscowości osobno (np. <code>backup/Czarna/</code>). Każdy folder miejscowości zawiera pliki konfiguracyjne (<code>map_config.json</code>, <code>launcher_db_config.json</code>), dane (<code>owner_data_to_import.json</code>, <code>parcels_data.json</code>, <code>demografia.json</code>, <code>genealogia.json</code>), folder ze skanami protokołów (<code>protokoly/</code>), zdjęcia historyczne (<code>history_photos/</code>) oraz opcjonalnie <code>favicon.jpeg</code>.</li>
+              <li><code><b>backup/</b></code> - Przechowuje dane źródłowe dla każdej miejscowości osobno w dedykowanych podfolderach (np. <code>backup/Czarna/</code>). Każdy folder miejscowości zawiera:
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                  <li><code>launcher_db_config.json</code> - Konfiguracja miejscowości (nazwa, powiat, region, rok, opisy historyczne, zdjęcia)</li>
+                  <li><code>map_config.json</code> - Konfiguracja kalibracji mapy</li>
+                  <li><code>owner_data_to_import.json</code> - Dane właścicieli do importu</li>
+                  <li><code>parcels_data.json</code> - Dane działek katastralnych</li>
+                  <li><code>demografia.json</code> - Dane demograficzne</li>
+                  <li><code>genealogia.json</code> - Dane genealogiczne</li>
+                  <li><code>mapa.jpg</code> - Historyczna mapa katastralna</li>
+                  <li><code>favicon.jpeg</code> - Ikona miejscowości dla witryny</li>
+                  <li><code>protokoly/</code> - Folder ze skanami protokołów (podfoldery dla każdego właściciela)</li>
+                  <li><code>history_photos/</code> - Zdjęcia historyczne miejscowości</li>
+                </ul>
+              </li>
               <li><code><b>docs/</b></code> - Zawiera interaktywną dokumentację techniczną i wdrożeniową (plik, który właśnie czytasz).</li>
               <li><code><b>dokumentacja/</b></code> - Materiały źródłowe do pracy inżynierskiej (pliki Markdown, bibliografia).</li>
               <li><code><b>genealogia/</b></code> - Komponenty frontendowe odpowiedzialne za wizualizację interaktywnych drzew genealogicznych.</li>
               <li><code><b>graf/</b></code> - Pliki frontendowe dla modułu wizualizacji grafu powiązań między właścicielami.</li>
-              <li><code><b>launcher/</b></code> - Aplikacja desktopowa (GUI) będąca centrum dowodzenia projektem.</li>
+              <li><code><b>launcher/</b></code> - Aplikacja desktopowa (GUI) będąca centrum dowodzenia projektem. Automatycznie zarządza bazami danych i generuje pliki konfiguracyjne.</li>
               <li><code><b>mapa/</b></code> - Pliki frontendowe (HTML, CSS, JS) dla głównej, interaktywnej mapy katastralnej.</li>
-              <li><code><b>strona_glowna/</b></code> - Zasoby dla strony powitalnej (landing page) projektu.</li>
+              <li><code><b>static/</b></code> - Folder z plikami statycznymi generowanymi automatycznie przez launcher:
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                  <li><code>static/js/location-config.js</code> - Plik JavaScript z konfiguracją aktywnej miejscowości (automatycznie generowany)</li>
+                  <li><code>static/js/location-data.js</code> - Dodatkowe dane dla miejscowości</li>
+                </ul>
+              </li>
+              <li><code><b>strona_glowna/</b></code> - Zasoby dla strony powitalnej (landing page) projektu. Zawiera podfolder <code>szablony/</code> z różnymi wariantami strony głównej:
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                  <li><code>szablony/praca_inzynierska/</code> - Szablon dla prezentacji pracy inżynierskiej</li>
+                  <li><code>szablony/standardowy/</code> - Standardowy szablon dla miejscowości</li>
+                </ul>
+              </li>
               <li><code><b>tools/</b></code> - Zbiór niezależnych narzędzi deweloperskich (edytory danych).</li>
               <li><code><b>wlasciciele/</b></code> - Komponenty frontendowe do wyświetlania szczegółów protokołu, statystyk i porównywarki.</li>
               <li><code><b>Zgloszenie_i_Karta_Projektu/</b></code> - Oficjalne dokumenty związane z projektem inżynierskim.</li>
@@ -111,23 +138,37 @@
 ├── admin/
 ├── backend/
 ├── backup/
-│   └── Czarna/                     # Folder miejscowości
-│       ├── map_config.json         # Konfiguracja kalibracji mapy
-│       ├── launcher_db_config.json # Konfiguracja bazy danych
-│       ├── owner_data_to_import.json
-│       ├── parcels_data.json
-│       ├── demografia.json
-│       ├── genealogia.json
-│       ├── favicon.jpeg            # Ikona witryny
-│       ├── protokoly/              # Skany protokołów
-│       └── history_photos/         # Zdjęcia historyczne
+│   └── Czarna/                       # Folder przykładowej miejscowości
+│       ├── launcher_db_config.json   # Konfiguracja miejscowości
+│       ├── map_config.json           # Kalibracja mapy
+│       ├── owner_data_to_import.json # Dane właścicieli
+│       ├── parcels_data.json         # Dane działek
+│       ├── demografia.json           # Dane demograficzne
+│       ├── genealogia.json           # Dane genealogiczne
+│       ├── mapa.jpg                  # Historyczna mapa
+│       ├── favicon.jpeg              # Ikona witryny
+│       ├── protokoly/                # Skany protokołów
+│       │   ├── Jan_Kowalski/
+│       │   │   ├── 1.jpg
+│       │   │   └── 2.jpg
+│       │   └── ...
+│       └── history_photos/           # Zdjęcia historyczne
+│           └── ...
 ├── docs/
 ├── dokumentacja/
 ├── genealogia/
 ├── graf/
 ├── launcher/
+│   └── launcher_app.py              # Główna aplikacja launchera
 ├── mapa/
+├── static/                          # Pliki generowane automatycznie
+│   └── js/
+│       ├── location-config.js       # Konfiguracja aktywnej miejscowości
+│       └── location-data.js         # Dodatkowe dane
 ├── strona_glowna/
+│   └── szablony/                    # Szablony strony głównej
+│       ├── praca_inzynierska/       # Szablon dla pracy inżynierskiej
+│       └── standardowy/             # Standardowy szablon
 ├── tools/
 ├── wlasciciele/
 └── Zgloszenie_i_Karta_Projektu/</code></pre>
@@ -161,7 +202,9 @@
               Głównym celem projektu było zaprojektowanie, implementacja i
               wdrożenie kompletnej aplikacji webowej full-stack, służącej do
               interaktywnej wizualizacji i analizy historycznych danych
-              katastralnych Gminy Czarna z XIX wieku. Projekt realizuje
+              katastralnych. System został zaimplementowany na przykładzie Gminy Czarna z XIX wieku,
+              jednak jego architektura umożliwia łatwe rozszerzenie o dowolne inne miejscowości
+              z zachowaniem pełnej izolacji danych. Projekt realizuje
               następujące cele szczegółowe:
             </p>
             <ul>
@@ -607,6 +650,194 @@ erDiagram
               <li>Sprawdzanie mechanizmów bezpieczeństwa i autoryzacji.</li>
             </ul>
             <p>Testy można uruchomić za pomocą dedykowanego przycisku w Launcherze.</p>
+          </div>
+        </section>
+
+        <!-- Sekcja: System Wielomiejscowości i Placeholdery -->
+        <section>
+          <h2 id="wielomiejscowowosc">System Wielomiejscowości i Mechanizm Placeholderów</h2>
+          <p>
+            System został zaprojektowany od podstaw z myślą o obsłudze wielu miejscowości.
+            Dzięki temu można zarządzać danymi katastralnymi dla różnych gmin i miejscowości
+            z XIX wieku w ramach jednej instalacji. Każda miejscowość posiada swoją dedykowaną
+            bazę danych i folder z konfiguracją, co zapewnia pełną izolację danych.
+          </p>
+
+          <div class="tech-subsection">
+            <h3>1. Architektura Wielomiejscowości</h3>
+            <p>
+              System wykorzystuje architekturę z <strong>dwiema kategoriami baz danych</strong>:
+            </p>
+            <ul>
+              <li>
+                <strong><code>mapa_launcher_db</code></strong> - Centralna baza konfiguracyjna
+                zawierająca:
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                  <li>Tabelę <code>locations</code> - lista wszystkich miejscowości w systemie</li>
+                  <li>Tabelę <code>history_photos</code> - zdjęcia historyczne dla każdej miejscowości</li>
+                  <li>Informację o aktywnej miejscowości</li>
+                  <li>Konfigurację połączeń do baz danych miejscowości</li>
+                </ul>
+              </li>
+              <li>
+                <strong><code>mapa_{miejscowość}_db</code></strong> - Osobna baza dla każdej miejscowości
+                (np. <code>mapa_czarna_db</code>, <code>mapa_pilzno_db</code>) zawierająca:
+                <ul style="margin-top: 8px; margin-left: 20px;">
+                  <li>Tabele z danymi katastralnymi (właściciele, działki, obiekty geograficzne)</li>
+                  <li>Dane demograficzne i genealogiczne</li>
+                  <li>Konfigurację mapy (kalibracja, współrzędne)</li>
+                  <li>Ustawienia bezpieczeństwa (logi, zablokowane IP)</li>
+                </ul>
+              </li>
+            </ul>
+            <p>
+              Każda miejscowość posiada własny folder w <code>backup/</code> (np. <code>backup/Czarna/</code>),
+              który zawiera wszystkie pliki źródłowe, konfigurację i zasoby specyficzne dla tej lokalizacji.
+            </p>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>2. Mechanizm Placeholderów i Dynamicznej Konfiguracji</h3>
+            <p>
+              Aby umożliwić łatwe przełączanie między miejscowościami bez konieczności ręcznej edycji
+              wielu plików HTML, system wykorzystuje <strong>mechanizm placeholderów</strong> oraz
+              <strong>automatycznie generowane pliki konfiguracyjne JavaScript</strong>.
+            </p>
+
+            <h4>2.1. Plik launcher_db_config.json</h4>
+            <p>
+              Każda miejscowość posiada plik <code>backup/{miejscowość}/launcher_db_config.json</code>,
+              który zawiera wszystkie informacje opisowe:
+            </p>
+            <div class="code-block">
+              <pre><code>{
+  "default_location": {
+    "name": "Czarna",
+    "full_name": "Czarna",
+    "powiat": "Pilźnieński",
+    "region": "Galicja",
+    "year": "1882",
+    "century": "XIX",
+    "homepage_template": "praca_inzynierska",
+    "postgres_db_name": "mapa_czarna_db",
+    "homepage_description": "Odkryj historię zapisaną w ziemi...",
+    "history_paragraph1": "Miejscowość Czarna znajduje się...",
+    "history_paragraph2": "Tutejsi ludzie oprócz rolnictwa...",
+    "history_paragraph3": "W roku 1882 Czarna liczyła 555 mieszkańców...",
+    "history_photos": [
+      {
+        "filename": "dworzec_czarna.png",
+        "caption": "Historyczne zdjęcie dworca kolejowego..."
+      }
+    ]
+  }
+}</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+
+            <h4>2.2. Automatyczne Generowanie location-config.js</h4>
+            <p>
+              Przy każdej zmianie aktywnej miejscowości, Launcher automatycznie generuje plik
+              <code>static/js/location-config.js</code>, który zawiera konfigurację JavaScript:
+            </p>
+            <div class="code-block">
+              <pre><code>// Plik generowany automatycznie przez launcher
+window.LOCATION_CONFIG = {
+    name: "Czarna",
+    fullName: "Czarna", 
+    powiat: "Pilźnieński",
+    region: "Galicja",
+    year: "1882",
+    century: "XIX w.",
+    homepageDescription: "Odkryj historię...",
+    historyParagraph1: "Miejscowość Czarna...",
+    historyParagraph2: "Tutejsi ludzie...",
+    historyParagraph3: "W roku 1882...",
+    historyPhotos: [...]
+};</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+
+            <h4>2.3. Placeholdery w Plikach HTML</h4>
+            <p>
+              Strony HTML wykorzystują placeholdery, które są zastępowane danymi z aktywnej miejscowości.
+              Dostępne placeholdery:
+            </p>
+            <ul>
+              <li><code>{{MIEJSCOWOSC}}</code> - krótka nazwa miejscowości (np. "Czarna")</li>
+              <li><code>{{MIEJSCOWOSC_PELNA}}</code> - pełna nazwa miejscowości</li>
+              <li><code>{{YEAR}}</code> - rok danych (np. "1882")</li>
+              <li><code>{{WIEK}}</code> - wiek w liczbach rzymskich (np. "XIX")</li>
+              <li><code>{{POWIAT}}</code> - nazwa powiatu</li>
+              <li><code>{{REGION}}</code> - nazwa regionu</li>
+            </ul>
+            <p>Przykład użycia w pliku HTML:</p>
+            <div class="code-block">
+              <pre><code>&lt;title&gt;Centrum Analityczne - {{MIEJSCOWOSC_PELNA}}&lt;/title&gt;
+&lt;h1&gt;Gmina {{MIEJSCOWOSC_PELNA}} - Dane Katastralne {{WIEK}} w.&lt;/h1&gt;
+&lt;meta name="description" content="Analiza danych katastralnych miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku"&gt;</code></pre>
+              <button class="copy-btn" onclick="copyCode(this)">Kopiuj</button>
+            </div>
+
+            <h4>2.4. Szablony Strony Głównej</h4>
+            <p>
+              System oferuje różne szablony strony głównej w folderze <code>strona_glowna/szablony/</code>:
+            </p>
+            <ul>
+              <li><code>praca_inzynierska/</code> - szablon dla prezentacji pracy inżynierskiej z rozbudowanymi opisami</li>
+              <li><code>standardowy/</code> - uniwersalny szablon dla dowolnej miejscowości</li>
+            </ul>
+            <p>
+              Wybór szablonu jest konfigurowalny dla każdej miejscowości w pliku <code>launcher_db_config.json</code>
+              poprzez pole <code>homepage_template</code>.
+            </p>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>3. Przełączanie Między Miejscowościami</h3>
+            <p>
+              Launcher umożliwia łatwe przełączanie się między miejscowościami:
+            </p>
+            <ol>
+              <li>W Launcherze wybierz sekcję <strong>"📍 Miejscowość"</strong></li>
+              <li>Z listy rozwijanej wybierz inną miejscowość</li>
+              <li>Launcher automatycznie:
+                <ul style="margin-top: 8px;">
+                  <li>Zaktualizuje plik <code>static/js/location-config.js</code></li>
+                  <li>Przełączy połączenie do odpowiedniej bazy danych</li>
+                  <li>Załaduje konfigurację z folderu <code>backup/{nowa_miejscowość}/</code></li>
+                </ul>
+              </li>
+              <li>Uruchom ponownie serwer aby zmiany weszły w życie</li>
+            </ol>
+            <div class="important-note">
+              <strong>Uwaga:</strong> Każda miejscowość wymaga własnej bazy danych. Launcher może
+              automatycznie utworzyć nową bazę podczas dodawania miejscowości.
+            </div>
+          </div>
+
+          <div class="tech-subsection">
+            <h3>4. Dodawanie Nowej Miejscowości</h3>
+            <p>Aby dodać nową miejscowość do systemu:</p>
+            <ol>
+              <li>Utwórz folder w <code>backup/</code> o nazwie nowej miejscowości (np. <code>backup/Pilzno/</code>)</li>
+              <li>Skopiuj strukturę plików z <code>backup/Czarna/</code> jako szablon:
+                <ul style="margin-top: 8px;">
+                  <li><code>launcher_db_config.json</code> - edytuj dane miejscowości</li>
+                  <li><code>map_config.json</code> - ustaw kalibrację mapy</li>
+                  <li><code>mapa.jpg</code> - dodaj mapę katastralną</li>
+                  <li><code>favicon.jpeg</code> - dodaj ikonę miejscowości</li>
+                  <li>Utwórz foldery <code>protokoly/</code> i <code>history_photos/</code></li>
+                </ul>
+              </li>
+              <li>W Launcherze kliknij <strong>"➕ Dodaj Miejscowość"</strong></li>
+              <li>Launcher utworzy nową bazę danych i zaimportuje dane</li>
+              <li>Ustaw nową miejscowość jako aktywną</li>
+            </ol>
+            <p>
+              System automatycznie dostosuje wszystkie komponenty (mapa, statystyki, genealogia)
+              do nowej miejscowości bez konieczności edycji kodu źródłowego.
+            </p>
           </div>
         </section>
 
