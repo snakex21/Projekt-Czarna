@@ -63,7 +63,7 @@
                         <i class="fas fa-home"></i>
                         <span>Start</span>
                     </a>
-                    <a href="../genealogia/genealogia.html" class="nav-pill">
+                    <a href="../graf/graf.html" class="nav-pill">
                         <i class="fas fa-sitemap"></i>
                         <span>Graf Społeczności</span>
                     </a>
@@ -71,7 +71,7 @@
                         <i class="fas fa-sitemap"></i>
                         <span>Genealogia</span>
                     </a>
-                    
+
                     <!-- Przyciski akcji nagłówka -->
                     <div class="header-actions">
                         <button class="icon-btn" id="search-toggle" title="Szukaj">
@@ -944,6 +944,35 @@
     </div>
 
     <!-- ==========================================================================
+         MODAL UDOSTĘPNIANIA
+         ========================================================================== -->
+    <div class="modal" id="share-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-share-alt"></i> Udostępnij statystyki</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="share-section">
+                    <h3><i class="fas fa-link"></i> Link do strony</h3>
+                    <div class="share-link-container">
+                        <input type="text" id="share-link-input" readonly>
+                        <button class="btn-primary" id="copy-link-btn">
+                            <i class="fas fa-copy"></i> Kopiuj
+                        </button>
+                    </div>
+                </div>
+                <div class="share-section">
+                    <h3><i class="fas fa-qrcode"></i> Kod QR</h3>
+                    <div class="qr-code-container">
+                        <div id="qrcode"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
          MODAL WYBORU SEKCJI DO DRUKU
          ========================================================================== -->
     <div class="modal" id="print-modal">
@@ -1037,6 +1066,8 @@
          ========================================================================== -->
     <!-- SheetJS - obsługa plików Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- QRCode.js - generowanie kodów QR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Główny skrypt aplikacji -->
     <script src="stats-script.js"></script>
 
