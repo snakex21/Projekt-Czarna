@@ -2604,14 +2604,6 @@ class AppLauncher(tk.Tk):
         console_container = ttk.LabelFrame(main_frame, text="💻 Konsole Wyjściowe", padding="10")
         console_container.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        # Przyciski akcji konsoli
-        console_actions_frame = ttk.Frame(console_container)
-        console_actions_frame.pack(fill=tk.X, pady=(0, 5))
-
-        ttk.Button(console_actions_frame, text="🗑️ Wyczyść konsolę",
-                  command=self.clear_current_console,
-                  style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
-
         self.notebook = ttk.Notebook(console_container)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
@@ -2659,24 +2651,6 @@ class AppLauncher(tk.Tk):
                     data['messages'].clear()
         finally:
             self._log_flush_pending = False
-
-    def clear_current_console(self):
-        """Czyści zawartość aktualnie wybranej konsoli."""
-        try:
-            # Pobierz aktualnie wybraną zakładkę
-            current_tab_index = self.notebook.index(self.notebook.select())
-            current_tab = self.notebook.winfo_children()[current_tab_index]
-
-            # Znajdź widget konsoli w tej zakładce
-            for widget in current_tab.winfo_children():
-                if isinstance(widget, scrolledtext.ScrolledText):
-                    widget.configure(state="normal")
-                    widget.delete(1.0, tk.END)
-                    widget.configure(state="disabled")
-                    self.log(f"✅ Konsola wyczyszczona\n", console=widget)
-                    break
-        except Exception as e:
-            print(f"⚠️ Błąd podczas czyszczenia konsoli: {e}")
 
     def update_processes_ui(self):
         """Odświeża listę uruchomionych procesów (zoptymalizowane - bez przebudowy UI)."""
