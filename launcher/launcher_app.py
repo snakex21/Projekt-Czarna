@@ -3399,9 +3399,6 @@ class LocationManager(tk.Toplevel):
         ttk.Button(buttons_frame, text="✅ Ustaw jako Aktywną", command=self.set_active,
                   style="Info.TButton").pack(side=tk.LEFT, padx=5)
 
-        ttk.Button(buttons_frame, text="🎨 Zmień Szablon", command=self.change_template,
-                  style="Info.TButton").pack(side=tk.LEFT, padx=5)
-
         ttk.Button(buttons_frame, text="🔄 Odśwież", command=self.refresh_table,
                   style="Secondary.TButton").pack(side=tk.LEFT, padx=5)
 
