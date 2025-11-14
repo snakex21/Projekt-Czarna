@@ -1017,7 +1017,7 @@ def ensure_location_data_files(location_folder):
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                history_photos=None, postgres_db_name="", gmina_katastralna="Czarna", miejscowosc_protokolu="Pilzno"):
+                history_photos=None, postgres_db_name="", gmina_katastralna="Czarna"):
     """
     Dodaje nową miejscowość do bazy danych PostgreSQL i tworzy folder.
 
@@ -1114,12 +1114,12 @@ LOCATION_CODE={name[:2].upper()}
                                   homepage_template, year, century,
                                   homepage_description, history_paragraph1,
                                   history_paragraph2, history_paragraph3, postgres_db_name,
-                                  gmina_katastralna, miejscowosc_protokolu)
-            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                  gmina_katastralna)
+            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (name, full_name, powiat, region, homepage_template, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name,
-              gmina_katastralna, miejscowosc_protokolu))
+              gmina_katastralna))
 
         location_id = cursor.fetchone()[0]
 
@@ -1188,7 +1188,7 @@ LOCATION_CODE={name[:2].upper()}
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                    history_photos=None, postgres_db_name="", homepage_template="standardowy",
-                   gmina_katastralna="Czarna", miejscowosc_protokolu="Pilzno"):
+                   gmina_katastralna="Czarna"):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1245,12 +1245,12 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                 homepage_description = %s, history_paragraph1 = %s,
                 history_paragraph2 = %s, history_paragraph3 = %s,
                 postgres_db_name = %s, homepage_template = %s,
-                gmina_katastralna = %s, miejscowosc_protokolu = %s,
+                gmina_katastralna = %s,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (name, full_name, powiat, region, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-              postgres_db_name, homepage_template, gmina_katastralna, miejscowosc_protokolu,
+              postgres_db_name, homepage_template, gmina_katastralna,
               location_id))
 
         cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
@@ -3434,14 +3434,14 @@ class LocationManager(tk.Toplevel):
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
              history_photos, postgres_db_name, homepage_template,
-             gmina_katastralna, miejscowosc_protokolu) = dialog.result
+             gmina_katastralna) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
                            history_photos=history_photos, postgres_db_name=postgres_db_name,
                            homepage_template=homepage_template,
-                           gmina_katastralna=gmina_katastralna, miejscowosc_protokolu=miejscowosc_protokolu)
+                           gmina_katastralna=gmina_katastralna)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -3465,7 +3465,6 @@ class LocationManager(tk.Toplevel):
         postgres_db_name = ""
         homepage_template = "standardowy"
         gmina_katastralna = "Czarna"
-        miejscowosc_protokolu = "Pilzno"
 
         if not check_postgres_available():
             messagebox.showerror("❌ Błąd", "PostgreSQL nie jest dostępny!", parent=self)
@@ -3478,7 +3477,7 @@ class LocationManager(tk.Toplevel):
             cursor.execute("""
                 SELECT name, full_name, powiat, region, year, century,
                        homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       postgres_db_name, homepage_template, gmina_katastralna, miejscowosc_protokolu
+                       postgres_db_name, homepage_template, gmina_katastralna
                 FROM locations WHERE id = %s
             """, (loc_id,))
             result = cursor.fetchone()
@@ -3486,11 +3485,10 @@ class LocationManager(tk.Toplevel):
             if result:
                 (name, full_name, powiat, region, year, century,
                  homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template,
-                 gmina_katastralna, miejscowosc_protokolu) = result
+                 gmina_katastralna) = result
                 postgres_db_name = postgres_db_name or ""
                 homepage_template = homepage_template or "standardowy"
                 gmina_katastralna = gmina_katastralna or "Czarna"
-                miejscowosc_protokolu = miejscowosc_protokolu or "Pilzno"
 
                 # Pobierz zdjęcia historyczne
                 cursor.execute("""
@@ -3534,19 +3532,19 @@ class LocationManager(tk.Toplevel):
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
                                       history_photos, postgres_db_name, homepage_template,
-                                      gmina_katastralna, miejscowosc_protokolu)
+                                      gmina_katastralna)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
              new_history_photos, new_postgres_db_name, new_homepage_template,
-             new_gmina_katastralna, new_miejscowosc_protokolu) = dialog.result
+             new_gmina_katastralna) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
                               new_history_photos, new_postgres_db_name, new_homepage_template,
-                              new_gmina_katastralna, new_miejscowosc_protokolu)
+                              new_gmina_katastralna)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -4986,7 +4984,7 @@ class AddEditLocationDialog(tk.Toplevel):
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                  history_photos=None, postgres_db_name="", homepage_template="standardowy",
-                 gmina_katastralna="Czarna", miejscowosc_protokolu="Pilzno"):
+                 gmina_katastralna="Czarna"):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -5093,18 +5091,12 @@ class AddEditLocationDialog(tk.Toplevel):
         self.gmina_katastralna_entry.insert(0, gmina_katastralna)
         self.gmina_katastralna_entry.grid(row=0, column=1, pady=5, padx=10, sticky="ew")
 
-        ttk.Label(protokol_frame, text="Miejscowość protokołu:").grid(row=1, column=0, sticky="w", pady=5)
-        self.miejscowosc_protokolu_entry = ttk.Entry(protokol_frame, width=50)
-        self.miejscowosc_protokolu_entry.insert(0, miejscowosc_protokolu)
-        self.miejscowosc_protokolu_entry.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
-
         # Info
         info_label = ttk.Label(protokol_frame,
-                               text="Te wartości będą używane w protokołach katastralnych.\n"
-                                    "Gmina katastralna: używana w tytule protokołu.\n"
-                                    "Miejscowość protokołu: używana jako lokalizacja protokołu.",
+                               text="Ta wartość będzie używana w protokołach katastralnych.\n"
+                                    "Gmina katastralna: używana w tytule protokołu.",
                                foreground="gray", wraplength=500)
-        info_label.grid(row=2, column=0, columnspan=2, sticky="w", pady=15)
+        info_label.grid(row=1, column=0, columnspan=2, sticky="w", pady=15)
 
         protokol_frame.columnconfigure(1, weight=1)
 
@@ -5314,18 +5306,15 @@ class AddEditLocationDialog(tk.Toplevel):
 
         # Pobierz wartości protokołu
         gmina_katastralna = self.gmina_katastralna_entry.get().strip()
-        miejscowosc_protokolu = self.miejscowosc_protokolu_entry.get().strip()
 
         # Ustaw domyślne wartości jeśli puste
         if not gmina_katastralna:
             gmina_katastralna = "Czarna"
-        if not miejscowosc_protokolu:
-            miejscowosc_protokolu = "Pilzno"
 
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
                       self.history_photos, postgres_db_name, homepage_template,
-                      gmina_katastralna, miejscowosc_protokolu)
+                      gmina_katastralna)
         self.destroy()
 
 

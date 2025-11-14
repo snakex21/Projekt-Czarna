@@ -383,12 +383,11 @@ def get_wlasciciel_by_key(unikalny_klucz):
     if not wlasciciel:
         return jsonify({"error": "Właściciel nie znaleziony"}), 404
 
-    # Pobranie gminy katastralnej i miejscowości protokołu z aktywnej lokalizacji
+    # Pobranie gminy katastralnej z aktywnej lokalizacji
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     launcher_dir = os.path.join(base_dir, "launcher")
 
     gmina_katastralna = None
-    miejscowosc_protokolu = None
 
     # Spróbuj PostgreSQL najpierw
     location_name = None
@@ -404,21 +403,17 @@ def get_wlasciciel_by_key(unikalny_klucz):
 
         launcher_conn = psycopg2.connect(**launcher_db_config)
         launcher_cursor = launcher_conn.cursor()
-        launcher_cursor.execute("SELECT gmina_katastralna, miejscowosc_protokolu FROM locations WHERE active = TRUE LIMIT 1")
+        launcher_cursor.execute("SELECT gmina_katastralna FROM locations WHERE active = TRUE LIMIT 1")
         result = launcher_cursor.fetchone()
         launcher_cursor.close()
         launcher_conn.close()
 
         if result:
             gmina_katastralna = result[0]
-            miejscowosc_protokolu = result[1]
     except Exception as e:
         print(f"⚠️ Błąd podczas pobierania danych lokalizacji: {e}")
 
     wlasciciel['gmina_katastralna'] = gmina_katastralna
-    # Nadpisz miejsce_protokolu jeśli jest w bazie locations
-    if miejscowosc_protokolu:
-        wlasciciel['miejsce_protokolu'] = miejscowosc_protokolu
 
     # Sprawdzenie drzewa genealogicznego
     cur.execute("SELECT EXISTS (SELECT 1 FROM osoby_genealogia WHERE id_protokolu = %s) AS ma_drzewo;", (wlasciciel['id'],))
