@@ -8,6 +8,11 @@ Opis: Testy dla nowo dodanych funkcji:
 
 import pytest
 import json
+import sys
+import os
+
+# Dodaj katalog główny projektu do PYTHONPATH
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 # ==========================================================================
 # TESTY STATYSTYK - TOP 50 dla rzek i dróg
@@ -213,7 +218,9 @@ def test_deployment_html_exists():
     """
     import os
 
-    deployment_path = os.path.join("docs", "deployment.html")
+    # Ścieżka relatywna do katalogu głównego projektu
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    deployment_path = os.path.join(project_root, "docs", "deployment.html")
     assert os.path.exists(deployment_path), \
         f"Plik deployment.html nie istnieje w lokalizacji: {deployment_path}"
 
@@ -225,7 +232,9 @@ def test_deployment_html_content():
     """
     import os
 
-    deployment_path = os.path.join("docs", "deployment.html")
+    # Ścieżka relatywna do katalogu głównego projektu
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    deployment_path = os.path.join(project_root, "docs", "deployment.html")
 
     if os.path.exists(deployment_path):
         with open(deployment_path, 'r', encoding='utf-8') as f:
