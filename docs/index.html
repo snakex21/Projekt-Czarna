@@ -456,58 +456,62 @@ erDiagram
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_launcher_db</td>
-                </tr>
-                <tr>
-                  <td rowspan="2" style="vertical-align: middle;">mapa_launcher_db</td>
+                  <td>mapa_launcher_db</td>
                   <td><code>locations</code></td>
                   <td>Główna tabela zarządzająca miejscowościami. Przechowuje listę wszystkich miejscowości w systemie wraz z ich konfiguracją (nazwa, powiat, szablon strony głównej, opis historyczny). Pole <code>postgres_db_name</code> wskazuje na nazwę dedykowanej bazy danych miejscowości. Pole <code>active</code> określa aktualnie wybraną miejscowość.</td>
                 </tr>
                 <tr>
+                  <td>mapa_launcher_db</td>
                   <td><code>history_photos</code></td>
                   <td>Przechowuje metadane zdjęć historycznych przypisanych do miejscowości. Pliki graficzne znajdują się w <code>backup/{miejscowość}/history_photos/</code>. Tabela zawiera nazwę pliku, podpis i kolejność wyświetlania.</td>
                 </tr>
                 <tr>
-                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_{miejscowość}_db</td>
-                </tr>
-                <tr>
-                  <td rowspan="10" style="vertical-align: middle;">mapa_{miejscowość}_db</td>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>wlasciciele</code></td>
                   <td>Przechowuje dane opisowe z protokołów katastralnych. Każdy rekord to jeden protokół.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>obiekty_geograficzne</code></td>
                   <td>Uniwersalna tabela na wszystkie obiekty przestrzenne z mapy (działki, drogi, budynki) z kluczową kolumną <code>geometria</code> typu PostGIS.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>dzialki_wlasciciele</code></td>
                   <td>Tabela łącząca, realizująca relację wiele-do-wielu między właścicielami a obiektami, z rozróżnieniem na własność "rzeczywistą" i "z protokołu".</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>osoby_genealogia</code></td>
                   <td>Centralna tabela modułu genealogicznego. Przechowuje osoby i ich powiązania rodzinne (<code>id_ojca</code>, <code>id_matki</code>), tworząc sieć genealogiczną.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>malzenstwa</code></td>
                   <td>Tabela łącząca dla relacji małżeńskich (wiele-do-wielu między osobami).</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>demografia</code></td>
                   <td>Przechowuje historyczne dane demograficzne dla gminy w poszczególnych latach.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>powiazania_protokolow</code></td>
                   <td>Tabela łącząca, która realizuje relację wiele-do-wielu *między* protokołami (rekordami w tabeli <code>wlasciciele</code>). Jest kluczowa dla modułu grafu powiązań.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>login_attempts</code></td>
                   <td>Zapisuje każdą próbę logowania do panelu admina w celu monitorowania bezpieczeństwa i wykrywania prób ataku.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>blocked_ips</code></td>
                   <td>Przechowuje adresy IP, które zostały automatycznie zablokowane po przekroczeniu limitu nieudanych prób logowania.</td>
                 </tr>
                 <tr>
+                  <td>mapa_{miejscowość}_db</td>
                   <td><code>konfiguracja_systemu</code></td>
                   <td>Przechowuje globalne ustawienia aplikacji, w tym kluczowe dane do kalibracji mapy (współrzędne narożników, domyślny zoom).</td>
                 </tr>
