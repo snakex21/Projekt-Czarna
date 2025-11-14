@@ -549,9 +549,11 @@ const renderGenealogy = (data) => {
             const yearA = a.rok_urodzenia || 9999;
             const yearB = b.rok_urodzenia || 9999;
             if (yearA !== yearB) return yearA - yearB;
-            
-            // Potem po ID
-            return (a.id_osoby || '').localeCompare(b.id_osoby || '');
+
+            // Potem po ID (konwertuj na string)
+            const idA = String(a.id_osoby || '');
+            const idB = String(b.id_osoby || '');
+            return idA.localeCompare(idB);
         });
         
         // Nagłówek rodziny

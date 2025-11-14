@@ -924,12 +924,26 @@
          */
         async function initializeVisualization() {
             container = document.getElementById('genealogy-network');
-            
+
             const data = await fetchGenealogyData();
-            if (!data?.persons?.length) {
-                throw new Error('Brak danych genealogicznych');
+            console.log('🔍 Sprawdzanie danych po fetchGenealogyData:', data);
+
+            if (!data) {
+                throw new Error('Brak danych - funkcja fetchGenealogyData zwróciła null/undefined');
             }
-            
+
+            if (!data.persons) {
+                throw new Error('Brak tablicy persons w zwróconych danych. Struktura: ' + JSON.stringify(Object.keys(data)));
+            }
+
+            if (!Array.isArray(data.persons)) {
+                throw new Error('Pole persons nie jest tablicą. Typ: ' + typeof data.persons);
+            }
+
+            if (data.persons.length === 0) {
+                throw new Error('Tablica persons jest pusta - brak osób w bazie danych');
+            }
+
             allPersons = data.persons;
             console.log(`📊 Załadowano ${allPersons.length} osób`);
             
@@ -994,10 +1008,13 @@
 
                 const data = await response.json();
                 console.log('📦 Otrzymane dane z serwera:', data);
+                console.log('📊 Struktura danych - nodes:', data.nodes?.length, 'edges:', data.edges?.length);
 
                 if (data.nodes && data.edges && Array.isArray(data.nodes) && Array.isArray(data.edges)) {
                     console.log('🔄 Konwersja z formatu vis.js na format genealogiczny...');
-                    return convertVisJsToGenealogy(data);
+                    const convertedData = convertVisJsToGenealogy(data);
+                    console.log('✅ Konwersja zakończona - persons:', convertedData.persons?.length);
+                    return convertedData;
                 }
 
                 if (data.persons && Array.isArray(data.persons)) {
@@ -1162,6 +1179,10 @@
          * @returns {Object} Dane w formacie genealogicznym
          */
         function convertVisJsToGenealogy(visData) {
+            console.log('🔧 convertVisJsToGenealogy - rozpoczęcie konwersji');
+            console.log('🔧 Liczba nodes:', visData.nodes?.length || 0);
+            console.log('🔧 Liczba edges:', visData.edges?.length || 0);
+
             const persons = [];
             const nodeMap = new Map();
             marriageYearByPair = new Map();
@@ -1242,6 +1263,7 @@
                 }
             });
 
+            console.log('🔧 Konwersja zakończona - utworzono osób:', persons.length);
             return { persons };
         }
 

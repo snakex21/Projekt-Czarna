@@ -446,20 +446,17 @@ erDiagram
             </div>
 
 <h4>Opis Kluczowych Tabel:</h4>
+
+<h5>Baza danych: mapa_launcher_db</h5>
 <table>
               <thead>
                 <tr>
-                  <th>Baza Danych</th>
                   <th>Tabela</th>
                   <th>Opis</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_launcher_db</td>
-                </tr>
-                <tr>
-                  <td rowspan="2" style="vertical-align: middle;">mapa_launcher_db</td>
                   <td><code>locations</code></td>
                   <td>Główna tabela zarządzająca miejscowościami. Przechowuje listę wszystkich miejscowości w systemie wraz z ich konfiguracją (nazwa, powiat, szablon strony głównej, opis historyczny). Pole <code>postgres_db_name</code> wskazuje na nazwę dedykowanej bazy danych miejscowości. Pole <code>active</code> określa aktualnie wybraną miejscowość.</td>
                 </tr>
@@ -467,11 +464,19 @@ erDiagram
                   <td><code>history_photos</code></td>
                   <td>Przechowuje metadane zdjęć historycznych przypisanych do miejscowości. Pliki graficzne znajdują się w <code>backup/{miejscowość}/history_photos/</code>. Tabela zawiera nazwę pliku, podpis i kolejność wyświetlania.</td>
                 </tr>
+              </tbody>
+            </table>
+
+<h5>Baza danych: mapa_{miejscowość}_db</h5>
+<table>
+              <thead>
                 <tr>
-                  <td colspan="3" style="background-color: #2a2a2a; font-weight: bold; text-align: center;">mapa_{miejscowość}_db</td>
+                  <th>Tabela</th>
+                  <th>Opis</th>
                 </tr>
+              </thead>
+              <tbody>
                 <tr>
-                  <td rowspan="10" style="vertical-align: middle;">mapa_{miejscowość}_db</td>
                   <td><code>wlasciciele</code></td>
                   <td>Przechowuje dane opisowe z protokołów katastralnych. Każdy rekord to jeden protokół.</td>
                 </tr>
