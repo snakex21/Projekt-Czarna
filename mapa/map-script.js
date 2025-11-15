@@ -40,16 +40,11 @@ const HIGHLIGHT_COLORS = [
 
 /**
  * Główny punkt wejścia aplikacji.
- * Ukrywa ekran ładowania i inicjalizuje wszystkie komponenty.
+ * Inicjalizuje wszystkie komponenty (ekran ładowania będzie ukryty po załadowaniu danych).
  */
 function initializeApp() {
     console.log("🚀 Aplikacja startuje...");
 
-    const loadingOverlay = document.getElementById('loading-overlay');
-    if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-    }
-    
     initializeMap();
     setupUIEventListeners();
     setupHistoricalMapOpacityControl();
@@ -226,6 +221,13 @@ function fetchDataAndBuildInterface() {
 
         handleUrlParameters();
         handleShowHouseByOwnerKeyFromURL();
+
+        // Ukryj ekran ładowania po załadowaniu wszystkich danych
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+            console.log("✅ Ekran ładowania ukryty - wszystkie dane załadowane!");
+        }
     })
     .catch((error) => {
         console.error("❌ KRYTYCZNY BŁĄD:", error);
@@ -233,6 +235,13 @@ function fetchDataAndBuildInterface() {
         showError(dzialkiBox, "Błąd wczytywania działek.");
         showError(obiektyBox, "Błąd wczytywania obiektów.");
         if (legendBox) showError(legendBox, "Błąd wczytywania legendy.");
+
+        // Ukryj ekran ładowania także w przypadku błędu
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
+            console.log("⚠️ Ekran ładowania ukryty - błąd ładowania danych");
+        }
     });
 }
 
