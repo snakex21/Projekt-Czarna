@@ -325,6 +325,7 @@ function renderMapObjects(parcels) {
             weight: 3,
             fill: false,
             dashArray: "10, 5",
+            interactive: false,
         },
         obiekt_specjalny: { color: "#2c3e50", weight: 2 },
         default: { color: "#3388ff", weight: 2 },
@@ -386,29 +387,33 @@ function renderMapObjects(parcels) {
             }
             layersByCategory[kategoria].push(layer);
 
-            /* Konfiguracja popup */
-            const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
-            let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
-            if (props.wlasciciele?.length > 0) {
-                popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
-            }
-            layer.bindPopup(popupContent);
+            /* Konfiguracja popup - pomiń dla obrysu miejscowości */
+            if (kategoria !== 'obrys_miejscowosci') {
+                const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
+                let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
+                if (props.wlasciciele?.length > 0) {
+                    popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
+                }
+                layer.bindPopup(popupContent);
 
-            /* Dodawanie etykiet - zawsze widocznych */
-            if (props.numer_obiektu) {
-                layer.bindTooltip(props.numer_obiektu.toString(), {
-                    permanent: true,
-                    direction: 'center',
-                    className: 'parcel-label'
+                /* Dodawanie etykiet - zawsze widocznych */
+                if (props.numer_obiektu) {
+                    layer.bindTooltip(props.numer_obiektu.toString(), {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'parcel-label'
+                    });
+                }
+            }
+
+            /* Zdarzenia interakcji - pomiń dla obrysu miejscowości */
+            if (kategoria !== 'obrys_miejscowosci') {
+                layer.on({
+                    mouseover: (e) => handleFeatureMouseover(e, feature),
+                    mouseout: (e) => handleFeatureMouseout(e),
+                    click: (e) => handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng)
                 });
             }
-
-            /* Zdarzenia interakcji */
-            layer.on({
-                mouseover: (e) => handleFeatureMouseover(e, feature),
-                mouseout: (e) => handleFeatureMouseout(e),
-                click: (e) => handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng)
-            });
         },
     }).addTo(map);
 
