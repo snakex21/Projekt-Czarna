@@ -320,6 +320,13 @@ function renderMapObjects(parcels) {
             fillColor: "#f1c40f",
             fillOpacity: 0.4,
         },
+        obrys_miejscowosci: {
+            color: "#ff0000",
+            weight: 3,
+            fill: false,
+            dashArray: "10, 5",
+            interactive: false,
+        },
         obiekt_specjalny: { color: "#2c3e50", weight: 2 },
         default: { color: "#3388ff", weight: 2 },
     };
@@ -380,29 +387,33 @@ function renderMapObjects(parcels) {
             }
             layersByCategory[kategoria].push(layer);
 
-            /* Konfiguracja popup */
-            const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
-            let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
-            if (props.wlasciciele?.length > 0) {
-                popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
-            }
-            layer.bindPopup(popupContent);
+            /* Konfiguracja popup - pomiń dla obrysu miejscowości */
+            if (kategoria !== 'obrys_miejscowosci') {
+                const kategoriaDisplay = (props.kategoria || '').replace(/_/g, ' ');
+                let popupContent = `<b>Typ:</b> ${kategoriaDisplay}<br><b>Nazwa/Numer:</b> ${props.numer_obiektu}`;
+                if (props.wlasciciele?.length > 0) {
+                    popupContent += `<br><b>Właściciele:</b> ${props.wlasciciele.map(w => w.nazwa).join(", ")}`;
+                }
+                layer.bindPopup(popupContent);
 
-            /* Dodawanie etykiet - zawsze widocznych */
-            if (props.numer_obiektu) {
-                layer.bindTooltip(props.numer_obiektu.toString(), {
-                    permanent: true,
-                    direction: 'center',
-                    className: 'parcel-label'
+                /* Dodawanie etykiet - zawsze widocznych */
+                if (props.numer_obiektu) {
+                    layer.bindTooltip(props.numer_obiektu.toString(), {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'parcel-label'
+                    });
+                }
+            }
+
+            /* Zdarzenia interakcji - pomiń dla obrysu miejscowości */
+            if (kategoria !== 'obrys_miejscowosci') {
+                layer.on({
+                    mouseover: (e) => handleFeatureMouseover(e, feature),
+                    mouseout: (e) => handleFeatureMouseout(e),
+                    click: (e) => handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng)
                 });
             }
-
-            /* Zdarzenia interakcji */
-            layer.on({
-                mouseover: (e) => handleFeatureMouseover(e, feature),
-                mouseout: (e) => handleFeatureMouseout(e),
-                click: (e) => handleObjectClick(e.target.feature.properties.wlasciciele, e.latlng)
-            });
         },
     }).addTo(map);
 
@@ -823,7 +834,11 @@ function setupParcelPanel() {
         
         const totalParcelsElement = document.getElementById('total-parcels');
         if (totalParcelsElement) {
-            totalParcelsElement.textContent = allParcelsData.length;
+            // Licz wszystkie obiekty oprócz obrysu miejscowości
+            const parcelCount = allParcelsData.filter(p =>
+                p.properties.kategoria !== 'obrys_miejscowosci'
+            ).length;
+            totalParcelsElement.textContent = parcelCount;
         }
     };
 
@@ -1041,6 +1056,7 @@ function setupLegend() {
         budynek: { color: "#333" },
         kapliczka: { color: "#c0392b" },
         pastwisko: { fillColor: "#f1c40f" },
+        obrys_miejscowosci: { color: "#ff0000" },
         obiekt_specjalny: { color: "#2c3e50" },
     };
 
@@ -1054,6 +1070,7 @@ function setupLegend() {
         rzeka: "Rzeka",
         budynek: "Budynek",
         kapliczka: "Kapliczka",
+        obrys_miejscowosci: "Obrys Miejscowości",
         obiekt_specjalny: "Obiekt Specjalny",
     };
 
@@ -1495,34 +1512,62 @@ function highlightFeaturesByIds(featureIds, color, ownerName = null, ownershipTy
  * @param {string} ownershipType - Typ własności
  */
 function highlightAndColorOwners(uniqueOwnerKeys, ownershipType = 'wszystkie') {
+    console.log('🎨 highlightAndColorOwners wywołane:', {
+        ownerKeys: uniqueOwnerKeys,
+        ownershipType: ownershipType,
+        liczba: uniqueOwnerKeys.length
+    });
+
     if (ownerHighlightLayer) {
         map.removeLayer(ownerHighlightLayer);
     }
 
-    if (uniqueOwnerKeys.length === 0) return;
+    if (uniqueOwnerKeys.length === 0) {
+        console.warn('⚠️ Brak kluczy właścicieli do podświetlenia');
+        return;
+    }
 
     const ownerColorMap = assignColorsToOwners(uniqueOwnerKeys, ownershipType);
     ownerHighlightLayer = new L.FeatureGroup();
 
+    console.log('🗺️ Przetwarzanie warstw:', {
+        geojsonLayer: !!geojsonLayer,
+        markerClusterGroup: !!markerClusterGroup
+    });
+
+    let foundCount = 0;
+
     /* Przetwarzanie warstw z geojsonLayer */
     if (geojsonLayer) {
         geojsonLayer.eachLayer(layer => {
+            const beforeCount = ownerHighlightLayer.getLayers().length;
             processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+            const afterCount = ownerHighlightLayer.getLayers().length;
+            if (afterCount > beforeCount) foundCount++;
         });
     }
 
     /* Przetwarzanie warstw z markerClusterGroup */
     if (markerClusterGroup) {
         markerClusterGroup.eachLayer(layer => {
+            const beforeCount = ownerHighlightLayer.getLayers().length;
             processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+            const afterCount = ownerHighlightLayer.getLayers().length;
+            if (afterCount > beforeCount) foundCount++;
         });
     }
+
+    console.log('✅ Znaleziono i podświetlono działek:', foundCount);
+    console.log('📍 Łączna liczba warstw w ownerHighlightLayer:', ownerHighlightLayer.getLayers().length);
 
     if (ownerHighlightLayer.getLayers().length > 0) {
         ownerHighlightLayer.addTo(map);
         map.fitBounds(ownerHighlightLayer.getBounds());
         createOwnerHighlightLegend(uniqueOwnerKeys, ownerColorMap);
         document.getElementById("highlight-controls").classList.remove("hidden");
+        console.log('✨ Podświetlenie dodane do mapy');
+    } else {
+        console.error('❌ Nie znaleziono żadnych działek do podświetlenia!');
     }
 }
 
@@ -1729,10 +1774,21 @@ function handleUrlParameters() {
     /* Parametr highlightTopOwners */
     const ownersParam = params.get("highlightTopOwners");
     if (ownersParam) {
-        const ownershipType = params.get("ownership") || "wszystkie";
+        let ownershipType = params.get("ownership") || "wszystkie";
+
+        // Konwersja z angielskiego na polskie wartości (dla kompatybilności ze starym kodem)
+        if (ownershipType === "real") ownershipType = "rzeczywista";
+        if (ownershipType === "protocol") ownershipType = "protokol";
+
         const uniqueOwnerKeys = [...new Set(
             ownersParam.split(",").map(key => key.trim()).filter(Boolean)
         )];
+
+        console.log('🎯 Parametry z URL:', {
+            kluczeWlascicieli: uniqueOwnerKeys,
+            typWlasnosci: ownershipType,
+            liczbaKluczy: uniqueOwnerKeys.length
+        });
 
         if (uniqueOwnerKeys.length > 0) {
             highlightAndColorOwners(uniqueOwnerKeys, ownershipType);
@@ -2420,20 +2476,49 @@ function assignColorsToOwners(ownerKeys, ownershipType) {
  * @param {string} ownershipType - Typ własności
  */
 function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
-    const parcelOwners = layer.feature.properties.wlasciciele;
+    const parcelOwners = layer.feature?.properties?.wlasciciele;
     if (!parcelOwners) return;
 
-    const matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
+    // Szukaj właściciela który pasuje do ownerColorMap I ma odpowiedni typ własności
+    let matchedOwner;
+
+    // Sprawdź czy KTÓRYKOLWIEK właściciel tej działki jest w ownerColorMap
+    const hasAnyOwnerInMap = parcelOwners.some(o => ownerColorMap[o.unikalny_klucz]);
+
+    if (ownershipType === "rzeczywista") {
+        // Szukaj właściciela z własnością rzeczywistą
+        matchedOwner = parcelOwners.find(o =>
+            ownerColorMap[o.unikalny_klucz] &&
+            o.typ_posiadania === "własność rzeczywista"
+        );
+
+        // DEBUG: jeśli jest właściciel w mapie, ale nie znaleziono dopasowania
+        if (hasAnyOwnerInMap && !matchedOwner) {
+            console.warn('⚠️ Działka ma właściciela z listy, ale BEZ własności rzeczywistej:', {
+                numerDzialki: layer.feature?.properties?.numer_obiektu,
+                wlasciciele: parcelOwners.map(o => ({
+                    klucz: o.unikalny_klucz,
+                    nazwa: o.nazwa,
+                    typ: o.typ_posiadania,
+                    czyWMapie: !!ownerColorMap[o.unikalny_klucz]
+                }))
+            });
+        }
+    } else if (ownershipType === "protokol") {
+        // Szukaj właściciela bez własności rzeczywistej
+        matchedOwner = parcelOwners.find(o =>
+            ownerColorMap[o.unikalny_klucz] &&
+            o.typ_posiadania !== "własność rzeczywista"
+        );
+    } else {
+        // Wszystkie - znajdź pierwszego właściciela z listy
+        matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
+    }
+
     if (!matchedOwner) return;
 
     const ownerKey = matchedOwner.unikalny_klucz;
     const isReal = matchedOwner.typ_posiadania === "własność rzeczywista";
-
-    /* Filtrowanie według typu własności */
-    if ((ownershipType === "rzeczywista" && !isReal) || 
-        (ownershipType === "protokol" && isReal)) {
-        return;
-    }
     
     const color = (typeof ownerColorMap[ownerKey] === "object")
         ? (isReal ? ownerColorMap[ownerKey].rzeczywista : ownerColorMap[ownerKey].protokol)
