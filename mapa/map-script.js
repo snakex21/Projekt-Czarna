@@ -1769,10 +1769,21 @@ function handleUrlParameters() {
     /* Parametr highlightTopOwners */
     const ownersParam = params.get("highlightTopOwners");
     if (ownersParam) {
-        const ownershipType = params.get("ownership") || "wszystkie";
+        let ownershipType = params.get("ownership") || "wszystkie";
+
+        // Konwersja z angielskiego na polskie wartości (dla kompatybilności ze starym kodem)
+        if (ownershipType === "real") ownershipType = "rzeczywista";
+        if (ownershipType === "protocol") ownershipType = "protokol";
+
         const uniqueOwnerKeys = [...new Set(
             ownersParam.split(",").map(key => key.trim()).filter(Boolean)
         )];
+
+        console.log('🎯 Parametry z URL:', {
+            kluczeWlascicieli: uniqueOwnerKeys,
+            typWlasnosci: ownershipType,
+            liczbaKluczy: uniqueOwnerKeys.length
+        });
 
         if (uniqueOwnerKeys.length > 0) {
             highlightAndColorOwners(uniqueOwnerKeys, ownershipType);
