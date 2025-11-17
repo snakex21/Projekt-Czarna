@@ -1234,6 +1234,128 @@ def get_stats():
             road_dict['road_number'] = f"Droga {road_dict['id']}"
         roads_ranking.append(road_dict)
 
+    # ——— Statystyka % wyrysowanych działek
+    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0}
+    try:
+        # Liczba działek w bazie (kategorie rolna/budowlana)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM obiekty_geograficzne
+            WHERE kategoria IN ('rolna', 'budowlana');
+        """)
+        drawn_count = cur.fetchone()[0]
+
+        # Liczba właścicieli z protokołów
+        protocol_count = total_owners
+
+        # Procent
+        if protocol_count > 0:
+            percentage = (drawn_count / protocol_count) * 100
+        else:
+            percentage = 0.0
+
+        drawn_percentage = {
+            'drawn_count': drawn_count,
+            'protocol_count': protocol_count,
+            'percentage': round(percentage, 2)
+        }
+    except Exception as e:
+        print(f"⚠️ Błąd statystyki % wyrysowanych: {e}")
+
+    # ——— Powierzchnia miejscowości
+    location_area = {'area_hectares': None, 'area_km2': None}
+    try:
+        # Pobierz z tabeli locations w bazie mapa_launcher_db
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
+        launcher_conn = psycopg2.connect(**launcher_db_config)
+        launcher_cursor = launcher_conn.cursor()
+        launcher_cursor.execute("""
+            SELECT area_hectares, area_km2
+            FROM locations
+            WHERE active = TRUE
+            LIMIT 1
+        """)
+        result = launcher_cursor.fetchone()
+        if result:
+            location_area = {
+                'area_hectares': float(result[0]) if result[0] else None,
+                'area_km2': float(result[1]) if result[1] else None
+            }
+        launcher_cursor.close()
+        launcher_conn.close()
+    except Exception as e:
+        print(f"⚠️ Błąd pobierania powierzchni miejscowości: {e}")
+
+    # ——— Statystyki żydowskie
+    jewish_stats = {
+        'total_area_m2': 0,
+        'total_area_ha': 0,
+        'parcels_count': 0,
+        'owners_count': 0,
+        'owners': []
+    }
+    try:
+        # Pobierz numery protokołów żydowskich z locations
+        launcher_conn = psycopg2.connect(**launcher_db_config)
+        launcher_cursor = launcher_conn.cursor()
+        launcher_cursor.execute("""
+            SELECT jewish_protocol_numbers
+            FROM locations
+            WHERE active = TRUE
+            LIMIT 1
+        """)
+        result = launcher_cursor.fetchone()
+        launcher_cursor.close()
+        launcher_conn.close()
+
+        if result and result[0]:
+            jewish_protocols_str = result[0]
+            # Parsuj numery (oddzielone przecinkami)
+            jewish_protocols = [p.strip() for p in jewish_protocols_str.split(',') if p.strip()]
+
+            if jewish_protocols:
+                # Znajdź właścicieli z tymi numerami
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                placeholders = ','.join(['%s'] * len(jewish_protocols))
+                cur.execute(f"""
+                    SELECT
+                        w.id,
+                        w.nazwa_wlasciciela,
+                        w.unikalny_klucz,
+                        w.numer_protokolu,
+                        COUNT(dw.obiekt_id) as parcels_count,
+                        COALESCE(SUM(ST_Area(ST_Transform(o.geometria, 32634))), 0) as total_area_m2
+                    FROM wlasciciele w
+                    LEFT JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
+                    LEFT JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
+                    WHERE w.numer_protokolu IN ({placeholders})
+                    GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
+                    ORDER BY total_area_m2 DESC;
+                """, jewish_protocols)
+                jewish_owners = cur.fetchall()
+
+                # Sumuj statystyki
+                total_area = sum(owner['total_area_m2'] for owner in jewish_owners)
+                total_parcels = sum(owner['parcels_count'] for owner in jewish_owners)
+
+                jewish_stats = {
+                    'total_area_m2': float(total_area),
+                    'total_area_ha': round(float(total_area) / 10000, 2),
+                    'parcels_count': total_parcels,
+                    'owners_count': len(jewish_owners),
+                    'owners': [dict(owner) for owner in jewish_owners]
+                }
+    except Exception as e:
+        print(f"⚠️ Błąd statystyki żydowskie: {e}")
+
     cur.close()
     conn.close()
 
@@ -1250,7 +1372,10 @@ def get_stats():
         'rivers_stats': rivers_stats,
         'rivers_ranking': rivers_ranking,
         'roads_stats': roads_stats,
-        'roads_ranking': roads_ranking
+        'roads_ranking': roads_ranking,
+        'drawn_percentage': drawn_percentage,
+        'location_area': location_area,
+        'jewish_stats': jewish_stats
     })
 
 @app.route('/api/plots-for-owners', methods=['POST'])
