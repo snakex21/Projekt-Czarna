@@ -599,10 +599,12 @@ function updateJewishStats(jewishStats) {
   const showButton = document.getElementById('show-jewish-parcels');
   if (showButton) {
     showButton.onclick = () => {
-      // Zbierz wszystkie unikalne klucze właścicieli
-      const ownerKeys = jewishStats.owners.map(o => o.unikalny_klucz);
-      // Przekieruj do mapy z parametrem (tylko własność rzeczywista) - w tej samej karcie
-      window.location.href = `../mapa/mapa.html?highlightTopOwners=${ownerKeys.join(',')}&ownership=rzeczywista`;
+      // Zbierz wszystkie unikalne klucze właścicieli (tak samo jak dla top 10)
+      const ownerKeys = jewishStats.owners.map(o => o.unikalny_klucz).join(',');
+      console.log('🔍 Przekierowuję do mapy z żydowskimi właścicielami:', ownerKeys);
+      console.log('📊 Liczba właścicieli:', jewishStats.owners.length);
+      // Przekieruj do mapy z parametrem (dokładnie tak samo jak "Pokaż top 10")
+      window.location.href = `../mapa/mapa.html?highlightTopOwners=${encodeURIComponent(ownerKeys)}&ownership=rzeczywista`;
     };
   }
 }
