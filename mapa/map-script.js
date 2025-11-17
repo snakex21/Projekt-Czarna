@@ -1507,34 +1507,62 @@ function highlightFeaturesByIds(featureIds, color, ownerName = null, ownershipTy
  * @param {string} ownershipType - Typ własności
  */
 function highlightAndColorOwners(uniqueOwnerKeys, ownershipType = 'wszystkie') {
+    console.log('🎨 highlightAndColorOwners wywołane:', {
+        ownerKeys: uniqueOwnerKeys,
+        ownershipType: ownershipType,
+        liczba: uniqueOwnerKeys.length
+    });
+
     if (ownerHighlightLayer) {
         map.removeLayer(ownerHighlightLayer);
     }
 
-    if (uniqueOwnerKeys.length === 0) return;
+    if (uniqueOwnerKeys.length === 0) {
+        console.warn('⚠️ Brak kluczy właścicieli do podświetlenia');
+        return;
+    }
 
     const ownerColorMap = assignColorsToOwners(uniqueOwnerKeys, ownershipType);
     ownerHighlightLayer = new L.FeatureGroup();
 
+    console.log('🗺️ Przetwarzanie warstw:', {
+        geojsonLayer: !!geojsonLayer,
+        markerClusterGroup: !!markerClusterGroup
+    });
+
+    let foundCount = 0;
+
     /* Przetwarzanie warstw z geojsonLayer */
     if (geojsonLayer) {
         geojsonLayer.eachLayer(layer => {
+            const beforeCount = ownerHighlightLayer.getLayers().length;
             processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+            const afterCount = ownerHighlightLayer.getLayers().length;
+            if (afterCount > beforeCount) foundCount++;
         });
     }
 
     /* Przetwarzanie warstw z markerClusterGroup */
     if (markerClusterGroup) {
         markerClusterGroup.eachLayer(layer => {
+            const beforeCount = ownerHighlightLayer.getLayers().length;
             processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType);
+            const afterCount = ownerHighlightLayer.getLayers().length;
+            if (afterCount > beforeCount) foundCount++;
         });
     }
+
+    console.log('✅ Znaleziono i podświetlono działek:', foundCount);
+    console.log('📍 Łączna liczba warstw w ownerHighlightLayer:', ownerHighlightLayer.getLayers().length);
 
     if (ownerHighlightLayer.getLayers().length > 0) {
         ownerHighlightLayer.addTo(map);
         map.fitBounds(ownerHighlightLayer.getBounds());
         createOwnerHighlightLegend(uniqueOwnerKeys, ownerColorMap);
         document.getElementById("highlight-controls").classList.remove("hidden");
+        console.log('✨ Podświetlenie dodane do mapy');
+    } else {
+        console.error('❌ Nie znaleziono żadnych działek do podświetlenia!');
     }
 }
 
@@ -2432,8 +2460,25 @@ function assignColorsToOwners(ownerKeys, ownershipType) {
  * @param {string} ownershipType - Typ własności
  */
 function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
-    const parcelOwners = layer.feature.properties.wlasciciele;
+    const parcelOwners = layer.feature?.properties?.wlasciciele;
     if (!parcelOwners) return;
+
+    // Debug - pokaż tylko dla pierwszych kilku działek
+    const shouldDebug = Math.random() < 0.01; // 1% szansa na debug
+
+    if (shouldDebug) {
+        console.log('🔍 processLayerForOwnerHighlight debug:', {
+            parcelId: layer.feature?.id,
+            parcelNumber: layer.feature?.properties?.numer_obiektu,
+            owners: parcelOwners.map(o => ({
+                key: o.unikalny_klucz,
+                typ: o.typ_posiadania,
+                inMap: !!ownerColorMap[o.unikalny_klucz]
+            })),
+            ownershipType: ownershipType,
+            ownerColorMapKeys: Object.keys(ownerColorMap).slice(0, 5) // pierwsze 5 kluczy
+        });
+    }
 
     // Szukaj właściciela który pasuje do ownerColorMap I ma odpowiedni typ własności
     let matchedOwner;
@@ -2452,6 +2497,10 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     } else {
         // Wszystkie - znajdź pierwszego właściciela z listy
         matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
+    }
+
+    if (shouldDebug && matchedOwner) {
+        console.log('✅ Znaleziono właściciela:', matchedOwner.unikalny_klucz);
     }
 
     if (!matchedOwner) return;
