@@ -2463,31 +2463,31 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     const parcelOwners = layer.feature?.properties?.wlasciciele;
     if (!parcelOwners) return;
 
-    // Debug - pokaż tylko dla pierwszych kilku działek
-    const shouldDebug = Math.random() < 0.01; // 1% szansa na debug
-
-    if (shouldDebug) {
-        console.log('🔍 processLayerForOwnerHighlight debug:', {
-            parcelId: layer.feature?.id,
-            parcelNumber: layer.feature?.properties?.numer_obiektu,
-            owners: parcelOwners.map(o => ({
-                key: o.unikalny_klucz,
-                typ: o.typ_posiadania,
-                inMap: !!ownerColorMap[o.unikalny_klucz]
-            })),
-            ownershipType: ownershipType,
-            ownerColorMapKeys: Object.keys(ownerColorMap).slice(0, 5) // pierwsze 5 kluczy
-        });
-    }
-
     // Szukaj właściciela który pasuje do ownerColorMap I ma odpowiedni typ własności
     let matchedOwner;
+
+    // Sprawdź czy KTÓRYKOLWIEK właściciel tej działki jest w ownerColorMap
+    const hasAnyOwnerInMap = parcelOwners.some(o => ownerColorMap[o.unikalny_klucz]);
+
     if (ownershipType === "rzeczywista") {
         // Szukaj właściciela z własnością rzeczywistą
         matchedOwner = parcelOwners.find(o =>
             ownerColorMap[o.unikalny_klucz] &&
             o.typ_posiadania === "własność rzeczywista"
         );
+
+        // DEBUG: jeśli jest właściciel w mapie, ale nie znaleziono dopasowania
+        if (hasAnyOwnerInMap && !matchedOwner) {
+            console.warn('⚠️ Działka ma właściciela z listy, ale BEZ własności rzeczywistej:', {
+                numerDzialki: layer.feature?.properties?.numer_obiektu,
+                wlasciciele: parcelOwners.map(o => ({
+                    klucz: o.unikalny_klucz,
+                    nazwa: o.nazwa,
+                    typ: o.typ_posiadania,
+                    czyWMapie: !!ownerColorMap[o.unikalny_klucz]
+                }))
+            });
+        }
     } else if (ownershipType === "protokol") {
         // Szukaj właściciela bez własności rzeczywistej
         matchedOwner = parcelOwners.find(o =>
@@ -2497,10 +2497,6 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     } else {
         // Wszystkie - znajdź pierwszego właściciela z listy
         matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
-    }
-
-    if (shouldDebug && matchedOwner) {
-        console.log('✅ Znaleziono właściciela:', matchedOwner.unikalny_klucz);
     }
 
     if (!matchedOwner) return;
