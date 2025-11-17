@@ -829,7 +829,11 @@ function setupParcelPanel() {
         
         const totalParcelsElement = document.getElementById('total-parcels');
         if (totalParcelsElement) {
-            totalParcelsElement.textContent = allParcelsData.length;
+            // Licz tylko działki rolna i budowlana (nie drogi, rzeki, budynki itp.)
+            const parcelCount = allParcelsData.filter(p =>
+                p.properties.kategoria === 'rolna' || p.properties.kategoria === 'budowlana'
+            ).length;
+            totalParcelsElement.textContent = parcelCount;
         }
     };
 
@@ -2431,17 +2435,29 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
     const parcelOwners = layer.feature.properties.wlasciciele;
     if (!parcelOwners) return;
 
-    const matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
+    // Szukaj właściciela który pasuje do ownerColorMap I ma odpowiedni typ własności
+    let matchedOwner;
+    if (ownershipType === "rzeczywista") {
+        // Szukaj właściciela z własnością rzeczywistą
+        matchedOwner = parcelOwners.find(o =>
+            ownerColorMap[o.unikalny_klucz] &&
+            o.typ_posiadania === "własność rzeczywista"
+        );
+    } else if (ownershipType === "protokol") {
+        // Szukaj właściciela bez własności rzeczywistej
+        matchedOwner = parcelOwners.find(o =>
+            ownerColorMap[o.unikalny_klucz] &&
+            o.typ_posiadania !== "własność rzeczywista"
+        );
+    } else {
+        // Wszystkie - znajdź pierwszego właściciela z listy
+        matchedOwner = parcelOwners.find(o => ownerColorMap[o.unikalny_klucz]);
+    }
+
     if (!matchedOwner) return;
 
     const ownerKey = matchedOwner.unikalny_klucz;
     const isReal = matchedOwner.typ_posiadania === "własność rzeczywista";
-
-    /* Filtrowanie według typu własności */
-    if ((ownershipType === "rzeczywista" && !isReal) || 
-        (ownershipType === "protokol" && isReal)) {
-        return;
-    }
     
     const color = (typeof ownerColorMap[ownerKey] === "object")
         ? (isReal ? ownerColorMap[ownerKey].rzeczywista : ownerColorMap[ownerKey].protokol)
