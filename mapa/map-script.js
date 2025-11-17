@@ -320,6 +320,12 @@ function renderMapObjects(parcels) {
             fillColor: "#f1c40f",
             fillOpacity: 0.4,
         },
+        obrys_miejscowosci: {
+            color: "#ff0000",
+            weight: 3,
+            fill: false,
+            dashArray: "10, 5",
+        },
         obiekt_specjalny: { color: "#2c3e50", weight: 2 },
         default: { color: "#3388ff", weight: 2 },
     };
@@ -1041,6 +1047,7 @@ function setupLegend() {
         budynek: { color: "#333" },
         kapliczka: { color: "#c0392b" },
         pastwisko: { fillColor: "#f1c40f" },
+        obrys_miejscowosci: { color: "#ff0000" },
         obiekt_specjalny: { color: "#2c3e50" },
     };
 
@@ -1054,6 +1061,7 @@ function setupLegend() {
         rzeka: "Rzeka",
         budynek: "Budynek",
         kapliczka: "Kapliczka",
+        obrys_miejscowosci: "Obrys Miejscowości",
         obiekt_specjalny: "Obiekt Specjalny",
     };
 

@@ -508,14 +508,14 @@ function updateDrawnPercentageStats(drawnStats) {
   const drawnCount = document.getElementById('drawn-count');
   const protocolCount = document.getElementById('protocol-count');
   const drawnPercentage = document.getElementById('drawn-percentage');
-  const remainingCount = document.getElementById('remaining-count');
+  const excessCount = document.getElementById('excess-count');
 
   if (drawnCount) drawnCount.textContent = drawnStats.drawn_count || 0;
   if (protocolCount) protocolCount.textContent = drawnStats.protocol_count || 0;
   if (drawnPercentage) drawnPercentage.textContent = `${drawnStats.percentage || 0}%`;
-  if (remainingCount) {
-    const remaining = (drawnStats.protocol_count || 0) - (drawnStats.drawn_count || 0);
-    remainingCount.textContent = remaining > 0 ? remaining : 0;
+  if (excessCount) {
+    const excess = drawnStats.excess_count || 0;
+    excessCount.textContent = excess > 0 ? `+${excess}` : excess;
   }
 }
 
@@ -580,7 +580,7 @@ function updateJewishStats(jewishStats) {
       const areaHa = (owner.total_area_m2 / 10000).toFixed(2);
       tableHTML += `
         <tr>
-          <td><a href="/wlasciciel/${owner.unikalny_klucz}" target="_blank">${owner.nazwa_wlasciciela}</a></td>
+          <td><a href="/wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" target="_blank">${owner.nazwa_wlasciciela}</a></td>
           <td>${owner.numer_protokolu}</td>
           <td>${owner.parcels_count}</td>
           <td>${areaHa} ha</td>

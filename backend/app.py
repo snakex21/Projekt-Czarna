@@ -1240,30 +1240,42 @@ def get_stats():
         roads_ranking.append(road_dict)
 
     # ——— Statystyka % wyrysowanych działek
-    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0}
+    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0, 'excess_count': 0}
     try:
         # Liczba działek w bazie (kategorie rolna/budowlana)
         cur = conn.cursor()
         cur.execute("""
             SELECT COUNT(*) as count
             FROM obiekty_geograficzne
-            WHERE kategoria IN ('rolna', 'budowlana');
+            WHERE kategoria IN ('rolna', 'budowlana')
+            AND kategoria != 'obrys_miejscowosci';
         """)
         drawn_count = cur.fetchone()[0]
 
-        # Liczba właścicieli z protokołów
-        protocol_count = total_owners
+        # Liczba działek z protokołów (własność rzeczywista)
+        cur.execute("""
+            SELECT COUNT(DISTINCT o.id) as count
+            FROM obiekty_geograficzne o
+            JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
+            WHERE o.kategoria IN ('rolna', 'budowlana')
+            AND o.kategoria != 'obrys_miejscowosci'
+            AND dw.typ_posiadania = 'własność rzeczywista';
+        """)
+        protocol_count = cur.fetchone()[0]
 
-        # Procent
+        # Procent i nadwyżka
         if protocol_count > 0:
             percentage = (drawn_count / protocol_count) * 100
         else:
             percentage = 0.0
 
+        excess_count = drawn_count - protocol_count
+
         drawn_percentage = {
             'drawn_count': drawn_count,
             'protocol_count': protocol_count,
-            'percentage': round(percentage, 2)
+            'percentage': round(percentage, 2),
+            'excess_count': excess_count
         }
     except Exception as e:
         print(f"⚠️ Błąd statystyki % wyrysowanych: {e}")
@@ -1318,7 +1330,7 @@ def get_stats():
             jewish_protocols = [p.strip() for p in jewish_protocols_str.split(',') if p.strip()]
 
             if jewish_protocols:
-                # Znajdź właścicieli z tymi numerami
+                # Znajdź właścicieli z tymi numerami (tylko własność rzeczywista)
                 cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                 placeholders = ','.join(['%s'] * len(jewish_protocols))
                 cur.execute(f"""
@@ -1330,8 +1342,10 @@ def get_stats():
                         COUNT(dw.obiekt_id) as parcels_count,
                         COALESCE(SUM(ST_Area(ST_Transform(o.geometria, 32634))), 0) as total_area_m2
                     FROM wlasciciele w
-                    LEFT JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
+                    LEFT JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id AND dw.typ_posiadania = 'własność rzeczywista'
                     LEFT JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
+                        AND o.kategoria IN ('rolna', 'budowlana')
+                        AND o.kategoria != 'obrys_miejscowosci'
                     WHERE w.numer_protokolu IN ({placeholders})
                     GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
                     ORDER BY total_area_m2 DESC;
@@ -1394,7 +1408,11 @@ def get_plots_for_owners():
         FROM wlasciciele w
         JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
         JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
-        WHERE w.id = ANY(%s) AND o.geometria IS NOT NULL GROUP BY w.id;
+        WHERE w.id = ANY(%s)
+            AND o.geometria IS NOT NULL
+            AND dw.typ_posiadania = 'własność rzeczywista'
+            AND o.kategoria != 'obrys_miejscowosci'
+        GROUP BY w.id;
     """
     cur.execute(query, (owner_ids_int,))
     data = cur.fetchall()
