@@ -829,9 +829,9 @@ function setupParcelPanel() {
         
         const totalParcelsElement = document.getElementById('total-parcels');
         if (totalParcelsElement) {
-            // Licz tylko działki rolna i budowlana (nie drogi, rzeki, budynki itp.)
+            // Licz wszystkie obiekty oprócz obrysu miejscowości
             const parcelCount = allParcelsData.filter(p =>
-                p.properties.kategoria === 'rolna' || p.properties.kategoria === 'budowlana'
+                p.properties.kategoria !== 'obrys_miejscowosci'
             ).length;
             totalParcelsElement.textContent = parcelCount;
         }
