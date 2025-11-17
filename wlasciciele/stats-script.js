@@ -1909,7 +1909,9 @@ function generatePrintReport() {
     rankingsCount: document.getElementById('print-rankings-count')?.checked,
     parcels: document.getElementById('print-parcels')?.checked,
     rivers: document.getElementById('print-rivers')?.checked,
-    roads: document.getElementById('print-roads')?.checked
+    roads: document.getElementById('print-roads')?.checked,
+    jewishStats: document.getElementById('print-jewish-stats')?.checked,
+    digitalization: document.getElementById('print-digitalization')?.checked
   };
 
   // Sprawdź czy wybrano choć jedną sekcję
@@ -2407,6 +2409,107 @@ function generateReportHTML(sections) {
         `).join('')}
       </tbody>
     </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Statystyki właścicieli żydowskich
+  if (sections.jewishStats && statsData?.jewish_stats && statsData.jewish_stats.owners_count > 0) {
+    const jewishStats = statsData.jewish_stats;
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-star-of-david"></i> Statystyki Właścicieli Żydowskich</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Liczba właścicieli</div>
+        <div class="stat-value">${jewishStats.owners_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Liczba działek</div>
+        <div class="stat-value">${jewishStats.parcels_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Łączna powierzchnia</div>
+        <div class="stat-value">${jewishStats.total_area_ha || 0} ha</div>
+      </div>
+    </div>
+
+    ${jewishStats.owners && jewishStats.owners.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Lista właścicieli</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Właściciel</th>
+          <th>Numer protokółu</th>
+          <th>Liczba działek</th>
+          <th>Powierzchnia (ha)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${jewishStats.owners.map((owner, idx) => {
+          const areaHa = ((owner.total_area_m2 || 0) / 10000).toFixed(2);
+          return `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
+          <td>${owner.numer_protokolu || '-'}</td>
+          <td>${owner.parcels_count || 0}</td>
+          <td>${areaHa} ha</td>
+        </tr>
+        `;
+        }).join('')}
+      </tbody>
+    </table>
+    ` : ''}
+  </div>
+`;
+  }
+
+  // Sekcja: Postęp digitalizacji
+  if (sections.digitalization) {
+    const drawnStats = statsData?.drawn_percentage;
+    const locationArea = statsData?.location_area;
+
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-tasks"></i> Postęp Digitalizacji</h2>
+
+    ${drawnStats ? `
+    <h3 style="margin: 1.5rem 0 1rem; color: #667eea;">Wyrysowane działki</h3>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Wyrysowano</div>
+        <div class="stat-value">${drawnStats.drawn_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Z właścicielami</div>
+        <div class="stat-value">${drawnStats.protocol_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Procent ukończenia</div>
+        <div class="stat-value">${drawnStats.percentage || 0}%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pozostało</div>
+        <div class="stat-value">${drawnStats.missing_count || 0}</div>
+      </div>
+    </div>
+    ` : ''}
+
+    ${locationArea ? `
+    <h3 style="margin: 1.5rem 0 1rem; color: #667eea;">Powierzchnia miejscowości</h3>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Powierzchnia w hektarach</div>
+        <div class="stat-value">${locationArea.area_hectares || '-'} ha</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Powierzchnia w km²</div>
+        <div class="stat-value">${locationArea.area_km2 || '-'} km²</div>
+      </div>
+    </div>
+    ` : ''}
   </div>
 `;
   }
