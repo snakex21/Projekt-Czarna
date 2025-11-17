@@ -1240,42 +1240,58 @@ def get_stats():
         roads_ranking.append(road_dict)
 
     # ——— Statystyka % wyrysowanych działek
-    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0, 'excess_count': 0}
+    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0, 'missing_count': 0, 'total_in_db': 0}
     try:
-        # Liczba działek w bazie (kategorie rolna/budowlana)
         cur = conn.cursor()
+
+        # Liczba wszystkich działek (rolna+budowlana) które mają właścicieli - to jest łączna liczba do wyrysowania
+        cur.execute("""
+            SELECT COUNT(DISTINCT dw.obiekt_id) as total
+            FROM dzialki_wlasciciele dw
+            JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
+            WHERE o.kategoria IN ('rolna', 'budowlana')
+            AND o.kategoria != 'obrys_miejscowosci';
+        """)
+        total_with_owners = cur.fetchone()[0]
+
+        # Liczba działek już wyrysowanych (z własnością rzeczywistą)
+        cur.execute("""
+            SELECT COUNT(DISTINCT dw.obiekt_id) as count
+            FROM dzialki_wlasciciele dw
+            JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
+            WHERE o.kategoria IN ('rolna', 'budowlana')
+            AND o.kategoria != 'obrys_miejscowosci'
+            AND dw.typ_posiadania = 'własność rzeczywista';
+        """)
+        drawn_count = cur.fetchone()[0]
+
+        # Liczba działek z protokołów (nie wyrysowanych jeszcze)
+        protocol_count = total_with_owners - drawn_count
+
+        # Liczba wszystkich działek w bazie (dla informacji)
         cur.execute("""
             SELECT COUNT(*) as count
             FROM obiekty_geograficzne
             WHERE kategoria IN ('rolna', 'budowlana')
             AND kategoria != 'obrys_miejscowosci';
         """)
-        drawn_count = cur.fetchone()[0]
+        total_in_db = cur.fetchone()[0]
 
-        # Liczba działek z protokołów (własność rzeczywista)
-        cur.execute("""
-            SELECT COUNT(DISTINCT o.id) as count
-            FROM obiekty_geograficzne o
-            JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
-            WHERE o.kategoria IN ('rolna', 'budowlana')
-            AND o.kategoria != 'obrys_miejscowosci'
-            AND dw.typ_posiadania = 'własność rzeczywista';
-        """)
-        protocol_count = cur.fetchone()[0]
-
-        # Procent i nadwyżka
-        if protocol_count > 0:
-            percentage = (drawn_count / protocol_count) * 100
+        # Procent ukończenia
+        if total_with_owners > 0:
+            percentage = (drawn_count / total_with_owners) * 100
         else:
             percentage = 0.0
 
-        excess_count = drawn_count - protocol_count
+        # Ile jeszcze zostało do wyrysowania
+        missing_count = total_with_owners - drawn_count
 
         drawn_percentage = {
             'drawn_count': drawn_count,
-            'protocol_count': protocol_count,
+            'protocol_count': total_with_owners,  # Całkowita liczba do wyrysowania
             'percentage': round(percentage, 2),
-            'excess_count': excess_count
+            'missing_count': missing_count,  # Ile jeszcze zostało
+            'total_in_db': total_in_db  # Wszystkie działki w bazie
         }
     except Exception as e:
         print(f"⚠️ Błąd statystyki % wyrysowanych: {e}")
