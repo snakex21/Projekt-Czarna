@@ -508,14 +508,14 @@ function updateDrawnPercentageStats(drawnStats) {
   const drawnCount = document.getElementById('drawn-count');
   const protocolCount = document.getElementById('protocol-count');
   const drawnPercentage = document.getElementById('drawn-percentage');
-  const excessCount = document.getElementById('excess-count');
+  const missingCount = document.getElementById('missing-count');
 
   if (drawnCount) drawnCount.textContent = drawnStats.drawn_count || 0;
   if (protocolCount) protocolCount.textContent = drawnStats.protocol_count || 0;
   if (drawnPercentage) drawnPercentage.textContent = `${drawnStats.percentage || 0}%`;
-  if (excessCount) {
-    const excess = drawnStats.excess_count || 0;
-    excessCount.textContent = excess > 0 ? `+${excess}` : excess;
+  if (missingCount) {
+    const missing = drawnStats.missing_count || 0;
+    missingCount.textContent = missing;
   }
 }
 
@@ -567,10 +567,10 @@ function updateJewishStats(jewishStats) {
       <table class="data-table">
         <thead>
           <tr>
-            <th>Nazwa właściciela</th>
-            <th>Nr protokołu</th>
-            <th>Liczba działek</th>
-            <th>Powierzchnia (ha)</th>
+            <th>Właściciel</th>
+            <th>Nr prot.</th>
+            <th>Działek</th>
+            <th>Pow. (ha)</th>
           </tr>
         </thead>
         <tbody>
@@ -599,10 +599,10 @@ function updateJewishStats(jewishStats) {
   const showButton = document.getElementById('show-jewish-parcels');
   if (showButton) {
     showButton.onclick = () => {
-      // Zbierz wszystkie IDs właścicieli
-      const ownerIds = jewishStats.owners.map(o => o.id);
-      // Przekieruj do mapy z parametrem
-      window.open(`../mapa/mapa.html?highlight_owners=${ownerIds.join(',')}`, '_blank');
+      // Zbierz wszystkie unikalne klucze właścicieli
+      const ownerKeys = jewishStats.owners.map(o => o.unikalny_klucz);
+      // Przekieruj do mapy z parametrem (tylko własność rzeczywista)
+      window.open(`../mapa/mapa.html?highlightTopOwners=${ownerKeys.join(',')}&ownership=rzeczywista`, '_blank');
     };
   }
 }
