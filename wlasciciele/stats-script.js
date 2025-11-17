@@ -358,6 +358,9 @@ async function loadStatistics() {
     updateCounters(statsData.general_stats);
     updateAreaStats(statsData.area_stats);
     updateRiversRoadsStats(statsData.rivers_stats, statsData.roads_stats);
+    updateDrawnPercentageStats(statsData.drawn_percentage);
+    updateLocationAreaStats(statsData.location_area);
+    updateJewishStats(statsData.jewish_stats);
     createCharts(statsData);
     loadRankings(statsData);
     loadParcelsRanking(statsData.parcels_ranking);
@@ -493,6 +496,114 @@ function updateRiversRoadsStats(riversStats, roadsStats) {
     if (roadMax) roadMax.textContent = `${Math.round(roadsStats.max_length_m)} m`;
     if (roadAvg) roadAvg.textContent = `${Math.round(roadsStats.avg_length_m)} m`;
     if (roadMin) roadMin.textContent = `${Math.round(roadsStats.min_length_m)} m`;
+  }
+}
+
+/**
+ * Aktualizuje statystyki % wyrysowanych działek.
+ */
+function updateDrawnPercentageStats(drawnStats) {
+  if (!drawnStats) return;
+
+  const drawnCount = document.getElementById('drawn-count');
+  const protocolCount = document.getElementById('protocol-count');
+  const drawnPercentage = document.getElementById('drawn-percentage');
+  const remainingCount = document.getElementById('remaining-count');
+
+  if (drawnCount) drawnCount.textContent = drawnStats.drawn_count || 0;
+  if (protocolCount) protocolCount.textContent = drawnStats.protocol_count || 0;
+  if (drawnPercentage) drawnPercentage.textContent = `${drawnStats.percentage || 0}%`;
+  if (remainingCount) {
+    const remaining = (drawnStats.protocol_count || 0) - (drawnStats.drawn_count || 0);
+    remainingCount.textContent = remaining > 0 ? remaining : 0;
+  }
+}
+
+/**
+ * Aktualizuje statystyki powierzchni miejscowości.
+ */
+function updateLocationAreaStats(areaStats) {
+  if (!areaStats) return;
+
+  const areaHa = document.getElementById('location-area-ha');
+  const areaKm2 = document.getElementById('location-area-km2');
+
+  if (areaHa) {
+    areaHa.textContent = areaStats.area_hectares ? `${areaStats.area_hectares} ha` : '-';
+  }
+  if (areaKm2) {
+    areaKm2.textContent = areaStats.area_km2 ? `${areaStats.area_km2} km²` : '-';
+  }
+}
+
+/**
+ * Aktualizuje statystyki żydowskie.
+ */
+function updateJewishStats(jewishStats) {
+  if (!jewishStats || jewishStats.owners_count === 0) {
+    // Ukryj sekcję jeśli brak danych
+    const section = document.getElementById('jewish-stats-section');
+    if (section) section.style.display = 'none';
+    return;
+  }
+
+  // Pokaż sekcję
+  const section = document.getElementById('jewish-stats-section');
+  if (section) section.style.display = 'block';
+
+  // Aktualizuj liczby
+  const ownersCount = document.getElementById('jewish-owners-count');
+  const parcelsCount = document.getElementById('jewish-parcels-count');
+  const totalArea = document.getElementById('jewish-total-area');
+
+  if (ownersCount) ownersCount.textContent = jewishStats.owners_count || 0;
+  if (parcelsCount) parcelsCount.textContent = jewishStats.parcels_count || 0;
+  if (totalArea) totalArea.textContent = `${jewishStats.total_area_ha || 0} ha`;
+
+  // Twórz tabelę właścicieli
+  const tableContainer = document.getElementById('jewish-owners-table-container');
+  if (tableContainer && jewishStats.owners && jewishStats.owners.length > 0) {
+    let tableHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nazwa właściciela</th>
+            <th>Nr protokołu</th>
+            <th>Liczba działek</th>
+            <th>Powierzchnia (ha)</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    jewishStats.owners.forEach(owner => {
+      const areaHa = (owner.total_area_m2 / 10000).toFixed(2);
+      tableHTML += `
+        <tr>
+          <td><a href="/wlasciciel/${owner.unikalny_klucz}" target="_blank">${owner.nazwa_wlasciciela}</a></td>
+          <td>${owner.numer_protokolu}</td>
+          <td>${owner.parcels_count}</td>
+          <td>${areaHa} ha</td>
+        </tr>
+      `;
+    });
+
+    tableHTML += `
+        </tbody>
+      </table>
+    `;
+    tableContainer.innerHTML = tableHTML;
+  }
+
+  // Dodaj obsługę przycisku "Pokaż na mapie"
+  const showButton = document.getElementById('show-jewish-parcels');
+  if (showButton) {
+    showButton.onclick = () => {
+      // Zbierz wszystkie IDs właścicieli
+      const ownerIds = jewishStats.owners.map(o => o.id);
+      // Przekieruj do mapy z parametrem
+      window.open(`../mapa/mapa.html?highlight_owners=${ownerIds.join(',')}`, '_blank');
+    };
   }
 }
 

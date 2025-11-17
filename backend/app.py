@@ -578,7 +578,11 @@ def get_stats():
     # ——— Statystyki ogólne
     cur.execute("SELECT COUNT(*) as total_owners FROM wlasciciele;")
     total_owners = cur.fetchone()['total_owners']
-    cur.execute("SELECT COUNT(*) as total_plots FROM obiekty_geograficzne;")
+    cur.execute("""
+        SELECT COUNT(*) as total_plots
+        FROM obiekty_geograficzne
+        WHERE kategoria != 'obrys_miejscowosci'
+    """)
     total_plots = cur.fetchone()['total_plots']
 
     # ——— Protokoły dzienne
@@ -650,6 +654,7 @@ def get_stats():
         SELECT kategoria, COUNT(*) as count
         FROM obiekty_geograficzne
         WHERE kategoria IS NOT NULL
+        AND kategoria != 'obrys_miejscowosci'
         GROUP BY kategoria;
     """)
     category_counts_list = cur.fetchall()
@@ -1089,14 +1094,14 @@ def get_stats():
 
     # ——— Statystyki powierzchni działek
     cur.execute("""
-        SELECT 
+        SELECT
             COALESCE(SUM(ST_Area(ST_Transform(geometria, 32634))), 0) / 10000 as total_area_ha,
             COALESCE(AVG(ST_Area(ST_Transform(geometria, 32634))), 0) / 100 as avg_area_ares,
             COALESCE(MIN(ST_Area(ST_Transform(geometria, 32634))), 0) as min_area_m2,
             COALESCE(MAX(ST_Area(ST_Transform(geometria, 32634))), 0) as max_area_m2
         FROM obiekty_geograficzne
-        WHERE geometria IS NOT NULL 
-        AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny');
+        WHERE geometria IS NOT NULL
+        AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny', 'obrys_miejscowosci');
     """)
     area_stats_row = cur.fetchone()
     if area_stats_row:
@@ -1128,8 +1133,8 @@ def get_stats():
             FROM obiekty_geograficzne o
             LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
             LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
-            WHERE o.geometria IS NOT NULL 
-            AND o.kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny')
+            WHERE o.geometria IS NOT NULL
+            AND o.kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny', 'obrys_miejscowosci')
             {category_condition}
             GROUP BY o.id, o.nazwa_lub_numer, o.kategoria, o.geometria
             ORDER BY area_m2 DESC
@@ -1263,36 +1268,27 @@ def get_stats():
     except Exception as e:
         print(f"⚠️ Błąd statystyki % wyrysowanych: {e}")
 
-    # ——— Powierzchnia miejscowości
+    # ——— Powierzchnia miejscowości (obliczona z obrysu)
     location_area = {'area_hectares': None, 'area_km2': None}
     try:
-        # Pobierz z tabeli locations w bazie mapa_launcher_db
-        launcher_db_config = {
-            "host": os.getenv("DB_HOST", "localhost"),
-            "dbname": "mapa_launcher_db",
-            "user": os.getenv("DB_USER", "postgres"),
-            "password": os.getenv("DB_PASSWORD", "1234"),
-            "port": os.getenv("DB_PORT", "5432"),
-            "client_encoding": "UTF8"
-        }
-        launcher_conn = psycopg2.connect(**launcher_db_config)
-        launcher_cursor = launcher_conn.cursor()
-        launcher_cursor.execute("""
-            SELECT area_hectares, area_km2
-            FROM locations
-            WHERE active = TRUE
+        # Oblicz powierzchnię z wyrysowanego obrysu
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                ST_Area(ST_Transform(geometria, 32634)) / 10000 as area_ha,
+                ST_Area(ST_Transform(geometria, 32634)) / 1000000 as area_km2
+            FROM obiekty_geograficzne
+            WHERE kategoria = 'obrys_miejscowosci'
             LIMIT 1
         """)
-        result = launcher_cursor.fetchone()
+        result = cur.fetchone()
         if result:
             location_area = {
-                'area_hectares': float(result[0]) if result[0] else None,
-                'area_km2': float(result[1]) if result[1] else None
+                'area_hectares': round(float(result[0]), 2) if result[0] else None,
+                'area_km2': round(float(result[1]), 4) if result[1] else None
             }
-        launcher_cursor.close()
-        launcher_conn.close()
     except Exception as e:
-        print(f"⚠️ Błąd pobierania powierzchni miejscowości: {e}")
+        print(f"⚠️ Błąd obliczania powierzchni miejscowości: {e}")
 
     # ——— Statystyki żydowskie
     jewish_stats = {
