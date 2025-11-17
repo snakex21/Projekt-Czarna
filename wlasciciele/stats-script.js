@@ -1909,7 +1909,8 @@ function generatePrintReport() {
     rankingsCount: document.getElementById('print-rankings-count')?.checked,
     parcels: document.getElementById('print-parcels')?.checked,
     rivers: document.getElementById('print-rivers')?.checked,
-    roads: document.getElementById('print-roads')?.checked
+    roads: document.getElementById('print-roads')?.checked,
+    jewishStats: document.getElementById('print-jewish-stats')?.checked
   };
 
   // Sprawdź czy wybrano choć jedną sekcję
@@ -2407,6 +2408,54 @@ function generateReportHTML(sections) {
         `).join('')}
       </tbody>
     </table>
+  </div>
+`;
+  }
+
+  // Sekcja: Statystyki właścicieli żydowskich
+  if (sections.jewishStats && statsData?.jewish_stats && statsData.jewish_stats.owners_count > 0) {
+    const jewishStats = statsData.jewish_stats;
+    html += `
+  <div class="report-section">
+    <h2 class="section-title"><i class="fas fa-star-of-david"></i> Statystyki Właścicieli Żydowskich</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">Liczba właścicieli</div>
+        <div class="stat-value">${jewishStats.owners_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Liczba działek</div>
+        <div class="stat-value">${jewishStats.parcels_count || 0}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Łączna powierzchnia</div>
+        <div class="stat-value">${jewishStats.total_area_ha || 0} ha</div>
+      </div>
+    </div>
+
+    ${jewishStats.owners && jewishStats.owners.length > 0 ? `
+    <h3 style="margin: 2rem 0 1rem; color: #667eea;">Lista właścicieli</h3>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Właściciel</th>
+          <th>Numer protokółu</th>
+          <th>Liczba działek</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${jewishStats.owners.map((owner, idx) => `
+        <tr>
+          <td class="ranking-position">${idx + 1}</td>
+          <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
+          <td>${owner.numer_protokolu || '-'}</td>
+          <td>${owner.liczba_dzialek || 0}</td>
+        </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ` : ''}
   </div>
 `;
   }
