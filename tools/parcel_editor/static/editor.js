@@ -192,6 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const hasBudynek = !!createActions.querySelector('[data-category="budynek"]');
     const hasSpec = !!createActions.querySelector('[data-category="obiekt_specjalny"]');
+    const hasBoundary = !!createActions.querySelector('[data-category="obrys_miejscowosci"]');
 
     const frag = document.createDocumentFragment();
 
@@ -207,6 +208,13 @@ document.addEventListener("DOMContentLoaded", function () {
       b2.textContent = "Dodaj obiekt specjalny";
       b2.dataset.category = "obiekt_specjalny";
       frag.appendChild(b2);
+    }
+
+    if (!hasBoundary) {
+      const b3 = document.createElement("button");
+      b3.textContent = "Dodaj obrys miejscowości";
+      b3.dataset.category = "obrys_miejscowosci";
+      frag.appendChild(b3);
     }
 
     if (frag.childNodes.length) {
@@ -244,7 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Sprawdzenie typu geometrii
     const POINT_CATEGORIES = ["budynek", "kapliczka", "obiekt_specjalny", "dworzec"];
-    const LINE_CATEGORIES = ["droga", "rzeka"];
+    const LINE_CATEGORIES = ["droga", "rzeka", "obrys_miejscowosci"];
     const isPoint = POINT_CATEGORIES.includes(String(category || "").toLowerCase());
     const isLine = LINE_CATEGORIES.includes(String(category || "").toLowerCase());
 
@@ -700,6 +708,12 @@ document.addEventListener("DOMContentLoaded", function () {
         weight: 4,
         fill: false
       },
+      obrys_miejscowosci: {
+        color: "#ff0000",
+        weight: 3,
+        fill: false,
+        dashArray: "10, 5"
+      },
       las: {
         color: "#16a085",
         weight: 1,
@@ -753,7 +767,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (isPointCategory || isPointGeom) {
       const [lat, lng] = g;
       layer = L.marker([lat, lng]);
-    } else if (["droga", "rzeka"].includes(String(parcelData.kategoria).toLowerCase())) {
+    } else if (["droga", "rzeka", "obrys_miejscowosci"].includes(String(parcelData.kategoria).toLowerCase())) {
       const latLngs = isArrayOfPairs ? g : [];
       layer = L.polyline(latLngs, styleOptions);
     } else {

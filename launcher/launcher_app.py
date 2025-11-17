@@ -99,6 +99,10 @@ CREATE TABLE IF NOT EXISTS locations (
     postgres_db_name VARCHAR(100),
     gmina_katastralna VARCHAR(100),
     miejscowosc_protokolu VARCHAR(100),
+    area_hectares NUMERIC(10, 2),
+    area_km2 NUMERIC(10, 4),
+    boundary_coordinates JSONB,
+    jewish_protocol_numbers TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -632,6 +636,24 @@ def init_postgres_locations_db():
             cursor.execute("ALTER TABLE locations ADD COLUMN miejscowosc_protokolu VARCHAR(100)")
             print("✓ Dodano kolumnę miejscowosc_protokolu")
 
+        # Sprawdź i dodaj nowe kolumny (powierzchnia, koordynaty, żydzi)
+        new_columns = [
+            ('area_hectares', 'NUMERIC(10, 2)'),
+            ('area_km2', 'NUMERIC(10, 4)'),
+            ('boundary_coordinates', 'JSONB'),
+            ('jewish_protocol_numbers', 'TEXT')
+        ]
+
+        for col_name, col_type in new_columns:
+            cursor.execute("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='locations' AND column_name=%s
+            """, (col_name,))
+            if not cursor.fetchone():
+                cursor.execute(f"ALTER TABLE locations ADD COLUMN {col_name} {col_type}")
+                print(f"✓ Dodano kolumnę {col_name}")
+
         conn.commit()
         cursor.close()
         conn.close()
@@ -1017,7 +1039,8 @@ def ensure_location_data_files(location_folder):
 def add_location(name, full_name, powiat="", region="", homepage_template="standardowy", year="1882", century="XIX w.",
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
-                history_photos=None, postgres_db_name="", gmina_katastralna="Czarna"):
+                history_photos=None, postgres_db_name="", gmina_katastralna="Czarna",
+                jewish_protocol_numbers=""):
     """
     Dodaje nową miejscowość do bazy danych PostgreSQL i tworzy folder.
 
@@ -1114,12 +1137,12 @@ LOCATION_CODE={name[:2].upper()}
                                   homepage_template, year, century,
                                   homepage_description, history_paragraph1,
                                   history_paragraph2, history_paragraph3, postgres_db_name,
-                                  gmina_katastralna)
-            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                  gmina_katastralna, jewish_protocol_numbers)
+            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (name, full_name, powiat, region, homepage_template, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name,
-              gmina_katastralna))
+              gmina_katastralna, jewish_protocol_numbers))
 
         location_id = cursor.fetchone()[0]
 
@@ -1188,7 +1211,7 @@ LOCATION_CODE={name[:2].upper()}
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                    history_photos=None, postgres_db_name="", homepage_template="standardowy",
-                   gmina_katastralna="Czarna"):
+                   gmina_katastralna="Czarna", jewish_protocol_numbers=""):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1246,11 +1269,13 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                 history_paragraph2 = %s, history_paragraph3 = %s,
                 postgres_db_name = %s, homepage_template = %s,
                 gmina_katastralna = %s,
+                jewish_protocol_numbers = %s,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (name, full_name, powiat, region, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
               postgres_db_name, homepage_template, gmina_katastralna,
+              jewish_protocol_numbers,
               location_id))
 
         cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
@@ -3434,14 +3459,15 @@ class LocationManager(tk.Toplevel):
             (name, full_name, powiat, region, year, century,
              homepage_desc, history_p1, history_p2, history_p3,
              history_photos, postgres_db_name, homepage_template,
-             gmina_katastralna) = dialog.result
+             gmina_katastralna, jewish_protocols) = dialog.result
             try:
                 add_location(name, full_name, powiat, region, year=year, century=century,
                            homepage_description=homepage_desc, history_paragraph1=history_p1,
                            history_paragraph2=history_p2, history_paragraph3=history_p3,
                            history_photos=history_photos, postgres_db_name=postgres_db_name,
                            homepage_template=homepage_template,
-                           gmina_katastralna=gmina_katastralna)
+                           gmina_katastralna=gmina_katastralna,
+                           jewish_protocol_numbers=jewish_protocols)
                 messagebox.showinfo("✅ Sukces", f"Dodano miejscowość: {name}", parent=self)
                 self.refresh_table()
             except ValueError as e:
@@ -3465,6 +3491,7 @@ class LocationManager(tk.Toplevel):
         postgres_db_name = ""
         homepage_template = "standardowy"
         gmina_katastralna = "Czarna"
+        jewish_protocols = ""
 
         if not check_postgres_available():
             messagebox.showerror("❌ Błąd", "PostgreSQL nie jest dostępny!", parent=self)
@@ -3477,7 +3504,8 @@ class LocationManager(tk.Toplevel):
             cursor.execute("""
                 SELECT name, full_name, powiat, region, year, century,
                        homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
-                       postgres_db_name, homepage_template, gmina_katastralna
+                       postgres_db_name, homepage_template, gmina_katastralna,
+                       jewish_protocol_numbers
                 FROM locations WHERE id = %s
             """, (loc_id,))
             result = cursor.fetchone()
@@ -3485,10 +3513,11 @@ class LocationManager(tk.Toplevel):
             if result:
                 (name, full_name, powiat, region, year, century,
                  homepage_desc, history_p1, history_p2, history_p3, postgres_db_name, homepage_template,
-                 gmina_katastralna) = result
+                 gmina_katastralna, jewish_protocols) = result
                 postgres_db_name = postgres_db_name or ""
                 homepage_template = homepage_template or "standardowy"
                 gmina_katastralna = gmina_katastralna or "Czarna"
+                jewish_protocols = jewish_protocols or ""
 
                 # Pobierz zdjęcia historyczne
                 cursor.execute("""
@@ -3532,19 +3561,19 @@ class LocationManager(tk.Toplevel):
         dialog = AddEditLocationDialog(self, "Edytuj Miejscowość", name, full_name, powiat, region, year, century,
                                       homepage_desc, history_p1, history_p2, history_p3,
                                       history_photos, postgres_db_name, homepage_template,
-                                      gmina_katastralna)
+                                      gmina_katastralna, jewish_protocols)
         self.wait_window(dialog)
 
         if hasattr(dialog, 'result') and dialog.result:
             (new_name, new_full_name, new_powiat, new_region, new_year, new_century,
              new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
              new_history_photos, new_postgres_db_name, new_homepage_template,
-             new_gmina_katastralna) = dialog.result
+             new_gmina_katastralna, new_jewish_protocols) = dialog.result
             try:
                 update_location(int(loc_id), new_name, new_full_name, new_powiat, new_region, new_year, new_century,
                               new_homepage_desc, new_history_p1, new_history_p2, new_history_p3,
                               new_history_photos, new_postgres_db_name, new_homepage_template,
-                              new_gmina_katastralna)
+                              new_gmina_katastralna, new_jewish_protocols)
 
                 # Jeśli edytowana miejscowość jest aktywna, wygeneruj nowy plik JS
                 active_location = get_active_location()
@@ -4984,7 +5013,7 @@ class AddEditLocationDialog(tk.Toplevel):
     def __init__(self, parent, title, name="", full_name="", powiat="", region="", year="1882", century="XIX w.",
                  homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                  history_photos=None, postgres_db_name="", homepage_template="standardowy",
-                 gmina_katastralna="Czarna"):
+                 gmina_katastralna="Czarna", jewish_protocol_numbers=""):
         super().__init__(parent)
         self.transient(parent)
         self.title(title)
@@ -5091,12 +5120,19 @@ class AddEditLocationDialog(tk.Toplevel):
         self.gmina_katastralna_entry.insert(0, gmina_katastralna)
         self.gmina_katastralna_entry.grid(row=0, column=1, pady=5, padx=10, sticky="ew")
 
+        ttk.Label(protokol_frame, text="Numery protokołów żydowskich:").grid(row=1, column=0, sticky="w", pady=5)
+        self.jewish_protocols_entry = ttk.Entry(protokol_frame, width=50)
+        self.jewish_protocols_entry.insert(0, jewish_protocol_numbers)
+        self.jewish_protocols_entry.grid(row=1, column=1, pady=5, padx=10, sticky="ew")
+
         # Info
         info_label = ttk.Label(protokol_frame,
-                               text="Ta wartość będzie używana w protokołach katastralnych.\n"
-                                    "Gmina katastralna: używana w tytule protokołu.",
+                               text="Gmina katastralna: używana w tytule protokołu.\n"
+                                    "Numery protokołów żydowskich: oddzielone przecinkami, np: 12,45,67\n\n"
+                                    "💡 Powierzchnia miejscowości jest automatycznie obliczana\n"
+                                    "    z wyrysowanego obrysu w edytorze działek.",
                                foreground="gray", wraplength=500)
-        info_label.grid(row=1, column=0, columnspan=2, sticky="w", pady=15)
+        info_label.grid(row=2, column=0, columnspan=2, sticky="w", pady=15)
 
         protokol_frame.columnconfigure(1, weight=1)
 
@@ -5306,15 +5342,17 @@ class AddEditLocationDialog(tk.Toplevel):
 
         # Pobierz wartości protokołu
         gmina_katastralna = self.gmina_katastralna_entry.get().strip()
+        jewish_protocols = self.jewish_protocols_entry.get().strip()
 
         # Ustaw domyślne wartości jeśli puste
         if not gmina_katastralna:
             gmina_katastralna = "Czarna"
 
+        # Powierzchnia (ha i km2) nie jest zapisywana - obliczana automatycznie z obrysu
         self.result = (name, full_name, powiat, region, year, century,
                       homepage_desc, history_p1, history_p2, history_p3,
                       self.history_photos, postgres_db_name, homepage_template,
-                      gmina_katastralna)
+                      gmina_katastralna, jewish_protocols)
         self.destroy()
 
 

@@ -342,10 +342,11 @@ def get_all_dzialki():
                     'wlasciciele', (
                         SELECT json_agg(owner_data) FROM (
                             SELECT DISTINCT ON (w.id) json_build_object(
-                                'id', w.id, 'unikalny_klucz', w.unikalny_klucz, 'nazwa', w.nazwa_wlasciciela
+                                'id', w.id, 'unikalny_klucz', w.unikalny_klucz, 'nazwa', w.nazwa_wlasciciela, 'typ_posiadania', dw.typ_posiadania
                             ) as owner_data
                             FROM wlasciciele w JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                             WHERE dw.obiekt_id = o.id
+                            AND o.kategoria != 'obrys_miejscowosci'
                         ) as sub
                     )
                 )
@@ -578,7 +579,11 @@ def get_stats():
     # ——— Statystyki ogólne
     cur.execute("SELECT COUNT(*) as total_owners FROM wlasciciele;")
     total_owners = cur.fetchone()['total_owners']
-    cur.execute("SELECT COUNT(*) as total_plots FROM obiekty_geograficzne;")
+    cur.execute("""
+        SELECT COUNT(*) as total_plots
+        FROM obiekty_geograficzne
+        WHERE kategoria != 'obrys_miejscowosci'
+    """)
     total_plots = cur.fetchone()['total_plots']
 
     # ——— Protokoły dzienne
@@ -650,6 +655,7 @@ def get_stats():
         SELECT kategoria, COUNT(*) as count
         FROM obiekty_geograficzne
         WHERE kategoria IS NOT NULL
+        AND kategoria != 'obrys_miejscowosci'
         GROUP BY kategoria;
     """)
     category_counts_list = cur.fetchall()
@@ -1089,14 +1095,14 @@ def get_stats():
 
     # ——— Statystyki powierzchni działek
     cur.execute("""
-        SELECT 
+        SELECT
             COALESCE(SUM(ST_Area(ST_Transform(geometria, 32634))), 0) / 10000 as total_area_ha,
             COALESCE(AVG(ST_Area(ST_Transform(geometria, 32634))), 0) / 100 as avg_area_ares,
             COALESCE(MIN(ST_Area(ST_Transform(geometria, 32634))), 0) as min_area_m2,
             COALESCE(MAX(ST_Area(ST_Transform(geometria, 32634))), 0) as max_area_m2
         FROM obiekty_geograficzne
-        WHERE geometria IS NOT NULL 
-        AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny');
+        WHERE geometria IS NOT NULL
+        AND kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny', 'obrys_miejscowosci');
     """)
     area_stats_row = cur.fetchone()
     if area_stats_row:
@@ -1128,8 +1134,8 @@ def get_stats():
             FROM obiekty_geograficzne o
             LEFT JOIN dzialki_wlasciciele dw ON o.id = dw.obiekt_id
             LEFT JOIN wlasciciele w ON dw.wlasciciel_id = w.id
-            WHERE o.geometria IS NOT NULL 
-            AND o.kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny')
+            WHERE o.geometria IS NOT NULL
+            AND o.kategoria NOT IN ('droga', 'rzeka', 'obiekt_specjalny', 'obrys_miejscowosci')
             {category_condition}
             GROUP BY o.id, o.nazwa_lub_numer, o.kategoria, o.geometria
             ORDER BY area_m2 DESC
@@ -1234,6 +1240,149 @@ def get_stats():
             road_dict['road_number'] = f"Droga {road_dict['id']}"
         roads_ranking.append(road_dict)
 
+    # ——— Statystyka % wyrysowanych działek
+    drawn_percentage = {'drawn_count': 0, 'protocol_count': 0, 'percentage': 0.0, 'missing_count': 0, 'total_in_db': 0}
+    try:
+        cur = conn.cursor()
+
+        # Liczba wszystkich działek (rolna+budowlana) które mają właścicieli - to jest łączna liczba do wyrysowania
+        cur.execute("""
+            SELECT COUNT(DISTINCT dw.obiekt_id) as total
+            FROM dzialki_wlasciciele dw
+            JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
+            WHERE o.kategoria IN ('rolna', 'budowlana')
+            AND o.kategoria != 'obrys_miejscowosci';
+        """)
+        total_with_owners = cur.fetchone()[0]
+
+        # Liczba działek już wyrysowanych (z własnością rzeczywistą)
+        cur.execute("""
+            SELECT COUNT(DISTINCT dw.obiekt_id) as count
+            FROM dzialki_wlasciciele dw
+            JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
+            WHERE o.kategoria IN ('rolna', 'budowlana')
+            AND o.kategoria != 'obrys_miejscowosci'
+            AND dw.typ_posiadania = 'własność rzeczywista';
+        """)
+        drawn_count = cur.fetchone()[0]
+
+        # Liczba działek z protokołów (nie wyrysowanych jeszcze)
+        protocol_count = total_with_owners - drawn_count
+
+        # Liczba wszystkich działek w bazie (dla informacji)
+        cur.execute("""
+            SELECT COUNT(*) as count
+            FROM obiekty_geograficzne
+            WHERE kategoria IN ('rolna', 'budowlana')
+            AND kategoria != 'obrys_miejscowosci';
+        """)
+        total_in_db = cur.fetchone()[0]
+
+        # Procent ukończenia
+        if total_with_owners > 0:
+            percentage = (drawn_count / total_with_owners) * 100
+        else:
+            percentage = 0.0
+
+        # Ile jeszcze zostało do wyrysowania
+        missing_count = total_with_owners - drawn_count
+
+        drawn_percentage = {
+            'drawn_count': drawn_count,
+            'protocol_count': total_with_owners,  # Całkowita liczba do wyrysowania
+            'percentage': round(percentage, 2),
+            'missing_count': missing_count,  # Ile jeszcze zostało
+            'total_in_db': total_in_db  # Wszystkie działki w bazie
+        }
+    except Exception as e:
+        print(f"⚠️ Błąd statystyki % wyrysowanych: {e}")
+
+    # ——— Powierzchnia miejscowości (obliczona z obrysu)
+    location_area = {'area_hectares': None, 'area_km2': None}
+    try:
+        # Oblicz powierzchnię z wyrysowanego obrysu
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT
+                ST_Area(ST_Transform(geometria, 32634)) / 10000 as area_ha,
+                ST_Area(ST_Transform(geometria, 32634)) / 1000000 as area_km2
+            FROM obiekty_geograficzne
+            WHERE kategoria = 'obrys_miejscowosci'
+            LIMIT 1
+        """)
+        result = cur.fetchone()
+        if result:
+            location_area = {
+                'area_hectares': round(float(result[0]), 2) if result[0] else None,
+                'area_km2': round(float(result[1]), 4) if result[1] else None
+            }
+    except Exception as e:
+        print(f"⚠️ Błąd obliczania powierzchni miejscowości: {e}")
+
+    # ——— Statystyki żydowskie
+    jewish_stats = {
+        'total_area_m2': 0,
+        'total_area_ha': 0,
+        'parcels_count': 0,
+        'owners_count': 0,
+        'owners': []
+    }
+    try:
+        # Pobierz numery protokołów żydowskich z locations
+        launcher_conn = psycopg2.connect(**launcher_db_config)
+        launcher_cursor = launcher_conn.cursor()
+        launcher_cursor.execute("""
+            SELECT jewish_protocol_numbers
+            FROM locations
+            WHERE active = TRUE
+            LIMIT 1
+        """)
+        result = launcher_cursor.fetchone()
+        launcher_cursor.close()
+        launcher_conn.close()
+
+        if result and result[0]:
+            jewish_protocols_str = result[0]
+            # Parsuj numery (oddzielone przecinkami)
+            jewish_protocols = [p.strip() for p in jewish_protocols_str.split(',') if p.strip()]
+
+            if jewish_protocols:
+                # Znajdź właścicieli z tymi numerami (tylko własność rzeczywista)
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                placeholders = ','.join(['%s'] * len(jewish_protocols))
+                cur.execute(f"""
+                    SELECT
+                        w.id,
+                        w.nazwa_wlasciciela,
+                        w.unikalny_klucz,
+                        w.numer_protokolu,
+                        COUNT(dw.obiekt_id) as parcels_count,
+                        COALESCE(SUM(ST_Area(ST_Transform(o.geometria, 32634))), 0) as total_area_m2
+                    FROM wlasciciele w
+                    LEFT JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id AND dw.typ_posiadania = 'własność rzeczywista'
+                    LEFT JOIN obiekty_geograficzne o ON dw.obiekt_id = o.id
+                        AND o.kategoria IN ('rolna', 'budowlana')
+                        AND o.kategoria != 'obrys_miejscowosci'
+                    WHERE w.numer_protokolu IN ({placeholders})
+                    GROUP BY w.id, w.nazwa_wlasciciela, w.unikalny_klucz, w.numer_protokolu
+                    ORDER BY total_area_m2 DESC;
+                """, jewish_protocols)
+                jewish_owners = cur.fetchall()
+
+                # Sumuj statystyki
+                total_area = sum(owner['total_area_m2'] for owner in jewish_owners)
+                total_parcels = sum(owner['parcels_count'] for owner in jewish_owners)
+
+                jewish_stats = {
+                    'total_area_m2': float(total_area),
+                    'total_area_ha': round(float(total_area) / 10000, 2),
+                    'parcels_count': total_parcels,
+                    'owners_count': len(jewish_owners),
+                    'owners': [dict(owner) for owner in jewish_owners]
+                }
+    except Exception as e:
+        print(f"⚠️ Błąd statystyki żydowskie: {e}")
+
     cur.close()
     conn.close()
 
@@ -1250,7 +1399,10 @@ def get_stats():
         'rivers_stats': rivers_stats,
         'rivers_ranking': rivers_ranking,
         'roads_stats': roads_stats,
-        'roads_ranking': roads_ranking
+        'roads_ranking': roads_ranking,
+        'drawn_percentage': drawn_percentage,
+        'location_area': location_area,
+        'jewish_stats': jewish_stats
     })
 
 @app.route('/api/plots-for-owners', methods=['POST'])
@@ -1273,7 +1425,11 @@ def get_plots_for_owners():
         FROM wlasciciele w
         JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
         JOIN obiekty_geograficzne o ON o.id = dw.obiekt_id
-        WHERE w.id = ANY(%s) AND o.geometria IS NOT NULL GROUP BY w.id;
+        WHERE w.id = ANY(%s)
+            AND o.geometria IS NOT NULL
+            AND dw.typ_posiadania = 'własność rzeczywista'
+            AND o.kategoria != 'obrys_miejscowosci'
+        GROUP BY w.id;
     """
     cur.execute(query, (owner_ids_int,))
     data = cur.fetchall()
@@ -2404,6 +2560,45 @@ def admin_delete_wlasciciel(id):
             cur.execute("DELETE FROM wlasciciele WHERE id = %s;", (id,))
             conn.commit()
             return jsonify({'status': 'success'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/admin/clean-boundary-owners', methods=['POST'])
+def admin_clean_boundary_owners():
+    """Usuwa wszystkich właścicieli z obrysu miejscowości."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Znajdź ID obiektu obrysu miejscowości
+            cur.execute("""
+                SELECT id FROM obiekty_geograficzne
+                WHERE kategoria = 'obrys_miejscowosci'
+            """)
+            boundary_obiekty = cur.fetchall()
+
+            if not boundary_obiekty:
+                return jsonify({'status': 'success', 'message': 'Nie znaleziono obrysu miejscowości', 'deleted': 0})
+
+            boundary_ids = [row[0] for row in boundary_obiekty]
+
+            # Usuń powiązania z właścicielami
+            cur.execute("""
+                DELETE FROM dzialki_wlasciciele
+                WHERE obiekt_id = ANY(%s)
+                RETURNING obiekt_id
+            """, (boundary_ids,))
+
+            deleted_count = cur.rowcount
+            conn.commit()
+
+            return jsonify({
+                'status': 'success',
+                'message': f'Usunięto {deleted_count} powiązań z właścicielami z obrysu miejscowości',
+                'deleted': deleted_count
+            })
     except Exception as e:
         conn.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
