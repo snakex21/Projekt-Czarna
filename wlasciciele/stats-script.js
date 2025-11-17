@@ -580,7 +580,7 @@ function updateJewishStats(jewishStats) {
       const areaHa = (owner.total_area_m2 / 10000).toFixed(2);
       tableHTML += `
         <tr>
-          <td><a href="/wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" target="_blank">${owner.nazwa_wlasciciela}</a></td>
+          <td><a href="/wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}">${owner.nazwa_wlasciciela}</a></td>
           <td>${owner.numer_protokolu}</td>
           <td>${owner.parcels_count}</td>
           <td>${areaHa} ha</td>
@@ -601,8 +601,8 @@ function updateJewishStats(jewishStats) {
     showButton.onclick = () => {
       // Zbierz wszystkie unikalne klucze właścicieli
       const ownerKeys = jewishStats.owners.map(o => o.unikalny_klucz);
-      // Przekieruj do mapy z parametrem (tylko własność rzeczywista)
-      window.open(`../mapa/mapa.html?highlightTopOwners=${ownerKeys.join(',')}&ownership=rzeczywista`, '_blank');
+      // Przekieruj do mapy z parametrem (tylko własność rzeczywista) - w tej samej karcie
+      window.location.href = `../mapa/mapa.html?highlightTopOwners=${ownerKeys.join(',')}&ownership=rzeczywista`;
     };
   }
 }
