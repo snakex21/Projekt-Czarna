@@ -2442,17 +2442,22 @@ function generateReportHTML(sections) {
           <th>Właściciel</th>
           <th>Numer protokółu</th>
           <th>Liczba działek</th>
+          <th>Powierzchnia (ha)</th>
         </tr>
       </thead>
       <tbody>
-        ${jewishStats.owners.map((owner, idx) => `
+        ${jewishStats.owners.map((owner, idx) => {
+          const areaHa = ((owner.total_area_m2 || 0) / 10000).toFixed(2);
+          return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
           <td>${owner.numer_protokolu || '-'}</td>
-          <td>${owner.liczba_dzialek || 0}</td>
+          <td>${owner.parcels_count || 0}</td>
+          <td>${areaHa} ha</td>
         </tr>
-        `).join('')}
+        `;
+        }).join('')}
       </tbody>
     </table>
     ` : ''}
