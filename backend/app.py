@@ -342,10 +342,11 @@ def get_all_dzialki():
                     'wlasciciele', (
                         SELECT json_agg(owner_data) FROM (
                             SELECT DISTINCT ON (w.id) json_build_object(
-                                'id', w.id, 'unikalny_klucz', w.unikalny_klucz, 'nazwa', w.nazwa_wlasciciela
+                                'id', w.id, 'unikalny_klucz', w.unikalny_klucz, 'nazwa', w.nazwa_wlasciciela, 'typ_posiadania', dw.typ_posiadania
                             ) as owner_data
                             FROM wlasciciele w JOIN dzialki_wlasciciele dw ON w.id = dw.wlasciciel_id
                             WHERE dw.obiekt_id = o.id
+                            AND o.kategoria != 'obrys_miejscowosci'
                         ) as sub
                     )
                 )
@@ -2559,6 +2560,45 @@ def admin_delete_wlasciciel(id):
             cur.execute("DELETE FROM wlasciciele WHERE id = %s;", (id,))
             conn.commit()
             return jsonify({'status': 'success'})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/admin/clean-boundary-owners', methods=['POST'])
+def admin_clean_boundary_owners():
+    """Usuwa wszystkich właścicieli z obrysu miejscowości."""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Znajdź ID obiektu obrysu miejscowości
+            cur.execute("""
+                SELECT id FROM obiekty_geograficzne
+                WHERE kategoria = 'obrys_miejscowosci'
+            """)
+            boundary_obiekty = cur.fetchall()
+
+            if not boundary_obiekty:
+                return jsonify({'status': 'success', 'message': 'Nie znaleziono obrysu miejscowości', 'deleted': 0})
+
+            boundary_ids = [row[0] for row in boundary_obiekty]
+
+            # Usuń powiązania z właścicielami
+            cur.execute("""
+                DELETE FROM dzialki_wlasciciele
+                WHERE obiekt_id = ANY(%s)
+                RETURNING obiekt_id
+            """, (boundary_ids,))
+
+            deleted_count = cur.rowcount
+            conn.commit()
+
+            return jsonify({
+                'status': 'success',
+                'message': f'Usunięto {deleted_count} powiązań z właścicielami z obrysu miejscowości',
+                'deleted': deleted_count
+            })
     except Exception as e:
         conn.rollback()
         return jsonify({'status': 'error', 'message': str(e)}), 500
