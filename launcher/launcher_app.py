@@ -2368,6 +2368,10 @@ class AppLauncher(tk.Tk):
         self.after(20, lambda: setattr(self, '_last_port', self.load_flask_config().get("port")))
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Obsługa focusu okna - naprawia problem z alt+tab
+        self.bind("<FocusIn>", self.on_window_focus)
+
         self.process_queue()
 
     def setup_window_geometry(self):
@@ -3326,6 +3330,21 @@ if __name__ == '__main__':
                 os.remove(wrapper_path)
             except:
                 pass
+
+    def on_window_focus(self, event=None):
+        """Obsługuje zdarzenie powrotu focusu do okna (np. po alt+tab).
+
+        Upewnia się, że okno jest zawsze na wierzchu i otrzymuje focus
+        gdy użytkownik do niego wraca.
+        """
+        try:
+            # Przenieś okno na wierzch stosu okien
+            self.lift()
+            # Wymuś focus na oknie
+            self.focus_force()
+        except:
+            # Ignoruj błędy jeśli okno jest w trakcie zamykania
+            pass
 
     def _prepare_process_env(self):
         """Przygotowuje środowisko dla procesu."""
