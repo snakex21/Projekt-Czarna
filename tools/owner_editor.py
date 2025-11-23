@@ -226,7 +226,7 @@ class OwnerEditorApp(tk.Tk):
         self.search_entry.focus_set()
 
     def set_window_icon(self):
-        """Ustawia ikonę okna aplikacji (pióro z launchera)."""
+        """Ustawia ikonę okna aplikacji (pióro z launchera lub custom ikona)."""
         try:
             # Ścieżka do ikony w katalogu launcher/assets
             launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
@@ -240,8 +240,15 @@ class OwnerEditorApp(tk.Tk):
                 except Exception as e:
                     print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
 
+            # Sprawdź czy jest zapisana custom ikona
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+            # Preferuj custom ikonę jeśli istnieje
+            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
-            png_path = os.path.join(icon_dir, 'feather_icon.png')
             if os.path.exists(png_path):
                 icon_image = tk.PhotoImage(file=png_path)
                 self.iconphoto(True, icon_image)
@@ -250,7 +257,6 @@ class OwnerEditorApp(tk.Tk):
 
             # Dla Windows, spróbuj też ICO
             if platform.system() == "Windows":
-                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
                 if os.path.exists(ico_path):
                     self.iconbitmap(ico_path)
         except Exception as e:
@@ -803,6 +809,44 @@ class OwnerEditorApp(tk.Tk):
         return True
 
 # ==========================================================================
+# FUNKCJE POMOCNICZE DLA IKON OKIEN
+# ==========================================================================
+
+def set_dialog_icon(window):
+    """
+    Ustawia ikonę dla okna dialogowego (Toplevel).
+    Używa custom ikony jeśli istnieje, w przeciwnym razie domyślnej.
+
+    Args:
+        window: Okno tk.Toplevel do którego ma być dodana ikona
+    """
+    try:
+        # Ścieżka do ikony w katalogu launcher/assets
+        launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
+        icon_dir = os.path.join(launcher_dir, 'assets')
+
+        # Sprawdź czy jest zapisana custom ikona
+        custom_png = os.path.join(icon_dir, 'custom_icon.png')
+        custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+        # Preferuj custom ikonę jeśli istnieje
+        png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+        ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+        if os.path.exists(png_path):
+            icon_image = tk.PhotoImage(file=png_path)
+            window.iconphoto(True, icon_image)
+            # Zachowaj referencję aby uniknąć garbage collection
+            window._icon_image = icon_image
+
+        # Dla Windows, spróbuj też ICO
+        if platform.system() == "Windows":
+            if os.path.exists(ico_path):
+                window.iconbitmap(ico_path)
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
+
+# ==========================================================================
 # KLASA OKNA EDYCJI
 # ==========================================================================
 
@@ -815,6 +859,9 @@ class EditWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title(f"Edycja Danych - {owner_data.get('ownerName', 'Nowy Wpis')}")
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
 
         # Geometria okna
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -1563,7 +1610,10 @@ class DemografiaEditorWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title("Edytor Danych Demograficznych")
-        
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
+
         self._setup_window_geometry()
         self.data = []
         self.load_data()
@@ -1842,6 +1892,9 @@ class BackupManagerWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title("Menedżer Kopii Zapasowych (Dane + Skany)")
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
 
         self.parent = parent
         self.selected_backup_file = None
