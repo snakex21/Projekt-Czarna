@@ -411,6 +411,74 @@ def set_dialog_icon(window):
         print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
 
+def set_windows_taskbar_icon_for_window(window, ico_path):
+    """
+    Ustawia ikonę dla paska zadań Windows używając Windows API.
+    Używa multi-size ICO dla najlepszej jakości.
+
+    Args:
+        window: Okno Tkinter (główne lub Toplevel)
+        ico_path: Ścieżka do pliku ICO
+    """
+    if platform.system() != "Windows" or not os.path.exists(ico_path):
+        return
+
+    try:
+        import ctypes
+
+        # Stałe Windows API
+        GCLP_HICON = -14
+        GCLP_HICONSM = -34
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+
+        # Pobierz handle okna
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        if not hwnd:
+            hwnd = window.winfo_id()
+
+        # Załaduj małą ikonę (16x16 lub 32x32 w zależności od DPI)
+        hicon_small = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            16,
+            16,
+            LR_LOADFROMFILE
+        )
+
+        # Załaduj dużą ikonę (używa największego rozmiaru z ICO)
+        hicon_big = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE
+        )
+
+        if hicon_small:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICONSM, hicon_small)
+            except:
+                pass
+
+        if hicon_big:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICON, hicon_big)
+            except:
+                pass
+
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony paska zadań: {e}")
+
+
 def check_postgres_available():
     """
     Sprawdza czy PostgreSQL jest dostępny i skonfigurowany.
@@ -2588,10 +2656,12 @@ class AppLauncher(tk.Tk):
                 # Zachowaj referencję aby uniknąć garbage collection
                 self._icon_image = icon_image
 
-            # Dla Windows, spróbuj też ICO
+            # Dla Windows, ustaw ICO i ikonę paska zadań
             if platform.system() == "Windows":
                 if os.path.exists(ico_path):
                     self.iconbitmap(ico_path)
+                    # Ustaw także ikonę paska zadań używając Windows API dla lepszej jakości
+                    set_windows_taskbar_icon_for_window(self, ico_path)
         except Exception as e:
             print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
@@ -7559,20 +7629,30 @@ class IconChooserWindow(tk.Toplevel):
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
             os.makedirs(icon_dir, exist_ok=True)
 
-            # Wczytaj obraz
+            # Wczytaj obraz i konwertuj do RGBA jeśli potrzeba
             img = Image.open(self.current_icon_path)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
 
-            # Zapisz jako PNG dla iconphoto()
+            # Zapisz jako PNG w pełnej rozdzielczości dla iconphoto()
             png_path = os.path.join(icon_dir, 'custom_icon.png')
             img.save(png_path, 'PNG')
 
-            # Dla Windows, zapisz też jako ICO
+            # Dla Windows, zapisz też jako ICO z wieloma rozmiarami
             ico_path = os.path.join(icon_dir, 'custom_icon.ico')
             if platform.system() == "Windows":
-                # Konwertuj do ICO (32x32 i 16x16)
-                img_32 = img.resize((32, 32), Image.Resampling.LANCZOS)
-                img_16 = img.resize((16, 16), Image.Resampling.LANCZOS)
-                img_32.save(ico_path, format='ICO', sizes=[(32, 32), (16, 16)])
+                # Stwórz ICO z wieloma rozmiarami dla lepszej jakości w pasku zadań i Alt+Tab
+                # Windows używa różnych rozmiarów: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256
+                icon_sizes = [(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)]
+
+                # Stwórz listę obrazów w różnych rozmiarach
+                icon_images = []
+                for size in icon_sizes:
+                    resized = img.resize(size, Image.Resampling.LANCZOS)
+                    icon_images.append(resized)
+
+                # Zapisz jako ICO z wieloma rozmiarami
+                icon_images[0].save(ico_path, format='ICO', sizes=icon_sizes, append_images=icon_images[1:])
 
             # Zastosuj ikonę do okna Tkinter
             icon_image = tk.PhotoImage(file=png_path)
@@ -7608,41 +7688,8 @@ class IconChooserWindow(tk.Toplevel):
             self.parent_app.log(f"❌ Błąd zmiany ikony: {e}\n")
 
     def change_windows_taskbar_icon(self, ico_path):
-        """Zmienia ikonę w pasku zadań Windows."""
-        if platform.system() != "Windows":
-            return
-
-        try:
-            import ctypes
-
-            # Stałe Windows API
-            GCL_HICON = -14
-            WM_SETICON = 0x0080
-            ICON_SMALL = 0
-            ICON_BIG = 1
-
-            # Pobierz handle okna
-            hwnd = ctypes.windll.user32.GetParent(self.parent_app.winfo_id())
-            if not hwnd:
-                hwnd = self.parent_app.winfo_id()
-
-            # Załaduj ikonę z pliku
-            hicon = ctypes.windll.shell32.ExtractIconW(
-                ctypes.windll.kernel32.GetModuleHandleW(None),
-                ico_path,
-                0
-            )
-
-            if hicon:
-                # Ustaw małą i dużą ikonę
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
-
-                # Również ustaw ikonę klasy okna
-                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon)
-
-        except Exception as e:
-            print(f"⚠️ Nie udało się zmienić ikony paska zadań: {e}")
+        """Zmienia ikonę w pasku zadań Windows używając multi-size ICO."""
+        set_windows_taskbar_icon_for_window(self.parent_app, ico_path)
 
     def center_window(self):
         """Wyśrodkowuje okno."""
