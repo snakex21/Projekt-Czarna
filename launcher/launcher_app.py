@@ -117,11 +117,21 @@ CREATE TABLE IF NOT EXISTS history_photos (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela globalnych ustawień launchera
+CREATE TABLE IF NOT EXISTS launcher_settings (
+    id SERIAL PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indeksy
 CREATE INDEX IF NOT EXISTS idx_location_active ON locations(active);
 CREATE INDEX IF NOT EXISTS idx_location_name ON locations(name);
 CREATE INDEX IF NOT EXISTS idx_photos_location ON history_photos(location_id);
 CREATE INDEX IF NOT EXISTS idx_photos_order ON history_photos(location_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_launcher_settings_key ON launcher_settings(setting_key);
 
 -- Trigger do aktualizacji updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -134,6 +144,10 @@ $$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
 CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_launcher_settings_updated_at ON launcher_settings;
+CREATE TRIGGER update_launcher_settings_updated_at BEFORE UPDATE ON launcher_settings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Upewnij się że zawsze tylko jedna miejscowość jest aktywna
@@ -367,13 +381,22 @@ LAUNCHER_DB_PASSWORD={password}
 def set_dialog_icon(window):
     """
     Ustawia ikonę dla okna dialogowego (Toplevel).
+    Używa custom ikony jeśli istnieje, w przeciwnym razie domyślnej.
 
     Args:
         window: Okno tk.Toplevel do którego ma być dodana ikona
     """
     try:
         icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-        png_path = os.path.join(icon_dir, 'feather_icon.png')
+
+        # Sprawdź czy jest zapisana custom ikona
+        custom_png = os.path.join(icon_dir, 'custom_icon.png')
+        custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+        # Preferuj custom ikonę jeśli istnieje
+        png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+        ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
         if os.path.exists(png_path):
             icon_image = tk.PhotoImage(file=png_path)
             window.iconphoto(True, icon_image)
@@ -382,7 +405,6 @@ def set_dialog_icon(window):
 
         # Dla Windows, spróbuj też ICO
         if platform.system() == "Windows":
-            ico_path = os.path.join(icon_dir, 'feather_icon.ico')
             if os.path.exists(ico_path):
                 window.iconbitmap(ico_path)
     except Exception as e:
@@ -854,6 +876,74 @@ def get_active_location_name():
     """Zwraca nazwę aktywnej miejscowości lub None."""
     location = get_active_location()
     return location[1] if location else None
+
+# =============================================================================
+# FUNKCJE DO ZARZĄDZANIA USTAWIENIAMI LAUNCHERA
+# =============================================================================
+
+def get_launcher_setting(key, default=None):
+    """
+    Pobiera wartość ustawienia z tabeli launcher_settings.
+
+    Args:
+        key (str): Klucz ustawienia
+        default: Wartość domyślna jeśli ustawienie nie istnieje
+
+    Returns:
+        str|None: Wartość ustawienia lub default
+    """
+    if not check_postgres_available():
+        return default
+
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT setting_value FROM launcher_settings WHERE setting_key = %s", (key,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        return result[0] if result else default
+    except Exception as e:
+        print(f"❌ Błąd odczytu ustawienia {key}: {e}")
+        return default
+
+
+def set_launcher_setting(key, value):
+    """
+    Zapisuje wartość ustawienia do tabeli launcher_settings.
+    Jeśli ustawienie istnieje - aktualizuje, jeśli nie - tworzy nowe.
+
+    Args:
+        key (str): Klucz ustawienia
+        value (str): Wartość ustawienia
+
+    Returns:
+        bool: True jeśli sukces, False jeśli błąd
+    """
+    if not check_postgres_available():
+        return False
+
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Użyj UPSERT (INSERT ... ON CONFLICT)
+        cursor.execute("""
+            INSERT INTO launcher_settings (setting_key, setting_value)
+            VALUES (%s, %s)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP
+        """, (key, value))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"❌ Błąd zapisu ustawienia {key}: {e}")
+        return False
+
 
 def set_active_location(location_id):
     """Ustawia miejscowość jako aktywną w PostgreSQL."""
@@ -2470,7 +2560,7 @@ class AppLauncher(tk.Tk):
         self.base_font_size = base_size
 
     def set_window_icon(self):
-        """Ustawia ikonę okna aplikacji (pióro)."""
+        """Ustawia ikonę okna aplikacji (custom lub domyślna)."""
         try:
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
 
@@ -2483,8 +2573,15 @@ class AppLauncher(tk.Tk):
                 except Exception as e:
                     print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
 
+            # Sprawdź czy jest zapisana custom ikona
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+            # Preferuj custom ikonę jeśli istnieje
+            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
-            png_path = os.path.join(icon_dir, 'feather_icon.png')
             if os.path.exists(png_path):
                 icon_image = tk.PhotoImage(file=png_path)
                 self.iconphoto(True, icon_image)
@@ -2493,7 +2590,6 @@ class AppLauncher(tk.Tk):
 
             # Dla Windows, spróbuj też ICO
             if platform.system() == "Windows":
-                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
                 if os.path.exists(ico_path):
                     self.iconbitmap(ico_path)
         except Exception as e:
@@ -7385,8 +7481,22 @@ class IconChooserWindow(tk.Toplevel):
         try:
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
 
-            # Sprawdź różne rozszerzenia
-            icon_extensions = ['.ico', '.png', '.jpg', '.jpeg']
+            # Najpierw sprawdź czy jest zapisana custom ikona
+            custom_icon_path = get_launcher_setting('app_icon_path')
+            if custom_icon_path and os.path.exists(custom_icon_path):
+                self.current_icon_path = custom_icon_path
+                self.update_preview()
+                return
+
+            # Jeśli nie ma zapisanej ścieżki, sprawdź czy jest custom_icon na dysku
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            if os.path.exists(custom_png):
+                self.current_icon_path = custom_png
+                self.update_preview()
+                return
+
+            # W ostateczności użyj domyślnej ikony (feather)
+            icon_extensions = ['.png', '.ico', '.jpg', '.jpeg']
             for ext in icon_extensions:
                 icon_path = os.path.join(icon_dir, f"feather_icon{ext}")
                 if os.path.exists(icon_path):
@@ -7479,10 +7589,17 @@ class IconChooserWindow(tk.Toplevel):
                 # Zmień ikonę na pasku zadań
                 self.change_windows_taskbar_icon(ico_path)
 
+            # Zapisz ścieżkę oryginalnej ikony do bazy danych
+            if set_launcher_setting('app_icon_path', self.current_icon_path):
+                self.parent_app.log("✅ Ścieżka ikony zapisana w bazie danych\n")
+            else:
+                self.parent_app.log("⚠️ Nie udało się zapisać ścieżki ikony w bazie danych\n")
+
             self.parent_app.log("✅ Ikona aplikacji została zmieniona\n")
             messagebox.showinfo("Sukces",
                               "Ikona została zmieniona!\n\n"
-                              "Ikona okna i paska zadań została zaktualizowana.",
+                              "Ikona okna i paska zadań została zaktualizowana.\n"
+                              "Ustawienie zostało zapisane w bazie danych.",
                               parent=self)
             self.destroy()
 
