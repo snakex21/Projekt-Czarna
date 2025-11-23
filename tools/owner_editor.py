@@ -154,6 +154,9 @@ class OwnerEditorApp(tk.Tk):
         """Inicjalizacja aplikacji i komponentów interfejsu."""
         super().__init__()
 
+        # Ustaw ikonę okna (pióro z launchera)
+        self.set_window_icon()
+
         # Konfiguracja skalowania DPI
         dpi = self.winfo_fpixels("1i")
         scale = dpi / 96
@@ -221,6 +224,37 @@ class OwnerEditorApp(tk.Tk):
         self.search_var.trace_add("write", self._filter_owners)
         self.update_idletasks()
         self.search_entry.focus_set()
+
+    def set_window_icon(self):
+        """Ustawia ikonę okna aplikacji (pióro z launchera)."""
+        try:
+            # Ścieżka do ikony w katalogu launcher/assets
+            launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
+            icon_dir = os.path.join(launcher_dir, 'assets')
+
+            # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
+            if platform.system() == "Windows":
+                try:
+                    myappid = 'projekt.czarna.owner_editor.1.0'
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception as e:
+                    print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
+
+            # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
+            png_path = os.path.join(icon_dir, 'feather_icon.png')
+            if os.path.exists(png_path):
+                icon_image = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, icon_image)
+                # Zachowaj referencję aby uniknąć garbage collection
+                self._icon_image = icon_image
+
+            # Dla Windows, spróbuj też ICO
+            if platform.system() == "Windows":
+                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
+                if os.path.exists(ico_path):
+                    self.iconbitmap(ico_path)
+        except Exception as e:
+            print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
     # ==========================================================================
     # METODY SPRAWDZANIA INTEGRALNOŚCI
