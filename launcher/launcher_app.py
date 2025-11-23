@@ -2266,6 +2266,9 @@ class AppLauncher(tk.Tk):
         self.title("🗺️ Centrum Zarządzania - System Mapy Katastralnej")
         self.setup_window_geometry()
 
+        # Ustaw ikonę okna (pióro)
+        self.set_window_icon()
+
         self.managed_processes = {}
         self.event_queue = queue.Queue()
         self._refresh_pending = False  # Debounce flag
@@ -2437,6 +2440,27 @@ class AppLauncher(tk.Tk):
         self.style.configure("Treeview.Heading", font=("Segoe UI", base_size, "bold"))
         
         self.base_font_size = base_size
+
+    def set_window_icon(self):
+        """Ustawia ikonę okna aplikacji (pióro)."""
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+
+            # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
+            png_path = os.path.join(icon_dir, 'feather_icon.png')
+            if os.path.exists(png_path):
+                icon_image = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, icon_image)
+                # Zachowaj referencję aby uniknąć garbage collection
+                self._icon_image = icon_image
+
+            # Dla Windows, spróbuj też ICO
+            if platform.system() == "Windows":
+                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
+                if os.path.exists(ico_path):
+                    self.iconbitmap(ico_path)
+        except Exception as e:
+            print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
     def create_console_widget(self, parent):
         """Tworzy widget konsoli z ciemnym motywem."""
