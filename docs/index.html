@@ -545,6 +545,7 @@ erDiagram
                     <p><strong>Interaktywna Mapa (<code>mapa.html</code>):</strong> Centralny punkt aplikacji, służący do wizualnej eksploracji danych przestrzennych. Umożliwia:</p>
                     <ul>
                       <li><strong>Przeglądanie i nawigację</strong> po historycznej mapie katastralnej z nałożonymi, interaktywnymi warstwami działek, dróg i budynków.</li>
+                      <li><strong>Wyświetlanie konturu miejscowości</strong> narysowanego w Edytorze Działek. Kontur jest zaimplementowany jako warstwa z przezroczystym wypełnieniem, dzięki czemu nie blokuje możliwości kliknięcia w działki znajdujące się wewnątrz jego obszaru, zapewniając pełną interaktywność mapy.</li>
                       <li><strong>Filtrowanie i wyszukiwanie</strong> właścicieli oraz obiektów w panelach bocznych.</li>
                       <li><strong>Podświetlanie działek</strong> na mapie poprzez najechanie kursorem na wpis na liście.</li>
                       <li><strong>Przełączanie podkładów mapowych</strong> między mapą historyczną a współczesnymi widokami (mapa drogowa, zdjęcia satelitarne).</li>
@@ -573,6 +574,8 @@ erDiagram
                       <li><strong>Analizę rankingów</strong> największych posiadaczy gruntów, z możliwością dynamicznego filtrowania (np. ranking tylko właścicieli lasów).</li>
                       <li><strong>Wizualizację na mapie</strong> posiadłości 10 największych właścicieli z aktualnie wybranego rankingu.</li>
                       <li><strong>Analizę "mapy ciepła"</strong>, która pokazuje intensywność spisywania protokołów w poszczególnych dniach.</li>
+                      <li><strong>Wyświetlanie statystyk właścicieli żydowskich</strong>, prezentujących udział społeczności żydowskiej w strukturze własnościowej gminy.</li>
+                      <li><strong>Prezentację pełnej wielkości miejscowości</strong> w jednostkach metrycznych (hektary) oraz kilometrach kwadratowych, wraz z wizualizacją wyrysowanych granic na mapie.</li>
                     </ul>
                     <img src="assets/modul_statystyk_dashboard.png" alt="Dashboard analityczny z wykresami struktury własności i rankingami" class="screenshot">
                   </li>
@@ -1294,7 +1297,11 @@ window.LOCATION_CONFIG = {
               Narzędzie składające się z lekkiego backendu w Pythonie (Flask) i
               interfejsu w przeglądarce (Leaflet.js). Umożliwia wizualne
               rysowanie poligonów (działki), linii (drogi) i punktów (budynki)
-              na podkładzie historycznej mapy. To intuicyjne rozwiązanie
+              na podkładzie historycznej mapy. Dodatkowo dostępna jest funkcja
+              <strong>rysowania konturu całej miejscowości</strong>, który następnie
+              jest wyświetlany na mapie głównej oraz wykorzystywany w Centrum Analitycznym
+              do automatycznego obliczania pełnej powierzchni miejscowości w hektarach i
+              kilometrach kwadratowych. To intuicyjne rozwiązanie
               zastępuje ręczne wpisywanie współrzędnych i zapewnia wysoką
               dokładność. Wszystkie narysowane obiekty są zapisywane do pliku
               <code>backup/{miejscowość}/parcels_data.json</code> aktywnej miejscowości w standardzie GeoJSON.
