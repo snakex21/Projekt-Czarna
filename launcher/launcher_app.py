@@ -2463,57 +2463,8 @@ class AppLauncher(tk.Tk):
             print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
     def change_taskbar_icon(self):
-        """Zmienia ikonę aplikacji w pasku zadań Windows."""
-        if platform.system() != "Windows":
-            messagebox.showinfo("Informacja", "Ta funkcja jest dostępna tylko na Windows")
-            return
-
-        try:
-            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-            ico_path = os.path.join(icon_dir, 'feather_icon.ico')
-
-            if not os.path.exists(ico_path):
-                messagebox.showerror("Błąd", f"Nie znaleziono ikony:\n{ico_path}")
-                return
-
-            # Użyj ctypes do zmiany ikony w pasku zadań
-            import ctypes
-            from ctypes import wintypes
-
-            # Załaduj ikonę
-            GCL_HICON = -14
-            WM_SETICON = 0x0080
-            ICON_SMALL = 0
-            ICON_BIG = 1
-
-            # Pobierz handle okna
-            hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
-            if not hwnd:
-                hwnd = self.winfo_id()
-
-            # Załaduj ikonę z pliku
-            hicon = ctypes.windll.shell32.ExtractIconW(
-                ctypes.windll.kernel32.GetModuleHandleW(None),
-                ico_path,
-                0
-            )
-
-            if hicon:
-                # Ustaw małą i dużą ikonę
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
-                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
-
-                # Również ustaw ikonę klasy okna
-                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon)
-
-                messagebox.showinfo("Sukces", "Ikona w pasku zadań została zmieniona!")
-                self.log("✅ Ikona w pasku zadań zmieniona\n")
-            else:
-                messagebox.showerror("Błąd", "Nie udało się załadować ikony")
-
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie udało się zmienić ikony:\n{str(e)}")
-            self.log(f"❌ Błąd zmiany ikony: {e}\n")
+        """Otwiera okno do wyboru i zmiany ikony aplikacji."""
+        IconChooserWindow(self)
 
     def create_console_widget(self, parent):
         """Tworzy widget konsoli z ciemnym motywem."""
@@ -7305,6 +7256,220 @@ class SiteSettingsManager(tk.Toplevel):
             self.update_preview()
         except Exception as e:
             messagebox.showerror("Błąd", f"Nie udało się przetworzyć pliku: {e}", parent=self)
+
+    def center_window(self):
+        """Wyśrodkowuje okno."""
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        px = self.parent_app.winfo_rootx()
+        py = self.parent_app.winfo_rooty()
+        pw = self.parent_app.winfo_width()
+        ph = self.parent_app.winfo_height()
+        x = px + (pw - w) // 2
+        y = py + (ph - h) // 2
+        self.geometry(f"+{x}+{y}")
+
+class IconChooserWindow(tk.Toplevel):
+    """Okno dialogowe do wyboru i zmiany ikony aplikacji."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.transient(parent)
+        self.title("🖼️ Wybierz Ikonę Aplikacji")
+        self.grab_set()
+        self.resizable(False, False)
+
+        self.parent_app = parent
+        self.current_icon_path = None
+        self.image_preview = None
+
+        self.create_widgets()
+        self.load_current_icon()
+        self.center_window()
+
+    def create_widgets(self):
+        """Tworzy interfejs wyboru ikony."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        frame_icon = ttk.LabelFrame(main_frame, text="Ikona Aplikacji", padding="15")
+        frame_icon.pack(fill=tk.X)
+
+        top_row = ttk.Frame(frame_icon)
+        top_row.pack(fill=tk.X)
+
+        # Podgląd ikony
+        self.preview_canvas = tk.Canvas(top_row, width=64, height=64, bg=self.cget("background"), highlightthickness=0)
+        self.preview_canvas.pack(side=tk.LEFT, padx=(0, 15))
+        self.preview_label = ttk.Label(self.preview_canvas, text="Brak\nikony", foreground="grey")
+        self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Informacje i przycisk
+        info_frame = ttk.Frame(top_row)
+        info_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.path_label = ttk.Label(info_frame, text="Obecna ikona: Domyślna", wraplength=350)
+        self.path_label.pack(anchor="w")
+
+        ttk.Button(info_frame, text="Wybierz Ikonę (.png, .ico, .jpg)",
+                  command=self.select_icon, style="Primary.TButton").pack(pady=(10,0), anchor="w")
+
+        ttk.Label(main_frame, text="Wybrana ikona zostanie ustawiona jako ikona okna\ni ikona na pasku zadań Windows.",
+                 foreground="grey", wraplength=450).pack(pady=(15,0))
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(15, 0))
+        ttk.Button(button_frame, text="Zastosuj", command=self.apply_icon,
+                  style="Success.TButton").pack(side=tk.RIGHT, padx=(5,0))
+        ttk.Button(button_frame, text="Anuluj", command=self.destroy).pack(side=tk.RIGHT)
+
+    def load_current_icon(self):
+        """Wczytuje aktualną ikonę aplikacji."""
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+
+            # Sprawdź różne rozszerzenia
+            icon_extensions = ['.ico', '.png', '.jpg', '.jpeg']
+            for ext in icon_extensions:
+                icon_path = os.path.join(icon_dir, f"feather_icon{ext}")
+                if os.path.exists(icon_path):
+                    self.current_icon_path = icon_path
+                    self.update_preview()
+                    return
+
+            self.path_label.config(text="Obecna ikona: Domyślna")
+        except Exception as e:
+            self.path_label.config(text=f"Błąd: {e}")
+
+    def update_preview(self):
+        """Aktualizuje podgląd ikony."""
+        if not self.current_icon_path:
+            self.path_label.config(text="Obecna ikona: Domyślna")
+            return
+
+        if os.path.exists(self.current_icon_path):
+            try:
+                # Pokaż ścieżkę
+                icon_name = os.path.basename(self.current_icon_path)
+                self.path_label.config(text=f"Wybrana ikona: {icon_name}")
+
+                # Wczytaj i pokaż podgląd
+                img = Image.open(self.current_icon_path)
+                img.thumbnail((64, 64), Image.Resampling.LANCZOS)
+                self.image_preview = ImageTk.PhotoImage(img)
+                self.preview_canvas.delete("all")
+                self.preview_canvas.create_image(32, 32, image=self.image_preview)
+                self.preview_label.place_forget()
+            except Exception as e:
+                self.path_label.config(text=f"Błąd podglądu: {e}")
+                self.preview_canvas.delete("all")
+                self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        else:
+            self.path_label.config(text=f"❌ Błąd: Plik nie istnieje")
+            self.preview_canvas.delete("all")
+            self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    def select_icon(self):
+        """Otwiera dialog wyboru pliku ikony."""
+        filepath = filedialog.askopenfilename(
+            title="Wybierz plik ikony",
+            filetypes=[("Obrazy", "*.png *.ico *.jpg *.jpeg"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        self.current_icon_path = filepath
+        self.update_preview()
+
+    def apply_icon(self):
+        """Stosuje wybraną ikonę do aplikacji."""
+        if not self.current_icon_path or not os.path.exists(self.current_icon_path):
+            messagebox.showerror("Błąd", "Nie wybrano prawidłowej ikony.", parent=self)
+            return
+
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+            os.makedirs(icon_dir, exist_ok=True)
+
+            # Wczytaj obraz
+            img = Image.open(self.current_icon_path)
+
+            # Zapisz jako PNG dla iconphoto()
+            png_path = os.path.join(icon_dir, 'custom_icon.png')
+            img.save(png_path, 'PNG')
+
+            # Dla Windows, zapisz też jako ICO
+            ico_path = os.path.join(icon_dir, 'custom_icon.ico')
+            if platform.system() == "Windows":
+                # Konwertuj do ICO (32x32 i 16x16)
+                img_32 = img.resize((32, 32), Image.Resampling.LANCZOS)
+                img_16 = img.resize((16, 16), Image.Resampling.LANCZOS)
+                img_32.save(ico_path, format='ICO', sizes=[(32, 32), (16, 16)])
+
+            # Zastosuj ikonę do okna Tkinter
+            icon_image = tk.PhotoImage(file=png_path)
+            self.parent_app.iconphoto(True, icon_image)
+            self.parent_app._custom_icon_image = icon_image  # Zachowaj referencję
+
+            # Dla Windows, ustaw też iconbitmap
+            if platform.system() == "Windows":
+                try:
+                    self.parent_app.iconbitmap(ico_path)
+                except:
+                    pass
+
+                # Zmień ikonę na pasku zadań
+                self.change_windows_taskbar_icon(ico_path)
+
+            self.parent_app.log("✅ Ikona aplikacji została zmieniona\n")
+            messagebox.showinfo("Sukces",
+                              "Ikona została zmieniona!\n\n"
+                              "Ikona okna i paska zadań została zaktualizowana.",
+                              parent=self)
+            self.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się zastosować ikony:\n{str(e)}", parent=self)
+            self.parent_app.log(f"❌ Błąd zmiany ikony: {e}\n")
+
+    def change_windows_taskbar_icon(self, ico_path):
+        """Zmienia ikonę w pasku zadań Windows."""
+        if platform.system() != "Windows":
+            return
+
+        try:
+            import ctypes
+
+            # Stałe Windows API
+            GCL_HICON = -14
+            WM_SETICON = 0x0080
+            ICON_SMALL = 0
+            ICON_BIG = 1
+
+            # Pobierz handle okna
+            hwnd = ctypes.windll.user32.GetParent(self.parent_app.winfo_id())
+            if not hwnd:
+                hwnd = self.parent_app.winfo_id()
+
+            # Załaduj ikonę z pliku
+            hicon = ctypes.windll.shell32.ExtractIconW(
+                ctypes.windll.kernel32.GetModuleHandleW(None),
+                ico_path,
+                0
+            )
+
+            if hicon:
+                # Ustaw małą i dużą ikonę
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
+
+                # Również ustaw ikonę klasy okna
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon)
+
+        except Exception as e:
+            print(f"⚠️ Nie udało się zmienić ikony paska zadań: {e}")
 
     def center_window(self):
         """Wyśrodkowuje okno."""
