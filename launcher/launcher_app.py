@@ -2462,6 +2462,59 @@ class AppLauncher(tk.Tk):
         except Exception as e:
             print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
+    def change_taskbar_icon(self):
+        """Zmienia ikonę aplikacji w pasku zadań Windows."""
+        if platform.system() != "Windows":
+            messagebox.showinfo("Informacja", "Ta funkcja jest dostępna tylko na Windows")
+            return
+
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+            ico_path = os.path.join(icon_dir, 'feather_icon.ico')
+
+            if not os.path.exists(ico_path):
+                messagebox.showerror("Błąd", f"Nie znaleziono ikony:\n{ico_path}")
+                return
+
+            # Użyj ctypes do zmiany ikony w pasku zadań
+            import ctypes
+            from ctypes import wintypes
+
+            # Załaduj ikonę
+            GCL_HICON = -14
+            WM_SETICON = 0x0080
+            ICON_SMALL = 0
+            ICON_BIG = 1
+
+            # Pobierz handle okna
+            hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+            if not hwnd:
+                hwnd = self.winfo_id()
+
+            # Załaduj ikonę z pliku
+            hicon = ctypes.windll.shell32.ExtractIconW(
+                ctypes.windll.kernel32.GetModuleHandleW(None),
+                ico_path,
+                0
+            )
+
+            if hicon:
+                # Ustaw małą i dużą ikonę
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+                ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
+
+                # Również ustaw ikonę klasy okna
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCL_HICON, hicon)
+
+                messagebox.showinfo("Sukces", "Ikona w pasku zadań została zmieniona!")
+                self.log("✅ Ikona w pasku zadań zmieniona\n")
+            else:
+                messagebox.showerror("Błąd", "Nie udało się załadować ikony")
+
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się zmienić ikony:\n{str(e)}")
+            self.log(f"❌ Błąd zmiany ikony: {e}\n")
+
     def create_console_widget(self, parent):
         """Tworzy widget konsoli z ciemnym motywem."""
         console = scrolledtext.ScrolledText(
@@ -2598,7 +2651,8 @@ class AppLauncher(tk.Tk):
             ("⚙️ Konfiguracja DB", self.open_env_editor, "Secondary"),
             ("🔐 Ustawienia Administratora", self.open_admin_settings, "Warning"),
             ("🖼️ Ustawienia Witryny", self.open_site_settings, "Primary"),
-            ("🛡️ Bezpieczeństwo", self.open_security_manager, "Primary")
+            ("🛡️ Bezpieczeństwo", self.open_security_manager, "Primary"),
+            ("🖊️ Wybierz Ikonę", self.change_taskbar_icon, "Info")
         ]
         
         for text, cmd, style in buttons:
