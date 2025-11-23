@@ -364,6 +364,31 @@ LAUNCHER_DB_PASSWORD={password}
         return False
 
 
+def set_dialog_icon(window):
+    """
+    Ustawia ikonę dla okna dialogowego (Toplevel).
+
+    Args:
+        window: Okno tk.Toplevel do którego ma być dodana ikona
+    """
+    try:
+        icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+        png_path = os.path.join(icon_dir, 'feather_icon.png')
+        if os.path.exists(png_path):
+            icon_image = tk.PhotoImage(file=png_path)
+            window.iconphoto(True, icon_image)
+            # Zachowaj referencję aby uniknąć garbage collection
+            window._icon_image = icon_image
+
+        # Dla Windows, spróbuj też ICO
+        if platform.system() == "Windows":
+            ico_path = os.path.join(icon_dir, 'feather_icon.ico')
+            if os.path.exists(ico_path):
+                window.iconbitmap(ico_path)
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
+
+
 def check_postgres_available():
     """
     Sprawdza czy PostgreSQL jest dostępny i skonfigurowany.
@@ -1843,6 +1868,9 @@ def setup_postgres_config(parent=None):
     dialog.title("🔧 Konfiguracja PostgreSQL - WYMAGANE")
     dialog.geometry("700x680")
     dialog.resizable(False, False)
+
+    # Ustaw ikonę okna
+    set_dialog_icon(dialog)
 
     # Wyśrodkuj okno
     dialog.update_idletasks()
@@ -3416,6 +3444,7 @@ class LocationManager(tk.Toplevel):
         super().__init__(parent)
         self.transient(parent)
         self.title("⚙️ Zarządzaj Miejscowościami")
+        set_dialog_icon(self)
 
         # Automatyczne dostosowanie do ekranu
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -3710,6 +3739,7 @@ class TemplateChangeDialog(tk.Toplevel):
     def __init__(self, parent, location_id, location_name):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title(f"🎨 Zmień Szablon - {location_name}")
         self.grab_set()
 
@@ -3833,6 +3863,7 @@ class LoadingDialog(tk.Toplevel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.title("Inicjalizacja systemu")
+        set_dialog_icon(self)
         self.geometry("450x250")
         self.resizable(False, False)
 
@@ -4256,6 +4287,7 @@ class DatabaseWizard(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔧 Zarządzanie Bazą Danych")
+        set_dialog_icon(self)
 
         # Ustawienie większego rozmiaru okna z możliwością zmiany rozmiaru
         width = 800
@@ -4842,6 +4874,7 @@ class PhotosManagerDialog(tk.Toplevel):
     def __init__(self, parent, photos_list, base_dir, location_name="Czarna"):
         super().__init__(parent)
         self.title("📸 Zarządzaj zdjęciami historycznymi")
+        set_dialog_icon(self)
         self.geometry("700x500")
         self.transient(parent)
         self.grab_set()
@@ -5072,6 +5105,7 @@ class AddEditLocationDialog(tk.Toplevel):
                  history_photos=None, postgres_db_name="", homepage_template="standardowy",
                  gmina_katastralna="Czarna", jewish_protocol_numbers=""):
         super().__init__(parent)
+        set_dialog_icon(self)
         self.transient(parent)
         self.title(title)
         self.grab_set()
@@ -5415,10 +5449,11 @@ class AddEditLocationDialog(tk.Toplevel):
 
 class MapCalibrator(tk.Toplevel):
     """Okno do kalibracji współrzędnych mapy."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📍 Konfigurator Mapy")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.resizable(False, False)
@@ -5707,10 +5742,11 @@ class MapCalibrator(tk.Toplevel):
 
 class CalibrationInstructions(tk.Toplevel):
     """Okno z instrukcją kalibracji mapy."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📘 Instrukcja Kalibracji Mapy")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.resizable(False, False)
@@ -5755,10 +5791,11 @@ Po restarcie serwera mapa będzie używać nowej kalibracji.
 
 class EnvEditor(tk.Toplevel):
     """Edytor pliku konfiguracyjnego .env."""
-    
+
     def __init__(self, parent, env_path):
         super().__init__(parent)
         self.title("⚙️ Edytor Konfiguracji Bazy Danych")
+        set_dialog_icon(self)
         self.parent_app = parent
         self.env_path = env_path
         
@@ -5877,10 +5914,11 @@ ADMIN_PASSWORD_HASH=
 
 class AdminSettings(tk.Toplevel):
     """Okno ustawień administratora."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔐 Ustawienia Administratora")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.parent_app = parent
@@ -6066,10 +6104,11 @@ LOCATION_CODE={location_code}
 
 class FirewallInstructions(tk.Toplevel):
     """Okno z instrukcjami konfiguracji firewall."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📋 Instrukcja konfiguracji Firewall")
+        set_dialog_icon(self)
         self.geometry("600x500")
         self.transient(parent)
         
@@ -6116,10 +6155,11 @@ TESTOWANIE:
 
 class NetworkInfoDialog(tk.Toplevel):
     """Okno z informacjami o dostępie sieciowym."""
-    
+
     def __init__(self, parent, local_ip):
         super().__init__(parent)
         self.title("Informacje o Dostępie Sieciowym")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         
@@ -6217,6 +6257,7 @@ class NetworkInfoDialog(tk.Toplevel):
         
         win = tk.Toplevel(parent)
         win.title("Instrukcja – dostęp sieciowy / port 5000")
+        set_dialog_icon(win)
         win.resizable(False, False)
         win.transient(parent)
         win.grab_set()
@@ -6250,10 +6291,11 @@ class NetworkInfoDialog(tk.Toplevel):
 
 class InstructionsWindow(tk.Toplevel):
     """Okno z instrukcjami dostępu sieciowego."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Instrukcja – dostęp sieciowy")
+        set_dialog_icon(self)
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -6402,6 +6444,7 @@ class BackupManager(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("💾 Uniwersalny Menedżer Kopii Zapasowych")
         
         # Automatyczne dostosowanie do ekranu
@@ -7001,6 +7044,7 @@ class BackupManager(tk.Toplevel):
                     # Stwórz okno z postępem migracji
                     progress_window = tk.Toplevel(self)
                     progress_window.title("🔄 Migracja Danych")
+                    set_dialog_icon(progress_window)
                     progress_window.transient(self)
                     progress_window.grab_set()
 
@@ -7070,10 +7114,11 @@ class BackupManager(tk.Toplevel):
 
 class ProgressDialog(tk.Toplevel):
     """Okno dialogowe postępu operacji."""
-    
+
     def __init__(self, parent, task_func, task_args):
         super().__init__(parent)
         self.title("💾 Tworzenie Kopii Zapasowej")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         
@@ -7126,10 +7171,11 @@ class ProgressDialog(tk.Toplevel):
 
 class SiteSettingsManager(tk.Toplevel):
     """Okno dialogowe do zarządzania ustawieniami witryny."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("🖼️ Ustawienia Witryny")
         self.grab_set()
         self.resizable(False, False)
@@ -7285,6 +7331,7 @@ class IconChooserWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("🖼️ Wybierz Ikonę Aplikacji")
         self.grab_set()
         self.resizable(False, False)
@@ -7495,10 +7542,11 @@ class IconChooserWindow(tk.Toplevel):
 
 class SecurityManager(tk.Toplevel):
     """Okno dialogowe do zarządzania bezpieczeństwem systemu."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("🛡️ Menedżer Bezpieczeństwa")
         
         self.geometry("900x600")
