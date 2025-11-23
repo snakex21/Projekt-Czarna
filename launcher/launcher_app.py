@@ -2446,6 +2446,15 @@ class AppLauncher(tk.Tk):
         try:
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
 
+            # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
+            if platform.system() == "Windows":
+                try:
+                    import ctypes
+                    myappid = 'projekt.czarna.launcher.1.0'
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception as e:
+                    print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
+
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
             png_path = os.path.join(icon_dir, 'feather_icon.png')
             if os.path.exists(png_path):
