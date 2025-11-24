@@ -117,11 +117,21 @@ CREATE TABLE IF NOT EXISTS history_photos (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela globalnych ustawień launchera
+CREATE TABLE IF NOT EXISTS launcher_settings (
+    id SERIAL PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indeksy
 CREATE INDEX IF NOT EXISTS idx_location_active ON locations(active);
 CREATE INDEX IF NOT EXISTS idx_location_name ON locations(name);
 CREATE INDEX IF NOT EXISTS idx_photos_location ON history_photos(location_id);
 CREATE INDEX IF NOT EXISTS idx_photos_order ON history_photos(location_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_launcher_settings_key ON launcher_settings(setting_key);
 
 -- Trigger do aktualizacji updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -134,6 +144,10 @@ $$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS update_locations_updated_at ON locations;
 CREATE TRIGGER update_locations_updated_at BEFORE UPDATE ON locations
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_launcher_settings_updated_at ON launcher_settings;
+CREATE TRIGGER update_launcher_settings_updated_at BEFORE UPDATE ON launcher_settings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Upewnij się że zawsze tylko jedna miejscowość jest aktywna
@@ -362,6 +376,107 @@ LAUNCHER_DB_PASSWORD={password}
     except Exception as e:
         print(f"❌ Błąd zapisu konfiguracji: {e}")
         return False
+
+
+def set_dialog_icon(window):
+    """
+    Ustawia ikonę dla okna dialogowego (Toplevel).
+    Używa custom ikony jeśli istnieje, w przeciwnym razie domyślnej.
+
+    Args:
+        window: Okno tk.Toplevel do którego ma być dodana ikona
+    """
+    try:
+        icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+
+        # Sprawdź czy jest zapisana custom ikona
+        custom_png = os.path.join(icon_dir, 'custom_icon.png')
+        custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+        # Preferuj custom ikonę jeśli istnieje
+        png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+        ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+        if os.path.exists(png_path):
+            icon_image = tk.PhotoImage(file=png_path)
+            window.iconphoto(True, icon_image)
+            # Zachowaj referencję aby uniknąć garbage collection
+            window._icon_image = icon_image
+
+        # Dla Windows, spróbuj też ICO
+        if platform.system() == "Windows":
+            if os.path.exists(ico_path):
+                window.iconbitmap(ico_path)
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
+
+
+def set_windows_taskbar_icon_for_window(window, ico_path):
+    """
+    Ustawia ikonę dla paska zadań Windows używając Windows API.
+    Używa multi-size ICO dla najlepszej jakości.
+
+    Args:
+        window: Okno Tkinter (główne lub Toplevel)
+        ico_path: Ścieżka do pliku ICO
+    """
+    if platform.system() != "Windows" or not os.path.exists(ico_path):
+        return
+
+    try:
+        import ctypes
+
+        # Stałe Windows API
+        GCLP_HICON = -14
+        GCLP_HICONSM = -34
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+
+        # Pobierz handle okna
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        if not hwnd:
+            hwnd = window.winfo_id()
+
+        # Załaduj małą ikonę (16x16 lub 32x32 w zależności od DPI)
+        hicon_small = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            16,
+            16,
+            LR_LOADFROMFILE
+        )
+
+        # Załaduj dużą ikonę (używa największego rozmiaru z ICO)
+        hicon_big = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE
+        )
+
+        if hicon_small:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICONSM, hicon_small)
+            except:
+                pass
+
+        if hicon_big:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICON, hicon_big)
+            except:
+                pass
+
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony paska zadań: {e}")
 
 
 def check_postgres_available():
@@ -829,6 +944,74 @@ def get_active_location_name():
     """Zwraca nazwę aktywnej miejscowości lub None."""
     location = get_active_location()
     return location[1] if location else None
+
+# =============================================================================
+# FUNKCJE DO ZARZĄDZANIA USTAWIENIAMI LAUNCHERA
+# =============================================================================
+
+def get_launcher_setting(key, default=None):
+    """
+    Pobiera wartość ustawienia z tabeli launcher_settings.
+
+    Args:
+        key (str): Klucz ustawienia
+        default: Wartość domyślna jeśli ustawienie nie istnieje
+
+    Returns:
+        str|None: Wartość ustawienia lub default
+    """
+    if not check_postgres_available():
+        return default
+
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT setting_value FROM launcher_settings WHERE setting_key = %s", (key,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        return result[0] if result else default
+    except Exception as e:
+        print(f"❌ Błąd odczytu ustawienia {key}: {e}")
+        return default
+
+
+def set_launcher_setting(key, value):
+    """
+    Zapisuje wartość ustawienia do tabeli launcher_settings.
+    Jeśli ustawienie istnieje - aktualizuje, jeśli nie - tworzy nowe.
+
+    Args:
+        key (str): Klucz ustawienia
+        value (str): Wartość ustawienia
+
+    Returns:
+        bool: True jeśli sukces, False jeśli błąd
+    """
+    if not check_postgres_available():
+        return False
+
+    try:
+        conn = get_launcher_postgres_connection()
+        cursor = conn.cursor()
+
+        # Użyj UPSERT (INSERT ... ON CONFLICT)
+        cursor.execute("""
+            INSERT INTO launcher_settings (setting_key, setting_value)
+            VALUES (%s, %s)
+            ON CONFLICT (setting_key)
+            DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP
+        """, (key, value))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"❌ Błąd zapisu ustawienia {key}: {e}")
+        return False
+
 
 def set_active_location(location_id):
     """Ustawia miejscowość jako aktywną w PostgreSQL."""
@@ -1844,6 +2027,9 @@ def setup_postgres_config(parent=None):
     dialog.geometry("700x680")
     dialog.resizable(False, False)
 
+    # Ustaw ikonę okna
+    set_dialog_icon(dialog)
+
     # Wyśrodkuj okno
     dialog.update_idletasks()
     x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
@@ -2266,6 +2452,9 @@ class AppLauncher(tk.Tk):
         self.title("🗺️ Centrum Zarządzania - System Mapy Katastralnej")
         self.setup_window_geometry()
 
+        # Ustaw ikonę okna (pióro)
+        self.set_window_icon()
+
         self.managed_processes = {}
         self.event_queue = queue.Queue()
         self._refresh_pending = False  # Debounce flag
@@ -2438,6 +2627,48 @@ class AppLauncher(tk.Tk):
         
         self.base_font_size = base_size
 
+    def set_window_icon(self):
+        """Ustawia ikonę okna aplikacji (custom lub domyślna)."""
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+
+            # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
+            if platform.system() == "Windows":
+                try:
+                    import ctypes
+                    myappid = 'projekt.czarna.launcher.1.0'
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception as e:
+                    print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
+
+            # Sprawdź czy jest zapisana custom ikona
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+            # Preferuj custom ikonę jeśli istnieje
+            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+            # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
+            if os.path.exists(png_path):
+                icon_image = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, icon_image)
+                # Zachowaj referencję aby uniknąć garbage collection
+                self._icon_image = icon_image
+
+            # Dla Windows, ustaw ICO i ikonę paska zadań
+            if platform.system() == "Windows":
+                if os.path.exists(ico_path):
+                    self.iconbitmap(ico_path)
+                    # Ustaw także ikonę paska zadań używając Windows API dla lepszej jakości
+                    set_windows_taskbar_icon_for_window(self, ico_path)
+        except Exception as e:
+            print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
+
+    def change_taskbar_icon(self):
+        """Otwiera okno do wyboru i zmiany ikony aplikacji."""
+        IconChooserWindow(self)
+
     def create_console_widget(self, parent):
         """Tworzy widget konsoli z ciemnym motywem."""
         console = scrolledtext.ScrolledText(
@@ -2574,7 +2805,8 @@ class AppLauncher(tk.Tk):
             ("⚙️ Konfiguracja DB", self.open_env_editor, "Secondary"),
             ("🔐 Ustawienia Administratora", self.open_admin_settings, "Warning"),
             ("🖼️ Ustawienia Witryny", self.open_site_settings, "Primary"),
-            ("🛡️ Bezpieczeństwo", self.open_security_manager, "Primary")
+            ("🛡️ Bezpieczeństwo", self.open_security_manager, "Primary"),
+            ("🖊️ Wybierz Ikonę", self.change_taskbar_icon, "Info")
         ]
         
         for text, cmd, style in buttons:
@@ -3378,6 +3610,7 @@ class LocationManager(tk.Toplevel):
         super().__init__(parent)
         self.transient(parent)
         self.title("⚙️ Zarządzaj Miejscowościami")
+        set_dialog_icon(self)
 
         # Automatyczne dostosowanie do ekranu
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -3672,6 +3905,7 @@ class TemplateChangeDialog(tk.Toplevel):
     def __init__(self, parent, location_id, location_name):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title(f"🎨 Zmień Szablon - {location_name}")
         self.grab_set()
 
@@ -3795,6 +4029,7 @@ class LoadingDialog(tk.Toplevel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.title("Inicjalizacja systemu")
+        set_dialog_icon(self)
         self.geometry("450x250")
         self.resizable(False, False)
 
@@ -4218,6 +4453,7 @@ class DatabaseWizard(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔧 Zarządzanie Bazą Danych")
+        set_dialog_icon(self)
 
         # Ustawienie większego rozmiaru okna z możliwością zmiany rozmiaru
         width = 800
@@ -4804,6 +5040,7 @@ class PhotosManagerDialog(tk.Toplevel):
     def __init__(self, parent, photos_list, base_dir, location_name="Czarna"):
         super().__init__(parent)
         self.title("📸 Zarządzaj zdjęciami historycznymi")
+        set_dialog_icon(self)
         self.geometry("700x500")
         self.transient(parent)
         self.grab_set()
@@ -5034,6 +5271,7 @@ class AddEditLocationDialog(tk.Toplevel):
                  history_photos=None, postgres_db_name="", homepage_template="standardowy",
                  gmina_katastralna="Czarna", jewish_protocol_numbers=""):
         super().__init__(parent)
+        set_dialog_icon(self)
         self.transient(parent)
         self.title(title)
         self.grab_set()
@@ -5377,10 +5615,11 @@ class AddEditLocationDialog(tk.Toplevel):
 
 class MapCalibrator(tk.Toplevel):
     """Okno do kalibracji współrzędnych mapy."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📍 Konfigurator Mapy")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.resizable(False, False)
@@ -5669,10 +5908,11 @@ class MapCalibrator(tk.Toplevel):
 
 class CalibrationInstructions(tk.Toplevel):
     """Okno z instrukcją kalibracji mapy."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📘 Instrukcja Kalibracji Mapy")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.resizable(False, False)
@@ -5717,10 +5957,11 @@ Po restarcie serwera mapa będzie używać nowej kalibracji.
 
 class EnvEditor(tk.Toplevel):
     """Edytor pliku konfiguracyjnego .env."""
-    
+
     def __init__(self, parent, env_path):
         super().__init__(parent)
         self.title("⚙️ Edytor Konfiguracji Bazy Danych")
+        set_dialog_icon(self)
         self.parent_app = parent
         self.env_path = env_path
         
@@ -5839,10 +6080,11 @@ ADMIN_PASSWORD_HASH=
 
 class AdminSettings(tk.Toplevel):
     """Okno ustawień administratora."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("🔐 Ustawienia Administratora")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         self.parent_app = parent
@@ -6028,10 +6270,11 @@ LOCATION_CODE={location_code}
 
 class FirewallInstructions(tk.Toplevel):
     """Okno z instrukcjami konfiguracji firewall."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("📋 Instrukcja konfiguracji Firewall")
+        set_dialog_icon(self)
         self.geometry("600x500")
         self.transient(parent)
         
@@ -6078,10 +6321,11 @@ TESTOWANIE:
 
 class NetworkInfoDialog(tk.Toplevel):
     """Okno z informacjami o dostępie sieciowym."""
-    
+
     def __init__(self, parent, local_ip):
         super().__init__(parent)
         self.title("Informacje o Dostępie Sieciowym")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         
@@ -6179,6 +6423,7 @@ class NetworkInfoDialog(tk.Toplevel):
         
         win = tk.Toplevel(parent)
         win.title("Instrukcja – dostęp sieciowy / port 5000")
+        set_dialog_icon(win)
         win.resizable(False, False)
         win.transient(parent)
         win.grab_set()
@@ -6212,10 +6457,11 @@ class NetworkInfoDialog(tk.Toplevel):
 
 class InstructionsWindow(tk.Toplevel):
     """Okno z instrukcjami dostępu sieciowego."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Instrukcja – dostęp sieciowy")
+        set_dialog_icon(self)
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -6364,6 +6610,7 @@ class BackupManager(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("💾 Uniwersalny Menedżer Kopii Zapasowych")
         
         # Automatyczne dostosowanie do ekranu
@@ -6963,6 +7210,7 @@ class BackupManager(tk.Toplevel):
                     # Stwórz okno z postępem migracji
                     progress_window = tk.Toplevel(self)
                     progress_window.title("🔄 Migracja Danych")
+                    set_dialog_icon(progress_window)
                     progress_window.transient(self)
                     progress_window.grab_set()
 
@@ -7032,10 +7280,11 @@ class BackupManager(tk.Toplevel):
 
 class ProgressDialog(tk.Toplevel):
     """Okno dialogowe postępu operacji."""
-    
+
     def __init__(self, parent, task_func, task_args):
         super().__init__(parent)
         self.title("💾 Tworzenie Kopii Zapasowej")
+        set_dialog_icon(self)
         self.transient(parent)
         self.grab_set()
         
@@ -7088,10 +7337,11 @@ class ProgressDialog(tk.Toplevel):
 
 class SiteSettingsManager(tk.Toplevel):
     """Okno dialogowe do zarządzania ustawieniami witryny."""
-    
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
         self.title("🖼️ Ustawienia Witryny")
         self.grab_set()
         self.resizable(False, False)
@@ -7241,12 +7491,226 @@ class SiteSettingsManager(tk.Toplevel):
         y = py + (ph - h) // 2
         self.geometry(f"+{x}+{y}")
 
-class SecurityManager(tk.Toplevel):
-    """Okno dialogowe do zarządzania bezpieczeństwem systemu."""
-    
+class IconChooserWindow(tk.Toplevel):
+    """Okno dialogowe do wyboru i zmiany ikony aplikacji."""
+
     def __init__(self, parent):
         super().__init__(parent)
         self.transient(parent)
+        set_dialog_icon(self)
+        self.title("🖼️ Wybierz Ikonę Aplikacji")
+        self.grab_set()
+        self.resizable(False, False)
+
+        self.parent_app = parent
+        self.current_icon_path = None
+        self.image_preview = None
+
+        self.create_widgets()
+        self.load_current_icon()
+        self.center_window()
+
+    def create_widgets(self):
+        """Tworzy interfejs wyboru ikony."""
+        main_frame = ttk.Frame(self, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        frame_icon = ttk.LabelFrame(main_frame, text="Ikona Aplikacji", padding="15")
+        frame_icon.pack(fill=tk.X)
+
+        top_row = ttk.Frame(frame_icon)
+        top_row.pack(fill=tk.X)
+
+        # Podgląd ikony
+        self.preview_canvas = tk.Canvas(top_row, width=64, height=64, bg=self.cget("background"), highlightthickness=0)
+        self.preview_canvas.pack(side=tk.LEFT, padx=(0, 15))
+        self.preview_label = ttk.Label(self.preview_canvas, text="Brak\nikony", foreground="grey")
+        self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        # Informacje i przycisk
+        info_frame = ttk.Frame(top_row)
+        info_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.path_label = ttk.Label(info_frame, text="Obecna ikona: Domyślna", wraplength=350)
+        self.path_label.pack(anchor="w")
+
+        ttk.Button(info_frame, text="Wybierz Ikonę (.png, .ico, .jpg)",
+                  command=self.select_icon, style="Primary.TButton").pack(pady=(10,0), anchor="w")
+
+        ttk.Label(main_frame, text="Wybrana ikona zostanie ustawiona jako ikona okna\ni ikona na pasku zadań Windows.",
+                 foreground="grey", wraplength=450).pack(pady=(15,0))
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(15, 0))
+        ttk.Button(button_frame, text="Zastosuj", command=self.apply_icon,
+                  style="Success.TButton").pack(side=tk.RIGHT, padx=(5,0))
+        ttk.Button(button_frame, text="Anuluj", command=self.destroy).pack(side=tk.RIGHT)
+
+    def load_current_icon(self):
+        """Wczytuje aktualną ikonę aplikacji."""
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+
+            # Najpierw sprawdź czy jest zapisana custom ikona
+            custom_icon_path = get_launcher_setting('app_icon_path')
+            if custom_icon_path and os.path.exists(custom_icon_path):
+                self.current_icon_path = custom_icon_path
+                self.update_preview()
+                return
+
+            # Jeśli nie ma zapisanej ścieżki, sprawdź czy jest custom_icon na dysku
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            if os.path.exists(custom_png):
+                self.current_icon_path = custom_png
+                self.update_preview()
+                return
+
+            # W ostateczności użyj domyślnej ikony (feather)
+            icon_extensions = ['.png', '.ico', '.jpg', '.jpeg']
+            for ext in icon_extensions:
+                icon_path = os.path.join(icon_dir, f"feather_icon{ext}")
+                if os.path.exists(icon_path):
+                    self.current_icon_path = icon_path
+                    self.update_preview()
+                    return
+
+            self.path_label.config(text="Obecna ikona: Domyślna")
+        except Exception as e:
+            self.path_label.config(text=f"Błąd: {e}")
+
+    def update_preview(self):
+        """Aktualizuje podgląd ikony."""
+        if not self.current_icon_path:
+            self.path_label.config(text="Obecna ikona: Domyślna")
+            return
+
+        if os.path.exists(self.current_icon_path):
+            try:
+                # Pokaż ścieżkę
+                icon_name = os.path.basename(self.current_icon_path)
+                self.path_label.config(text=f"Wybrana ikona: {icon_name}")
+
+                # Wczytaj i pokaż podgląd
+                img = Image.open(self.current_icon_path)
+                img.thumbnail((64, 64), Image.Resampling.LANCZOS)
+                self.image_preview = ImageTk.PhotoImage(img)
+                self.preview_canvas.delete("all")
+                self.preview_canvas.create_image(32, 32, image=self.image_preview)
+                self.preview_label.place_forget()
+            except Exception as e:
+                self.path_label.config(text=f"Błąd podglądu: {e}")
+                self.preview_canvas.delete("all")
+                self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        else:
+            self.path_label.config(text=f"❌ Błąd: Plik nie istnieje")
+            self.preview_canvas.delete("all")
+            self.preview_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+    def select_icon(self):
+        """Otwiera dialog wyboru pliku ikony."""
+        filepath = filedialog.askopenfilename(
+            title="Wybierz plik ikony",
+            filetypes=[("Obrazy", "*.png *.ico *.jpg *.jpeg"), ("Wszystkie pliki", "*.*")]
+        )
+
+        if not filepath:
+            return
+
+        self.current_icon_path = filepath
+        self.update_preview()
+
+    def apply_icon(self):
+        """Stosuje wybraną ikonę do aplikacji."""
+        if not self.current_icon_path or not os.path.exists(self.current_icon_path):
+            messagebox.showerror("Błąd", "Nie wybrano prawidłowej ikony.", parent=self)
+            return
+
+        try:
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+            os.makedirs(icon_dir, exist_ok=True)
+
+            # Wczytaj obraz i konwertuj do RGBA jeśli potrzeba
+            img = Image.open(self.current_icon_path)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+
+            # Zapisz jako PNG w pełnej rozdzielczości dla iconphoto()
+            png_path = os.path.join(icon_dir, 'custom_icon.png')
+            img.save(png_path, 'PNG')
+
+            # Dla Windows, zapisz też jako ICO z wieloma rozmiarami
+            ico_path = os.path.join(icon_dir, 'custom_icon.ico')
+            if platform.system() == "Windows":
+                # Stwórz ICO z wieloma rozmiarami dla lepszej jakości w pasku zadań i Alt+Tab
+                # Windows używa różnych rozmiarów: 16x16, 32x32, 48x48, 64x64, 128x128, 256x256
+                icon_sizes = [(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)]
+
+                # Stwórz listę obrazów w różnych rozmiarach
+                icon_images = []
+                for size in icon_sizes:
+                    resized = img.resize(size, Image.Resampling.LANCZOS)
+                    icon_images.append(resized)
+
+                # Zapisz jako ICO z wieloma rozmiarami
+                icon_images[0].save(ico_path, format='ICO', sizes=icon_sizes, append_images=icon_images[1:])
+
+            # Zastosuj ikonę do okna Tkinter
+            icon_image = tk.PhotoImage(file=png_path)
+            self.parent_app.iconphoto(True, icon_image)
+            self.parent_app._custom_icon_image = icon_image  # Zachowaj referencję
+
+            # Dla Windows, ustaw też iconbitmap
+            if platform.system() == "Windows":
+                try:
+                    self.parent_app.iconbitmap(ico_path)
+                except:
+                    pass
+
+                # Zmień ikonę na pasku zadań
+                self.change_windows_taskbar_icon(ico_path)
+
+            # Zapisz ścieżkę oryginalnej ikony do bazy danych
+            if set_launcher_setting('app_icon_path', self.current_icon_path):
+                self.parent_app.log("✅ Ścieżka ikony zapisana w bazie danych\n")
+            else:
+                self.parent_app.log("⚠️ Nie udało się zapisać ścieżki ikony w bazie danych\n")
+
+            self.parent_app.log("✅ Ikona aplikacji została zmieniona\n")
+            messagebox.showinfo("Sukces",
+                              "Ikona została zmieniona!\n\n"
+                              "Ikona okna i paska zadań została zaktualizowana.\n"
+                              "Ustawienie zostało zapisane w bazie danych.",
+                              parent=self)
+            self.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Błąd", f"Nie udało się zastosować ikony:\n{str(e)}", parent=self)
+            self.parent_app.log(f"❌ Błąd zmiany ikony: {e}\n")
+
+    def change_windows_taskbar_icon(self, ico_path):
+        """Zmienia ikonę w pasku zadań Windows używając multi-size ICO."""
+        set_windows_taskbar_icon_for_window(self.parent_app, ico_path)
+
+    def center_window(self):
+        """Wyśrodkowuje okno."""
+        self.update_idletasks()
+        w = self.winfo_width()
+        h = self.winfo_height()
+        px = self.parent_app.winfo_rootx()
+        py = self.parent_app.winfo_rooty()
+        pw = self.parent_app.winfo_width()
+        ph = self.parent_app.winfo_height()
+        x = px + (pw - w) // 2
+        y = py + (ph - h) // 2
+        self.geometry(f"+{x}+{y}")
+
+class SecurityManager(tk.Toplevel):
+    """Okno dialogowe do zarządzania bezpieczeństwem systemu."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.transient(parent)
+        set_dialog_icon(self)
         self.title("🛡️ Menedżer Bezpieczeństwa")
         
         self.geometry("900x600")

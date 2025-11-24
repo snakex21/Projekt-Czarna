@@ -154,6 +154,9 @@ class OwnerEditorApp(tk.Tk):
         """Inicjalizacja aplikacji i komponentów interfejsu."""
         super().__init__()
 
+        # Ustaw ikonę okna (pióro z launchera)
+        self.set_window_icon()
+
         # Konfiguracja skalowania DPI
         dpi = self.winfo_fpixels("1i")
         scale = dpi / 96
@@ -221,6 +224,45 @@ class OwnerEditorApp(tk.Tk):
         self.search_var.trace_add("write", self._filter_owners)
         self.update_idletasks()
         self.search_entry.focus_set()
+
+    def set_window_icon(self):
+        """Ustawia ikonę okna aplikacji (pióro z launchera lub custom ikona)."""
+        try:
+            # Ścieżka do ikony w katalogu launcher/assets
+            launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
+            icon_dir = os.path.join(launcher_dir, 'assets')
+
+            # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
+            if platform.system() == "Windows":
+                try:
+                    myappid = 'projekt.czarna.owner_editor.1.0'
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+                except Exception as e:
+                    print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
+
+            # Sprawdź czy jest zapisana custom ikona
+            custom_png = os.path.join(icon_dir, 'custom_icon.png')
+            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+            # Preferuj custom ikonę jeśli istnieje
+            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+            # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
+            if os.path.exists(png_path):
+                icon_image = tk.PhotoImage(file=png_path)
+                self.iconphoto(True, icon_image)
+                # Zachowaj referencję aby uniknąć garbage collection
+                self._icon_image = icon_image
+
+            # Dla Windows, ustaw ICO i ikonę paska zadań
+            if platform.system() == "Windows":
+                if os.path.exists(ico_path):
+                    self.iconbitmap(ico_path)
+                    # Ustaw także ikonę paska zadań używając Windows API dla lepszej jakości
+                    set_windows_taskbar_icon_for_window(self, ico_path)
+        except Exception as e:
+            print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
 
     # ==========================================================================
     # METODY SPRAWDZANIA INTEGRALNOŚCI
@@ -769,6 +811,113 @@ class OwnerEditorApp(tk.Tk):
         return True
 
 # ==========================================================================
+# FUNKCJE POMOCNICZE DLA IKON OKIEN
+# ==========================================================================
+
+def set_windows_taskbar_icon_for_window(window, ico_path):
+    """
+    Ustawia ikonę dla paska zadań Windows używając Windows API.
+    Używa multi-size ICO dla najlepszej jakości.
+
+    Args:
+        window: Okno Tkinter (główne lub Toplevel)
+        ico_path: Ścieżka do pliku ICO
+    """
+    if platform.system() != "Windows" or not os.path.exists(ico_path):
+        return
+
+    try:
+        import ctypes
+
+        # Stałe Windows API
+        GCLP_HICON = -14
+        GCLP_HICONSM = -34
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+
+        # Pobierz handle okna
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+        if not hwnd:
+            hwnd = window.winfo_id()
+
+        # Załaduj małą ikonę (16x16 lub 32x32 w zależności od DPI)
+        hicon_small = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            16,
+            16,
+            LR_LOADFROMFILE
+        )
+
+        # Załaduj dużą ikonę (używa największego rozmiaru z ICO)
+        hicon_big = ctypes.windll.user32.LoadImageW(
+            None,
+            ico_path,
+            IMAGE_ICON,
+            0,
+            0,
+            LR_LOADFROMFILE | LR_DEFAULTSIZE
+        )
+
+        if hicon_small:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICONSM, hicon_small)
+            except:
+                pass
+
+        if hicon_big:
+            ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+            try:
+                ctypes.windll.user32.SetClassLongPtrW(hwnd, GCLP_HICON, hicon_big)
+            except:
+                pass
+
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony paska zadań: {e}")
+
+def set_dialog_icon(window):
+    """
+    Ustawia ikonę dla okna dialogowego (Toplevel).
+    Używa custom ikony jeśli istnieje, w przeciwnym razie domyślnej.
+
+    Args:
+        window: Okno tk.Toplevel do którego ma być dodana ikona
+    """
+    try:
+        # Ścieżka do ikony w katalogu launcher/assets
+        launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
+        icon_dir = os.path.join(launcher_dir, 'assets')
+
+        # Sprawdź czy jest zapisana custom ikona
+        custom_png = os.path.join(icon_dir, 'custom_icon.png')
+        custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+        # Preferuj custom ikonę jeśli istnieje
+        png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+        ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+        if os.path.exists(png_path):
+            icon_image = tk.PhotoImage(file=png_path)
+            window.iconphoto(True, icon_image)
+            # Zachowaj referencję aby uniknąć garbage collection
+            window._icon_image = icon_image
+
+        # Dla Windows, ustaw ICO i ikonę paska zadań
+        if platform.system() == "Windows":
+            if os.path.exists(ico_path):
+                window.iconbitmap(ico_path)
+                # Ustaw także ikonę paska zadań używając Windows API dla lepszej jakości
+                set_windows_taskbar_icon_for_window(window, ico_path)
+    except Exception as e:
+        print(f"⚠️ Nie udało się ustawić ikony okna: {e}")
+
+# ==========================================================================
 # KLASA OKNA EDYCJI
 # ==========================================================================
 
@@ -781,6 +930,9 @@ class EditWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title(f"Edycja Danych - {owner_data.get('ownerName', 'Nowy Wpis')}")
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
 
         # Geometria okna
         sw, sh = self.winfo_screenwidth(), self.winfo_screenheight()
@@ -1529,7 +1681,10 @@ class DemografiaEditorWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title("Edytor Danych Demograficznych")
-        
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
+
         self._setup_window_geometry()
         self.data = []
         self.load_data()
@@ -1808,6 +1963,9 @@ class BackupManagerWindow(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         self.title("Menedżer Kopii Zapasowych (Dane + Skany)")
+
+        # Ustaw ikonę okna
+        set_dialog_icon(self)
 
         self.parent = parent
         self.selected_backup_file = None
