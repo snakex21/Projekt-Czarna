@@ -4513,6 +4513,10 @@ class DatabaseWizard(tk.Toplevel):
         self.create_step3_action()
         self.create_step4_progress()
 
+        # Zablokuj bezpośrednie przełączanie zakładek - wymuś użycie przycisków nawigacji
+        self.last_valid_tab = 0
+        self.notebook.bind("<<NotebookTabChanged>>", self.validate_tab_change)
+
         # Nawigacja
         nav_frame = ttk.Frame(self)
         nav_frame.pack(fill=tk.X, padx=10, pady=10)
@@ -4791,6 +4795,24 @@ class DatabaseWizard(tk.Toplevel):
             self.location_combo['values'] = ["Błąd wczytywania"]
             self.location_data = []
 
+    def validate_tab_change(self, event=None):
+        """Waliduje zmianę zakładki - blokuje bezpośrednie klikanie na zaawansowane kroki"""
+        current = self.notebook.index(self.notebook.select())
+
+        # Zezwól tylko na powrót do poprzednich kroków lub pozostanie na obecnym
+        if current <= self.last_valid_tab:
+            self.last_valid_tab = current
+            return
+
+        # Próba przeskoczenia do przodu - zablokuj i powiadom
+        self.notebook.select(self.last_valid_tab)
+        messagebox.showinfo(
+            "Informacja",
+            "Użyj przycisków nawigacji 'Dalej ▶' i '◀ Wstecz' aby przechodzić między krokami.\n\n"
+            "Bezpośrednie klikanie w zakładki jest zablokowane dla bezpieczeństwa.",
+            parent=self
+        )
+
     def next_step(self):
         """Następny krok"""
         current = self.notebook.index(self.notebook.select())
@@ -4802,10 +4824,58 @@ class DatabaseWizard(tk.Toplevel):
                 return
             # Przejdź do kroku 2 (Akcja) i odśwież status
             self.refresh_status()
+            self.last_valid_tab = 1
             self.notebook.select(1)
 
         elif current == 1:
-            # Krok 2 -> 3: Wykonaj akcję
+            # Krok 2 -> 3: Walidacja przed wykonaniem akcji
+            action = self.action_var.get()
+
+            # Sprawdź czy akcja została wybrana
+            if not action:
+                messagebox.showwarning("Uwaga", "Wybierz akcję do wykonania!", parent=self)
+                return
+
+            # Jeśli akcja dotyczy miejscowości, sprawdź czy wybrano miejscowość z bazą
+            if action in ["drop_location_tables", "recreate_location_tables"]:
+                selected_location = self.location_var.get()
+
+                # Sprawdź czy w ogóle wybrano miejscowość
+                if not selected_location or selected_location == "Brak miejscowości" or selected_location == "Błąd wczytywania":
+                    messagebox.showwarning("Uwaga", "Wybierz miejscowość z listy!", parent=self)
+                    return
+
+                # Sprawdź czy miejscowość ma przypisaną bazę danych
+                if "(brak bazy)" in selected_location:
+                    messagebox.showwarning("Uwaga",
+                                         "Wybrana miejscowość nie ma przypisanej bazy danych!\n\n"
+                                         "Najpierw utwórz bazę dla tej miejscowości.",
+                                         parent=self)
+                    return
+
+            # Przygotuj komunikat potwierdzający
+            action_messages = {
+                "drop_launcher_tables": "❌ Usunąć tabele launcher (DROP TABLES)?\n\nUWAGA: Stracisz wszystkie dane konfiguracyjne!",
+                "recreate_launcher_tables": "♻️ Odtworzyć tabele launcher (DROP + CREATE)?\n\nUWAGA: Obecne dane zostaną usunięte!",
+                "drop_location_tables": f"❌ Usunąć tabele miejscowości?\n\nMiejscowość: {self.location_var.get()}\n\nUWAGA: Stracisz wszystkie dane tej miejscowości!",
+                "recreate_location_tables": f"♻️ Odtworzyć tabele miejscowości?\n\nMiejscowość: {self.location_var.get()}\n\nUWAGA: Obecne dane zostaną usunięte!"
+            }
+
+            confirm_msg = action_messages.get(action, "Wykonać wybraną akcję?")
+
+            # Potwierdź akcję
+            confirm = messagebox.askyesno(
+                "Potwierdzenie",
+                confirm_msg + "\n\nCzy kontynuować?",
+                parent=self,
+                icon='warning'
+            )
+
+            if not confirm:
+                return
+
+            # Przejdź do kroku wykonania i uruchom akcję
+            self.last_valid_tab = 2
             self.notebook.select(2)
             self.execute_action()
 
