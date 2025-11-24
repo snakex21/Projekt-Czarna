@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS locations (
     area_km2 NUMERIC(10, 4),
     boundary_coordinates JSONB,
     jewish_protocol_numbers TEXT,
+    custom_icon VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -387,9 +388,33 @@ def set_dialog_icon(window):
         window: Okno tk.Toplevel do którego ma być dodana ikona
     """
     try:
-        icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+        # Pobierz aktywną miejscowość
+        active_location = get_active_location()
 
-        # Sprawdź czy jest zapisana custom ikona
+        # Najpierw szukaj w backup/{miejscowość}/
+        if active_location:
+            location_name = active_location[1]
+            backup_icon_dir = os.path.join(BASE_DIR, "backup", location_name)
+
+            # Sprawdź czy jest custom_icon w folderze miejscowości
+            custom_png = os.path.join(backup_icon_dir, 'custom_icon.png')
+            custom_ico = os.path.join(backup_icon_dir, 'custom_icon.ico')
+
+            if os.path.exists(custom_png) or os.path.exists(custom_ico):
+                png_path = custom_png if os.path.exists(custom_png) else None
+                ico_path = custom_ico if os.path.exists(custom_ico) else None
+
+                if png_path and os.path.exists(png_path):
+                    icon_image = tk.PhotoImage(file=png_path)
+                    window.iconphoto(True, icon_image)
+                    window._icon_image = icon_image
+
+                if platform.system() == "Windows" and ico_path and os.path.exists(ico_path):
+                    window.iconbitmap(ico_path)
+                return
+
+        # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
+        icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
         custom_png = os.path.join(icon_dir, 'custom_icon.png')
         custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
 
@@ -751,12 +776,13 @@ def init_postgres_locations_db():
             cursor.execute("ALTER TABLE locations ADD COLUMN miejscowosc_protokolu VARCHAR(100)")
             print("✓ Dodano kolumnę miejscowosc_protokolu")
 
-        # Sprawdź i dodaj nowe kolumny (powierzchnia, koordynaty, żydzi)
+        # Sprawdź i dodaj nowe kolumny (powierzchnia, koordynaty, żydzi, ikona)
         new_columns = [
             ('area_hectares', 'NUMERIC(10, 2)'),
             ('area_km2', 'NUMERIC(10, 4)'),
             ('boundary_coordinates', 'JSONB'),
-            ('jewish_protocol_numbers', 'TEXT')
+            ('jewish_protocol_numbers', 'TEXT'),
+            ('custom_icon', 'VARCHAR(255)')
         ]
 
         for col_name, col_type in new_columns:
@@ -1223,7 +1249,7 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
                 homepage_description="Odkryj historię zapisaną w ziemi. Przeglądaj historyczne działki katastralne, poznaj dawnych właścicieli i zgłębiaj genealogiczne powiązania mieszkańców z 1882 roku.",
                 history_paragraph1="", history_paragraph2="", history_paragraph3="",
                 history_photos=None, postgres_db_name="", gmina_katastralna="Czarna",
-                jewish_protocol_numbers=""):
+                jewish_protocol_numbers="", custom_icon="custom_icon.png"):
     """
     Dodaje nową miejscowość do bazy danych PostgreSQL i tworzy folder.
 
@@ -1320,12 +1346,12 @@ LOCATION_CODE={name[:2].upper()}
                                   homepage_template, year, century,
                                   homepage_description, history_paragraph1,
                                   history_paragraph2, history_paragraph3, postgres_db_name,
-                                  gmina_katastralna, jewish_protocol_numbers)
-            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                  gmina_katastralna, jewish_protocol_numbers, custom_icon)
+            VALUES (%s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (name, full_name, powiat, region, homepage_template, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3, postgres_db_name,
-              gmina_katastralna, jewish_protocol_numbers))
+              gmina_katastralna, jewish_protocol_numbers, custom_icon))
 
         location_id = cursor.fetchone()[0]
 
@@ -1361,12 +1387,15 @@ LOCATION_CODE={name[:2].upper()}
                     "homepage_template": homepage_template,
                     "year": year,
                     "century": century,
+                    "gmina_katastralna": gmina_katastralna,
+                    "jewish_protocol_numbers": jewish_protocol_numbers,
                     "homepage_description": homepage_description,
                     "history_paragraph1": history_paragraph1,
                     "history_paragraph2": history_paragraph2,
                     "history_paragraph3": history_paragraph3,
                     "history_photos": history_photos,
                     "favicon": "favicon.jpeg",
+                    "custom_icon": "custom_icon.png",
                     "postgres_db_name": postgres_db_name
                 }
             }
@@ -1394,7 +1423,7 @@ LOCATION_CODE={name[:2].upper()}
 def update_location(location_id, name, full_name, powiat, region, year, century,
                    homepage_description="", history_paragraph1="", history_paragraph2="", history_paragraph3="",
                    history_photos=None, postgres_db_name="", homepage_template="standardowy",
-                   gmina_katastralna="Czarna", jewish_protocol_numbers=""):
+                   gmina_katastralna="Czarna", jewish_protocol_numbers="", custom_icon="custom_icon.png"):
     """
     Aktualizuje dane miejscowości w PostgreSQL.
 
@@ -1453,12 +1482,13 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                 postgres_db_name = %s, homepage_template = %s,
                 gmina_katastralna = %s,
                 jewish_protocol_numbers = %s,
+                custom_icon = %s,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = %s
         """, (name, full_name, powiat, region, year, century,
               homepage_description, history_paragraph1, history_paragraph2, history_paragraph3,
               postgres_db_name, homepage_template, gmina_katastralna,
-              jewish_protocol_numbers,
+              jewish_protocol_numbers, custom_icon,
               location_id))
 
         cursor.execute("DELETE FROM history_photos WHERE location_id = %s", (location_id,))
@@ -1492,12 +1522,15 @@ def update_location(location_id, name, full_name, powiat, region, year, century,
                     "homepage_template": homepage_template,
                     "year": year,
                     "century": century,
+                    "gmina_katastralna": gmina_katastralna,
+                    "jewish_protocol_numbers": jewish_protocol_numbers,
                     "homepage_description": homepage_description,
                     "history_paragraph1": history_paragraph1,
                     "history_paragraph2": history_paragraph2,
                     "history_paragraph3": history_paragraph3,
                     "history_photos": history_photos,
                     "favicon": "favicon.jpeg",
+                    "custom_icon": "custom_icon.png",
                     "postgres_db_name": postgres_db_name
                 }
             }
@@ -1779,6 +1812,78 @@ def migrate_old_backup_structure():
         print(f"❌ Błąd podczas migracji: {e}")
         import traceback
         traceback.print_exc()
+
+
+def migrate_custom_icon_to_backup():
+    """Migruje stare custom_icon z launcher/assets do backup/{aktywna_miejscowość}/."""
+    try:
+        # Sprawdź czy są ikony w launcher/assets
+        icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+        old_custom_png = os.path.join(icon_dir, 'custom_icon.png')
+        old_custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+        has_old_icons = os.path.exists(old_custom_png) or os.path.exists(old_custom_ico)
+
+        if not has_old_icons:
+            return  # Brak starych ikon do migracji
+
+        # Pobierz aktywną miejscowość
+        active_location = get_active_location()
+        if not active_location:
+            print("ℹ️ Brak aktywnej miejscowości - pominięto migrację custom_icon")
+            return
+
+        location_name = active_location[1]
+        location_id = active_location[0]
+        backup_icon_dir = os.path.join(BASE_DIR, "backup", location_name)
+        os.makedirs(backup_icon_dir, exist_ok=True)
+
+        print(f"🔄 Migracja custom_icon do backup/{location_name}/...")
+
+        # Przenieś ikony
+        migrated = False
+        if os.path.exists(old_custom_png):
+            new_path = os.path.join(backup_icon_dir, 'custom_icon.png')
+            if not os.path.exists(new_path):  # Nie nadpisuj istniejącej
+                shutil.copy2(old_custom_png, new_path)
+                print(f"✅ Skopiowano custom_icon.png do backup/{location_name}/")
+                migrated = True
+
+        if os.path.exists(old_custom_ico):
+            new_path = os.path.join(backup_icon_dir, 'custom_icon.ico')
+            if not os.path.exists(new_path):  # Nie nadpisuj istniejącej
+                shutil.copy2(old_custom_ico, new_path)
+                print(f"✅ Skopiowano custom_icon.ico do backup/{location_name}/")
+                migrated = True
+
+        if migrated:
+            # Zaktualizuj w bazie danych
+            try:
+                conn = get_launcher_postgres_connection()
+                cursor = conn.cursor()
+                cursor.execute("UPDATE locations SET custom_icon = %s WHERE id = %s", ('custom_icon.png', location_id))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                print(f"✅ Zaktualizowano custom_icon w bazie danych")
+            except Exception as db_error:
+                print(f"⚠️ Błąd aktualizacji bazy danych: {db_error}")
+
+            # Zaktualizuj launcher_db_config.json
+            config_file = os.path.join(backup_icon_dir, "launcher_db_config.json")
+            if os.path.exists(config_file):
+                try:
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                    config_data['default_location']['custom_icon'] = 'custom_icon.png'
+                    with open(config_file, 'w', encoding='utf-8') as f:
+                        json.dump(config_data, f, ensure_ascii=False, indent=2)
+                    print(f"✅ Zaktualizowano launcher_db_config.json")
+                except Exception as json_error:
+                    print(f"⚠️ Błąd aktualizacji JSON: {json_error}")
+
+    except Exception as e:
+        print(f"⚠️ Błąd podczas migracji custom_icon: {e}")
 
 # ==================== Funkcje zarządzania szablonami strony głównej ====================
 
@@ -2474,6 +2579,10 @@ class AppLauncher(tk.Tk):
         # Przekazujemy self jako parent żeby dialog był przypisany do głównego okna
         setup_postgres_config(parent=self)
 
+        # Migruj stare custom_icon z launcher/assets do backup/{miejscowość}/
+        # (musi być po setup_postgres_config i migrate_old_backup_structure)
+        migrate_custom_icon_to_backup()
+
         # POKAŻ główne okno po konfiguracji PostgreSQL
         self.deiconify()
 
@@ -2636,8 +2745,6 @@ class AppLauncher(tk.Tk):
     def set_window_icon(self):
         """Ustawia ikonę okna aplikacji (custom lub domyślna)."""
         try:
-            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-
             # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
             if platform.system() == "Windows":
                 try:
@@ -2647,13 +2754,42 @@ class AppLauncher(tk.Tk):
                 except Exception as e:
                     print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
 
-            # Sprawdź czy jest zapisana custom ikona
-            custom_png = os.path.join(icon_dir, 'custom_icon.png')
-            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+            # Pobierz aktywną miejscowość
+            active_location = get_active_location()
+            png_path = None
+            ico_path = None
 
-            # Preferuj custom ikonę jeśli istnieje
-            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
-            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+            # Najpierw szukaj w backup/{miejscowość}/
+            if active_location:
+                location_name = active_location[1]
+                backup_icon_dir = os.path.join(BASE_DIR, "backup", location_name)
+
+                # Sprawdź czy jest custom_icon w folderze miejscowości
+                custom_png = os.path.join(backup_icon_dir, 'custom_icon.png')
+                custom_ico = os.path.join(backup_icon_dir, 'custom_icon.ico')
+
+                if os.path.exists(custom_png):
+                    png_path = custom_png
+                if os.path.exists(custom_ico):
+                    ico_path = custom_ico
+
+            # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
+            if not png_path and not ico_path:
+                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+                custom_png = os.path.join(icon_dir, 'custom_icon.png')
+                custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+                # Preferuj custom ikonę jeśli istnieje
+                png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+                ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+            # Jeśli wciąż nie mamy ścieżek, użyj domyślnych
+            if not png_path:
+                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+                png_path = os.path.join(icon_dir, 'feather_icon.png')
+            if not ico_path:
+                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
 
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
             if os.path.exists(png_path):
@@ -3934,6 +4070,11 @@ class LocationManager(tk.Toplevel):
         loc_id, name = values[0], values[1]
 
         set_active_location(int(loc_id))
+
+        # Odśwież ikonę aplikacji dla nowej miejscowości
+        if hasattr(self.master, 'set_window_icon'):
+            self.master.set_window_icon()
+
         messagebox.showinfo("✅ Sukces", f"Ustawiono jako aktywną: {name}\nZastosowano szablon strony dla tej miejscowości.", parent=self)
         self.refresh_table()
 
@@ -7659,16 +7800,23 @@ class IconChooserWindow(tk.Toplevel):
     def load_current_icon(self):
         """Wczytuje aktualną ikonę aplikacji."""
         try:
+            # Pobierz aktywną miejscowość
+            active_location = get_active_location()
+            if active_location:
+                location_name = active_location[1]
+                backup_icon_dir = os.path.join(BASE_DIR, "backup", location_name)
+
+                # Sprawdź czy jest custom_icon w folderze miejscowości
+                icon_extensions = ['.png', '.ico', '.jpg', '.jpeg']
+                for ext in icon_extensions:
+                    icon_path = os.path.join(backup_icon_dir, f'custom_icon{ext}')
+                    if os.path.exists(icon_path):
+                        self.current_icon_path = icon_path
+                        self.update_preview()
+                        return
+
+            # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-
-            # Najpierw sprawdź czy jest zapisana custom ikona
-            custom_icon_path = get_launcher_setting('app_icon_path')
-            if custom_icon_path and os.path.exists(custom_icon_path):
-                self.current_icon_path = custom_icon_path
-                self.update_preview()
-                return
-
-            # Jeśli nie ma zapisanej ścieżki, sprawdź czy jest custom_icon na dysku
             custom_png = os.path.join(icon_dir, 'custom_icon.png')
             if os.path.exists(custom_png):
                 self.current_icon_path = custom_png
@@ -7736,7 +7884,17 @@ class IconChooserWindow(tk.Toplevel):
             return
 
         try:
-            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
+            # Pobierz aktywną miejscowość
+            active_location = get_active_location()
+            if not active_location:
+                messagebox.showerror("Błąd", "Brak aktywnej miejscowości. Najpierw utwórz i aktywuj miejscowość.", parent=self)
+                return
+
+            location_name = active_location[1]  # Nazwa miejscowości
+            location_id = active_location[0]    # ID miejscowości
+
+            # Zapisz ikonę w folderze backup/{miejscowość}/
+            icon_dir = os.path.join(BASE_DIR, "backup", location_name)
             os.makedirs(icon_dir, exist_ok=True)
 
             # Wczytaj obraz i konwertuj do RGBA jeśli potrzeba
@@ -7764,6 +7922,27 @@ class IconChooserWindow(tk.Toplevel):
                 # Zapisz jako ICO z wieloma rozmiarami
                 icon_images[0].save(ico_path, format='ICO', sizes=icon_sizes, append_images=icon_images[1:])
 
+            # Zaktualizuj launcher_db_config.json
+            config_file = os.path.join(icon_dir, "launcher_db_config.json")
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                config_data['default_location']['custom_icon'] = 'custom_icon.png'
+                with open(config_file, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, ensure_ascii=False, indent=2)
+
+            # Zaktualizuj w bazie danych
+            try:
+                conn = get_launcher_postgres_connection()
+                cursor = conn.cursor()
+                cursor.execute("UPDATE locations SET custom_icon = %s WHERE id = %s", ('custom_icon.png', location_id))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                self.parent_app.log(f"✅ Ikona zapisana w backup/{location_name}/custom_icon.png\n")
+            except Exception as db_error:
+                self.parent_app.log(f"⚠️ Błąd zapisu do bazy danych: {db_error}\n")
+
             # Zastosuj ikonę do okna Tkinter
             icon_image = tk.PhotoImage(file=png_path)
             self.parent_app.iconphoto(True, icon_image)
@@ -7779,17 +7958,11 @@ class IconChooserWindow(tk.Toplevel):
                 # Zmień ikonę na pasku zadań
                 self.change_windows_taskbar_icon(ico_path)
 
-            # Zapisz ścieżkę oryginalnej ikony do bazy danych
-            if set_launcher_setting('app_icon_path', self.current_icon_path):
-                self.parent_app.log("✅ Ścieżka ikony zapisana w bazie danych\n")
-            else:
-                self.parent_app.log("⚠️ Nie udało się zapisać ścieżki ikony w bazie danych\n")
-
             self.parent_app.log("✅ Ikona aplikacji została zmieniona\n")
             messagebox.showinfo("Sukces",
                               "Ikona została zmieniona!\n\n"
                               "Ikona okna i paska zadań została zaktualizowana.\n"
-                              "Ustawienie zostało zapisane w bazie danych.",
+                              f"Zapisano w backup/{location_name}/",
                               parent=self)
             self.destroy()
 
