@@ -2773,15 +2773,26 @@ class AppLauncher(tk.Tk):
             icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
             if not png_path:
                 png_path = os.path.join(icon_dir, 'feather_icon.png')
+                print(f"🔄 Używam domyślnej ikony: {png_path}")
+            else:
+                print(f"🔄 Używam custom ikony: {png_path}")
             if not ico_path:
                 ico_path = os.path.join(icon_dir, 'feather_icon.ico')
+
+            # Usuń starą referencję ikony
+            if hasattr(self, '_icon_image'):
+                del self._icon_image
 
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
             if os.path.exists(png_path):
                 icon_image = tk.PhotoImage(file=png_path)
-                self.iconphoto(True, icon_image)
+                # Użyj False aby ikona była tylko dla tego okna (lepiej dla dynamicznej zmiany)
+                self.iconphoto(False, icon_image)
                 # Zachowaj referencję aby uniknąć garbage collection
                 self._icon_image = icon_image
+                print(f"✅ Ikona załadowana pomyślnie")
+            else:
+                print(f"⚠️ Plik ikony nie istnieje: {png_path}")
 
             # Dla Windows, ustaw ICO i ikonę paska zadań
             if platform.system() == "Windows":
