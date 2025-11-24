@@ -2558,8 +2558,14 @@ class AppLauncher(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-        # Obsługa focusu okna - naprawia problem z alt+tab
+        # Obsługa focusu okna - naprawia problem z alt+tab i przełączania myszką
         self.bind("<FocusIn>", self.on_window_focus)
+        self.bind("<Visibility>", self.on_window_focus)  # Gdy okno staje się widoczne
+        self.bind("<Map>", self.on_window_focus)  # Gdy okno jest mapowane na ekran
+
+        # Dla Windows - dodatkowa obsługa aktywacji okna
+        if platform.system() == "Windows":
+            self.bind("<Activate>", self.on_window_focus)
 
         self.process_queue()
 
@@ -3572,8 +3578,33 @@ if __name__ == '__main__':
         try:
             # Przenieś okno na wierzch stosu okien
             self.lift()
-            # Wymuś focus na oknie
+
+            # Dla Windows - użyj Windows API aby wymusić focus
+            if platform.system() == "Windows":
+                try:
+                    # Pobierz handle okna
+                    hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+                    if not hwnd:
+                        hwnd = self.winfo_id()
+
+                    # Wymuś okno na pierwszy plan za pomocą Windows API
+                    # SW_RESTORE = 9 (przywróć jeśli zminimalizowane)
+                    ctypes.windll.user32.ShowWindow(hwnd, 9)
+                    # Ustaw okno jako aktywne
+                    ctypes.windll.user32.SetForegroundWindow(hwnd)
+                    # Wymuś focus na oknie
+                    ctypes.windll.user32.SetFocus(hwnd)
+                except:
+                    # Jeśli Windows API zawiedzie, użyj standardowej metody Tkinter
+                    pass
+
+            # Wymuś focus na oknie (Tkinter)
             self.focus_force()
+
+            # Upewnij się że okno jest widoczne i nie zminimalizowane
+            if self.state() == 'iconic':
+                self.deiconify()
+
         except:
             # Ignoruj błędy jeśli okno jest w trakcie zamykania
             pass
