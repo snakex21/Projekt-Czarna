@@ -3620,7 +3620,7 @@ class LocationManager(tk.Toplevel):
 
         self.geometry(f"{w}x{h}+{x}+{y}")
         self.minsize(700, 500)
-        self.grab_set()
+        # grab_set() usunięte - pozwala na Alt+Tab między oknami
 
         self.create_widgets()
         self.refresh_table()
@@ -4461,7 +4461,7 @@ class DatabaseWizard(tk.Toplevel):
         self.geometry(f"{width}x{height}")
         self.minsize(width, height)  # Minimalne wymiary okna
         self.transient(parent)
-        self.grab_set()
+        # grab_set() usunięte - pozwala na Alt+Tab między oknami
 
         # Wycentruj
         self.update_idletasks()
@@ -5621,7 +5621,7 @@ class MapCalibrator(tk.Toplevel):
         self.title("📍 Konfigurator Mapy")
         set_dialog_icon(self)
         self.transient(parent)
-        self.grab_set()
+        # grab_set() usunięte - pozwala na Alt+Tab między oknami
         self.resizable(False, False)
 
         self.parent_app = parent
@@ -6632,8 +6632,8 @@ class BackupManager(tk.Toplevel):
         
         self.geometry(f"{w}x{h}+{x}+{y}")
         self.minsize(800, 600)
-        self.grab_set()
-        
+        # grab_set() usunięte - pozwala na Alt+Tab między oknami
+
         # Konfiguracja stylów
         base_size = 10 if scale_factor <= 1.25 else (11 if scale_factor <= 1.5 else 12)
         self.base_font_size = base_size
