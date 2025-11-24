@@ -3573,9 +3573,18 @@ if __name__ == '__main__':
         """Obsługuje zdarzenie powrotu focusu do okna (np. po alt+tab).
 
         Upewnia się, że okno jest zawsze na wierzchu i otrzymuje focus
-        gdy użytkownik do niego wraca.
+        gdy użytkownik do niego wraca. Throttling zapobiega migotaniu GUI.
         """
         try:
+            # Throttling - nie wykonuj częściej niż raz na 250ms (zapobiega migotaniu)
+            current_time = time.time()
+            if hasattr(self, '_last_focus_time'):
+                time_since_last = current_time - self._last_focus_time
+                if time_since_last < 0.25:  # 250ms
+                    return
+
+            self._last_focus_time = current_time
+
             # Przenieś okno na wierzch stosu okien
             self.lift()
 
