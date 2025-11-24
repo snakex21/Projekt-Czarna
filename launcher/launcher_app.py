@@ -2839,6 +2839,8 @@ class AppLauncher(tk.Tk):
                     # Nowy format: (event_type, data1, data2)
                     event_type, data1, data2 = event
                     if event_type == "location_changed":
+                        # Odśwież ikonę okna po zmianie miejscowości
+                        self.set_window_icon()
                         messagebox.showinfo("✅ Zmieniono miejscowość",
                                           f"Aktywna miejscowość: {data1}\n\n"
                                           "Niektóre zmiany mogą wymagać ponownego uruchomienia serwera.")
