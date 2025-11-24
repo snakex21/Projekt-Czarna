@@ -540,39 +540,16 @@ function updateLocationAreaStats(areaStats) {
  * Aktualizuje statystyki żydowskie.
  */
 function updateJewishStats(jewishStats) {
-  // Zawsze pokaż sekcję
-  const section = document.getElementById('jewish-stats-section');
-  if (section) section.style.display = 'block';
-
-  // Sprawdź czy są dane
   if (!jewishStats || jewishStats.owners_count === 0) {
-    // Pokaż komunikat o braku danych
-    const ownersCount = document.getElementById('jewish-owners-count');
-    const parcelsCount = document.getElementById('jewish-parcels-count');
-    const totalArea = document.getElementById('jewish-total-area');
-    const tableContainer = document.getElementById('jewish-owners-table-container');
-
-    if (ownersCount) ownersCount.textContent = '0';
-    if (parcelsCount) parcelsCount.textContent = '0';
-    if (totalArea) totalArea.textContent = '0 ha';
-
-    if (tableContainer) {
-      tableContainer.innerHTML = `
-        <div style="padding: 2rem; text-align: center; color: #666;">
-          <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 1rem; color: #3b82f6;"></i>
-          <h3 style="margin-bottom: 0.5rem;">Brak skonfigurowanych numerów protokółów żydowskich</h3>
-          <p style="margin-bottom: 1rem;">Aby wyświetlić statystyki właścicieli żydowskich, skonfiguruj numery protokółów w launcherze.</p>
-          <p style="font-size: 0.9rem; color: #999;">Przejdź do launchera → Edytuj miejscowość → Zakładka "Protokół" → Numery protokółów żydowskich</p>
-        </div>
-      `;
-    }
-
-    // Ukryj przycisk jeśli brak danych
-    const showButton = document.getElementById('show-jewish-parcels');
-    if (showButton) showButton.style.display = 'none';
-
+    // Ukryj sekcję jeśli brak danych
+    const section = document.getElementById('jewish-stats-section');
+    if (section) section.style.display = 'none';
     return;
   }
+
+  // Pokaż sekcję
+  const section = document.getElementById('jewish-stats-section');
+  if (section) section.style.display = 'block';
 
   // Aktualizuj liczby
   const ownersCount = document.getElementById('jewish-owners-count');
@@ -582,10 +559,6 @@ function updateJewishStats(jewishStats) {
   if (ownersCount) ownersCount.textContent = jewishStats.owners_count || 0;
   if (parcelsCount) parcelsCount.textContent = jewishStats.parcels_count || 0;
   if (totalArea) totalArea.textContent = `${jewishStats.total_area_ha || 0} ha`;
-
-  // Pokaż przycisk jeśli są dane
-  const showButton = document.getElementById('show-jewish-parcels');
-  if (showButton) showButton.style.display = 'block';
 
   // Twórz tabelę właścicieli
   const tableContainer = document.getElementById('jewish-owners-table-container');
@@ -623,6 +596,7 @@ function updateJewishStats(jewishStats) {
   }
 
   // Dodaj obsługę przycisku "Pokaż na mapie" - DOKŁADNIE tak samo jak "Pokaż top 10"
+  const showButton = document.getElementById('show-jewish-parcels');
   if (showButton) {
     showButton.onclick = () => {
       // SKOPIOWANE 1:1 z funkcji "Pokaż top 10" (linia 263-269)
