@@ -413,14 +413,10 @@ def set_dialog_icon(window):
                     window.iconbitmap(ico_path)
                 return
 
-        # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
+        # Jeśli miejscowość nie ma własnej ikony, użyj domyślnej feather_icon
         icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-        custom_png = os.path.join(icon_dir, 'custom_icon.png')
-        custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
-
-        # Preferuj custom ikonę jeśli istnieje
-        png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
-        ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+        png_path = os.path.join(icon_dir, 'feather_icon.png')
+        ico_path = os.path.join(icon_dir, 'feather_icon.ico')
 
         if os.path.exists(png_path):
             icon_image = tk.PhotoImage(file=png_path)
@@ -2773,22 +2769,11 @@ class AppLauncher(tk.Tk):
                 if os.path.exists(custom_ico):
                     ico_path = custom_ico
 
-            # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
-            if not png_path and not ico_path:
-                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
-                custom_png = os.path.join(icon_dir, 'custom_icon.png')
-                custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
-
-                # Preferuj custom ikonę jeśli istnieje
-                png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
-                ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
-
-            # Jeśli wciąż nie mamy ścieżek, użyj domyślnych
+            # Jeśli miejscowość nie ma własnej ikony, użyj domyślnej feather_icon
+            icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
             if not png_path:
-                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
                 png_path = os.path.join(icon_dir, 'feather_icon.png')
             if not ico_path:
-                icon_dir = os.path.join(os.path.dirname(__file__), 'assets')
                 ico_path = os.path.join(icon_dir, 'feather_icon.ico')
 
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
