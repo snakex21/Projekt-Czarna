@@ -226,12 +226,8 @@ class OwnerEditorApp(tk.Tk):
         self.search_entry.focus_set()
 
     def set_window_icon(self):
-        """Ustawia ikonę okna aplikacji (pióro z launchera lub custom ikona)."""
+        """Ustawia ikonę okna aplikacji (custom ikona z miejscowości lub domyślna)."""
         try:
-            # Ścieżka do ikony w katalogu launcher/assets
-            launcher_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'launcher')
-            icon_dir = os.path.join(launcher_dir, 'assets')
-
             # Dla Windows, ustaw AppUserModelID aby ikona była widoczna w pasku zadań
             if platform.system() == "Windows":
                 try:
@@ -240,13 +236,76 @@ class OwnerEditorApp(tk.Tk):
                 except Exception as e:
                     print(f"⚠️ Nie udało się ustawić AppUserModelID: {e}")
 
-            # Sprawdź czy jest zapisana custom ikona
-            custom_png = os.path.join(icon_dir, 'custom_icon.png')
-            custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            png_path = None
+            ico_path = None
 
-            # Preferuj custom ikonę jeśli istnieje
-            png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
-            ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+            # Najpierw spróbuj pobrać nazwę aktywnej miejscowości
+            location_name = None
+            try:
+                # Spróbuj PostgreSQL
+                launcher_db_config = {
+                    "host": os.getenv("DB_HOST", "localhost"),
+                    "dbname": "mapa_launcher_db",
+                    "user": os.getenv("DB_USER", "postgres"),
+                    "password": os.getenv("DB_PASSWORD", "1234"),
+                    "port": os.getenv("DB_PORT", "5432"),
+                    "client_encoding": "UTF8"
+                }
+                conn = psycopg2.connect(**launcher_db_config)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1")
+                result = cursor.fetchone()
+                conn.close()
+                if result:
+                    location_name = result[0]
+            except Exception:
+                # Fallback do SQLite
+                try:
+                    launcher_dir = os.path.join(base_dir, "launcher")
+                    locations_db_path = os.path.join(launcher_dir, "locations.db")
+                    if os.path.exists(locations_db_path):
+                        conn = sqlite3.connect(locations_db_path)
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name FROM locations WHERE active = 1")
+                        result = cursor.fetchone()
+                        conn.close()
+                        if result:
+                            location_name = result[0]
+                except Exception:
+                    pass
+
+            # Jeśli mamy miejscowość, sprawdź czy jest custom_icon w backup/{miejscowość}/
+            if location_name:
+                backup_icon_dir = os.path.join(base_dir, "backup", location_name)
+                custom_png = os.path.join(backup_icon_dir, 'custom_icon.png')
+                custom_ico = os.path.join(backup_icon_dir, 'custom_icon.ico')
+
+                if os.path.exists(custom_png):
+                    png_path = custom_png
+                if os.path.exists(custom_ico):
+                    ico_path = custom_ico
+
+            # Jeśli nie ma w backup, sprawdź stary launcher/assets (dla kompatybilności wstecznej)
+            if not png_path and not ico_path:
+                launcher_dir = os.path.join(base_dir, 'launcher')
+                icon_dir = os.path.join(launcher_dir, 'assets')
+                custom_png = os.path.join(icon_dir, 'custom_icon.png')
+                custom_ico = os.path.join(icon_dir, 'custom_icon.ico')
+
+                # Preferuj custom ikonę jeśli istnieje
+                png_path = custom_png if os.path.exists(custom_png) else os.path.join(icon_dir, 'feather_icon.png')
+                ico_path = custom_ico if os.path.exists(custom_ico) else os.path.join(icon_dir, 'feather_icon.ico')
+
+            # Jeśli wciąż nie mamy ścieżek, użyj domyślnych
+            if not png_path:
+                launcher_dir = os.path.join(base_dir, 'launcher')
+                icon_dir = os.path.join(launcher_dir, 'assets')
+                png_path = os.path.join(icon_dir, 'feather_icon.png')
+            if not ico_path:
+                launcher_dir = os.path.join(base_dir, 'launcher')
+                icon_dir = os.path.join(launcher_dir, 'assets')
+                ico_path = os.path.join(icon_dir, 'feather_icon.ico')
 
             # Spróbuj użyć PNG z iconphoto() (wieloplatformowe)
             if os.path.exists(png_path):
