@@ -1704,7 +1704,10 @@ def ensure_default_location_exists():
             history_paragraph2=default_loc.get('history_paragraph2', ''),
             history_paragraph3=default_loc.get('history_paragraph3', ''),
             history_photos=default_loc.get('history_photos', []),
-            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db'),
+            gmina_katastralna=default_loc.get('gmina_katastralna', 'Czarna'),
+            jewish_protocol_numbers=default_loc.get('jewish_protocol_numbers', ''),
+            custom_icon=default_loc.get('custom_icon', 'custom_icon.png')
         )
         set_active_location(location_id)
         print(f"✓ Utworzono domyślną miejscowość: {default_name}")
@@ -1798,7 +1801,10 @@ def migrate_old_backup_structure():
             history_paragraph2=default_loc.get('history_paragraph2', ''),
             history_paragraph3=default_loc.get('history_paragraph3', ''),
             history_photos=default_loc.get('history_photos', []),
-            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+            postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db'),
+            gmina_katastralna=default_loc.get('gmina_katastralna', 'Czarna'),
+            jewish_protocol_numbers=default_loc.get('jewish_protocol_numbers', ''),
+            custom_icon=default_loc.get('custom_icon', 'custom_icon.png')
         )
         set_active_location(1)  # Ustaw jako aktywną (pierwsze ID to 1)
 
@@ -2578,6 +2584,8 @@ class AppLauncher(tk.Tk):
         # Migruj stare custom_icon z launcher/assets do backup/{miejscowość}/
         # (musi być po setup_postgres_config i migrate_old_backup_structure)
         migrate_custom_icon_to_backup()
+        # Po migracji ikon ustaw ponownie ikonę okna, aby od razu użyć customowych grafik
+        self.set_window_icon()
 
         # POKAŻ główne okno po konfiguracji PostgreSQL
         self.deiconify()
@@ -4405,7 +4413,10 @@ def auto_initialize_on_startup(loading_dialog):
                 history_paragraph2=default_loc.get('history_paragraph2', ''),
                 history_paragraph3=default_loc.get('history_paragraph3', ''),
                 history_photos=default_loc.get('history_photos', []),
-                postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db')
+                postgres_db_name=default_loc.get('postgres_db_name', 'mapa_czarna_db'),
+                gmina_katastralna=default_loc.get('gmina_katastralna', 'Czarna'),
+                jewish_protocol_numbers=default_loc.get('jewish_protocol_numbers', ''),
+                custom_icon=default_loc.get('custom_icon', 'custom_icon.png')
             )
             print("✅ Wczytano konfigurację z launcher_db_config.json")
 
@@ -6922,9 +6933,15 @@ class BackupManager(tk.Toplevel):
 
         # Checkboxy
         self.backup_vars = {key: tk.BooleanVar(value=True) for key in DATA_FILES}
-        self.backup_vars["scans"] = tk.BooleanVar(value=True)
-        self.backup_vars["config"] = tk.BooleanVar(value=True)
-        self.backup_vars["launcher_db"] = tk.BooleanVar(value=True)
+        self.backup_vars.update({
+            "config": tk.BooleanVar(value=True),
+            "map_image": tk.BooleanVar(value=True),
+            "history_photos": tk.BooleanVar(value=True),
+            "scans": tk.BooleanVar(value=True),
+            "custom_icons": tk.BooleanVar(value=True),
+            "favicon": tk.BooleanVar(value=True),
+            "launcher_db": tk.BooleanVar(value=True),
+        })
 
         content_frame = ttk.Frame(create_frame)
         content_frame.pack(fill=tk.X)
@@ -6935,21 +6952,39 @@ class BackupManager(tk.Toplevel):
         col1 = ttk.Frame(checkbox_frame)
         col1.pack(side=tk.LEFT, padx=10)
 
-        checkboxes = [
+        col1_items = [
             ("📋 Właściciele i Demografia", "owners"),
             ("🗺️ Działki (geometria)", "parcels"),
-            ("📍 Konfiguracja Mapy", "config")
+            ("📍 Konfiguracja Mapy", "config"),
+            ("🗾 Plik mapy (mapa.*)", "map_image"),
         ]
 
-        for text, var_key in checkboxes:
+        for text, var_key in col1_items:
             ttk.Checkbutton(col1, text=text, variable=self.backup_vars[var_key]).pack(anchor="w", pady=2)
 
         col2 = ttk.Frame(checkbox_frame)
         col2.pack(side=tk.LEFT, padx=10)
 
-        ttk.Checkbutton(col2, text="🌳 Genealogia", variable=self.backup_vars["genealogy"]).pack(anchor="w", pady=2)
-        ttk.Checkbutton(col2, text="📄 Skany Protokołów", variable=self.backup_vars["scans"]).pack(anchor="w", pady=2)
-        ttk.Checkbutton(col2, text="🗄️ Baza Launcher (konfiguracja stron)", variable=self.backup_vars["launcher_db"]).pack(anchor="w", pady=2)
+        col2_items = [
+            ("🌳 Genealogia", "genealogy"),
+            ("🖼️ Zdjęcia historyczne", "history_photos"),
+            ("📄 Skany Protokołów", "scans"),
+        ]
+
+        for text, var_key in col2_items:
+            ttk.Checkbutton(col2, text=text, variable=self.backup_vars[var_key]).pack(anchor="w", pady=2)
+
+        col3 = ttk.Frame(checkbox_frame)
+        col3.pack(side=tk.LEFT, padx=10)
+
+        col3_items = [
+            ("🖥️ Ikony Launchera", "custom_icons"),
+            ("🌐 Favicon witryny", "favicon"),
+            ("🗄️ Baza Launcher (konfiguracja stron)", "launcher_db"),
+        ]
+
+        for text, var_key in col3_items:
+            ttk.Checkbutton(col3, text=text, variable=self.backup_vars[var_key]).pack(anchor="w", pady=2)
 
         ttk.Button(content_frame, text="🎯 Stwórz Kopię ZIP", command=self.create_backup,
                   style="Success.TButton").pack(side=tk.RIGHT, padx=10)
@@ -7110,6 +7145,7 @@ class BackupManager(tk.Toplevel):
         backup_path = os.path.join(BACKUP_FOLDER, backup_filename)
 
         files_to_zip = []
+        global_scans_added = False
 
         # Zbieranie plików dla każdej miejscowości
         for location_name in locations_to_backup:
@@ -7133,6 +7169,13 @@ class BackupManager(tk.Toplevel):
                     arcname = os.path.join(location_name, "map_config.json")
                     files_to_zip.append((map_config_path, arcname))
 
+            if self.backup_vars["map_image"].get():
+                for filename in os.listdir(location_folder):
+                    if filename.lower().startswith("mapa.") and os.path.isfile(os.path.join(location_folder, filename)):
+                        map_path = os.path.join(location_folder, filename)
+                        arcname = os.path.join(location_name, filename)
+                        files_to_zip.append((map_path, arcname))
+
             for key in ["owners", "parcels", "genealogy"]:
                 if self.backup_vars[key].get():
                     file_path = data_files_for_location[key]["path"]
@@ -7144,8 +7187,50 @@ class BackupManager(tk.Toplevel):
                             arcname = os.path.join(location_name, os.path.basename(related_path))
                             files_to_zip.append((related_path, arcname))
 
+            if self.backup_vars["history_photos"].get():
+                history_dir = os.path.join(location_folder, "history_photos")
+                if os.path.exists(history_dir):
+                    for root, _, files in os.walk(history_dir):
+                        for filename in files:
+                            file_path = os.path.join(root, filename)
+                            rel_path = os.path.relpath(file_path, location_folder)
+                            arcname = os.path.join(location_name, rel_path)
+                            files_to_zip.append((file_path, arcname))
+
+            if self.backup_vars["scans"].get():
+                local_protokoly = os.path.join(location_folder, "protokoly")
+                if os.path.exists(local_protokoly):
+                    for root, _, files in os.walk(local_protokoly):
+                        for filename in files:
+                            file_path = os.path.join(root, filename)
+                            rel_path = os.path.relpath(file_path, location_folder)
+                            arcname = os.path.join(location_name, rel_path)
+                            files_to_zip.append((file_path, arcname))
+                elif not global_scans_added and os.path.exists(PROTOKOLY_FOLDER):
+                    for root, _, files in os.walk(PROTOKOLY_FOLDER):
+                        for filename in files:
+                            file_path = os.path.join(root, filename)
+                            arcname = os.path.relpath(file_path, BASE_DIR)
+                            files_to_zip.append((file_path, arcname))
+                    global_scans_added = True
+
+            if self.backup_vars["custom_icons"].get():
+                for ext in [".png", ".ico", ".jpg", ".jpeg", ".svg"]:
+                    icon_path = os.path.join(location_folder, f"custom_icon{ext}")
+                    if os.path.exists(icon_path):
+                        arcname = os.path.join(location_name, f"custom_icon{ext}")
+                        files_to_zip.append((icon_path, arcname))
+
+            if self.backup_vars["favicon"].get():
+                for ext in [".ico", ".png", ".jpg", ".jpeg", ".svg"]:
+                    favicon_path = os.path.join(location_folder, f"favicon{ext}")
+                    if os.path.exists(favicon_path):
+                        arcname = os.path.join(location_name, f"favicon{ext}")
+                        files_to_zip.append((favicon_path, arcname))
+
         # Skany protokołów (wspólne dla wszystkich miejscowości)
-        if self.backup_vars["scans"].get() and os.path.exists(PROTOKOLY_FOLDER):
+        # (pozostawiono dla kompatybilności ze starą strukturą assets/protokoly)
+        if self.backup_vars["scans"].get() and not global_scans_added and os.path.exists(PROTOKOLY_FOLDER):
             for root, _, files in os.walk(PROTOKOLY_FOLDER):
                 for file in files:
                     file_path = os.path.join(root, file)
