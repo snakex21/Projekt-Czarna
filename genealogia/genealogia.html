@@ -1,5 +1,6 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
@@ -18,14 +19,13 @@
          ========================================================================== -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- ==========================================================================
          STYLE APLIKACJI
          Opis: Warstwa prezentacji dla paska nagłówka, kontrolek i paneli.
                Sekcje podzielone blokami z opisem celu.
          ========================================================================== -->
     <style>
-
         /* ==========================================================================
            ZMIENNE KOLORYSTYCZNE (TRYB JASNY I CIEMNY)
            ========================================================================== */
@@ -42,7 +42,7 @@
             --text-muted: #999999;
             --border-color: #e0e6ed;
             --border-light: #ddd;
-            --shadow-color: rgba(0,0,0,0.15);
+            --shadow-color: rgba(0, 0, 0, 0.15);
             --accent-primary: #3498db;
             --accent-secondary: #667eea;
             --accent-success: #27ae60;
@@ -50,7 +50,7 @@
             --accent-danger: #e74c3c;
             --accent-info: #17a2b8;
             --accent-purple: #9b59b6;
-            
+
             /* Kolory węzłów i połączeń */
             --node-male-bg: #e3f2fd;
             --node-male-border: #1976d2;
@@ -59,7 +59,7 @@
             --connection-line: #95a5a6;
             --marriage-line: #e91e63;
             --parent-child-line: #34495e;
-            
+
             /* Kolory filtrów */
             --filter-birth: #27ae60;
             --filter-death: #e74c3c;
@@ -79,7 +79,7 @@
             --text-muted: #718096;
             --border-color: #4a5568;
             --border-light: #4a5568;
-            --shadow-color: rgba(0,0,0,0.4);
+            --shadow-color: rgba(0, 0, 0, 0.4);
             --accent-primary: #60a5fa;
             --accent-secondary: #8b5cf6;
             --accent-success: #34d399;
@@ -87,7 +87,7 @@
             --accent-danger: #f87171;
             --accent-info: #22d3ee;
             --accent-purple: #a78bfa;
-            
+
             /* Kolory węzłów i połączeń - tryb ciemny */
             --node-male-bg: #1e3a8a;
             --node-male-border: #3b82f6;
@@ -96,7 +96,7 @@
             --connection-line: #6b7280;
             --marriage-line: #f472b6;
             --parent-child-line: #9ca3af;
-            
+
             /* Kolory filtrów - tryb ciemny */
             --filter-birth: #34d399;
             --filter-death: #f87171;
@@ -106,7 +106,11 @@
         /* ==========================================================================
            RESET I PODSTAWOWE STYLE
            ========================================================================== */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -132,20 +136,25 @@
             position: relative;
             transition: background-color 0.3s, border-color 0.3s;
         }
-        .header h1 { 
-            font-size: 1.4rem; 
-            color: var(--text-primary); 
+
+        .header h1 {
+            font-size: 1.4rem;
+            color: var(--text-primary);
             margin: 0;
             transition: color 0.3s;
         }
-        .header-controls { 
-            display: flex; 
-            gap: 15px; 
-            align-items: center; 
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
         }
 
         /* Wyszukiwarka w nagłówku */
-        .search-container { position: relative; }
+        .search-container {
+            position: relative;
+        }
+
         .search-input {
             padding: 8px 35px 8px 12px;
             border: 2px solid var(--border-light);
@@ -156,23 +165,30 @@
             background: var(--bg-panel-solid);
             color: var(--text-primary);
         }
+
         .search-input:focus {
             outline: none;
             border-color: var(--accent-primary);
             box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
+
         .search-input::placeholder {
             color: var(--text-secondary);
         }
+
         .search-icon {
             position: absolute;
-            right: 12px; top: 50%;
+            right: 12px;
+            top: 50%;
             transform: translateY(-50%);
             color: var(--text-secondary);
         }
+
         .search-results {
             position: absolute;
-            top: 100%; left: 0; right: 0;
+            top: 100%;
+            left: 0;
+            right: 0;
             background: var(--bg-panel-solid);
             border: 1px solid var(--border-light);
             border-radius: 8px;
@@ -182,20 +198,29 @@
             box-shadow: 0 4px 12px var(--shadow-color);
             transition: background-color 0.3s, border-color 0.3s;
         }
+
         .search-result {
-            padding: 12px; 
+            padding: 12px;
             cursor: pointer;
             border-bottom: 1px solid var(--border-color);
             transition: background 0.2s;
             color: var(--text-primary);
         }
-        .search-result:hover { 
-            background: var(--bg-hover); 
+
+        .search-result:hover {
+            background: var(--bg-hover);
         }
-        .search-result:last-child { border-bottom: none; }
+
+        .search-result:last-child {
+            border-bottom: none;
+        }
 
         /* Kontener przycisków */
-        .controls { display: flex; gap: 10px; align-items: center; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
 
         /* ==========================================================================
            PRZYCISKI (wspólna baza + warianty kolorystyczne)
@@ -214,18 +239,57 @@
             height: 36px;
             line-height: 1.2;
         }
-        .btn-primary   { background: var(--accent-primary); color: #fff; }
-        .btn-secondary { background: var(--text-secondary); color: #fff; }
-        .btn-success   { background: var(--accent-success); color: #fff; }
-        .btn-info      { background: var(--accent-info); color: #fff; }
-        .btn-warning   { background: var(--accent-warning); color: #212529; }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: var(--text-secondary);
+            color: #fff;
+        }
+
+        .btn-success {
+            background: var(--accent-success);
+            color: #fff;
+        }
+
+        .btn-info {
+            background: var(--accent-info);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: var(--accent-warning);
+            color: #212529;
+        }
 
         /* Stany hover */
-        .btn-primary:hover   { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-secondary:hover { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-success:hover   { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-info:hover      { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-warning:hover   { filter: brightness(0.95); transform: translateY(-1px); }
+        .btn-primary:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-success:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-info:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+        }
+
+        .btn-warning:hover {
+            filter: brightness(0.95);
+            transform: translateY(-1px);
+        }
 
         /* Wymuszenie identycznego rozmiaru wybranych przycisków */
         #show-all,
@@ -240,37 +304,42 @@
            PANEL FILTROWANIA (obok przycisków)
            ========================================================================== */
         .filter-panel {
-            display: flex; gap: 8px; align-items: center;
+            display: flex;
+            gap: 8px;
+            align-items: center;
             padding: 8px 12px;
             background: var(--bg-panel);
-            border-radius: 8px; 
+            border-radius: 8px;
             border: 1px solid var(--border-light);
             transition: background-color 0.3s, border-color 0.3s;
         }
+
         .filter-select {
-            padding: 6px 10px; 
-            border: 1px solid var(--border-light); 
+            padding: 6px 10px;
+            border: 1px solid var(--border-light);
             border-radius: 4px;
-            font-size: 13px; 
-            background: var(--bg-panel-solid); 
+            font-size: 13px;
+            background: var(--bg-panel-solid);
             color: var(--text-primary);
             min-width: 140px;
             transition: all 0.3s;
         }
+
         .filter-year-input {
-            padding: 6px 10px; 
-            border: 1px solid var(--border-light); 
+            padding: 6px 10px;
+            border: 1px solid var(--border-light);
             border-radius: 4px;
-            font-size: 13px; 
-            width: 80px; 
+            font-size: 13px;
+            width: 80px;
             text-align: center;
             background: var(--bg-panel-solid);
             color: var(--text-primary);
             transition: all 0.3s;
         }
-        .filter-year-input:disabled { 
-            background: var(--bg-hover); 
-            color: var(--text-muted); 
+
+        .filter-year-input:disabled {
+            background: var(--bg-hover);
+            color: var(--text-muted);
         }
 
         /* ==========================================================================
@@ -308,264 +377,412 @@
            UKŁAD: PANEL + WIZUALIZACJA
            ========================================================================== */
         .family-select {
-            padding: 8px 12px; 
-            border: 2px solid var(--border-light); 
+            padding: 8px 12px;
+            border: 2px solid var(--border-light);
             border-radius: 6px;
-            font-size: 14px; 
+            font-size: 14px;
             background: var(--bg-panel-solid);
             color: var(--text-primary);
             min-width: 200px;
             transition: all 0.3s;
         }
-        .main-container { display: flex; height: calc(100vh - 70px); }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 70px);
+        }
+
         .sidebar {
-            width: 300px; 
+            width: 300px;
             background: var(--bg-panel);
             backdrop-filter: blur(10px);
             border-right: 1px solid var(--border-color);
-            padding: 20px; 
-            overflow-y: auto; 
+            padding: 20px;
+            overflow-y: auto;
             z-index: 10;
             transition: all 0.3s;
         }
 
         /* Info-boxy i legenda w panelu bocznym */
         .info-panel {
-            background: var(--bg-hover); 
-            border-radius: 8px; 
-            padding: 15px; 
+            background: var(--bg-hover);
+            border-radius: 8px;
+            padding: 15px;
             margin-bottom: 20px;
             border: 1px solid var(--border-color);
             transition: all 0.3s;
         }
-        .info-panel h3 { 
-            color: var(--text-primary); 
-            margin-bottom: 10px; 
+
+        .info-panel h3 {
+            color: var(--text-primary);
+            margin-bottom: 10px;
             font-size: 1.1rem;
             transition: color 0.3s;
         }
+
         .stats-grid {
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 10px; 
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             margin-bottom: 15px;
         }
+
         .stat-item {
-            text-align: center; 
-            background: var(--bg-panel-solid); 
+            text-align: center;
+            background: var(--bg-panel-solid);
             padding: 10px;
-            border-radius: 6px; 
+            border-radius: 6px;
             border: 1px solid var(--border-color);
             transition: all 0.3s;
         }
-        .stat-value { 
-            font-size: 1.4rem; 
-            font-weight: bold; 
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
             color: var(--accent-primary);
             transition: color 0.3s;
         }
-        .stat-label { 
-            font-size: 0.85rem; 
-            color: var(--text-secondary); 
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
             margin-top: 2px;
             transition: color 0.3s;
         }
-        .legend { 
-            background: var(--bg-hover); 
-            border-radius: 8px; 
-            padding: 15px; 
+
+        .legend {
+            background: var(--bg-hover);
+            border-radius: 8px;
+            padding: 15px;
             margin-bottom: 20px;
             border: 1px solid var(--border-color);
             transition: all 0.3s;
         }
-        .legend-item { 
-            display: flex; 
-            align-items: center; 
-            margin-bottom: 8px; 
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
             font-size: 14px;
             color: var(--text-primary);
             transition: color 0.3s;
         }
-        .legend-symbol {
-            width: 20px; height: 20px; margin-right: 10px; border-radius: 4px;
-            display: flex; align-items: center; justify-content: center; font-weight: bold;
-        }
-        .legend-symbol.male { background: var(--node-male-bg); color: var(--node-male-border); }
-        .legend-symbol.female { background: var(--node-female-bg); color: var(--node-female-border); }
-        .legend-symbol.marriage { background: rgba(233, 30, 99, 0.1); color: var(--marriage-line); }
-        .legend-symbol.parent-child { background: rgba(52, 73, 94, 0.1); color: var(--parent-child-line); }
 
-        .navigation { 
-            margin-top: auto; 
-            padding-top: 20px; 
+        .legend-symbol {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .legend-symbol.male {
+            background: var(--node-male-bg);
+            color: var(--node-male-border);
+        }
+
+        .legend-symbol.female {
+            background: var(--node-female-bg);
+            color: var(--node-female-border);
+        }
+
+        .legend-symbol.marriage {
+            background: rgba(233, 30, 99, 0.1);
+            color: var(--marriage-line);
+        }
+
+        .legend-symbol.parent-child {
+            background: rgba(52, 73, 94, 0.1);
+            color: var(--parent-child-line);
+        }
+
+        .navigation {
+            margin-top: auto;
+            padding-top: 20px;
             border-top: 1px solid var(--border-color);
             transition: border-color 0.3s;
         }
+
         .nav-link {
-            display: block; 
-            padding: 10px; 
-            text-decoration: none; 
+            display: block;
+            padding: 10px;
+            text-decoration: none;
             color: var(--accent-primary);
-            border-radius: 6px; 
-            margin-bottom: 5px; 
+            border-radius: 6px;
+            margin-bottom: 5px;
             transition: all 0.3s;
         }
-        .nav-link:hover { 
-            background: var(--bg-active); 
+
+        .nav-link:hover {
+            background: var(--bg-active);
         }
 
-        .viz-container { flex: 1; position: relative; overflow: hidden; }
-        #genealogy-network { width: 100%; height: 100%; }
+        .viz-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #genealogy-network {
+            width: 100%;
+            height: 100%;
+        }
 
         /* Nakładka ładowania */
         .loading-overlay {
-            position: absolute; inset: 0;
+            position: absolute;
+            inset: 0;
             background: var(--bg-panel);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             z-index: 1000;
             transition: background-color 0.3s;
         }
+
         .spinner {
-            width: 50px; height: 50px; border: 4px solid var(--border-color);
-            border-top: 4px solid var(--accent-primary); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 20px;
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
 
         /* ==========================================================================
            STYLE WĘZŁÓW I KRAWĘDZI (podgląd/tryby szczegółowości)
            ========================================================================== */
-        .person-node { cursor: pointer; will-change: transform; }
-        .person-node.highlighted .person-card { 
-            filter: drop-shadow(0 0 10px var(--accent-primary)); 
-            stroke-width: 4; 
+        .person-node {
+            cursor: pointer;
+            will-change: transform;
         }
-        .person-card { 
-            fill: var(--bg-panel-solid); 
-            stroke: var(--border-light); 
-            stroke-width: 1; 
+
+        .person-node.highlighted .person-card {
+            filter: drop-shadow(0 0 10px var(--accent-primary));
+            stroke-width: 4;
+        }
+
+        .person-card {
+            fill: var(--bg-panel-solid);
+            stroke: var(--border-light);
+            stroke-width: 1;
             shape-rendering: optimizeSpeed;
             transition: fill 0.3s, stroke 0.3s;
         }
-        .person-card.male { border-left: 4px solid var(--node-male-border); }
-        .person-card.female { border-left: 4px solid var(--node-female-border); }
-        .person-node rect { fill: var(--bg-panel-solid); }
 
-        .connection-line { 
-            fill: none; 
-            stroke: var(--connection-line); 
-            stroke-width: 2; 
+        .person-card.male {
+            border-left: 4px solid var(--node-male-border);
+        }
+
+        .person-card.female {
+            border-left: 4px solid var(--node-female-border);
+        }
+
+        .person-node rect {
+            fill: var(--bg-panel-solid);
+        }
+
+        .connection-line {
+            fill: none;
+            stroke: var(--connection-line);
+            stroke-width: 2;
             opacity: 0.7;
             transition: stroke 0.3s;
         }
-        .marriage-line { 
-            stroke: var(--marriage-line); 
+
+        .marriage-line {
+            stroke: var(--marriage-line);
             stroke-width: 3;
             transition: stroke 0.3s;
         }
-        .parent-child-line { 
-            stroke: var(--parent-child-line); 
-            stroke-width: 2; 
-            stroke-dasharray: 5,5;
+
+        .parent-child-line {
+            stroke: var(--parent-child-line);
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
             transition: stroke 0.3s;
         }
 
         /* Informacje wydajności (debug) */
         .performance-info {
-            position: absolute; top: 20px; left: 20px;
-            background: rgba(0, 0, 0, 0.7); color: white;
-            padding: 5px 10px; border-radius: 4px; font-size: 11px; font-family: monospace;
-            z-index: 50; display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            z-index: 50;
+            display: none;
         }
 
         /* RWD: dopasowanie nagłówka i panelu bocznego */
         @media (max-width: 1024px) {
-            .sidebar { width: 280px; }
-            .header-controls { flex-wrap: wrap; }
-            .search-input { width: 200px; }
+            .sidebar {
+                width: 280px;
+            }
+
+            .header-controls {
+                flex-wrap: wrap;
+            }
+
+            .search-input {
+                width: 200px;
+            }
         }
+
         @media (max-width: 768px) {
-            .sidebar { display: none; }
-            .header { flex-wrap: wrap; padding: 10px; }
-            .header-controls { width: 100%; margin-top: 10px; justify-content: space-between; }
-            .search-input { width: 180px; }
-            .filter-panel { flex-wrap: wrap; gap: 5px; }
+            .sidebar {
+                display: none;
+            }
+
+            .header {
+                flex-wrap: wrap;
+                padding: 10px;
+            }
+
+            .header-controls {
+                width: 100%;
+                margin-top: 10px;
+                justify-content: space-between;
+            }
+
+            .search-input {
+                width: 180px;
+            }
+
+            .filter-panel {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
         }
 
         /* ==========================================================================
            KONTROLKI ZOOM + INFO O TRYBIE WIDOKU
            ========================================================================== */
         .zoom-controls {
-            position: absolute; top: 20px; right: 20px;
-            display: flex; flex-direction: column; gap: 5px; z-index: 50;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 50;
         }
+
         .zoom-btn {
-            width: 40px; height: 40px; border: none; border-radius: 50%;
-            background: var(--bg-panel); 
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            background: var(--bg-panel);
             backdrop-filter: blur(10px);
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            font-size: 18px; font-weight: bold; color: var(--text-primary);
-            box-shadow: 0 2px 8px var(--shadow-color); 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px var(--shadow-color);
             transition: all 0.3s;
             border: 1px solid var(--border-color);
         }
-        .zoom-btn:hover { 
-            background: var(--bg-hover); 
-            transform: scale(1.1); 
+
+        .zoom-btn:hover {
+            background: var(--bg-hover);
+            transform: scale(1.1);
         }
 
         .view-mode {
-            position: absolute; bottom: 20px; left: 20px;
-            background: var(--bg-panel); 
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--bg-panel);
             backdrop-filter: blur(10px);
-            padding: 8px 12px; border-radius: 20px; font-size: 12px; 
-            color: var(--text-secondary); z-index: 50;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            z-index: 50;
             border: 1px solid var(--border-color);
             transition: all 0.3s;
         }
 
         /* Poziomy szczegółowości */
-        .lod-low .person-node text { display: none !important; }
-        .lod-low .person-card { stroke-width: 1; shape-rendering: crispEdges; }
-        .lod-medium .node-years, .lod-medium .node-generation { display: none !important; }
+        .lod-low .person-node text {
+            display: none !important;
+        }
+
+        .lod-low .person-card {
+            stroke-width: 1;
+            shape-rendering: crispEdges;
+        }
+
+        .lod-medium .node-years,
+        .lod-medium .node-generation {
+            display: none !important;
+        }
 
         /* Podświetlenia dla filtrów/zdarzeń */
-        .person-node.hl-birth  .person-card { 
-            stroke: var(--filter-birth); 
-            stroke-width: 3; 
-            filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.35)); 
+        .person-node.hl-birth .person-card {
+            stroke: var(--filter-birth);
+            stroke-width: 3;
+            filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.35));
         }
-        .person-node.hl-death  .person-card { 
-            stroke: var(--filter-death); 
-            stroke-width: 3; 
-            filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.35)); 
+
+        .person-node.hl-death .person-card {
+            stroke: var(--filter-death);
+            stroke-width: 3;
+            filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.35));
         }
-        .person-node.hl-mar    .person-card { 
-            stroke: var(--filter-marriage); 
-            stroke-width: 3; 
-            filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.35)); 
+
+        .person-node.hl-mar .person-card {
+            stroke: var(--filter-marriage);
+            stroke-width: 3;
+            filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.35));
         }
-        .marriage-line.hl { 
-            stroke: var(--filter-marriage) !important; 
-            stroke-width: 4 !important; 
-            opacity: 1 !important; 
+
+        .marriage-line.hl {
+            stroke: var(--filter-marriage) !important;
+            stroke-width: 4 !important;
+            opacity: 1 !important;
         }
 
         /* Klastery rodzin (gdy wyświetlane) */
-        .cluster-box.hl-birth { 
-            stroke: var(--filter-birth); 
-            stroke-width: 3; 
-            fill: rgba(52, 211, 153, 0.1); 
+        .cluster-box.hl-birth {
+            stroke: var(--filter-birth);
+            stroke-width: 3;
+            fill: rgba(52, 211, 153, 0.1);
         }
-        .cluster-box.hl-death { 
-            stroke: var(--filter-death); 
-            stroke-width: 3; 
-            fill: rgba(248, 113, 113, 0.1); 
+
+        .cluster-box.hl-death {
+            stroke: var(--filter-death);
+            stroke-width: 3;
+            fill: rgba(248, 113, 113, 0.1);
         }
-        .cluster-box.hl-mar   { 
-            stroke: var(--filter-marriage); 
-            stroke-width: 3; 
-            fill: rgba(167, 139, 250, 0.1); 
+
+        .cluster-box.hl-mar {
+            stroke: var(--filter-marriage);
+            stroke-width: 3;
+            fill: rgba(167, 139, 250, 0.1);
         }
 
         /* Tryb ciemny - dodatkowe dostosowania */
@@ -603,6 +820,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- ==========================================================================
          GÓRNY PASEK I KONTROLKI
@@ -625,9 +843,9 @@
 
             <!-- Zestaw kontrolek widoku + panel filtrów -->
             <div class="controls">
-                <button class="btn btn-primary"   id="fit-view">Dopasuj</button>
+                <button class="btn btn-primary" id="fit-view">Dopasuj</button>
                 <button class="btn btn-secondary" id="reset-view">Reset</button>
-                <button class="btn btn-success"   id="show-all">Pokaż wszystko</button>
+                <button class="btn btn-success" id="show-all">Pokaż wszystko</button>
 
                 <!-- Panel filtrowania po roku/typie zdarzenia -->
                 <div class="filter-panel">
@@ -637,8 +855,9 @@
                         <option value="death">Śmierci</option>
                         <option value="marriage">Śluby</option>
                     </select>
-                    <input type="number" id="filter-year" class="filter-year-input" placeholder="Rok" min="1500" max="2025" disabled>
-                    <button class="btn btn-info"    id="apply-filter" disabled>Filtruj</button>
+                    <input type="number" id="filter-year" class="filter-year-input" placeholder="Rok" min="1500"
+                        max="2025" disabled>
+                    <button class="btn btn-info" id="apply-filter" disabled>Filtruj</button>
                     <button class="btn btn-warning" id="reset-filter">Resetuj filtry</button>
                 </div>
 
@@ -649,7 +868,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- ==========================================================================
          GŁÓWNY UKŁAD: PANEL BOCZNY + OBSZAR WIZUALIZACJI
          Opis: Lewy panel z informacjami/legendą oraz kontener wizualizacji.
@@ -704,7 +923,8 @@
 
             <div class="info-panel">
                 <h3>💡 Wskazówki</h3>
-                <ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; color: var(--text-secondary);">
+                <ul
+                    style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; color: var(--text-secondary);">
                     <li>Przewijaj kółkiem myszy aby powiększać/pomniejszać</li>
                     <li>Przeciągaj aby przesuwać widok</li>
                     <li>Kliknij na osobę aby ją podświetlić</li>
@@ -722,18 +942,19 @@
 
         <div class="viz-container">
             <div id="genealogy-network"></div>
-            
+
             <!-- Overlay wydajności (opcjonalnie pokazywany w debug) -->
             <div class="performance-info" id="performance-info">
                 FPS: <span id="fps">-</span> | Węzły: <span id="node-count">-</span>
             </div>
-            
+
             <!-- Przyciski zoom -->
             <div class="zoom-controls">
                 <button class="zoom-btn" id="zoom-in">+</button>
                 <button class="zoom-btn" id="zoom-out">−</button>
                 <button class="zoom-btn" id="zoom-reset">⌂</button>
-                <button class="zoom-btn" id="fullscreen-toggle" title="Pełny ekran"><i class="fas fa-expand"></i></button>
+                <button class="zoom-btn" id="fullscreen-toggle" title="Pełny ekran"><i
+                        class="fas fa-expand"></i></button>
             </div>
 
             <!-- Tekstowy wskaźnik trybu widoku -->
@@ -754,39 +975,39 @@
 
         /** Aktualizuje wygląd i stan przycisku motywu (ikona, tytuł, aria, klasa). */
         function updateThemeButtonUI(theme) {
-        const btn = document.getElementById('theme-toggle');
-        if (!btn) return;
+            const btn = document.getElementById('theme-toggle');
+            if (!btn) return;
 
-        const icon = btn.querySelector('i');
-        const isDark = theme === 'dark';
+            const icon = btn.querySelector('i');
+            const isDark = theme === 'dark';
 
-        // Klasa stylująca przycisk w Twoim CSS
-        btn.classList.toggle('dark-active', isDark);
-        // Dostępność + tooltip
-        btn.setAttribute('aria-pressed', String(isDark));
-        btn.title = isDark ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny';
+            // Klasa stylująca przycisk w Twoim CSS
+            btn.classList.toggle('dark-active', isDark);
+            // Dostępność + tooltip
+            btn.setAttribute('aria-pressed', String(isDark));
+            btn.title = isDark ? 'Przełącz na tryb jasny' : 'Przełącz na tryb ciemny';
 
-        // Ikona: księżyc dla jasnego, słońce dla ciemnego
-        if (icon) {
-            icon.classList.remove('fa-moon', 'fa-sun');
-            icon.classList.add(isDark ? 'fa-sun' : 'fa-moon');
-        }
+            // Ikona: księżyc dla jasnego, słońce dla ciemnego
+            if (icon) {
+                icon.classList.remove('fa-moon', 'fa-sun');
+                icon.classList.add(isDark ? 'fa-sun' : 'fa-moon');
+            }
         }
 
         /** Inicjalizuje motyw na starcie: localStorage -> system -> domyślny. */
         function initializeTheme() {
-        const stored = localStorage.getItem('mapTheme');
-        const theme =
-            stored === 'dark' || stored === 'light'
-            ? stored
-            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
-                ? 'dark'
-                : 'light';
+            const stored = localStorage.getItem('mapTheme');
+            const theme =
+                stored === 'dark' || stored === 'light'
+                    ? stored
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+                        ? 'dark'
+                        : 'light';
 
-        // Nałożenie klasy .dark-mode i odświeżenie kolorów SVG (masz to w applyTheme)
-        applyTheme(theme);
-        // Ustaw ikonę i stan przycisku
-        updateThemeButtonUI(theme);
+            // Nałożenie klasy .dark-mode i odświeżenie kolorów SVG (masz to w applyTheme)
+            applyTheme(theme);
+            // Ustaw ikonę i stan przycisku
+            updateThemeButtonUI(theme);
         }
 
         /**
@@ -795,7 +1016,7 @@
          */
         function applyTheme(theme) {
             document.body.classList.toggle('dark-mode', theme === 'dark');
-            
+
             // Aktualizuj wszystkie elementy SVG jeśli już istnieją
             if (typeof g !== 'undefined' && g) {
                 updateSVGElementsForTheme(theme);
@@ -811,18 +1032,18 @@
             g.selectAll('.person-card')
                 .attr('fill', d => getNodeFillColor(d))
                 .attr('stroke', d => getNodeStrokeColor(d));
-                
+
             // Aktualizuj kolory tekstu w węzłach
             g.selectAll('.node-name, .node-years, .node-generation')
                 .attr('fill', theme === 'dark' ? '#e2e8f0' : '#333');
-                
+
             // Aktualizuj kolory połączeń
             g.selectAll('.connection-line')
                 .attr('stroke', theme === 'dark' ? '#6b7280' : '#95a5a6');
-                
+
             g.selectAll('.marriage-line')
                 .attr('stroke', theme === 'dark' ? '#f472b6' : '#e91e63');
-                
+
             g.selectAll('.parent-child-line')
                 .attr('stroke', theme === 'dark' ? '#9ca3af' : '#34495e');
         }
@@ -831,28 +1052,28 @@
          * Konfiguruje przełącznik trybu ciemnego
          */
         function setupThemeToggle() {
-        const btn = document.getElementById('theme-toggle');
-        if (!btn) return;
+            const btn = document.getElementById('theme-toggle');
+            if (!btn) return;
 
-        btn.addEventListener('click', () => {
-            const isDarkNow = document.body.classList.contains('dark-mode');
-            const next = isDarkNow ? 'light' : 'dark';
+            btn.addEventListener('click', () => {
+                const isDarkNow = document.body.classList.contains('dark-mode');
+                const next = isDarkNow ? 'light' : 'dark';
 
-            localStorage.setItem('mapTheme', next);
-            applyTheme(next);             // przełącza klasę .dark-mode + svg kolory
-            updateThemeButtonUI(next);    // aktualizuje ikonę/sugestie
-            console.log(`🎨 Przełączono na tryb: ${next}`);
-        });
-
-        // gdy użytkownik nie zapisał ręcznie, reaguj na systemowy motyw
-        if (!localStorage.getItem('mapTheme') && window.matchMedia) {
-            const mq = window.matchMedia('(prefers-color-scheme: dark)');
-            (mq.addEventListener || mq.addListener).call(mq, 'change', (e) => {
-            const theme = e.matches ? 'dark' : 'light';
-            applyTheme(theme);
-            updateThemeButtonUI(theme);
+                localStorage.setItem('mapTheme', next);
+                applyTheme(next);             // przełącza klasę .dark-mode + svg kolory
+                updateThemeButtonUI(next);    // aktualizuje ikonę/sugestie
+                console.log(`🎨 Przełączono na tryb: ${next}`);
             });
-        }
+
+            // gdy użytkownik nie zapisał ręcznie, reaguj na systemowy motyw
+            if (!localStorage.getItem('mapTheme') && window.matchMedia) {
+                const mq = window.matchMedia('(prefers-color-scheme: dark)');
+                (mq.addEventListener || mq.addListener).call(mq, 'change', (e) => {
+                    const theme = e.matches ? 'dark' : 'light';
+                    applyTheme(theme);
+                    updateThemeButtonUI(theme);
+                });
+            }
         }
 
         // Inicjalizuj motyw przed załadowaniem reszty aplikacji
@@ -949,17 +1170,17 @@
 
             allPersons = data.persons;
             console.log(`📊 Załadowano ${allPersons.length} osób`);
-            
+
             analyzeData();
             createVisualization();
             calculateSugiyamaLayout();
             precalculateConnections();
             render();
             setupControls();
-            
+
             hideLoadingOverlay();
             updateViewMode();
-            
+
             if (allPersons.length > CONFIG.PERFORMANCE_MODE_THRESHOLD) {
                 enablePerformanceMonitoring();
             }
@@ -1197,7 +1418,7 @@
              */
             const normalizeDate = (v) => {
                 if (v == null) return null;
-                
+
                 if (typeof v === 'object' && 'year' in v) {
                     const y = parseInt(v.year, 10);
                     if (!Number.isFinite(y)) return null;
@@ -1206,25 +1427,25 @@
                     if (v.day != null) out.day = parseInt(v.day, 10);
                     return out;
                 }
-                
+
                 if (typeof v === 'number') return { year: v };
-                
+
                 if (typeof v === 'string') {
                     const parts = v.trim().split('-');
                     const y = parseInt(parts[0], 10);
                     if (!Number.isFinite(y)) return null;
                     const out = { year: y };
-                    if (parts[1]) { 
-                        const mm = parseInt(parts[1], 10); 
-                        if (Number.isFinite(mm)) out.month = mm; 
+                    if (parts[1]) {
+                        const mm = parseInt(parts[1], 10);
+                        if (Number.isFinite(mm)) out.month = mm;
                     }
-                    if (parts[2]) { 
-                        const dd = parseInt(parts[2], 10); 
-                        if (Number.isFinite(dd)) out.day = dd; 
+                    if (parts[2]) {
+                        const dd = parseInt(parts[2], 10);
+                        if (Number.isFinite(dd)) out.day = dd;
                     }
                     return out;
                 }
-                
+
                 return null;
             };
 
@@ -1282,11 +1503,26 @@
                     const sid = m?.spouseId ?? m?.spouse_id ?? m?.id;
                     if (sid == null) return;
                     const key = [String(node.id), String(sid)].sort().join('-');
-                    const nd = normalizeDate(m?.date);
+                    // Obsługa pola weddingDate oraz standardowego date
+                    const rawDate = m?.weddingDate ?? m?.date;
+                    const nd = normalizeDate(rawDate);
                     if (nd?.year) marriageYearByPair.set(key, nd);
                 });
             }
-            
+
+            // Obsługa weddingDate bezpośrednio na obiekcie (dla prostych przypadków)
+            if (node.weddingDate) {
+                const nd = normalizeDate(node.weddingDate);
+                if (nd?.year && node.spouses && node.spouses.length > 0) {
+                    // Przypisz do pierwszego małżonka jeśli nie wiadomo do którego
+                    const sid = node.spouses[0];
+                    const key = [String(node.id), String(sid)].sort().join('-');
+                    if (!marriageYearByPair.has(key)) {
+                        marriageYearByPair.set(key, nd);
+                    }
+                }
+            }
+
             if (node.marriageDates && typeof node.marriageDates === 'object') {
                 Object.entries(node.marriageDates).forEach(([sid, val]) => {
                     const key = [String(node.id), String(sid)].sort().join('-');
@@ -1309,9 +1545,9 @@
             if (!to.spouses.includes(from.id)) to.spouses.push(from.id);
 
             const key = [String(edge.from), String(edge.to)].sort().join('-');
-            const ndFromEdge = normalizeDate(edge.marriageDate) || 
-                            normalizeDate(edge.marriageYear) ||
-                            extractYearFromLabel(edge);
+            const ndFromEdge = normalizeDate(edge.marriageDate) ||
+                normalizeDate(edge.marriageYear) ||
+                extractYearFromLabel(edge);
 
             if (ndFromEdge?.year) marriageYearByPair.set(key, ndFromEdge);
         }
@@ -1347,12 +1583,12 @@
          */
         function analyzeData() {
             console.log('🔍 Analizowanie danych genealogicznych...');
-            
+
             findFamilyGroups();
             calculateGenerations();
             analyzeSurnames();
             updateStatistics();
-            
+
             console.log('✅ Analiza danych zakończona');
         }
 
@@ -1363,7 +1599,7 @@
         function findFamilyGroups() {
             const visited = new Set();
             familyGroups = [];
-            
+
             allPersons.forEach(person => {
                 if (!visited.has(person.id)) {
                     const group = new Set();
@@ -1373,7 +1609,7 @@
                     }
                 }
             });
-            
+
             familyGroups.sort((a, b) => b.size - a.size);
             console.log(`👨‍👩‍👧‍👦 Znaleziono ${familyGroups.length} niezależnych grup rodzinnych`);
         }
@@ -1386,19 +1622,19 @@
          */
         function exploreFamily(personId, group, visited) {
             if (visited.has(personId)) return;
-            
+
             visited.add(personId);
             group.add(personId);
-            
+
             const person = allPersons.find(p => p.id === personId);
             if (!person) return;
-            
+
             const relatives = [
-                ...(person.parents || []), 
-                ...(person.children || []), 
+                ...(person.parents || []),
+                ...(person.children || []),
                 ...(person.spouses || [])
             ];
-            
+
             relatives.forEach(relatedId => {
                 if (relatedId && !visited.has(relatedId)) {
                     exploreFamily(relatedId, group, visited);
@@ -1445,8 +1681,8 @@
          * @returns {Array} Lista osób będących korzeniami
          */
         function findFamilyRoots(groupPersons, group) {
-            return groupPersons.filter(p => 
-                !p.parents || p.parents.length === 0 || 
+            return groupPersons.filter(p =>
+                !p.parents || p.parents.length === 0 ||
                 !p.parents.some(parentId => group.has(parentId))
             );
         }
@@ -1503,7 +1739,7 @@
         function normalizeGenerationLevels() {
             const levels = allPersons.filter(p => p.level !== null).map(p => p.level);
             if (levels.length === 0) return;
-            
+
             const minLevel = Math.min(...levels);
             if (minLevel < 0) {
                 allPersons.forEach(p => {
@@ -1517,7 +1753,7 @@
          */
         function analyzeSurnames() {
             families.clear();
-            
+
             allPersons.forEach(person => {
                 const surname = extractSurname(person.name);
                 if (!families.has(surname)) {
@@ -1525,7 +1761,7 @@
                 }
                 families.get(surname).add(person.id);
             });
-            
+
             console.log(`📛 Znaleziono ${families.size} różnych nazwisk`);
         }
 
@@ -1549,7 +1785,7 @@
          */
         function calculateSugiyamaLayout() {
             console.log('🏗️ Obliczanie layoutu rodzin...');
-            
+
             if (familyGroups.length === 0) {
                 calculateLayout();
                 return;
@@ -1564,9 +1800,9 @@
         function calculateGridLayout() {
             const columnsCount = Math.min(CONFIG.GRID_COLUMNS, Math.ceil(Math.sqrt(familyGroups.length)));
             const familyLayouts = prepareFamilyLayouts();
-            
+
             positionFamiliesInGrid(familyLayouts, columnsCount);
-            
+
             console.log(`🗏️ Rozmieszczono ${familyGroups.length} rodzin w siatce ${columnsCount} kolumn`);
         }
 
@@ -1658,20 +1894,20 @@
         function calculateFamilyLayout(groupPersons) {
             const positions = {};
             let maxX = 0, maxY = 0;
-            
+
             const levelGroups = groupPersonsByLevel(groupPersons);
             const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b);
-            
+
             let currentY = 0;
-            
+
             sortedLevels.forEach(level => {
                 const persons = levelGroups.get(level);
                 currentY = positionPersonsInLevel(persons, positions, currentY);
                 maxY = Math.max(maxY, currentY);
             });
-            
+
             maxX = Math.max(...Object.values(positions).map(pos => pos.x + CONFIG.NODE_WIDTH));
-            
+
             return { positions: positions, width: maxX, height: maxY };
         }
 
@@ -1682,7 +1918,7 @@
          */
         function groupPersonsByLevel(groupPersons) {
             const levelGroups = new Map();
-            
+
             groupPersons.forEach(person => {
                 if (person.level === null) person.level = 0;
                 if (!levelGroups.has(person.level)) {
@@ -1690,7 +1926,7 @@
                 }
                 levelGroups.get(person.level).push(person);
             });
-            
+
             return levelGroups;
         }
 
@@ -1704,12 +1940,12 @@
         function positionPersonsInLevel(persons, positions, currentY) {
             let currentX = 0;
             const processed = new Set();
-            
+
             persons.forEach(person => {
                 if (processed.has(person.id)) return;
-                
+
                 const spouse = findSpouseInLevel(person, persons, processed);
-                
+
                 if (spouse) {
                     positions[person.id] = { x: currentX, y: currentY };
                     positions[spouse.id] = { x: currentX + CONFIG.NODE_WIDTH + 20, y: currentY };
@@ -1722,7 +1958,7 @@
                     currentX += CONFIG.NODE_WIDTH + CONFIG.HORIZONTAL_SPACING;
                 }
             });
-            
+
             return currentY + CONFIG.NODE_HEIGHT + CONFIG.VERTICAL_SPACING;
         }
 
@@ -1734,8 +1970,8 @@
          * @returns {Object|null} Małżonek lub null
          */
         function findSpouseInLevel(person, persons, processed) {
-            return persons.find(p => 
-                person.spouses && person.spouses.includes(p.id) && 
+            return persons.find(p =>
+                person.spouses && person.spouses.includes(p.id) &&
                 !processed.has(p.id)
             );
         }
@@ -1746,19 +1982,19 @@
         function calculateLayout() {
             const levelGroups = groupPersonsByLevel(allPersons);
             const sortedLevels = Array.from(levelGroups.keys()).sort((a, b) => a - b);
-            
+
             let currentY = 50;
-            
+
             sortedLevels.forEach(level => {
                 const persons = levelGroups.get(level);
                 let currentX = 50;
-                
+
                 persons.forEach(person => {
                     person.x = currentX;
                     person.y = currentY;
                     currentX += CONFIG.NODE_WIDTH + CONFIG.HORIZONTAL_SPACING;
                 });
-                
+
                 currentY += CONFIG.NODE_HEIGHT + CONFIG.VERTICAL_SPACING;
             });
         }
@@ -1769,13 +2005,13 @@
          */
         function precalculateConnections() {
             console.log('🔗 Prekalikulowanie połączeń...');
-            
+
             allConnections = [];
             allMarriages = [];
 
             calculateParentChildConnections();
             calculateMarriageConnections();
-            
+
             console.log(`✅ Prekalikulowano ${allConnections.length} połączeń i ${allMarriages.length} małżeństw`);
         }
 
@@ -1815,7 +2051,7 @@
                 childId: child.id,
                 x1: parentX, y1: parentY,
                 x2: childX, y2: childY,
-                path: `M${parentX},${parentY} L${parentX},${parentY + (childY-parentY)/2} L${childX},${parentY + (childY-parentY)/2} L${childX},${childY}`
+                path: `M${parentX},${parentY} L${parentX},${parentY + (childY - parentY) / 2} L${childX},${parentY + (childY - parentY) / 2} L${childX},${childY}`
             };
         }
 
@@ -1879,15 +2115,15 @@
             const notes1 = (p.notes || '').toString();
             const notes2 = (s.notes || '').toString();
             const text = `${notes1} ${notes2}`.toLowerCase();
-            
+
             let match = text.match(/\b(ślub|ożeni|wyszła za mąż)[^\d]{0,25}(17|18|19|20)\d{2}\b/i);
             if (!match) match = text.match(/\b(17|18|19|20)\d{2}\b/);
-            
+
             if (match) {
-                const year = parseInt(match[match.length-1], 10);
+                const year = parseInt(match[match.length - 1], 10);
                 if (Number.isFinite(year)) return { year };
             }
-            
+
             return null;
         }
 
@@ -1959,7 +2195,7 @@
                     .attr('height', container.clientHeight)
                     .node();
                 ctx = canvas.getContext('2d');
-                
+
                 console.log('🖼️ Canvas utworzony dla dużego zbioru danych');
             }
         }
@@ -1995,17 +2231,17 @@
         /**
          * Obsługuje zdarzenia zoom z throttling.
          */
-        const throttledZoomHandler = throttle(function(event) {
+        const throttledZoomHandler = throttle(function (event) {
             currentTransform = event.transform;
             g.attr('transform', currentTransform);
-            
+
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(() => {
                 updateVisibleNodes();
                 updateLevelOfDetail();
                 updateViewMode();
             }, 50);
-            
+
             updateLevelOfDetail();
         }, CONFIG.ZOOM_THROTTLE_MS);
 
@@ -2017,7 +2253,7 @@
          */
         function throttle(func, limit) {
             let inThrottle;
-            return function() {
+            return function () {
                 const args = arguments;
                 const context = this;
                 if (!inThrottle) {
@@ -2061,7 +2297,7 @@
                 handleLowZoomView(transform);
                 return;
             }
-            
+
             handleNormalView(containerRect, transform);
         }
 
@@ -2099,13 +2335,13 @@
          */
         function handleNormalView(containerRect, transform) {
             const viewportBounds = calculateViewportBounds(containerRect, transform);
-            
+
             if (transform.k > 1.5 || allPersons.length < 100) {
                 visibleNodes = [...allPersons];
             } else {
                 visibleNodes = filterVisibleNodes(viewportBounds, transform);
             }
-            
+
             updateElementVisibility(transform);
             document.getElementById('visible-nodes').textContent = visibleNodes.length;
             applyFilterHighlight();
@@ -2119,7 +2355,7 @@
          */
         function calculateViewportBounds(containerRect, transform) {
             const bufferSize = Math.max(CONFIG.VIEWPORT_BUFFER, Math.min(500, containerRect.width * 0.3));
-            
+
             return {
                 left: (-transform.x) / transform.k - bufferSize,
                 top: (-transform.y) / transform.k - bufferSize,
@@ -2138,19 +2374,19 @@
             let visible = allPersons.filter(person => {
                 const nodeRight = person.x + CONFIG.NODE_WIDTH;
                 const nodeBottom = person.y + CONFIG.NODE_HEIGHT;
-                
+
                 return person.x < viewportBounds.right &&
                     nodeRight > viewportBounds.left &&
                     person.y < viewportBounds.bottom &&
                     nodeBottom > viewportBounds.top;
             });
-            
+
             const maxNodes = transform.k < 0.5 ? CONFIG.MAX_VISIBLE_NODES_LOW_ZOOM : CONFIG.MAX_VISIBLE_NODES;
-            
+
             if (visible.length > maxNodes) {
                 visible = prioritizeVisibleNodes(visible, viewportBounds, maxNodes);
             }
-            
+
             return visible;
         }
 
@@ -2164,13 +2400,13 @@
         function prioritizeVisibleNodes(visible, viewportBounds, maxNodes) {
             const centerX = (viewportBounds.left + viewportBounds.right) / 2;
             const centerY = (viewportBounds.top + viewportBounds.bottom) / 2;
-            
+
             visible.sort((a, b) => {
                 const distA = Math.sqrt(Math.pow(a.x - centerX, 2) + Math.pow(a.y - centerY, 2));
                 const distB = Math.sqrt(Math.pow(b.x - centerX, 2) + Math.pow(b.y - centerY, 2));
                 return distA - distB;
             });
-            
+
             return visible.slice(0, maxNodes);
         }
 
@@ -2180,13 +2416,13 @@
          */
         function updateElementVisibility(transform) {
             const visibleIds = new Set(visibleNodes.map(n => n.id));
-            
+
             g.selectAll('.person-node')
                 .style('display', d => visibleIds.has(d.id) ? 'block' : 'none')
                 .style('pointer-events', 'auto');
-            
+
             const showAllLines = transform.k > 0.8 || visibleNodes.length === allPersons.length;
-            
+
             updateConnectionLinesVisibility(visibleIds, transform, showAllLines);
             updateMarriageLinesVisibility(visibleIds, transform, showAllLines);
         }
@@ -2199,10 +2435,10 @@
          */
         function updateConnectionLinesVisibility(visibleIds, transform, showAllLines) {
             g.selectAll('.parent-child-line')
-                .style('display', function(d) {
+                .style('display', function (d) {
                     if (transform.k < 0.3) return transform.k < 0.2 ? 'none' : 'block';
                     if (showAllLines) return 'block';
-                    
+
                     const parentVisible = visibleIds.has(d.parentId);
                     const childVisible = visibleIds.has(d.childId);
                     return (parentVisible || childVisible) ? 'block' : 'none';
@@ -2217,10 +2453,10 @@
          */
         function updateMarriageLinesVisibility(visibleIds, transform, showAllLines) {
             g.selectAll('.marriage-line, .marriage-symbol')
-                .style('display', function(d) {
+                .style('display', function (d) {
                     if (transform.k < 0.3) return 'none';
                     if (showAllLines) return 'block';
-                    
+
                     const person1Visible = visibleIds.has(d.person1.id);
                     const person2Visible = visibleIds.has(d.person2.id);
                     return (person1Visible || person2Visible) ? 'block' : 'none';
@@ -2234,7 +2470,7 @@
          */
         function generationColor(level) {
             const isDark = document.body.classList.contains('dark-mode');
-            const palette = isDark 
+            const palette = isDark
                 ? ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa']
                 : ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8'];
             return palette[level % palette.length];
@@ -2256,12 +2492,12 @@
                 members.forEach(m => personToCluster.set(String(m.id), idx));
 
                 return {
-                    id: idx, 
-                    x: bounds.minX, 
-                    y: bounds.minY, 
-                    w: bounds.maxX - bounds.minX, 
+                    id: idx,
+                    x: bounds.minX,
+                    y: bounds.minY,
+                    w: bounds.maxX - bounds.minX,
                     h: bounds.maxY - bounds.minY,
-                    size: members.length, 
+                    size: members.length,
                     label: `${dominantSurname} (${members.length})`,
                     members: new Set(members.map(m => String(m.id)))
                 };
@@ -2289,20 +2525,20 @@
          */
         function findDominantSurname(members) {
             const surnameCount = new Map();
-            
+
             members.forEach(m => {
                 const surname = extractSurname(m.name);
                 surnameCount.set(surname, (surnameCount.get(surname) || 0) + 1);
             });
-            
+
             let dominantSurname = 'Nieznane', maxCount = 0;
-            surnameCount.forEach((count, surname) => { 
-                if (count > maxCount) { 
-                    maxCount = count; 
-                    dominantSurname = surname; 
-                } 
+            surnameCount.forEach((count, surname) => {
+                if (count > maxCount) {
+                    maxCount = count;
+                    dominantSurname = surname;
+                }
             });
-            
+
             return dominantSurname;
         }
 
@@ -2319,7 +2555,7 @@
          */
         function renderClusterBoxes() {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             const boxSel = g.selectAll('.cluster-box')
                 .data(clusters, d => d.id);
 
@@ -2346,7 +2582,7 @@
          */
         function renderClusterLabels() {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             const txtSel = g.selectAll('.cluster-label')
                 .data(clusters, d => d.id);
 
@@ -2388,7 +2624,7 @@
          */
         function applyFilterHighlight() {
             resetFilterHighlight();
-            
+
             if (!currentFilter.type || !currentFilter.year) return;
 
             const year = +currentFilter.year;
@@ -2438,14 +2674,14 @@
          */
         function highlightClustersForBirthDeath(year) {
             const key = currentFilter.type === 'birth' ? 'birthDate' : 'deathDate';
-            
+
             clusters.forEach(c => {
                 for (const pid of c.members) {
                     const p = allPersons.find(x => String(x.id) === pid);
                     const personYear = p?.[key]?.year;
-                    if (personYear === year) { 
-                        highlightedClusters.add(c.id); 
-                        break; 
+                    if (personYear === year) {
+                        highlightedClusters.add(c.id);
+                        break;
                     }
                 }
             });
@@ -2470,7 +2706,7 @@
          */
         function applyClustersHighlightStyles() {
             g.selectAll('.cluster-box')
-                .each(function(d){
+                .each(function (d) {
                     if (!highlightedClusters.has(d.id)) return;
                     d3.select(this)
                         .classed('hl-birth', currentFilter.type === 'birth')
@@ -2514,7 +2750,7 @@
                         .classed('hl-mar', true);
                 }
             });
-            
+
             g.selectAll('.marriage-line')
                 .classed('hl', d => d.marriageDate?.year === year);
         }
@@ -2528,17 +2764,17 @@
          */
         function drawCanvasNodes() {
             if (!ctx) return;
-            
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
             ctx.translate(currentTransform.x, currentTransform.y);
             ctx.scale(currentTransform.k, currentTransform.k);
-            
+
             visibleNodes.forEach(p => {
                 ctx.fillStyle = generationColor(p.level);
                 ctx.fillRect(p.x, p.y, 4, 4);
             });
-            
+
             ctx.restore();
         }
 
@@ -2560,7 +2796,7 @@
             } else {
                 applyHighLOD();
             }
-            
+
             updateConnectionLineWidth(scale);
             updateMarriageElementsVisibility(scale);
         }
@@ -2587,7 +2823,7 @@
          */
         function applyVeryLowLOD() {
             g.classed('lod-low', true);
-            
+
             g.selectAll('.person-node text').style('display', 'none');
             g.selectAll('.person-card').style('display', 'none');
 
@@ -2607,7 +2843,7 @@
          */
         function applyMediumLOD(scale) {
             g.classed('lod-medium', true);
-            
+
             g.selectAll('.node-name').style('display', 'block');
             g.selectAll('.node-gender').style('display', 'block');
             g.selectAll('.node-years, .node-generation').style('display', 'none');
@@ -2665,23 +2901,23 @@
         function enablePerformanceMonitoring() {
             const performanceInfo = document.getElementById('performance-info');
             performanceInfo.style.display = 'block';
-            
+
             function updateFPS() {
                 const now = performance.now();
                 frameCount++;
-                
+
                 if (now - lastFrameTime >= 1000) {
                     fps = Math.round((frameCount * 1000) / (now - lastFrameTime));
                     document.getElementById('fps').textContent = fps;
                     document.getElementById('node-count').textContent = visibleNodes.length;
-                    
+
                     frameCount = 0;
                     lastFrameTime = now;
                 }
-                
+
                 rafId = requestAnimationFrame(updateFPS);
             }
-            
+
             rafId = requestAnimationFrame(updateFPS);
             console.log('📊 Monitorowanie wydajności włączone');
         }
@@ -2691,14 +2927,14 @@
          */
         function render() {
             console.log('🎨 Renderowanie wizualizacji...');
-            
+
             if (canvas) drawCanvasNodes();
-            
+
             clearPreviousRender();
             renderConnections();
             renderNodes();
             fitToView();
-            
+
             console.log('✅ Renderowanie zakończone');
         }
 
@@ -2725,13 +2961,13 @@
          */
         function renderParentChildConnections() {
             const connectionLines = g.selectAll('.parent-child-line').data(allConnections);
-            
+
             connectionLines.enter()
                 .append('path')
                 .attr('class', 'parent-child-line connection-line')
                 .merge(connectionLines)
                 .attr('d', d => d.path);
-                
+
             connectionLines.exit().remove();
         }
 
@@ -2740,7 +2976,7 @@
          */
         function renderMarriageConnections() {
             const marriageLines = g.selectAll('.marriage-line').data(allMarriages);
-            
+
             marriageLines.enter()
                 .append('line')
                 .attr('class', 'marriage-line connection-line')
@@ -2748,7 +2984,7 @@
                 .merge(marriageLines)
                 .attr('x1', d => d.x1).attr('y1', d => d.y1)
                 .attr('x2', d => d.x2).attr('y2', d => d.y2);
-                
+
             marriageLines.exit().remove();
         }
 
@@ -2757,7 +2993,7 @@
          */
         function renderMarriageSymbols() {
             const marriageSymbols = g.selectAll('.marriage-symbol').data(allMarriages);
-            
+
             marriageSymbols.enter()
                 .append('text')
                 .attr('class', 'marriage-symbol')
@@ -2768,7 +3004,7 @@
                 .merge(marriageSymbols)
                 .attr('x', d => d.symbolX)
                 .attr('y', d => d.symbolY);
-                
+
             marriageSymbols.exit().remove();
         }
 
@@ -2812,10 +3048,10 @@
          */
         function formatMarriageDate(d) {
             if (!d || !d.year) return '';
-            
+
             const mm = d.month ? String(d.month).padStart(2, '0') : null;
             const dd = d.day ? String(d.day).padStart(2, '0') : null;
-            
+
             if (dd && mm) return `${dd}.${mm}.${d.year}`;
             if (mm) return `${mm}.${d.year}`;
             return `${d.year}`;
@@ -2827,15 +3063,15 @@
         function renderNodes() {
             const nodes = g.selectAll('.person-node')
                 .data(allPersons, d => d.id);
-            
+
             nodes.exit().remove();
-            
+
             const nodesEnter = nodes.enter()
                 .append('g')
                 .attr('class', 'person-node');
-            
+
             const nodesUpdate = nodesEnter.merge(nodes);
-            
+
             setupNodeTransforms(nodesUpdate);
             setupNodeCards(nodesEnter, nodesUpdate);
             setupNodeTexts(nodesEnter, nodesUpdate);
@@ -2868,7 +3104,7 @@
                 .attr('rx', 8)
                 .attr('ry', 8)
                 .attr('stroke-width', 2);
-            
+
             nodesUpdate.select('.person-card')
                 .attr('fill', d => getNodeFillColor(d))
                 .attr('stroke', d => getNodeStrokeColor(d))
@@ -2882,18 +3118,18 @@
          */
         function getNodeFillColor(d) {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             if (currentFilter.active && currentTransform.k >= CONFIG.CLUSTER_ZOOM_THRESHOLD) {
                 const matchesFilter = checkPersonMatchesFilter(d, currentFilter.type, currentFilter.year);
                 if (matchesFilter) {
                     if (isDark) {
-                        switch(currentFilter.type) {
+                        switch (currentFilter.type) {
                             case 'birth': return d.gender === 'M' ? '#1e3a8a' : '#be185d';
                             case 'death': return d.gender === 'M' ? '#7f1d1d' : '#831843';
                             case 'marriage': return d.gender === 'M' ? '#581c87' : '#701a75';
                         }
                     } else {
-                        switch(currentFilter.type) {
+                        switch (currentFilter.type) {
                             case 'birth': return d.gender === 'M' ? '#d5f4e6' : '#ffeef0';
                             case 'death': return d.gender === 'M' ? '#fae5d3' : '#fddad9';
                             case 'marriage': return d.gender === 'M' ? '#f0e6ff' : '#f8e8ff';
@@ -2901,7 +3137,7 @@
                     }
                 }
             }
-            
+
             if (isDark) {
                 return d.gender === 'M' ? '#1e3a8a' : '#be185d';
             } else {
@@ -2916,18 +3152,18 @@
          */
         function getNodeStrokeColor(d) {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             if (currentFilter.active && currentTransform.k >= CONFIG.CLUSTER_ZOOM_THRESHOLD) {
                 const matchesFilter = checkPersonMatchesFilter(d, currentFilter.type, currentFilter.year);
                 if (matchesFilter) {
-                    switch(currentFilter.type) {
+                    switch (currentFilter.type) {
                         case 'birth': return isDark ? '#34d399' : '#27ae60';
                         case 'death': return isDark ? '#f87171' : '#e74c3c';
                         case 'marriage': return isDark ? '#a78bfa' : '#9b59b6';
                     }
                 }
             }
-            
+
             if (isDark) {
                 return d.gender === 'M' ? '#3b82f6' : '#ec4899';
             } else {
@@ -2964,7 +3200,7 @@
          */
         function createTextElements(nodesEnter) {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             nodesEnter.append('text')
                 .attr('class', 'node-name')
                 .attr('x', CONFIG.NODE_WIDTH / 2)
@@ -2973,7 +3209,7 @@
                 .attr('font-size', '12px')
                 .attr('font-weight', 'bold')
                 .attr('fill', isDark ? '#e2e8f0' : '#333');
-            
+
             nodesEnter.append('text')
                 .attr('class', 'node-years')
                 .attr('x', CONFIG.NODE_WIDTH / 2)
@@ -2981,7 +3217,7 @@
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '10px')
                 .attr('fill', isDark ? '#a0aec0' : '#666');
-            
+
             nodesEnter.append('text')
                 .attr('class', 'node-generation')
                 .attr('x', CONFIG.NODE_WIDTH / 2)
@@ -2989,7 +3225,7 @@
                 .attr('text-anchor', 'middle')
                 .attr('font-size', '9px')
                 .attr('fill', isDark ? '#718096' : '#999');
-            
+
             nodesEnter.append('text')
                 .attr('class', 'node-gender')
                 .attr('x', CONFIG.NODE_WIDTH - 15)
@@ -3004,16 +3240,16 @@
          */
         function updateTextContent(nodesUpdate) {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             nodesUpdate.select('.node-name')
                 .text(d => formatPersonName(d.name));
-            
+
             nodesUpdate.select('.node-years')
                 .text(d => formatPersonDates(d.birthDate, d.deathDate));
-            
+
             nodesUpdate.select('.node-generation')
                 .text(d => formatPersonMeta(d));
-            
+
             nodesUpdate.select('.node-gender')
                 .text(d => d.gender === 'M' ? '♂' : '♀')
                 .attr('fill', d => {
@@ -3044,7 +3280,7 @@
         function formatPersonDates(birthDate, deathDate) {
             const birthStr = formatDate(birthDate, 'ur.');
             const deathStr = formatDate(deathDate, 'zm.');
-            
+
             if (birthStr && deathStr) return `${birthStr} - ${deathStr}`;
             if (birthStr) return birthStr;
             if (deathStr) return deathStr;
@@ -3059,13 +3295,13 @@
          */
         function formatDate(date, prefix) {
             if (!date) return '';
-            
+
             if (date.day && date.month && date.year) {
                 return `${prefix} ${date.day}.${date.month}.${date.year}`;
             } else if (date.year) {
                 return `${prefix} ${date.year}`;
             }
-            
+
             return '';
         }
 
@@ -3076,15 +3312,15 @@
          */
         function formatPersonMeta(person) {
             let text = `Pokolenie ${(person.level || 0) + 1}`;
-            
+
             if (person.spouses && person.spouses.length > 0) {
                 text += ` | Małż: ${person.spouses.length}`;
             }
-            
+
             if (person.houseNumber) {
                 text += ` | Dom: ${person.houseNumber}`;
             }
-            
+
             return text;
         }
 
@@ -3093,7 +3329,7 @@
          * @param {d3.Selection} nodesUpdate - Wszystkie węzły
          */
         function setupNodeTooltips(nodesUpdate) {
-            nodesUpdate.each(function(d) {
+            nodesUpdate.each(function (d) {
                 if (d.notes) {
                     d3.select(this).append('title').text(d.notes);
                 }
@@ -3108,13 +3344,13 @@
          * @returns {boolean} Czy osoba pasuje do filtru
          */
         function checkPersonMatchesFilter(person, filterType, filterYear) {
-            switch(filterType) {
+            switch (filterType) {
                 case 'birth':
                     return person.birthDate && person.birthDate.year === filterYear;
                 case 'death':
                     return person.deathDate && person.deathDate.year === filterYear;
                 case 'marriage':
-                    return person.spouses && person.spouses.length > 0 && 
+                    return person.spouses && person.spouses.length > 0 &&
                         person.marriageDate && person.marriageDate.year === filterYear;
                 default:
                     return false;
@@ -3132,7 +3368,7 @@
          */
         function handleNodeHover(event, person) {
             const isDark = document.body.classList.contains('dark-mode');
-            
+
             d3.select(event.currentTarget)
                 .select('.person-card')
                 .transition()
@@ -3170,7 +3406,7 @@
             clearExistingHighlight();
             highlightNode(event.currentTarget);
             scheduleHighlightRemoval();
-            
+
             console.log('🖱️ Kliknięto osobę:', person.name);
         }
 
@@ -3221,13 +3457,13 @@
          */
         function fitToView() {
             if (allPersons.length === 0) return;
-            
+
             clearHighlight();
-            
+
             const bounds = calculateDataBounds();
             const containerRect = container.getBoundingClientRect();
             const transform = calculateFitTransform(bounds, containerRect);
-            
+
             animateToTransform(transform);
         }
 
@@ -3253,18 +3489,18 @@
         function calculateFitTransform(bounds, containerRect) {
             const width = bounds.maxX - bounds.minX;
             const height = bounds.maxY - bounds.minY;
-            
+
             const scale = Math.min(
                 containerRect.width / width,
                 containerRect.height / height,
                 0.8
             ) * 0.9;
-            
+
             const centerX = containerRect.width / 2;
             const centerY = containerRect.height / 2;
             const boundsX = bounds.minX + width / 2;
             const boundsY = bounds.minY + height / 2;
-            
+
             return d3.zoomIdentity
                 .translate(centerX, centerY)
                 .scale(scale)
@@ -3294,14 +3530,14 @@
          */
         function setupControls() {
             console.log('🎛️ Konfigurowanie kontrolek interfejsu...');
-            
+
             setupSearchControls();
             setupFamilySelector();
             setupViewControls();
             setupZoomControls();
             setupFilterControls();
             setupFullscreenControl();
-            
+
             console.log('✅ Kontrolki skonfigurowane');
         }
 
@@ -3311,9 +3547,9 @@
         function setupSearchControls() {
             const searchInput = document.getElementById('search-input');
             const searchResults = document.getElementById('search-results');
-            
+
             if (!searchInput || !searchResults) return;
-            
+
             searchInput.addEventListener('input', (e) => handleSearchInput(e, searchResults));
             setupSearchResultsHandling(searchResults);
             setupSearchClickOutside(searchResults);
@@ -3326,12 +3562,12 @@
          */
         function handleSearchInput(e, searchResults) {
             const term = e.target.value.toLowerCase().trim();
-            
+
             if (term.length < 2) {
                 searchResults.style.display = 'none';
                 return;
             }
-            
+
             const matches = findSearchMatches(term);
             displaySearchResults(matches, searchResults);
         }
@@ -3342,7 +3578,7 @@
          * @returns {Array} Lista dopasowań
          */
         function findSearchMatches(term) {
-            return allPersons.filter(p => 
+            return allPersons.filter(p =>
                 p.name && p.name.toLowerCase().includes(term)
             ).slice(0, 8);
         }
@@ -3358,13 +3594,13 @@
                 searchResults.style.display = 'block';
                 return;
             }
-            
-            searchResults.innerHTML = matches.map(person => 
+
+            searchResults.innerHTML = matches.map(person =>
                 `<div class="search-result" data-person-id="${person.id}">
                     ${person.name} <small style="color: var(--text-muted);">(Pokolenie ${(person.level || 0) + 1})</small>
                 </div>`
             ).join('');
-            
+
             searchResults.style.display = 'block';
         }
 
@@ -3376,7 +3612,7 @@
             searchResults.addEventListener('click', (e) => {
                 const result = e.target.closest('.search-result');
                 if (!result) return;
-                
+
                 const personId = result.getAttribute('data-person-id');
                 if (personId) {
                     focusPerson(personId);
@@ -3393,9 +3629,9 @@
                 if (!e.target.closest('.search-container')) {
                     searchResults.style.display = 'none';
                 }
-                
-                if (!e.target.closest('.person-node') && 
-                    !e.target.closest('.controls') && 
+
+                if (!e.target.closest('.person-node') &&
+                    !e.target.closest('.controls') &&
                     !e.target.closest('.search-container')) {
                     clearHighlight();
                 }
@@ -3408,7 +3644,7 @@
         function setupFamilySelector() {
             const familySelect = document.getElementById('family-select');
             if (!familySelect) return;
-            
+
             populateFamilyOptions(familySelect);
             familySelect.addEventListener('change', (e) => handleFamilySelection(e.target.value));
         }
@@ -3419,9 +3655,9 @@
          */
         function populateFamilyOptions(familySelect) {
             familySelect.innerHTML = '<option value="all">Wszystkie rodziny</option>';
-            
+
             const familyGroupsWithNames = prepareFamilyGroupsWithNames();
-            
+
             familyGroupsWithNames.forEach(familyData => {
                 const option = document.createElement('option');
                 option.value = `group-${familyData.index}`;
@@ -3437,7 +3673,7 @@
         function prepareFamilyGroupsWithNames() {
             return familyGroups.map((group, index) => {
                 const dominantSurname = findDominantSurnameForGroup(group);
-                
+
                 return {
                     group: group,
                     index: index,
@@ -3454,7 +3690,7 @@
          */
         function findDominantSurnameForGroup(group) {
             const surnameCount = new Map();
-            
+
             group.forEach(personId => {
                 const person = allPersons.find(p => p.id === personId);
                 if (person) {
@@ -3462,7 +3698,7 @@
                     surnameCount.set(surname, (surnameCount.get(surname) || 0) + 1);
                 }
             });
-            
+
             let dominantSurname = 'Nieznane';
             let maxCount = 0;
             surnameCount.forEach((count, surname) => {
@@ -3471,7 +3707,7 @@
                     dominantSurname = surname;
                 }
             });
-            
+
             return dominantSurname;
         }
 
@@ -3481,7 +3717,7 @@
          */
         function handleFamilySelection(familyValue) {
             clearHighlight();
-            
+
             if (!familyValue || familyValue === 'all') {
                 showAllFamilies();
             } else if (familyValue.startsWith('group-')) {
@@ -3508,22 +3744,22 @@
         function showSpecificFamily(familyValue) {
             const groupIndex = parseInt(familyValue.replace('group-', ''));
             const group = familyGroups[groupIndex];
-            
+
             if (!group) return;
-            
+
             g.selectAll('.person-node')
                 .style('opacity', d => group.has(d.id) ? 1 : 0.2);
-            
+
             g.selectAll('.parent-child-line')
-                .style('opacity', d => 
+                .style('opacity', d =>
                     group.has(d.parentId) && group.has(d.childId) ? 0.7 : 0.1
                 );
-            
+
             g.selectAll('.marriage-line, .marriage-symbol')
-                .style('opacity', d => 
+                .style('opacity', d =>
                     group.has(d.person1.id) && group.has(d.person2.id) ? 1 : 0.1
                 );
-            
+
             focusOnFamily(group);
         }
 
@@ -3533,7 +3769,7 @@
          */
         function showFamilyBySurname(familyName) {
             const familyMembers = families.get(familyName) || new Set();
-            
+
             const extendedFamily = new Set(familyMembers);
             familyMembers.forEach(personId => {
                 const person = allPersons.find(p => p.id === personId);
@@ -3543,18 +3779,18 @@
                     });
                 }
             });
-            
+
             g.selectAll('.person-node')
                 .style('opacity', d => extendedFamily.has(d.id) ? 1 : 0.2);
-            
+
             g.selectAll('.connection-line')
                 .style('opacity', 0.1);
-            
+
             g.selectAll('.marriage-symbol')
-                .style('opacity', d => 
+                .style('opacity', d =>
                     extendedFamily.has(d.person1.id) && extendedFamily.has(d.person2.id) ? 1 : 0.1
                 );
-            
+
             focusOnFamily(extendedFamily);
         }
 
@@ -3565,7 +3801,7 @@
             const fitViewBtn = document.getElementById('fit-view');
             const resetViewBtn = document.getElementById('reset-view');
             const showAllBtn = document.getElementById('show-all');
-            
+
             if (fitViewBtn) fitViewBtn.addEventListener('click', fitToView);
             if (resetViewBtn) resetViewBtn.addEventListener('click', resetView);
             if (showAllBtn) showAllBtn.addEventListener('click', showAll);
@@ -3578,7 +3814,7 @@
             const zoomInBtn = document.getElementById('zoom-in');
             const zoomOutBtn = document.getElementById('zoom-out');
             const zoomResetBtn = document.getElementById('zoom-reset');
-            
+
             if (zoomInBtn) zoomInBtn.addEventListener('click', () => zoomBy(1.5));
             if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => zoomBy(0.75));
             if (zoomResetBtn) zoomResetBtn.addEventListener('click', resetToInitialView);
@@ -3611,7 +3847,7 @@
             const hasType = filterType.value !== '';
             filterYear.disabled = !hasType;
             applyFilter.disabled = !hasType;
-            
+
             if (!hasType) {
                 filterYear.value = '';
             }
@@ -3637,9 +3873,9 @@
         function handleApplyFilter(filterType, filterYear) {
             const type = filterType.value;
             const year = parseInt(filterYear.value);
-            
+
             if (!type || !year) return;
-            
+
             applyYearFilter(type, year);
         }
 
@@ -3692,7 +3928,7 @@
 
             const matchingPersonIds = findMatchingPersons(type, year);
             updateFilteredFamilies(matchingPersonIds);
-            
+
             // Najpierw renderujemy klastry jeśli jesteśmy w trybie klastrów
             if (currentTransform.k < CONFIG.CLUSTER_ZOOM_THRESHOLD) {
                 buildClusters();
@@ -3703,7 +3939,7 @@
                 // W trybie normalnym najpierw przełączamy na klastry, potem podświetlamy
                 switchToClusterView();
             }
-            
+
             updateViewMode();
             console.log(`🔍 Zastosowano filtr: ${getFilterDescription(type)} ${year}`);
         }
@@ -3742,12 +3978,12 @@
          */
         function updateFilteredFamilies(matchingPersonIds) {
             filteredFamilies.clear();
-            
+
             familyGroups.forEach((group, idx) => {
                 for (const id of matchingPersonIds) {
-                    if (group.has(id)) { 
-                        filteredFamilies.add(idx); 
-                        break; 
+                    if (group.has(id)) {
+                        filteredFamilies.add(idx);
+                        break;
                     }
                 }
             });
@@ -3759,10 +3995,10 @@
         function switchToClusterView() {
             buildClusters();
             renderClusters();
-            
+
             const newScale = CONFIG.CLUSTER_ZOOM_THRESHOLD * 0.8;
             const transform = currentTransform.scale(newScale / currentTransform.k);
-            
+
             svg.transition()
                 .duration(500)
                 .call(zoom.transform, transform)
@@ -3779,7 +4015,7 @@
          * @returns {string} Opis filtru
          */
         function getFilterDescription(type) {
-            switch(type) {
+            switch (type) {
                 case 'birth': return 'urodzenia w';
                 case 'death': return 'śmierci w';
                 case 'marriage': return 'śluby w';
@@ -3797,7 +4033,7 @@
             resetFilterControls();
             updateVisibleElements();
             updateViewMode();
-            
+
             console.log('🧹 Filtry zresetowane');
         }
 
@@ -3842,13 +4078,13 @@
                 console.warn(`⚠️ Nie znaleziono osoby o ID: ${personId}`);
                 return;
             }
-            
+
             clearHighlight();
             hideSearchResults();
-            
+
             const transform = calculatePersonFocusTransform(person);
             animateToPersonFocus(transform, personId);
-            
+
             console.log(`🎯 Fokusowanie na osobie: ${person.name}`);
         }
 
@@ -3858,7 +4094,7 @@
         function hideSearchResults() {
             const searchResults = document.getElementById('search-results');
             const searchInput = document.getElementById('search-input');
-            
+
             if (searchResults) searchResults.style.display = 'none';
             if (searchInput) searchInput.value = '';
         }
@@ -3871,7 +4107,7 @@
         function calculatePersonFocusTransform(person) {
             const containerRect = container.getBoundingClientRect();
             const scale = Math.max(currentTransform.k, 1.2);
-            
+
             return d3.zoomIdentity
                 .translate(containerRect.width / 2, containerRect.height / 2)
                 .scale(scale)
@@ -3887,7 +4123,7 @@
             svg.transition()
                 .duration(CONFIG.ANIMATION_DURATION)
                 .call(zoom.transform, transform);
-            
+
             setTimeout(() => {
                 highlightPersonById(personId);
                 scheduleHighlightRemoval();
@@ -3910,17 +4146,17 @@
          */
         function focusOnFamily(familyMembersSet) {
             const familyPersons = allPersons.filter(p => familyMembersSet.has(p.id));
-            
+
             if (familyPersons.length === 0) {
                 console.warn('⚠️ Brak członków rodziny do sfokusowania');
                 return;
             }
-            
+
             const bounds = calculateFamilyBounds(familyPersons);
             const transform = calculateFamilyFocusTransform(bounds);
-            
+
             animateToTransform(transform);
-            
+
             console.log(`👨‍👩‍👧‍👦 Fokusowanie na rodzinie (${familyPersons.length} osób)`);
         }
 
@@ -3931,7 +4167,7 @@
          */
         function calculateFamilyBounds(familyPersons) {
             const margin = 100;
-            
+
             return {
                 minX: Math.min(...familyPersons.map(p => p.x)) - margin,
                 maxX: Math.max(...familyPersons.map(p => p.x + CONFIG.NODE_WIDTH)) + margin,
@@ -3948,20 +4184,20 @@
         function calculateFamilyFocusTransform(bounds) {
             const width = bounds.maxX - bounds.minX;
             const height = bounds.maxY - bounds.minY;
-            
+
             const containerRect = container.getBoundingClientRect();
-            
+
             const scale = Math.min(
                 containerRect.width / width,
                 containerRect.height / height,
                 2
             ) * 0.85;
-            
+
             const centerX = containerRect.width / 2;
             const centerY = containerRect.height / 2;
             const boundsX = bounds.minX + width / 2;
             const boundsY = bounds.minY + height / 2;
-            
+
             return d3.zoomIdentity
                 .translate(centerX, centerY)
                 .scale(scale)
@@ -3985,11 +4221,11 @@
         function resetToInitialView() {
             const familySelect = document.getElementById('family-select');
             if (familySelect) familySelect.value = 'all';
-            
+
             showAllFamilies();
             clearHighlight();
             fitToView();
-            
+
             console.log('🔄 Widok zresetowany do stanu początkowego');
         }
 
@@ -3999,11 +4235,11 @@
         function resetView() {
             const familySelect = document.getElementById('family-select');
             if (familySelect) familySelect.value = 'all';
-            
+
             showAllFamilies();
             clearAllHighlights();
             fitToView();
-            
+
             console.log('🔄 Widok aplikacji zresetowany');
         }
 
@@ -4013,10 +4249,10 @@
         function showAll() {
             const familySelect = document.getElementById('family-select');
             if (familySelect) familySelect.value = 'all';
-            
+
             showAllFamilies();
             clearAllHighlights();
-            
+
             console.log('👁️ Pokazano wszystkie elementy');
         }
 
@@ -4049,7 +4285,7 @@
             updateBasicStatistics();
             updateGenerationStatistics();
             updateMarriageStatistics();
-            
+
             console.log('📊 Statystyki zaktualizowane');
         }
 
@@ -4059,7 +4295,7 @@
         function updateBasicStatistics() {
             const totalPeopleElement = document.getElementById('total-people');
             const totalFamiliesElement = document.getElementById('total-families');
-            
+
             if (totalPeopleElement) totalPeopleElement.textContent = allPersons.length;
             if (totalFamiliesElement) totalFamiliesElement.textContent = familyGroups.length;
         }
@@ -4069,9 +4305,9 @@
          */
         function updateGenerationStatistics() {
             const totalGenerationsElement = document.getElementById('total-generations');
-            
+
             if (!totalGenerationsElement) return;
-            
+
             const levels = allPersons.filter(p => p.level !== null).map(p => p.level);
             const maxLevel = levels.length > 0 ? Math.max(...levels) : 0;
             totalGenerationsElement.textContent = maxLevel + 1;
@@ -4082,12 +4318,12 @@
          */
         function updateMarriageStatistics() {
             const totalMarriagesElement = document.getElementById('total-marriages');
-            
+
             if (!totalMarriagesElement) return;
-            
+
             let marriageCount = 0;
             const processed = new Set();
-            
+
             allPersons.forEach(person => {
                 if (person.spouses) {
                     person.spouses.forEach(spouseId => {
@@ -4099,7 +4335,7 @@
                     });
                 }
             });
-            
+
             totalMarriagesElement.textContent = marriageCount;
         }
 
@@ -4109,7 +4345,7 @@
         function updateViewMode() {
             const viewModeElement = document.getElementById('view-mode');
             if (!viewModeElement) return;
-            
+
             const modeText = buildViewModeText();
             viewModeElement.textContent = modeText;
         }
@@ -4122,11 +4358,11 @@
             const scale = currentTransform.k;
             let mode = getViewModeByScale(scale);
             let text = `${mode} (${Math.round(scale * 100)}%)`;
-            
+
             if (currentFilter.active) {
                 text += buildFilterDescription();
             }
-            
+
             return text;
         }
 
@@ -4164,10 +4400,10 @@
          */
         function showError(message, error) {
             console.error('❌ BŁĄD:', error);
-            
+
             const overlay = document.getElementById('loading-overlay');
             if (!overlay) return;
-            
+
             overlay.innerHTML = `
                 <div style="text-align: center; color: #e74c3c;">
                     <h3>Błąd ładowania danych genealogicznych</h3>
@@ -4202,7 +4438,7 @@
          */
         window.addEventListener('beforeunload', () => {
             console.log('🧹 Sprzątanie przed zamknięciem...');
-            
+
             if (rafId) {
                 cancelAnimationFrame(rafId);
             }
@@ -4215,4 +4451,5 @@
         });
     </script>
 </body>
+
 </html>

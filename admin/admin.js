@@ -1046,8 +1046,13 @@ const renderGenealogy = (data) => {
     const openGenealogyModal = (person = null) => {
         elements.modalTitle.textContent = person ? 'Edytuj Osobę' : 'Dodaj Osobę';
         
-        const peopleOptions = allGenealogy.map(p => 
-            `<option value="${p.id_osoby}">${p.imie} ${p.nazwisko || ''}</option>`
+        // Sortujemy alfabetycznie dla łatwiejszego szukania
+        const sortedGenealogy = [...allGenealogy].sort((a, b) => 
+            (a.imie + a.nazwisko).localeCompare(b.imie + b.nazwisko)
+        );
+
+        const peopleOptions = sortedGenealogy.map(p => 
+            `<option value="${p.id_osoby}">${p.imie} ${p.nazwisko || ''} (ID: ${p.id_osoby})</option>`
         ).join('');
         
         const protocolOptions = allProtocols.map(p =>
@@ -1098,13 +1103,14 @@ const renderGenealogy = (data) => {
                             ${peopleOptions}
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Małżonek</label>
-                        <select name="id_malzonka">
-                            <option value="">Brak</option>
-                            ${peopleOptions}
-                        </select>
+                    
+                    <!-- Nowa sekcja małżonków -->
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Małżeństwa (Małżonek + Rok)</label>
+                        <div id="spousesContainer"></div>
+                        <button type="button" class="btn-add-spouse" id="addSpouseBtn">+ Dodaj małżonka</button>
                     </div>
+
                     <div class="form-group">
                         <label>Protokół</label>
                         <select name="protokol_klucz">
@@ -1120,11 +1126,46 @@ const renderGenealogy = (data) => {
             </form>
         `;
         
+        // Logika dynamicznych małżonków
+        const spousesContainer = document.getElementById('spousesContainer');
+        
+        // Funkcja tworząca wiersz
+        const addSpouseRow = (spouseId = '', year = '') => {
+            const row = document.createElement('div');
+            row.className = 'spouse-row';
+            row.innerHTML = `
+                <select class="spouse-select" style="flex: 2;">
+                    <option value="">Wybierz małżonka...</option>
+                    ${peopleOptions}
+                </select>
+                <input type="number" class="spouse-year" placeholder="Rok" value="${year}" style="flex: 1;">
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove()">×</button>
+            `;
+            
+            // Ustawienie wartości selecta
+            if (spouseId) row.querySelector('select').value = spouseId;
+            
+            spousesContainer.appendChild(row);
+        };
+
+        // Obsługa przycisku dodawania
+        document.getElementById('addSpouseBtn').onclick = () => addSpouseRow();
+
         if (person) {
             document.querySelector('[name="id_ojca"]').value = person.id_ojca || '';
             document.querySelector('[name="id_matki"]').value = person.id_matki || '';
-            document.querySelector('[name="id_malzonka"]').value = person.id_malzonka || '';
             document.querySelector('[name="protokol_klucz"]').value = person.protokol_klucz || '';
+
+            // Wypełnij istniejącymi małżeństwami
+            if (person.marriages && person.marriages.length > 0) {
+                person.marriages.forEach(m => addSpouseRow(m.spouse_json_id, m.year));
+            } else if (person.id_malzonka) {
+                // Fallback dla starego formatu (tylko ID, bez daty)
+                // Znajdź json_id małżonka na podstawie db_id (jeśli to db_id) lub json_id
+                const spouse = allGenealogy.find(p => p.db_id === person.id_malzonka) || 
+                               allGenealogy.find(p => p.id_osoby == person.id_malzonka);
+                if (spouse) addSpouseRow(spouse.id_osoby, '');
+            }
         }
         
         elements.modalSave.onclick = () => saveGenealogy(person?.db_id);
@@ -1136,6 +1177,38 @@ const renderGenealogy = (data) => {
         const formData = new FormData(form);
         const data = Object.fromEntries(formData);
         
+        // Zbierz dane o małżeństwach i WALIDUJ
+        const marriageRows = document.querySelectorAll('.spouse-row');
+        const marriages = [];
+        let hasError = false;
+
+        // Reset stylów błędów
+        marriageRows.forEach(row => row.querySelector('.spouse-select').style.borderColor = '');
+
+        for (const row of marriageRows) {
+            const selectElement = row.querySelector('.spouse-select');
+            const sid = selectElement.value;
+            const year = row.querySelector('.spouse-year').value;
+
+            if (!sid) {
+                // Jeśli dodano wiersz, ale nie wybrano osoby -> BŁĄD
+                selectElement.style.borderColor = 'red';
+                hasError = true;
+            } else {
+                marriages.push({
+                    spouse_json_id: sid,
+                    year: year ? parseInt(year, 10) : null
+                });
+            }
+        }
+
+        if (hasError) {
+            showToast('error', 'Wybierz małżonka w dodanym wierszu lub usuń pusty wiersz.');
+            return; // Przerwij zapis
+        }
+
+        data.marriages = marriages;
+
         Object.keys(data).forEach(key => {
             if (data[key] === '') data[key] = null;
         });

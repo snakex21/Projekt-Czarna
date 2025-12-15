@@ -27,6 +27,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeModalBtn = document.getElementById("closeModalBtn");
   const cancelEditBtn = document.getElementById("cancelEditBtn");
   const saveAndCloseBtn = document.getElementById("saveAndCloseBtn");
+
+  // Elementy dynamiczne małżonków
+  const spousesContainer = document.getElementById("spouses-container");
+  const addSpouseBtn = document.getElementById("addSpouseBtn");
   
   // Dane aplikacji
   let allPeople = [];
@@ -438,12 +442,62 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================================================
 
   /**
+   * Tworzy wiersz edycji małżonka.
+   */
+  function createSpouseRow(spouseId = "", weddingYear = "") {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "10px";
+    row.style.marginBottom = "8px";
+    row.className = "spouse-row-entry";
+
+    // Input ID małżonka
+    const idInput = document.createElement("input");
+    idInput.type = "text";
+    idInput.placeholder = "ID Małżonka";
+    idInput.setAttribute("list", "people-list"); // Podpinamy autouzupełnianie
+    idInput.value = spouseId;
+    idInput.style.flex = "2";
+    idInput.className = "spouse-id-input";
+
+    // Input Rok Ślubu
+    const dateInput = document.createElement("input");
+    dateInput.type = "number";
+    dateInput.placeholder = "Rok ślubu";
+    dateInput.value = weddingYear;
+    dateInput.style.flex = "1";
+    dateInput.className = "spouse-date-input";
+
+    // Przycisk usuwania
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.textContent = "🗑️";
+    delBtn.className = "btn delete-btn";
+    delBtn.style.padding = "5px 10px";
+    delBtn.onclick = () => row.remove();
+
+    row.appendChild(idInput);
+    row.appendChild(dateInput);
+    row.appendChild(delBtn);
+
+    spousesContainer.appendChild(row);
+  }
+
+  // Obsługa przycisku dodawania małżonka
+  if (addSpouseBtn) {
+    addSpouseBtn.addEventListener("click", () => createSpouseRow());
+  }
+
+  /**
    * Otwiera modal edycji/dodawania osoby.
    */
   function openModal(person = null) {
     editForm
       .querySelectorAll("input")
       .forEach((input) => (input.style.borderColor = ""));
+    
+    // Wyczyść listę małżonków
+    spousesContainer.innerHTML = "";
 
     if (person) {
       // Tryb edycji
@@ -459,13 +513,26 @@ document.addEventListener("DOMContentLoaded", () => {
       editForm["edit-uwagi"].value = person.uwagi || "";
       editForm["edit-ojciec-id"].value = person.id_ojca || "";
       editForm["edit-matka-id"].value = person.id_matki || "";
-      editForm["edit-malzonek-id"].value = person.id_malzonka || "";
       editForm["edit-wlasciciel-id"].value = person.protokol_klucz || "";
+
+      // Wypełnij małżonków
+      if (person.malzenstwa && Array.isArray(person.malzenstwa)) {
+        person.malzenstwa.forEach(m => {
+          // Obsługa formatu backendu (key: spouseId, date/weddingDate)
+          const date = m.date || m.weddingDate || ""; 
+          createSpouseRow(m.spouseId, date);
+        });
+      } else if (person.id_malzonka) {
+        // Fallback dla starego formatu
+        createSpouseRow(person.id_malzonka, "");
+      }
+
     } else {
       // Tryb dodawania
       modalTitle.textContent = "Dodaj nową osobę";
       editForm.reset();
       editForm["edit-person-id"].value = "";
+      // Domyślnie jeden pusty wiersz małżonka? Niekoniecznie.
     }
     
     modal.classList.remove("hidden");
@@ -534,6 +601,24 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Zbieranie danych o małżonkach
+    const spouseRows = document.querySelectorAll(".spouse-row-entry");
+    const marriagesList = [];
+    
+    spouseRows.forEach(row => {
+      const sid = row.querySelector(".spouse-id-input").value.trim();
+      const sdate = row.querySelector(".spouse-date-input").value.trim();
+      if (sid) {
+        marriagesList.push({
+          spouseId: sid,
+          date: sdate ? parseInt(sdate, 10) : null
+        });
+      }
+    });
+
+    // Kompatybilność wsteczna: główny małżonek to pierwszy z listy
+    const primarySpouseId = marriagesList.length > 0 ? marriagesList[0].spouseId : null;
+
     // Tworzenie obiektu danych
     const payload = {
       id_osoby: newId,
@@ -546,7 +631,8 @@ document.addEventListener("DOMContentLoaded", () => {
       uwagi: editForm["edit-uwagi"].value.trim() || null,
       id_ojca: editForm["edit-ojciec-id"].value.trim() || null,
       id_matki: editForm["edit-matka-id"].value.trim() || null,
-      id_malzonka: editForm["edit-malzonek-id"].value.trim() || null,
+      id_malzonka: primarySpouseId, 
+      malzenstwa: marriagesList, // Nowe pole z listą
       protokol_klucz: editForm["edit-wlasciciel-id"].value.trim() || null,
     };
 

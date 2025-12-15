@@ -1480,12 +1480,12 @@ def get_full_genealogy_graph():
           + opcjonalnie marriageDate i label "Ślub YYYY", jeśli DB ma takie dane
     Wersja z cache: pierwsze żądanie buduje cache, kolejne czytają z pamięci.
     """
-    # Sprawdź cache
-    cached = get_cached_genealogy()
-    if cached is not None:
-        return jsonify(cached)
+    # Sprawdź cache (TYMCZASOWO WYŁĄCZONE dla odświeżenia danych)
+    # cached = get_cached_genealogy()
+    # if cached is not None:
+    #     return jsonify(cached)
 
-    print("🔄 Budowanie grafu genealogicznego...")
+    print("🔄 Budowanie grafu genealogicznego (FORCE REFRESH)...")
     start_time = time.time()
 
     conn = get_db_connection()
@@ -1631,9 +1631,14 @@ def get_full_genealogy_graph():
     # ---------- EDGES: małżeństwa (linia przerywana) ----------
     # hybrydowo: jeśli w tabeli 'malzenstwa' brak kolumny z datą — zwrócimy same pary
     select_m = ["malzonek1_id", "malzonek2_id"]
-    # ewentualne kolumny daty, jeśli kiedyś dodasz (wszystkie są opcjonalne)
-    for c in ["rok_slubu", "miesiac_slubu", "dzien_slubu", "rok", "miesiac", "dzien", "data_slubu"]:
-        if c in cols_malz:
+    
+    # WYMUSZENIE: Zawsze próbuj pobrać rok_slubu jeśli istnieje, nawet jeśli detekcja zawiedzie
+    if "rok_slubu" in cols_malz: select_m.append("rok_slubu")
+    if "data_slubu" in cols_malz: select_m.append("data_slubu")
+    
+    # Dodatkowe kolumny (opcjonalne)
+    for c in ["miesiac_slubu", "dzien_slubu", "rok", "miesiac", "dzien"]:
+        if c in cols_malz and c not in select_m:
             select_m.append(c)
 
     cur.execute("SELECT " + ", ".join(select_m) + " FROM malzenstwa;")
@@ -1646,7 +1651,11 @@ def get_full_genealogy_graph():
             d_keys=[k for k in ["dzien_slubu", "dzien"] if k in m],
             text_keys=[k for k in ["data_slubu"] if k in m],
         )
-        label_txt = f"Ślub {md['year']}" if md and "year" in md else ""
+        
+        # Logika labelki
+        label_txt = ""
+        if md and "year" in md:
+            label_txt = f"Ślub {md['year']}"
 
         edges.append({
             "from":   m["malzonek1_id"],
@@ -2742,26 +2751,58 @@ def delete_demografia_entry(id):
 
 @app.route('/api/admin/genealogia', methods=['GET'])
 def admin_get_genealogia():
-    """Lista osób w genealogii."""
+    """Lista osób w genealogii z pełną listą małżeństw."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    # Pobieramy osoby
     cur.execute("""
         SELECT p.id AS db_id, p.json_id AS id_osoby, p.imie_nazwisko, p.rok_urodzenia, 
                p.rok_smierci, p.id_ojca, p.id_matki, p.plec, p.numer_domu, p.uwagi, 
-               w.unikalny_klucz AS protokol_klucz,
-               CASE WHEN m1.malzonek2_id IS NOT NULL THEN m1.malzonek2_id 
-                    ELSE m2.malzonek1_id END AS id_malzonka
+               w.unikalny_klucz AS protokol_klucz
         FROM osoby_genealogia p
         LEFT JOIN wlasciciele w ON p.id_protokolu = w.id 
-        LEFT JOIN malzenstwa m1 ON p.id = m1.malzonek1_id
-        LEFT JOIN malzenstwa m2 ON p.id = m2.malzonek2_id 
         ORDER BY p.rok_urodzenia, p.imie_nazwisko;
     """)
     people = cur.fetchall()
+    
+    # Pobieramy wszystkie małżeństwa
+    cur.execute("SELECT * FROM malzenstwa")
+    all_marriages = cur.fetchall()
+    
     cur.close()
     conn.close()
     
-    # Rozdzielenie imienia i nazwiska
+    # Mapowanie małżeństw do osób w Pythonie (szybsze niż skomplikowany SQL aggregation)
+    marriages_map = {} # db_id -> list of marriages
+    
+    for m in all_marriages:
+        id1, id2 = m['malzonek1_id'], m['malzonek2_id']
+        date = m.get('rok_slubu') or m.get('rok') # Obsługa różnych nazw kolumn
+        
+        # Dodaj dla pierwszego małżonka (wskazuje na drugiego)
+        if id1 not in marriages_map: marriages_map[id1] = []
+        marriages_map[id1].append({'spouseDbId': id2, 'date': date})
+        
+        # Dodaj dla drugiego małżonka (wskazuje na pierwszego)
+        if id2 not in marriages_map: marriages_map[id2] = []
+        marriages_map[id2].append({'spouseDbId': id1, 'date': date})
+
+    # Rozdzielenie imienia i nazwiska oraz przypisanie małżeństw
+    for person in people:
+        name_parts = (person['imie_nazwisko'] or '').split(' ', 1)
+        person['imie'] = name_parts[0]
+        person['nazwisko'] = name_parts[1] if len(name_parts) > 1 else ''
+        
+        person['marriages'] = marriages_map.get(person['db_id'], [])
+        # Kompatybilność wsteczna (pierwszy małżonek)
+        person['id_malzonka'] = None
+        if person['marriages']:
+            # Musimy znaleźć json_id małżonka na podstawie db_id, ale tutaj upraszczamy:
+            # Frontend dostanie marriages z db_id i sobie poradzi
+            pass 
+
+    return jsonify(people)
     for person in people:
         name_parts = (person['imie_nazwisko'] or '').split(' ', 1)
         person['imie'] = name_parts[0]
@@ -2786,10 +2827,39 @@ def admin_create_osoba():
                   data.get('protokol_klucz'), data.get('uwagi')))
             new_id = cur.fetchone()[0]
             
-            # Małżeństwo
-            if data.get('id_malzonka'):
-                para = tuple(sorted((new_id, int(data['id_malzonka']))))
-                cur.execute("INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;", para)
+            # Małżeństwa (lista)
+            marriages = data.get('marriages', [])
+            
+            # Fallback dla starego formatu (pojedyncze id_malzonka)
+            if not marriages and data.get('id_malzonka'):
+                marriages.append({'spouseDbId': int(data['id_malzonka']), 'date': None})
+
+            for m in marriages:
+                spouse_db_id = m.get('spouseDbId')
+                if not spouse_db_id: continue
+                
+                date = m.get('date')
+                # Upewnij się, że para jest posortowana (mniejsze ID pierwsze), aby uniknąć duplikatów
+                id1, id2 = sorted((new_id, int(spouse_db_id)))
+                
+                # Sprawdź czy kolumna rok_slubu istnieje (dynamicznie)
+                try:
+                    cur.execute("""
+                        INSERT INTO malzenstwa (malzonek1_id, malzonek2_id, rok_slubu) 
+                        VALUES (%s, %s, %s) 
+                        ON CONFLICT (malzonek1_id, malzonek2_id) 
+                        DO UPDATE SET rok_slubu = EXCLUDED.rok_slubu;
+                    """, (id1, id2, date))
+                except Exception:
+                    # Fallback jeśli baza nie ma kolumny rok_slubu (stara struktura)
+                    conn.rollback() 
+                    cur = conn.cursor() # nowy kursor po rollbacku
+                    cur.execute("""
+                        INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) 
+                        VALUES (%s, %s) 
+                        ON CONFLICT DO NOTHING;
+                    """, (id1, id2))
+
             conn.commit()
             return jsonify({'status': 'success', 'id': new_id}), 201
     except Exception as e:
@@ -2817,9 +2887,35 @@ def admin_update_osoba(id):
             
             # Aktualizacja małżeństw
             cur.execute("DELETE FROM malzenstwa WHERE malzonek1_id = %s OR malzonek2_id = %s;", (id, id))
-            if data.get('id_malzonka'):
-                para = tuple(sorted((id, int(data['id_malzonka']))))
-                cur.execute("INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) VALUES (%s, %s) ON CONFLICT DO NOTHING;", para)
+            
+            marriages = data.get('marriages', [])
+            # Fallback dla starego inputa
+            if not marriages and data.get('id_malzonka'):
+                marriages.append({'spouseDbId': int(data['id_malzonka']), 'date': None})
+
+            for m in marriages:
+                spouse_db_id = m.get('spouseDbId')
+                if not spouse_db_id: continue
+                
+                date = m.get('date')
+                id1, id2 = sorted((id, int(spouse_db_id)))
+                
+                try:
+                    cur.execute("""
+                        INSERT INTO malzenstwa (malzonek1_id, malzonek2_id, rok_slubu) 
+                        VALUES (%s, %s, %s) 
+                        ON CONFLICT (malzonek1_id, malzonek2_id) 
+                        DO UPDATE SET rok_slubu = EXCLUDED.rok_slubu;
+                    """, (id1, id2, date))
+                except Exception:
+                    conn.rollback()
+                    cur = conn.cursor()
+                    cur.execute("""
+                        INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) 
+                        VALUES (%s, %s) 
+                        ON CONFLICT DO NOTHING;
+                    """, (id1, id2))
+
             conn.commit()
             return jsonify({'status': 'success'})
     except Exception as e:

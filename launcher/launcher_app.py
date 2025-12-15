@@ -2598,6 +2598,16 @@ class AppLauncher(tk.Tk):
         # Przekazujemy loading_dialog żeby funkcja mogła aktualizować postęp
         auto_initialize_on_startup(loading_dialog)
 
+        # === FIX: NATYCHMIASTOWA AKTUALIZACJA IKONY PO INICJALIZACJI ===
+        # Wymuszamy odświeżenie cache i ponowne ustawienie ikony,
+        # aby po pierwszym utworzeniu "Czarnej" ikona załadowała się natychmiast bez restartu.
+        try:
+            invalidate_locations_cache()     # Wyczyść cache, by widzieć nową aktywną miejscowość
+            migrate_custom_icon_to_backup()  # Przenieś ikonę, teraz gdy folder backup/Czarna już istnieje
+            self.set_window_icon()           # Załaduj ikonę ponownie (teraz pobierze ją z folderu Czarnej)
+        except Exception as e:
+            print(f"⚠️ Błąd odświeżania ikony po inicjalizacji: {e}")
+
         # Kontynuuj inicjalizację z oknem ładowania
         loading_dialog.update_status("Konfiguracja plików...", "Sprawdzanie środowiska")
 
