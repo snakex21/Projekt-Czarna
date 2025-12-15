@@ -138,9 +138,16 @@
                         <input type="text" id="edit-matka-id" list="people-list" />
                     </div>
                 </div>
+
+                <!-- Sekcja Małżonków -->
                 <div class="form-group" style="margin-top: 15px">
-                    <label for="edit-malzonek-id">Małżonek:</label>
-                    <input type="text" id="edit-malzonek-id" list="people-list" />
+                    <label>Małżeństwa (Małżonek + Rok Ślubu):</label>
+                    <div id="spouses-container" style="border: 1px solid #ccc; padding: 10px; border-radius: 4px; background: #f9f9f9;">
+                        <!-- Tu będą dodawane wiersze dynamicznie przez JS -->
+                    </div>
+                    <button type="button" id="addSpouseBtn" class="btn action-btn" style="margin-top: 10px; font-size: 0.8rem; padding: 5px 10px;">
+                        + Dodaj małżonka
+                    </button>
                 </div>
                 <datalist id="people-list"></datalist>
 

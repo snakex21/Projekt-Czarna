@@ -674,7 +674,17 @@ try:
         # 7.3) Relacje małżeńskie (hybrydowo: rok/miesiąc/dzień lub pełna data, jeśli istnieją kolumny)
         print("  → Tworzenie relacji małżeńskich (hybrydowo)...")
 
-        # 7.3.1) Wykryj kolumny dostępne w tabeli 'malzenstwa'
+        # 7.3.1) NAPRAWA STRUKTURY: Dodaj kolumny dat, jeśli nie istnieją
+        print("  → Weryfikacja struktury tabeli malzenstwa...")
+        cur.execute("""
+            ALTER TABLE malzenstwa ADD COLUMN IF NOT EXISTS rok_slubu INT;
+            ALTER TABLE malzenstwa ADD COLUMN IF NOT EXISTS miesiac_slubu INT;
+            ALTER TABLE malzenstwa ADD COLUMN IF NOT EXISTS dzien_slubu INT;
+            ALTER TABLE malzenstwa ADD COLUMN IF NOT EXISTS data_slubu TEXT;
+        """)
+        conn.commit()
+
+        # Odśwież listę kolumn po aktualizacji
         cur.execute("""
             SELECT column_name
             FROM information_schema.columns
@@ -713,8 +723,15 @@ try:
             if isinstance(marriages, list):
                 for m in marriages:
                     sid = m.get('spouseId') or m.get('spouse_id') or m.get('id')
-                    if str(sid) == str(spouse_json_id) and (m.get('date') is not None):
-                        return m.get('date')
+                    if str(sid) == str(spouse_json_id):
+                        # Priorytet dla weddingDate, potem date
+                        val = m.get('weddingDate') or m.get('date')
+                        if val is not None:
+                            return val
+
+            # Obsługa weddingDate bezpośrednio na obiekcie
+            if source_person.get('weddingDate') is not None:
+                return source_person.get('weddingDate')
 
             mdict = source_person.get('marriageDates')
             if isinstance(mdict, dict):

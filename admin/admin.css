@@ -967,6 +967,43 @@ body {
     min-height: 100px;
 }
 
+/* Style dla edytora małżonków w modalu */
+.spouse-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.spouse-row select,
+.spouse-row input {
+    margin-bottom: 0; /* Reset domyślnego marginesu wewnątrz grupy */
+}
+
+.spouse-row .btn-remove {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-add-spouse {
+    background: var(--info-color);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
 .parcel-editor {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -1944,4 +1981,3 @@ body.dark-mode input:-webkit-autofill:active {
     -webkit-text-fill-color: #e5e7eb !important; /* Kolor tekstu w dark mode */
     caret-color: #e5e7eb;
 }
-
