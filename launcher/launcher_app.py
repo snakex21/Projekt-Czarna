@@ -3749,8 +3749,10 @@ if __name__ == '__main__':
                         hwnd = self.winfo_id()
 
                     # Wymuś okno na pierwszy plan za pomocą Windows API
-                    # SW_RESTORE = 9 (przywróć jeśli zminimalizowane)
-                    ctypes.windll.user32.ShowWindow(hwnd, 9)
+                    # FIX: SW_RESTORE (9) cofa maksymalizację, więc używamy go TYLKO gdy okno jest zminimalizowane
+                    if self.state() == 'iconic':
+                        ctypes.windll.user32.ShowWindow(hwnd, 9)
+
                     # Ustaw okno jako aktywne
                     ctypes.windll.user32.SetForegroundWindow(hwnd)
                     # Wymuś focus na oknie
