@@ -1329,6 +1329,14 @@ def get_stats():
     }
     try:
         # Pobierz numery protokołów żydowskich z locations
+        launcher_db_config = {
+            "host": os.getenv("DB_HOST", "localhost"),
+            "dbname": "mapa_launcher_db",
+            "user": os.getenv("DB_USER", "postgres"),
+            "password": os.getenv("DB_PASSWORD", "1234"),
+            "port": os.getenv("DB_PORT", "5432"),
+            "client_encoding": "UTF8"
+        }
         launcher_conn = psycopg2.connect(**launcher_db_config)
         launcher_cursor = launcher_conn.cursor()
         launcher_cursor.execute("""
