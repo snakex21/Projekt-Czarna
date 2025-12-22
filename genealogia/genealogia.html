@@ -7,7 +7,7 @@
          Opis: Ustawienia dokumentu i tytuł widoku genealogii.
          ========================================================================== -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Drzewo Genealogiczne - Zoptymalizowane</title>
 
     <!-- Favicon z folderu miejscowości -->
@@ -649,29 +649,189 @@
         }
 
         @media (max-width: 768px) {
+            body {
+                touch-action: manipulation;
+            }
+
+            .header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                padding: 8px 12px;
+                z-index: 1000;
+                flex-wrap: nowrap;
+            }
+
+            .header h1 {
+                font-size: 1rem;
+                white-space: nowrap;
+                overflow: visible;
+                text-overflow: clip;
+                max-width: none;
+            }
+
+            .header-controls {
+                flex: 1;
+                margin-top: 0;
+                gap: 8px;
+                justify-content: flex-end;
+            }
+
+            .search-container {
+                flex: 1;
+                max-width: 180px;
+            }
+
+            .search-input {
+                width: 100%;
+                font-size: 13px;
+                padding: 6px 30px 6px 10px;
+            }
+
+            .family-select {
+                min-width: 100px;
+                font-size: 12px;
+                padding: 6px 8px;
+            }
+
+            .controls {
+                display: none;
+            }
+
             .sidebar {
                 display: none;
             }
 
-            .header {
-                flex-wrap: wrap;
-                padding: 10px;
+            .main-container {
+                height: calc(100vh - 50px);
+                padding-top: 50px;
             }
 
-            .header-controls {
-                width: 100%;
-                margin-top: 10px;
-                justify-content: space-between;
+            .zoom-controls {
+                top: 60px;
+                right: 10px;
             }
 
-            .search-input {
-                width: 180px;
+            .zoom-btn {
+                width: 44px;
+                height: 44px;
+                font-size: 20px;
             }
 
+            .view-mode {
+                bottom: 70px;
+                left: 10px;
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+
+            /* Bottom Navigation */
+            .mobile-bottom-nav {
+                display: flex !important;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 56px;
+                background: var(--bg-panel);
+                border-top: 1px solid var(--border-color);
+                z-index: 1000;
+                justify-content: space-around;
+                align-items: center;
+                padding: 0 8px;
+            }
+
+            .mobile-nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-decoration: none;
+                color: var(--text-secondary);
+                font-size: 10px;
+                gap: 2px;
+                flex: 1;
+                padding: 6px 0;
+                border-radius: 8px;
+                transition: all 0.2s;
+            }
+
+            .mobile-nav-item i {
+                font-size: 18px;
+            }
+
+            .mobile-nav-item:hover,
+            .mobile-nav-item.active {
+                color: var(--accent-primary);
+                background: var(--bg-hover);
+            }
+
+            /* Mobile Bottom Sheet */
+            .mobile-bottom-sheet {
+                display: block !important;
+                position: fixed;
+                bottom: 56px;
+                left: 0;
+                right: 0;
+                max-height: 60vh;
+                background: var(--bg-panel);
+                border-top: 1px solid var(--border-color);
+                border-radius: 16px 16px 0 0;
+                z-index: 900;
+                transform: translateY(100%);
+                transition: transform 0.3s ease;
+                overflow-y: auto;
+            }
+
+            .mobile-bottom-sheet.open {
+                transform: translateY(0);
+            }
+
+            .mobile-bottom-sheet-handle {
+                width: 40px;
+                height: 5px;
+                background: var(--border-color);
+                border-radius: 3px;
+                margin: 10px auto;
+            }
+
+            .mobile-bottom-sheet-content {
+                padding: 0 16px 20px;
+            }
+
+            .mobile-bottom-sheet .info-panel,
+            .mobile-bottom-sheet .legend {
+                margin-bottom: 12px;
+            }
+
+            .mobile-bottom-sheet .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 6px;
+            }
+
+            .mobile-bottom-sheet .stat-item {
+                padding: 8px 4px;
+            }
+
+            .mobile-bottom-sheet .stat-value {
+                font-size: 1.1rem;
+            }
+
+            .mobile-bottom-sheet .stat-label {
+                font-size: 0.7rem;
+            }
+
+            /* Hide desktop filter panel toggle */
             .filter-panel {
-                flex-wrap: wrap;
-                gap: 5px;
+                display: none !important;
             }
+        }
+
+        /* Hide mobile elements on desktop */
+        .mobile-bottom-nav,
+        .mobile-bottom-sheet {
+            display: none;
         }
 
         /* ==========================================================================
@@ -953,8 +1113,6 @@
                 <button class="zoom-btn" id="zoom-in">+</button>
                 <button class="zoom-btn" id="zoom-out">−</button>
                 <button class="zoom-btn" id="zoom-reset">⌂</button>
-                <button class="zoom-btn" id="fullscreen-toggle" title="Pełny ekran"><i
-                        class="fas fa-expand"></i></button>
             </div>
 
             <!-- Tekstowy wskaźnik trybu widoku -->
@@ -964,6 +1122,102 @@
             <div class="loading-overlay" id="loading-overlay">
                 <div class="spinner"></div>
                 <div>Ładowanie drzewa genealogicznego...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         MOBILE BOTTOM NAVIGATION
+         ========================================================================== -->
+    <nav class="mobile-bottom-nav">
+        <a href="../strona_glowna/index.html" class="mobile-nav-item">
+            <i class="fas fa-home"></i>
+            <span>Główna</span>
+        </a>
+        <a href="../mapa/mapa.html" class="mobile-nav-item">
+            <i class="fas fa-map"></i>
+            <span>Mapa</span>
+        </a>
+        <a href="../graf/graf.html" class="mobile-nav-item">
+            <i class="fas fa-project-diagram"></i>
+            <span>Graf</span>
+        </a>
+        <a href="#" class="mobile-nav-item" id="mobile-menu-toggle">
+            <i class="fas fa-bars"></i>
+            <span>Menu</span>
+        </a>
+    </nav>
+
+    <!-- ==========================================================================
+         MOBILE BOTTOM SHEET (Stats, Legend, Tips)
+         ========================================================================== -->
+    <div class="mobile-bottom-sheet" id="mobile-bottom-sheet">
+        <div class="mobile-bottom-sheet-handle"></div>
+        <div class="mobile-bottom-sheet-content">
+            <div class="info-panel">
+                <h3>📊 Statystyki</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="mobile-total-people">-</div>
+                        <div class="stat-label">Osób</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="mobile-total-families">-</div>
+                        <div class="stat-label">Rodzin</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="mobile-total-generations">-</div>
+                        <div class="stat-label">Pokoleń</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="mobile-total-marriages">-</div>
+                        <div class="stat-label">Małżeństw</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <h3>📖 Legenda</h3>
+                <div class="legend-item">
+                    <div class="legend-symbol male">♂</div>
+                    <span>Mężczyzna</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol female">♀</div>
+                    <span>Kobieta</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-symbol marriage">💕</div>
+                    <span>Małżeństwo</span>
+                </div>
+            </div>
+
+            <div class="info-panel" id="mobile-filter-panel">
+                <h3>🔍 Filtry</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <select id="mobile-filter-type" class="filter-select" style="width: 100%;">
+                        <option value="">-- Filtruj według --</option>
+                        <option value="birth">Urodzenia</option>
+                        <option value="death">Śmierci</option>
+                        <option value="marriage">Śluby</option>
+                    </select>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="mobile-filter-year" class="filter-year-input" placeholder="Rok"
+                            min="1500" max="2025" disabled style="flex: 1;">
+                        <button class="btn btn-info" id="mobile-apply-filter" disabled>Filtruj</button>
+                    </div>
+                    <button class="btn btn-warning" id="mobile-reset-filter" style="width: 100%;">Resetuj
+                        filtry</button>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <h3>🎛️ Akcje</h3>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" id="mobile-fit-view">Dopasuj</button>
+                    <button class="btn btn-secondary" id="mobile-reset-view">Reset</button>
+                    <button class="btn btn-success" id="mobile-show-all">Pokaż wszystko</button>
+                </div>
             </div>
         </div>
     </div>
@@ -4449,6 +4703,135 @@
                 clearTimeout(zoomTimeout);
             }
         });
+        /* ==========================================================================
+        MOBILE UI - BOTTOM SHEET TOGGLE
+        ========================================================================== */
+
+        /**
+         * Inicjalizuje mobilne elementy UI (bottom sheet toggle).
+         */
+        function setupMobileUI() {
+            const menuToggle = document.getElementById('mobile-menu-toggle');
+            const bottomSheet = document.getElementById('mobile-bottom-sheet');
+
+            if (menuToggle && bottomSheet) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    bottomSheet.classList.toggle('open');
+
+                    // Sync stats when opening
+                    if (bottomSheet.classList.contains('open')) {
+                        syncMobileStats();
+                    }
+                });
+
+                // Close on outside click
+                document.addEventListener('click', (e) => {
+                    if (!bottomSheet.contains(e.target) &&
+                        !menuToggle.contains(e.target) &&
+                        bottomSheet.classList.contains('open')) {
+                        bottomSheet.classList.remove('open');
+                    }
+                });
+            }
+        }
+
+        /**
+         * Synchronizuje statystyki między desktop i mobile.
+         */
+        function syncMobileStats() {
+            const pairs = [
+                ['total-people', 'mobile-total-people'],
+                ['total-families', 'mobile-total-families'],
+                ['total-generations', 'mobile-total-generations'],
+                ['total-marriages', 'mobile-total-marriages']
+            ];
+
+            pairs.forEach(([desktopId, mobileId]) => {
+                const desktop = document.getElementById(desktopId);
+                const mobile = document.getElementById(mobileId);
+                if (desktop && mobile) {
+                    mobile.textContent = desktop.textContent;
+                }
+            });
+        }
+
+        /**
+         * Konfiguruje synchronizację filtrów mobilnych z desktopowymi.
+         */
+        function setupMobileFilters() {
+            // Sync filter type selection
+            const mobileFilterType = document.getElementById('mobile-filter-type');
+            const desktopFilterType = document.getElementById('filter-type');
+            const mobileFilterYear = document.getElementById('mobile-filter-year');
+            const desktopFilterYear = document.getElementById('filter-year');
+            const mobileApplyFilter = document.getElementById('mobile-apply-filter');
+            const desktopApplyFilter = document.getElementById('apply-filter');
+            const mobileResetFilter = document.getElementById('mobile-reset-filter');
+            const desktopResetFilter = document.getElementById('reset-filter');
+
+            if (mobileFilterType && desktopFilterType) {
+                mobileFilterType.addEventListener('change', () => {
+                    desktopFilterType.value = mobileFilterType.value;
+                    desktopFilterType.dispatchEvent(new Event('change'));
+
+                    // Sync disabled state
+                    mobileFilterYear.disabled = !mobileFilterType.value;
+                    mobileApplyFilter.disabled = !mobileFilterType.value;
+                });
+            }
+
+            if (mobileFilterYear && desktopFilterYear) {
+                mobileFilterYear.addEventListener('input', () => {
+                    desktopFilterYear.value = mobileFilterYear.value;
+                });
+            }
+
+            if (mobileApplyFilter && desktopApplyFilter) {
+                mobileApplyFilter.addEventListener('click', () => {
+                    desktopApplyFilter.click();
+                });
+            }
+
+            if (mobileResetFilter && desktopResetFilter) {
+                mobileResetFilter.addEventListener('click', () => {
+                    desktopResetFilter.click();
+                    mobileFilterType.value = '';
+                    mobileFilterYear.value = '';
+                    mobileFilterYear.disabled = true;
+                    mobileApplyFilter.disabled = true;
+                });
+            }
+
+            // Sync action buttons
+            const actionPairs = [
+                ['mobile-fit-view', 'fit-view'],
+                ['mobile-reset-view', 'reset-view'],
+                ['mobile-show-all', 'show-all']
+            ];
+
+            actionPairs.forEach(([mobileId, desktopId]) => {
+                const mobile = document.getElementById(mobileId);
+                const desktop = document.getElementById(desktopId);
+                if (mobile && desktop) {
+                    mobile.addEventListener('click', () => desktop.click());
+                }
+            });
+        }
+
+        // Initialize mobile UI when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setupMobileUI();
+                setupMobileFilters();
+            });
+        } else {
+            setupMobileUI();
+            setupMobileFilters();
+        }
+
+        // Sync stats periodically (every 5 seconds)
+        setInterval(syncMobileStats, 5000);
     </script>
 </body>
 

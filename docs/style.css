@@ -26,28 +26,28 @@
   --bg-secondary: #1a1a2e;
   --bg-section: rgba(255, 255, 255, 0.02);
   --bg-card: rgba(255, 255, 255, 0.05);
-  
+
   /* Kolory tekstu */
   --text-primary: #e4e4e7;
   --text-secondary: #a1a1aa;
   --text-accent: #818cf8;
-  
+
   /* Kolory akcyjne */
   --primary-color: #818cf8;
   --primary-hover: #6366f1;
   --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  
+
   /* Cienie i obramowania */
   --border-color: rgba(255, 255, 255, 0.1);
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.3);
   --shadow-glow: 0 0 30px rgba(129, 140, 248, 0.3);
-  
+
   /* System typografii */
   --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-code: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-  
+
   /* Czasowanie animacji */
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-medium: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -103,14 +103,21 @@ body::after {
   width: 200%;
   height: 200%;
   background: radial-gradient(circle at 20% 80%, rgba(129, 140, 248, 0.1) 0%, transparent 50%),
-              radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.1) 0%, transparent 50%);
+    radial-gradient(circle at 80% 20%, rgba(167, 139, 250, 0.1) 0%, transparent 50%);
   animation: float 20s ease-in-out infinite;
   z-index: -1;
 }
 
 @keyframes float {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(180deg); }
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  50% {
+    transform: rotate(180deg);
+  }
 }
 
 /* ==========================================================================
@@ -129,8 +136,15 @@ body::after {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ==========================================================================
@@ -187,7 +201,7 @@ header .subtitle {
   gap: 10px;
   background: rgba(15, 15, 30, 0.95);
   backdrop-filter: blur(10px);
-  padding: 20px;
+  padding: 15px 80px;
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   position: -webkit-sticky;
@@ -199,7 +213,7 @@ header .subtitle {
 
 /* Stan przewinięcia */
 #navbar.scrolled {
-  padding: 15px 20px;
+  padding: 10px 80px;
   background: rgba(15, 15, 30, 0.98);
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
 }
@@ -210,14 +224,17 @@ header .subtitle {
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
+  margin: 0 120px;
+  /* Zabezpieczenie przed nakładaniem się na ikony */
 }
 
 /* Przyciski akcji po prawej stronie */
 .nav-actions {
   position: absolute;
-  right: 20px;
+  right: 25px;
   top: 50%;
   transform: translateY(-50%);
+
   display: flex;
   gap: 10px;
 }
@@ -253,7 +270,7 @@ header .subtitle {
 #navbar a:hover {
   color: white;
   transform: translateY(-2px);
-  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 #navbar a:hover::before {
@@ -294,12 +311,12 @@ header .subtitle {
 /* Adaptacja dla motywu jasnego */
 body.light-mode #navbar {
   background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 body.light-mode #navbar.scrolled {
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 6px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
 }
 
 body.light-mode #navbar a:hover {
@@ -326,8 +343,8 @@ main {
 section {
   padding-top: 30px;
   margin-top: 40px;
-  opacity: 1; 
-  transform: translateY(0); 
+  opacity: 1;
+  transform: translateY(0);
   position: relative;
   animation: fadeIn 0.8s ease-out;
   animation-fill-mode: both;
@@ -339,6 +356,7 @@ section {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -396,7 +414,8 @@ h2::after {
   position: absolute;
   bottom: 0;
   left: 0;
-  width: 60px; /* Ustaw stałą szerokość zamiast animacji od 0 */
+  width: 60px;
+  /* Ustaw stałą szerokość zamiast animacji od 0 */
   height: 3px;
   background: var(--accent-gradient);
   border-radius: 2px;
@@ -462,7 +481,8 @@ a:not(.btn):not(#navbar a):hover::after {
 }
 
 /* Listy z niestandardowymi markerami */
-ul, ol {
+ul,
+ol {
   padding-left: 25px;
   margin-bottom: 20px;
 }
@@ -526,7 +546,7 @@ code {
 }
 
 /* Kod inline */
-:not(pre) > code {
+:not(pre)>code {
   background: rgba(129, 140, 248, 0.1);
   color: #c7d2fe;
   border: 1px solid rgba(129, 140, 248, 0.2);
@@ -744,8 +764,17 @@ code {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.1); }
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 /* ==========================================================================
@@ -850,7 +879,7 @@ table code {
 }
 
 .gallery figure:hover img {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .gallery figcaption {
@@ -945,6 +974,14 @@ table code {
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: zoom-in;
+  user-select: none;
+}
+
+.lightbox-image.zoomed {
+  transform: scale(2);
+  cursor: zoom-out;
 }
 
 /* Przycisk zamknięcia */
@@ -1026,13 +1063,25 @@ table code {
 
 /* Animacje lightbox */
 @keyframes zoomIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes fadeInLightbox {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ==========================================================================
@@ -1173,7 +1222,7 @@ body.light-mode table tr:hover code {
 body.light-mode .code-block {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 body.light-mode .code-block pre,
@@ -1192,7 +1241,7 @@ body.light-mode .code-block pre::-webkit-scrollbar-thumb {
 }
 
 /* Kod inline w motywie jasnym */
-body.light-mode :not(pre) > code {
+body.light-mode :not(pre)>code {
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
@@ -1210,8 +1259,8 @@ body.light-mode h3 code {
 }
 
 /* Upewnienie się, że kod w blokach nie ma dodatkowych styli */
-pre > code,
-.code-block pre > code {
+pre>code,
+.code-block pre>code {
   display: block;
   padding: 0 !important;
   border: 0 !important;
@@ -1246,75 +1295,155 @@ body.light-mode .folder-structure li {
     margin: 20px;
     border-radius: 15px;
   }
-  
+
   header {
     padding: 40px 20px 30px;
   }
-  
+
   header h1 {
     font-size: 2rem;
   }
-  
+
   main {
     padding: 20px;
   }
-  
+
   h2 {
     font-size: 1.8rem;
   }
-  
+
   h3 {
     font-size: 1.4rem;
   }
-  
+
   .architecture-diagram {
     flex-direction: column;
   }
-  
+
   .component {
     width: 100%;
   }
-  
+
   .arrow {
     transform: rotate(90deg);
   }
-  
+
   table {
     font-size: 0.9em;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
-  
+
   table th,
   table td {
-    padding: 10px;
+    padding: 10px 8px;
+    min-width: 100px;
   }
-  
+
   #navbar {
-    padding: 15px;
+    padding: 10px;
+    flex-direction: column;
+    gap: 10px;
   }
-  
+
+  .nav-links {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 5px;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
   #navbar a {
-    padding: 8px 15px;
-    font-size: 0.9em;
+    padding: 6px 12px;
+    font-size: 0.8em;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
-  
+
+  .nav-actions {
+    position: static;
+    transform: none;
+    width: 100%;
+    justify-content: center;
+  }
+
   /* Lightbox na urządzeniach mobilnych */
-  .lightbox-nav {
-    font-size: 30px;
-    padding: 5px 10px;
+  .lightbox {
+    padding: 0;
   }
-  
+
+  .lightbox-content {
+    max-width: 100%;
+    max-height: 100vh;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    touch-action: pinch-zoom;
+  }
+
+  .lightbox-nav {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 28px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
+  }
+
   .lightbox-prev {
     left: 10px;
   }
-  
+
   .lightbox-next {
     right: 10px;
   }
-  
+
   .lightbox-close {
-    top: 10px;
-    right: 10px;
-    font-size: 30px;
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    font-size: 32px;
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 50%;
+    z-index: 2001;
+  }
+
+  /* Caption dla zdjęć */
+  .lightbox-caption {
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: white;
+    font-size: 14px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -1322,11 +1451,11 @@ body.light-mode .folder-structure li {
   header h1 {
     font-size: 1.6rem;
   }
-  
+
   header .subtitle {
     font-size: 1rem;
   }
-  
+
   .gallery {
     grid-template-columns: 1fr;
   }
@@ -1340,19 +1469,19 @@ body.light-mode .folder-structure li {
     background: white;
     color: black;
   }
-  
+
   .container {
     box-shadow: none;
     border: none;
   }
-  
+
   #navbar,
   .copy-btn,
   .icon-btn,
   .lightbox {
     display: none;
   }
-  
+
   a {
     color: black;
     text-decoration: underline;
@@ -1364,8 +1493,13 @@ body.light-mode .folder-structure li {
    ========================================================================== */
 /* Efekt shimmer dla ładowania */
 @keyframes shimmer {
-  0% { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
 }
 
 .loading {
@@ -1373,6 +1507,7 @@ body.light-mode .folder-structure li {
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
 }
+
 /* ==========================================================================
    DEPLOYMENT GUIDE - DODATKOWE STYLE
    ========================================================================== */
