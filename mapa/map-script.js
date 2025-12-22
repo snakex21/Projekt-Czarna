@@ -29,7 +29,7 @@ let selectedForCompare = [];
 
 /* Warstwy podświetleń */
 let highlightedLayer = null;
-let ownerHighlightLayer = null;    
+let ownerHighlightLayer = null;
 
 /* Paleta kolorów dla właścicieli */
 const HIGHLIGHT_COLORS = [
@@ -50,7 +50,7 @@ const HIGHLIGHT_COLORS = [
  */
 function throttle(func, limit) {
     let inThrottle;
-    return function(...args) {
+    return function (...args) {
         if (!inThrottle) {
             func.apply(this, args);
             inThrottle = true;
@@ -67,7 +67,7 @@ function throttle(func, limit) {
  */
 function debounce(func, wait) {
     let timeout;
-    return function(...args) {
+    return function (...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
@@ -97,6 +97,7 @@ function setupUIEventListeners() {
     setupPanelToggles();
     setupToolbarActions();
     setupUniversalSearch();
+    setupMobileSearch(); // Nowa funkcja dla mobile
 }
 
 /* ==========================================================================
@@ -111,11 +112,11 @@ function setupUIEventListeners() {
 function initializeMap() {
     /* Pobierz konfigurację z backendu */
     const calibration = window.MAP_CONFIG?.calibration || {
-        sw: {lat: 50.0445232994271194, lng: 21.2118218969993393},
-        ne: {lat: 50.0766374787729518, lng: 21.2672168223566409}
+        sw: { lat: 50.0445232994271194, lng: 21.2118218969993393 },
+        ne: { lat: 50.0766374787729518, lng: 21.2672168223566409 }
     };
     const defaults = window.MAP_CONFIG?.defaults || {
-        center: {lat: 50.0605803891, lng: 21.2395193597},
+        center: { lat: 50.0605803891, lng: 21.2395193597 },
         zoom: 14
     };
 
@@ -171,7 +172,7 @@ function initializeMap() {
         "Podkład mapy historycznej z XIX w.": historicalMapOverlay
     };
 
-    L.control.layers(baseMaps, overlayMaps, { 
+    L.control.layers(baseMaps, overlayMaps, {
         position: 'topright',
         collapsed: true
     }).addTo(map);
@@ -229,59 +230,65 @@ function fetchDataAndBuildInterface() {
     showLoading(ownersBox, "Ładowanie listy właścicieli…");
     showLoading(dzialkiBox, "Ładowanie listy działek…");
     showLoading(obiektyBox, "Ładowanie obiektów…");
-    if (legendBox) showLoading(legendBox, "Ładowanie legendy…");
 
     /* Równoległe pobieranie danych */
     Promise.all([
         fetch("/api/dzialki").then(res => res.json()),
         fetch("/api/wlasciciele").then(res => res.json()),
     ])
-    .then(([dzialkiData, wlascicieleResponse]) => {
-        console.log("✅ Pobrano dane pomyślnie!");
+        .then(([dzialkiData, wlascicieleResponse]) => {
+            console.log("✅ Pobrano dane pomyślnie!");
 
-        clearLoading(ownersBox);
-        clearLoading(dzialkiBox);
-        clearLoading(obiektyBox);
-        if (legendBox) clearLoading(legendBox);
+            clearLoading(ownersBox);
+            clearLoading(dzialkiBox);
+            clearLoading(obiektyBox);
 
-        allOwnersData = wlascicieleResponse.owners;
-        allParcelsData = dzialkiData.features;
+            allOwnersData = wlascicieleResponse.owners;
+            allParcelsData = dzialkiData.features;
 
-        const metadata = wlascicieleResponse.metadata;
-        const sortByOrderBtn = document.getElementById("sortByOrderBtn");
-        if (sortByOrderBtn && metadata?.zakres_lp) {
-            sortByOrderBtn.textContent = `Numeru Protokołu (${metadata.zakres_lp.min}-${metadata.zakres_lp.max})`;
-        }
+            const metadata = wlascicieleResponse.metadata;
+            const sortByOrderBtn = document.getElementById("sortByOrderBtn");
+            if (sortByOrderBtn && metadata?.zakres_lp) {
+                sortByOrderBtn.textContent = `Numeru Protokołu (${metadata.zakres_lp.min}-${metadata.zakres_lp.max})`;
+            }
 
-        renderMapObjects(allParcelsData);
-        setupOwnerPanel();
-        setupParcelPanel();
-        setupLegend();
+            renderMapObjects(allParcelsData);
+            setupOwnerPanel();
+            setupParcelPanel();
+            setupLegend();
 
-        handleUrlParameters();
-        handleShowHouseByOwnerKeyFromURL();
+            handleUrlParameters();
+            handleShowHouseByOwnerKeyFromURL();
 
-        // Ukryj ekran ładowania po załadowaniu wszystkich danych
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-            console.log("✅ Ekran ładowania ukryty - wszystkie dane załadowane!");
-        }
-    })
-    .catch((error) => {
-        console.error("❌ KRYTYCZNY BŁĄD:", error);
-        showError(ownersBox, "Błąd wczytywania właścicieli.");
-        showError(dzialkiBox, "Błąd wczytywania działek.");
-        showError(obiektyBox, "Błąd wczytywania obiektów.");
-        if (legendBox) showError(legendBox, "Błąd wczytywania legendy.");
+            // Ukryj ekran ładowania po załadowaniu wszystkich danych
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                console.log("✅ Ekran ładowania ukryty - wszystkie dane załadowane!");
 
-        // Ukryj ekran ładowania także w przypadku błędu
-        const loadingOverlay = document.getElementById('loading-overlay');
-        if (loadingOverlay) {
-            loadingOverlay.style.display = 'none';
-            console.log("⚠️ Ekran ładowania ukryty - błąd ładowania danych");
-        }
-    });
+                // Wymuś odświeżenie mapy po ukryciu overlay, aby upewnić się że wypełnia cały kontener
+                if (map) {
+                    setTimeout(() => {
+                        map.invalidateSize();
+                        console.log("🔄 Mapa odświeżona po załadowaniu danych");
+                    }, 100);
+                }
+            }
+        })
+        .catch((error) => {
+            console.error("❌ KRYTYCZNY BŁĄD:", error);
+            showError(ownersBox, "Błąd wczytywania właścicieli.");
+            showError(dzialkiBox, "Błąd wczytywania działek.");
+            showError(obiektyBox, "Błąd wczytywania obiektów.");
+            if (legendBox) showError(legendBox, "Błąd wczytywania legendy.");
+
+            // Ukryj ekran ładowania także w przypadku błędu
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                console.log("⚠️ Ekran ładowania ukryty - błąd ładowania danych");
+            }
+        });
 }
 
 /* ==========================================================================
@@ -495,7 +502,7 @@ function setupOwnerPanel() {
     const render = (owners) => {
         document.getElementById('visible-count').textContent = owners.length;
         ownerContainer.innerHTML = "";
-        
+
         owners.forEach(owner => {
             const card = createOwnerCard(owner);
             ownerContainer.appendChild(card);
@@ -641,7 +648,7 @@ function setupOwnerPanel() {
      */
     const sortAndFilter = () => {
         let data = [...allOwnersData];
-        
+
         if (currentSort === "byName") {
             data.sort((a, b) => a.nazwa_wlasciciela.localeCompare(b.nazwa_wlasciciela, "pl"));
         } else if (currentSort === "byParcels") {
@@ -678,7 +685,7 @@ function setupOwnerPanel() {
      */
     const handleCompareMode = (ownerKey) => {
         const card = ownerContainer.querySelector(`[data-owner-key="${ownerKey}"]`);
-        
+
         if (selectedForCompare.includes(ownerKey)) {
             selectedForCompare = selectedForCompare.filter(k => k !== ownerKey);
             card.classList.remove("selected-for-compare");
@@ -686,7 +693,7 @@ function setupOwnerPanel() {
             selectedForCompare.push(ownerKey);
             card.classList.add("selected-for-compare");
         }
-        
+
         if (selectedForCompare.length === 2) {
             window.location.href = `../wlasciciele/compare.html?owners=${selectedForCompare.join(",")}`;
         }
@@ -694,7 +701,7 @@ function setupOwnerPanel() {
 
     setupOwnerPanelEventListeners();
     sortAndFilter();
-    
+
     const totalOwnersElement = document.getElementById('total-owners');
     if (totalOwnersElement) {
         totalOwnersElement.textContent = allOwnersData.length;
@@ -708,12 +715,12 @@ function setupOwnerPanel() {
             compareBtn.addEventListener("click", () => {
                 isInCompareMode = !isInCompareMode;
                 compareBtn.classList.toggle("active", isInCompareMode);
-                
+
                 const compareInfo = document.querySelector('.compare-info');
                 if (compareInfo) {
                     compareInfo.style.display = isInCompareMode ? 'block' : 'none';
                 }
-                
+
                 if (!isInCompareMode) {
                     selectedForCompare = [];
                     ownerContainer.querySelectorAll(".selected-for-compare")
@@ -728,26 +735,26 @@ function setupOwnerPanel() {
             btn.addEventListener("click", () => {
                 filterButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                
+
                 const sortType = btn.dataset.sort;
-                currentSort = sortType === 'name' ? "byName" 
-                           : sortType === 'parcels' ? "byParcels" 
-                           : "byOrder";
-                
+                currentSort = sortType === 'name' ? "byName"
+                    : sortType === 'parcels' ? "byParcels"
+                        : "byOrder";
+
                 sortAndFilter();
             });
         });
-        
+
         /* Wyszukiwarka */
         if (searchInput) {
             searchInput.addEventListener("input", sortAndFilter);
-            
+
             const clearBtn = searchInput.parentElement.querySelector('.clear-search');
             if (clearBtn) {
                 searchInput.addEventListener('input', () => {
                     clearBtn.style.display = searchInput.value ? 'block' : 'none';
                 });
-                
+
                 clearBtn.addEventListener('click', () => {
                     searchInput.value = '';
                     clearBtn.style.display = 'none';
@@ -778,9 +785,9 @@ function setupParcelPanel() {
     const render = () => {
         dzialkiContainer.innerHTML = "";
         obiektyContainer.innerHTML = "";
-        
+
         const searchTerm = searchInput.value.toLowerCase();
-        
+
         if (searchTerm === "" && geojsonLayer) {
             geojsonLayer.eachLayer(layer => geojsonLayer.resetStyle(layer));
         }
@@ -806,21 +813,21 @@ function setupParcelPanel() {
             const kategoria = p.properties.kategoria;
             const dzialkiCategories = ["budowlana", "rolna", "las", "pastwisko"];
             const infrastrukturaCategories = ["droga", "rzeka"];
-            
+
             if (!dzialkiCategories.includes(kategoria) && !infrastrukturaCategories.includes(kategoria)) {
                 return;
             }
-            
+
             if (dzialkiCategories.includes(kategoria) && !activeCategories.includes(kategoria)) {
-              return;
+                return;
             }
 
             const item = createParcelItem(p);
-            
+
             if (dzialkiCategories.includes(kategoria)) {
-              dzialkiContainer.appendChild(item);
+                dzialkiContainer.appendChild(item);
             } else {
-              obiektyContainer.appendChild(item);
+                obiektyContainer.appendChild(item);
             }
         });
 
@@ -831,7 +838,7 @@ function setupParcelPanel() {
             );
             exactMatches.forEach(p => findAndHighlightLayer(p.id, true, "orange"));
         }
-        
+
         const totalParcelsElement = document.getElementById('total-parcels');
         if (totalParcelsElement) {
             // Licz wszystkie obiekty oprócz obrysu miejscowości
@@ -916,7 +923,7 @@ function setupParcelPanel() {
             }
         });
     }
-    
+
     /* Obsługa zakładek */
     tabs.forEach(tab => {
         tab.addEventListener("click", () => {
@@ -953,7 +960,7 @@ function setupParcelPanel() {
             }
         });
     });
-    
+
     /* Filtry kategorii */
     if (categoryFilters) {
         categoryFilters.querySelectorAll('input').forEach(checkbox => {
@@ -1041,7 +1048,7 @@ function setupLegend() {
     const legendHeader = legendEl.querySelector(".legend-header");
     const legendContent = legendEl.querySelector(".legend-content");
     const legendToggle = legendEl.querySelector(".legend-toggle");
-    
+
     if (!legendContainer || !legendHeader || !legendContent || !legendToggle) return;
 
     setupLegendToggle(legendHeader, legendContent, legendToggle);
@@ -1117,6 +1124,25 @@ function setupPanelToggles() {
         setTimeout(() => map.invalidateSize(), 350);
     };
 
+    /* === MOBILE: Collapse panels by default on small screens === */
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) {
+        const leftPanel = document.getElementById('owners-panel');
+        const rightPanel = document.getElementById('parcels-panel');
+        const leftHandle = document.querySelector('.panel-expand-handle.left-handle');
+        const rightHandle = document.querySelector('.panel-expand-handle.right-handle');
+
+        // Collapse both panels on mobile
+        leftPanel.classList.add('collapsed');
+        rightPanel.classList.add('collapsed');
+
+        // Show handles
+        if (leftHandle) leftHandle.classList.add('handle-visible');
+        if (rightHandle) rightHandle.classList.add('handle-visible');
+
+        console.log('📱 Mobile detected - panels collapsed by default');
+    }
+
     /* Przyciski zwijania */
     toggleButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1171,7 +1197,7 @@ function setupToolbarActions() {
     setupFullscreen(fullscreenBtn);
     setupModals(helpBtn, settingsBtn, helpModal, settingsModal);
     setupTheme(themeToggle);
-    
+
     if (resetViewBtn) {
         resetViewBtn.addEventListener('click', resetView);
     }
@@ -1180,106 +1206,102 @@ function setupToolbarActions() {
 }
 
 /**
- * Konfiguruje uniwersalną wyszukiwarkę.
+ * Wykonuje wyszukiwanie w danych.
+ * @param {string} term - Fraza wyszukiwania
+ * @returns {Array} Wyniki wyszukiwania
+ */
+function performUniversalSearch(term) {
+    const ownerResults = allOwnersData
+        .filter(owner =>
+            owner.nazwa_wlasciciela.toLowerCase().includes(term) ||
+            String(owner.numer_protokolu).includes(term)
+        )
+        .map(owner => ({
+            id: owner.unikalny_klucz,
+            name: owner.nazwa_wlasciciela,
+            lp: owner.numer_protokolu,
+            type: 'owner'
+        }));
+
+    const parcelResults = allParcelsData
+        .filter(p => (p.properties.numer_obiektu || "").toLowerCase().includes(term))
+        .map(p => ({
+            id: p.id,
+            number: p.properties.numer_obiektu,
+            category: p.properties.kategoria,
+            type: 'parcel'
+        }));
+
+    return [...ownerResults, ...parcelResults].slice(0, 10);
+}
+
+/**
+ * Tworzy element wyniku wyszukiwania.
+ * @param {Object} item - Wynik wyszukiwania
+ * @returns {HTMLElement} Element wyniku
+ */
+function createUniversalSearchResultItem(item) {
+    const itemEl = document.createElement('div');
+    itemEl.className = 'search-result-item';
+    itemEl.dataset.id = item.id;
+    itemEl.dataset.type = item.type;
+
+    let iconHtml = '';
+    let text, meta;
+
+    if (item.type === 'owner') {
+        text = item.name;
+        meta = `Właściciel (Lp. ${item.lp})`;
+    } else {
+        iconHtml = '<i class="result-icon fas fa-map-marker-alt"></i>';
+        text = `Działka nr ${item.number}`;
+        meta = item.category;
+    }
+
+    itemEl.innerHTML = `
+        ${iconHtml}
+        <span class="result-text">${text}</span>
+        <span class="result-meta">${meta}</span>
+    `;
+
+    return itemEl;
+}
+
+/**
+ * Konfiguruje uniwersalną wyszukiwarkę (desktop).
  */
 function setupUniversalSearch() {
     const searchInput = document.getElementById('universal-search');
     const resultsContainer = document.getElementById('universal-search-results');
 
-    /**
-     * Renderuje wyniki wyszukiwania.
-     * @param {Array} results - Wyniki wyszukiwania
-     */
+    if (!searchInput || !resultsContainer) return;
+
     const renderResults = (results) => {
         resultsContainer.innerHTML = '';
-        
+
         if (results.length === 0) {
             resultsContainer.style.display = 'none';
             return;
         }
 
         results.forEach(item => {
-            const itemEl = createSearchResultItem(item);
+            const itemEl = createUniversalSearchResultItem(item);
             resultsContainer.appendChild(itemEl);
         });
 
         resultsContainer.style.display = 'block';
     };
 
-    /**
-     * Tworzy element wyniku wyszukiwania.
-     * @param {Object} item - Wynik wyszukiwania
-     * @returns {HTMLElement} Element wyniku
-     */
-    const createSearchResultItem = (item) => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'search-result-item';
-        itemEl.dataset.id = item.id;
-        itemEl.dataset.type = item.type;
-
-        let iconHtml = '';
-        let text, meta;
-
-        if (item.type === 'owner') {
-            text = item.name;
-            meta = `Właściciel (Lp. ${item.lp})`;
-        } else {
-            iconHtml = '<i class="result-icon fas fa-map-marker-alt"></i>';
-            text = `Działka nr ${item.number}`;
-            meta = item.category;
-        }
-
-        itemEl.innerHTML = `
-            ${iconHtml}
-            <span class="result-text">${text}</span>
-            <span class="result-meta">${meta}</span>
-        `;
-        
-        return itemEl;
-    };
-
-    /**
-     * Wykonuje wyszukiwanie w danych.
-     * @param {string} term - Fraza wyszukiwania
-     * @returns {Array} Wyniki wyszukiwania
-     */
-    const performSearch = (term) => {
-        const ownerResults = allOwnersData
-            .filter(owner => 
-                owner.nazwa_wlasciciela.toLowerCase().includes(term) ||
-                String(owner.numer_protokolu).includes(term)
-            )
-            .map(owner => ({
-                id: owner.unikalny_klucz,
-                name: owner.nazwa_wlasciciela,
-                lp: owner.numer_protokolu,
-                type: 'owner'
-            }));
-
-        const parcelResults = allParcelsData
-            .filter(p => (p.properties.numer_obiektu || "").toLowerCase().includes(term))
-            .map(p => ({
-                id: p.id,
-                number: p.properties.numer_obiektu,
-                category: p.properties.kategoria,
-                type: 'parcel'
-            }));
-        
-        return [...ownerResults, ...parcelResults].slice(0, 10);
-    };
-
-    /* Listenery */
-    searchInput.addEventListener('input', () => {
+    searchInput.addEventListener('input', debounce(() => {
         const term = searchInput.value.toLowerCase().trim();
-
         if (term.length < 2) {
             resultsContainer.style.display = 'none';
             return;
         }
 
-        const results = performSearch(term);
+        const results = performUniversalSearch(term);
         renderResults(results);
-    });
+    }, 300));
 
     resultsContainer.addEventListener('click', e => {
         const item = e.target.closest('.search-result-item');
@@ -1292,16 +1314,103 @@ function setupUniversalSearch() {
         } else {
             handleParcelSearchResult(parseInt(id));
         }
-        
+
         searchInput.value = '';
         resultsContainer.style.display = 'none';
     });
 
-    /* Zamykanie przy kliknięciu poza */
     document.addEventListener('click', e => {
         if (!resultsContainer.contains(e.target) && e.target !== searchInput) {
             resultsContainer.style.display = 'none';
         }
+    });
+}
+
+/**
+ * Konfiguruje wyszukiwarkę mobilną.
+ */
+function setupMobileSearch() {
+    const trigger = document.getElementById('mobile-search-trigger');
+    const overlay = document.getElementById('mobile-search-overlay');
+    const closeBtn = document.getElementById('close-mobile-search');
+    const searchInput = document.getElementById('mobile-universal-search');
+    const resultsContainer = document.getElementById('mobile-search-results');
+
+    if (!trigger || !overlay || !closeBtn || !searchInput || !resultsContainer) return;
+
+    const openSearch = () => {
+        overlay.classList.add('active');
+        setTimeout(() => searchInput.focus(), 100);
+    };
+
+    const closeSearch = () => {
+        overlay.classList.remove('active');
+        searchInput.value = '';
+        resultsContainer.innerHTML = `
+            <div class="search-placeholder">
+                <i class="fas fa-search"></i>
+                <p>Wpisz co najmniej 2 znaki, aby wyszukać</p>
+            </div>
+        `;
+    };
+
+    trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        openSearch();
+    });
+
+    closeBtn.addEventListener('click', closeSearch);
+
+    searchInput.addEventListener('input', debounce(() => {
+        const term = searchInput.value.toLowerCase().trim();
+        if (term.length < 2) {
+            resultsContainer.innerHTML = `
+                <div class="search-placeholder">
+                    <i class="fas fa-search"></i>
+                    <p>Wpisz co najmniej 2 znaki, aby wyszukać</p>
+                </div>
+            `;
+            return;
+        }
+
+        const results = performUniversalSearch(term);
+
+        resultsContainer.innerHTML = '';
+        if (results.length === 0) {
+            resultsContainer.innerHTML = `
+                <div class="search-placeholder">
+                    <i class="fas fa-frown"></i>
+                    <p>Nie znaleziono wyników dla "${term}"</p>
+                </div>
+            `;
+            return;
+        }
+
+        results.forEach(item => {
+            const itemEl = createUniversalSearchResultItem(item);
+            resultsContainer.appendChild(itemEl);
+        });
+    }, 300));
+
+    resultsContainer.addEventListener('click', e => {
+        const item = e.target.closest('.search-result-item');
+        if (!item) return;
+
+        const { id, type } = item.dataset;
+
+        if (type === 'owner') {
+            handleOwnerSearchResult(id);
+            // Na mobile rozwiń panel właścicieli
+            const panel = document.getElementById('owners-panel');
+            if (panel && panel.classList.contains('collapsed')) {
+                const handle = document.querySelector('.panel-expand-handle.left-handle');
+                if (handle) handle.click();
+            }
+        } else {
+            handleParcelSearchResult(parseInt(id));
+        }
+
+        closeSearch();
     });
 }
 
@@ -1384,21 +1493,21 @@ function handleFeatureMouseout(e) {
  */
 function setupParcelInteractions(container) {
     if (!container) return;
-    
+
     container.addEventListener("mouseover", (e) => {
         const item = e.target.closest(".parcel-item");
         if (item) {
             findAndHighlightLayer(parseInt(item.dataset.featureId), true);
         }
     });
-    
+
     container.addEventListener("mouseout", (e) => {
         const item = e.target.closest(".parcel-item");
         if (item) {
             findAndHighlightLayer(parseInt(item.dataset.featureId), false);
         }
     });
-    
+
     container.addEventListener("click", (e) => {
         const item = e.target.closest(".parcel-item");
         if (item) {
@@ -1439,7 +1548,7 @@ function highlightFeaturesByIds(featureIds, color, ownerName = null, ownershipTy
     if (highlightedLayer) {
         map.removeLayer(highlightedLayer);
     }
-    
+
     highlightedLayer = new L.FeatureGroup();
 
     const highlightStyle = {
@@ -1856,7 +1965,7 @@ function handleUrlParameters() {
     if (idsToHighlight.size > 0) {
         highlightFeaturesByIds(Array.from(idsToHighlight), 'fuchsia');
     }
-    
+
     if (popupInfo) {
         map.setView(popupInfo.latlng, 11);
         L.popup()
@@ -1873,7 +1982,7 @@ async function handleShowHouseByOwnerKeyFromURL() {
     const params = new URLSearchParams(location.search);
     const ownerKey = params.get('ownerKey');
     const showWhat = params.get('show');
-    
+
     if (!ownerKey || showWhat !== 'house') return;
 
     /* Pobieranie danych właściciela */
@@ -1886,13 +1995,13 @@ async function handleShowHouseByOwnerKeyFromURL() {
         console.error('Błąd pobierania właściciela:', e);
         return;
     }
-    
+
     if (!ownerData) return;
 
     /* Oczekiwanie na gotowość warstw */
-    try { 
-        await whenGeoJSONIsReady(); 
-    } catch (_) {}
+    try {
+        await whenGeoJSONIsReady();
+    } catch (_) { }
 
     const ownerName = ownerData.nazwa_wlasciciela || '';
     const houseNo = ownerData.dom_numer || ownerData.numer_domu || '';
@@ -1907,7 +2016,7 @@ async function handleShowHouseByOwnerKeyFromURL() {
     /* Próba znalezienia domu */
     if (objectId && focusFeatureById(objectId, popupHtml)) return;
     if (houseNo && focusHouseByNumberAndOwner(houseNo, ownerData.id, ownerName)) return;
-    
+
     /* Fallback - szukanie po numerze */
     if (houseNo) {
         let candidateId = null;
@@ -1940,10 +2049,10 @@ function whenGeoJSONIsReady(maxTries = 30, delayMs = 150) {
         let tries = 0;
         const tick = () => {
             let hasFeatureLayer = false;
-            map.eachLayer(l => { 
-                if (l && l.feature) hasFeatureLayer = true; 
+            map.eachLayer(l => {
+                if (l && l.feature) hasFeatureLayer = true;
             });
-            
+
             if (hasFeatureLayer) return resolve();
             if (++tries >= maxTries) return reject(new Error('GeoJSON layers not ready'));
             setTimeout(tick, delayMs);
@@ -2065,7 +2174,7 @@ function focusHouseByNumberAndOwner(houseNumber, ownerId, ownerName) {
  */
 function findHouseFeature(houseNumber) {
     const searchNumber = String(houseNumber).trim().toLowerCase();
-    
+
     for (const feature of allParcelsData) {
         const props = feature.properties;
         const isHouse = props.kategoria === 'budynek' || props.kategoria === 'dom';
@@ -2075,7 +2184,7 @@ function findHouseFeature(houseNumber) {
             return feature;
         }
     }
-    
+
     return null;
 }
 
@@ -2089,7 +2198,7 @@ function getCenterOfFeature(feature) {
     if (layer) {
         return getCenterOfLayer(layer);
     }
-    
+
     const coords = feature.geometry.coordinates;
     if (feature.geometry.type === 'Point') {
         return L.latLng(coords[1], coords[0]);
@@ -2144,7 +2253,7 @@ function findAndHighlightLayer(featureId, shouldHighlight, highlightColor = "lim
     if (document.getElementById("parcelSearch").value.length > 0 && highlightColor === "lime") {
         return;
     }
-    
+
     const layer = findLayerById(featureId);
     if (layer) {
         if (shouldHighlight) {
@@ -2228,16 +2337,16 @@ function showOwnerSelectionPopup(wlasciciele, latlng) {
 function checkElementVisibility(element) {
     const container = element.closest('.tab-content-right');
     if (!container) return;
-    
+
     container.classList.remove('highlight-indicator-top', 'highlight-indicator-bottom');
-    
+
     const containerRect = container.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
-    
-    const isFullyVisible = 
-        elementRect.top >= containerRect.top && 
+
+    const isFullyVisible =
+        elementRect.top >= containerRect.top &&
         elementRect.bottom <= containerRect.bottom;
-    
+
     if (!isFullyVisible) {
         if (elementRect.top < containerRect.top) {
             container.classList.add('highlight-indicator-top');
@@ -2262,21 +2371,21 @@ function createSpecialCategorySection(category) {
         </h4>
         <div class="special-items-list"></div>
     `;
-    
+
     const itemsList = section.querySelector('.special-items-list');
-    
+
     /* Sortowanie po numerze */
     category.items.sort((a, b) => {
         const numA = parseInt(a.properties.numer_obiektu) || 0;
         const numB = parseInt(b.properties.numer_obiektu) || 0;
         return numA - numB;
     });
-    
+
     category.items.forEach(item => {
         const itemEl = createSpecialObjectItem(item, category.icon);
         itemsList.appendChild(itemEl);
     });
-    
+
     return section;
 }
 
@@ -2366,19 +2475,17 @@ function createSpecialObjectItem(item, icon) {
  * @param {HTMLElement} toggle - Przycisk zwijania
  */
 function setupLegendToggle(header, content, toggle) {
-    let isCollapsed = false;
-    
+    const legendEl = document.getElementById("legend");
+    if (!legendEl) return;
+
     header.addEventListener("click", () => {
-        isCollapsed = !isCollapsed;
-        
+        legendEl.classList.toggle("collapsed");
+
+        const isCollapsed = legendEl.classList.contains("collapsed");
         if (isCollapsed) {
-            content.style.display = "none";
             toggle.querySelector('i').className = 'fas fa-chevron-up';
-            header.style.borderRadius = "12px";
         } else {
-            content.style.display = "block";
             toggle.querySelector('i').className = 'fas fa-chevron-down';
-            header.style.borderRadius = "12px 12px 0 0";
         }
     });
 }
@@ -2394,22 +2501,22 @@ function createLegendItem(kategoria, label, style) {
     const li = document.createElement("li");
     li.dataset.kategoria = kategoria;
     li.className = "legend-item";
-    
+
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = true;
     checkbox.className = "legend-checkbox";
     checkbox.id = `legend-${kategoria}`;
-    
+
     const colorBox = document.createElement("span");
     colorBox.className = "legend-color-box";
     colorBox.style.backgroundColor = style?.fillColor || style?.color || "#ccc";
-    
+
     const labelEl = document.createElement("label");
     labelEl.htmlFor = `legend-${kategoria}`;
     labelEl.className = "legend-label";
     labelEl.textContent = label;
-    
+
     li.appendChild(checkbox);
     li.appendChild(colorBox);
     li.appendChild(labelEl);
@@ -2439,7 +2546,7 @@ function createLegendItem(kategoria, label, style) {
             }
         }
     });
-    
+
     return li;
 }
 
@@ -2452,7 +2559,7 @@ function createLegendItem(kategoria, label, style) {
 function assignColorsToOwners(ownerKeys, ownershipType) {
     const colorMap = {};
     let colorIndex = 0;
-    
+
     ownerKeys.forEach(key => {
         if (ownershipType === "wszystkie") {
             colorMap[key] = {
@@ -2465,7 +2572,7 @@ function assignColorsToOwners(ownerKeys, ownershipType) {
             colorIndex++;
         }
     });
-    
+
     return colorMap;
 }
 
@@ -2519,32 +2626,32 @@ function processLayerForOwnerHighlight(layer, ownerColorMap, ownershipType) {
 
     const ownerKey = matchedOwner.unikalny_klucz;
     const isReal = matchedOwner.typ_posiadania === "własność rzeczywista";
-    
+
     const color = (typeof ownerColorMap[ownerKey] === "object")
         ? (isReal ? ownerColorMap[ownerKey].rzeczywista : ownerColorMap[ownerKey].protokol)
         : ownerColorMap[ownerKey];
-        
+
     /* Tworzenie sklonowanej warstwy */
     let clonedLayer;
     if (layer instanceof L.Polygon) {
-        clonedLayer = L.polygon(layer.getLatLngs(), { 
-            color, 
-            weight: 3, 
-            fillColor: color, 
-            fillOpacity: 0.6 
+        clonedLayer = L.polygon(layer.getLatLngs(), {
+            color,
+            weight: 3,
+            fillColor: color,
+            fillOpacity: 0.6
         });
     } else if (layer instanceof L.Polyline) {
-        clonedLayer = L.polyline(layer.getLatLngs(), { 
-            color, 
-            weight: 5 
+        clonedLayer = L.polyline(layer.getLatLngs(), {
+            color,
+            weight: 5
         });
     } else if (layer instanceof L.Marker) {
-        clonedLayer = L.circleMarker(layer.getLatLng(), { 
-            radius: 10, 
-            color: 'black', 
-            weight: 2, 
-            fillColor: color, 
-            fillOpacity: 1 
+        clonedLayer = L.circleMarker(layer.getLatLng(), {
+            radius: 10,
+            color: 'black',
+            weight: 2,
+            fillColor: color,
+            fillOpacity: 1
         });
     }
 
@@ -2682,17 +2789,40 @@ function createOwnerLegendItem(label, color) {
  * @param {HTMLElement} btn - Przycisk pełnego ekranu
  */
 function setupFullscreen(btn) {
-    btn.addEventListener('click', () => {
+    const appWrapper = document.getElementById('app-wrapper');
+
+    const toggleFullscreen = () => {
         if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
+            if (appWrapper.requestFullscreen) {
+                appWrapper.requestFullscreen();
+            } else if (appWrapper.webkitRequestFullscreen) {
+                appWrapper.webkitRequestFullscreen();
+            }
             btn.innerHTML = '<i class="fas fa-compress"></i>';
         } else {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
-                btn.innerHTML = '<i class="fas fa-expand"></i>';
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
             }
+            btn.innerHTML = '<i class="fas fa-expand"></i>';
         }
-    });
+    };
+
+    btn.addEventListener('click', toggleFullscreen);
+
+    /* Obsługa zmiany stanu fullscreen - wymuszenie odświeżenia mapy */
+    const handleFullscreenChange = () => {
+        if (map) {
+            setTimeout(() => {
+                map.invalidateSize();
+                console.log("🔄 Mapa odświeżona po zmianie trybu pełnoekranowego");
+            }, 300);
+        }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 }
 
 /**
@@ -2744,17 +2874,17 @@ function resetView() {
     /* Zwijanie paneli */
     document.getElementById('owners-panel').classList.add('collapsed');
     document.getElementById('parcels-panel').classList.add('collapsed');
-    
+
     document.querySelector('.panel-expand-handle.left-handle').classList.add('handle-visible');
     document.querySelector('.panel-expand-handle.right-handle').classList.add('handle-visible');
 
     clearAllHighlights();
-    
+
     /* Reset widoku mapy */
     if (geojsonLayer && geojsonLayer.getLayers().length > 0) {
         map.fitBounds(geojsonLayer.getBounds());
     }
-    
+
     const settingsModal = document.getElementById('settings-modal');
     if (settingsModal) {
         settingsModal.style.display = 'none';
@@ -2769,7 +2899,7 @@ function resetView() {
 function setupKeyboardShortcuts(helpModal, settingsModal) {
     document.addEventListener('keydown', event => {
         const activeElement = document.activeElement;
-        if (activeElement && 
+        if (activeElement &&
             (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
             if (event.key !== 'Escape') return;
         }
@@ -2785,16 +2915,16 @@ function setupKeyboardShortcuts(helpModal, settingsModal) {
             event.preventDefault();
             map.zoomIn();
         }
-        
+
         if (event.key === '-') {
             event.preventDefault();
             map.zoomOut();
         }
-        
+
         /* Escape - zamykanie */
         if (event.key === 'Escape') {
             event.preventDefault();
-            
+
             if (helpModal.style.display === 'flex') {
                 helpModal.style.display = 'none';
             } else if (settingsModal.style.display === 'flex') {
@@ -2816,17 +2946,17 @@ function setupHistoricalMapOpacityControl() {
     // Czekamy aż mapa i kontrolka warstw będą dostępne
     const trySetup = () => {
         const layersControl = document.querySelector('.leaflet-control-layers-list');
-        
+
         if (!historicalMapOverlay || !layersControl) {
             setTimeout(trySetup, 100);
             return;
         }
-        
+
         // Sprawdzamy czy już nie został dodany
         if (document.querySelector('.opacity-control-inline')) {
             return;
         }
-        
+
         // Tworzymy kontrolkę przezroczystości
         const opacityControl = document.createElement('div');
         opacityControl.className = 'opacity-control-inline';
@@ -2843,28 +2973,28 @@ function setupHistoricalMapOpacityControl() {
                 </div>
             </div>
         `;
-        
+
         // Dodajemy na końcu kontrolki warstw
         layersControl.appendChild(opacityControl);
-        
+
         // Konfigurujemy slider
         const opacitySlider = document.getElementById('historical-opacity-slider');
         const opacityPercentage = document.getElementById('opacity-percentage');
-        
+
         opacitySlider.addEventListener('input', (e) => {
             const value = e.target.value;
             const opacity = value / 100;
-            
+
             historicalMapOverlay.setOpacity(opacity);
             opacityPercentage.textContent = value;
         });
-        
+
         // Inicjalizacja wartości początkowej
         historicalMapOverlay.setOpacity(1);
-        
+
         console.log("✅ Kontrolka przezroczystości dodana do panelu warstw");
     };
-    
+
     trySetup();
 }
 
@@ -2878,8 +3008,8 @@ function handleOwnerSearchResult(ownerKey) {
         ownerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
         ownerCard.style.transition = 'all 0.2s ease';
         ownerCard.style.transform = 'scale(1.05)';
-        setTimeout(() => { 
-            ownerCard.style.transform = 'scale(1)'; 
+        setTimeout(() => {
+            ownerCard.style.transform = 'scale(1)';
         }, 1000);
     }
 }

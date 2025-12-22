@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
          ========================================================================== -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Centrum Analityczne - kompleksowa analiza danych katastralnych miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description"
+        content="Centrum Analityczne - kompleksowa analiza danych katastralnych miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
     <meta name="keywords" content="analiza danych, statystyki, {{MIEJSCOWOSC}}, dane katastralne, {{YEAR}}">
     <title>Centrum Analityczne - {{MIEJSCOWOSC_PELNA}}</title>
 
@@ -19,12 +21,15 @@
     <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts - typografia -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap"
+        rel="stylesheet">
     <!-- Chart.js - wizualizacja danych -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Arkusz stylów aplikacji -->
     <link rel="stylesheet" href="stats-style.css">
 </head>
+
 <body>
     <!-- ==========================================================================
          WARSTWA TŁA ANIMOWANEGO
@@ -34,12 +39,12 @@
         <div class="gradient-sphere sphere-2"></div>
         <div class="gradient-sphere sphere-3"></div>
     </div>
-    
+
     <!-- ==========================================================================
          GŁÓWNY KONTENER APLIKACJI
          ========================================================================== -->
     <div class="app-container">
-        
+
         <!-- ==========================================================================
              NAGŁÓWEK Z NAWIGACJĄ
              ========================================================================== -->
@@ -55,7 +60,7 @@
                         <p>Gmina {{MIEJSCOWOSC_PELNA}} - Dane Katastralne {{WIEK}} w.</p>
                     </div>
                 </div>
-                
+
                 <!-- Nawigacja główna -->
                 <nav class="header-nav">
                     <a href="../mapa/mapa.html" class="nav-pill">
@@ -67,13 +72,14 @@
                         <span>Start</span>
                     </a>
                     <a href="../graf/graf.html" class="nav-pill">
-                        <i class="fas fa-sitemap"></i>
-                        <span>Graf Społeczności</span>
+                        <i class="fas fa-project-diagram"></i>
+                        <span>Graf</span>
                     </a>
                     <a href="../genealogia/genealogia.html" class="nav-pill">
-                        <i class="fas fa-sitemap"></i>
+                        <i class="fas fa-tree"></i>
                         <span>Genealogia</span>
                     </a>
+
 
                     <!-- Przyciski akcji nagłówka -->
                     <div class="header-actions">
@@ -89,7 +95,7 @@
                     </div>
                 </nav>
             </div>
-            
+
             <!-- Wysuwany pasek wyszukiwania -->
             <div class="search-bar" id="search-bar">
                 <div class="search-container">
@@ -203,7 +209,7 @@
                  ZAWARTOŚĆ ZAKŁADEK
                  ========================================================================== -->
             <div class="tabs-content">
-                
+
                 <!-- ZAKŁADKA: PRZEGLĄD -->
                 <div class="tab-panel active" id="overview">
 
@@ -456,7 +462,8 @@
                                         </div>
                                         <div class="mini-data">
                                             <span class="mini-label">Akcja</span>
-                                            <button class="btn-primary" id="show-jewish-parcels" style="margin-top: 5px;">
+                                            <button class="btn-primary" id="show-jewish-parcels"
+                                                style="margin-top: 5px;">
                                                 <i class="fas fa-map-marker-alt"></i> Pokaż na mapie
                                             </button>
                                         </div>
@@ -588,7 +595,7 @@
                     </div>
 
                 </div>
-                
+
                 <!-- ZAKŁADKA: RANKINGI -->
                 <div class="tab-panel" id="rankings">
 
@@ -614,7 +621,8 @@
                                     <span>Działki</span>
                                 </label>
 
-                                <input type="radio" name="ranking-type" id="ranking-infrastructure" value="infrastructure">
+                                <input type="radio" name="ranking-type" id="ranking-infrastructure"
+                                    value="infrastructure">
                                 <label for="ranking-infrastructure">
                                     <i class="fas fa-road"></i>
                                     <span>Infrastruktura</span>
@@ -674,7 +682,8 @@
                             <div class="card-header">
                                 <h3><i class="fas fa-filter"></i> Filtruj według kategorii</h3>
                                 <div class="filter-group" style="margin: 0;">
-                                    <select id="parcel-category-filter" style="padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary);">
+                                    <select id="parcel-category-filter"
+                                        style="padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary);">
                                         <option value="all">Wszystkie kategorie</option>
                                         <option value="rolna">Rolne</option>
                                         <option value="budowlana">Budowlane</option>
@@ -727,7 +736,7 @@
                     </div>
 
                 </div>
-                
+
                 <!-- ZAKŁADKA: OŚ CZASU -->
                 <div class="tab-panel" id="timeline">
 
@@ -745,7 +754,7 @@
                     </div>
 
                 </div>
-                
+
                 <!-- ZAKŁADKA: DEMOGRAFIA -->
                 <div class="tab-panel" id="demographics">
 
@@ -758,36 +767,37 @@
                         <div class="demographics-container">
                             <!-- Nagłówek z podsumowaniem -->
                             <div class="demo-header">
-                            <div class="demo-summary">
-                                <h3><i class="fas fa-chart-line"></i> Rozwój demograficzny Gminy {{MIEJSCOWOSC_PELNA}}</h3>
-                                <p class="demo-subtitle">Analiza zmian populacji od {{WIEK}}</p>
-                            </div>
-                            <div class="demo-quick-stats">
-                                <div class="quick-stat">
-                                    <span class="quick-stat-value" id="demo-growth">+25%</span>
-                                    <span class="quick-stat-label">Wzrost populacji</span>
+                                <div class="demo-summary">
+                                    <h3><i class="fas fa-chart-line"></i> Rozwój demograficzny Gminy
+                                        {{MIEJSCOWOSC_PELNA}}</h3>
+                                    <p class="demo-subtitle">Analiza zmian populacji od {{WIEK}}</p>
                                 </div>
-                                <div class="quick-stat">
-                                    <span class="quick-stat-value" id="demo-years">27 lat</span>
-                                    <span class="quick-stat-label">Okres obserwacji</span>
+                                <div class="demo-quick-stats">
+                                    <div class="quick-stat">
+                                        <span class="quick-stat-value" id="demo-growth">+25%</span>
+                                        <span class="quick-stat-label">Wzrost populacji</span>
+                                    </div>
+                                    <div class="quick-stat">
+                                        <span class="quick-stat-value" id="demo-years">27 lat</span>
+                                        <span class="quick-stat-label">Okres obserwacji</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <!-- Główny wykres demograficzny -->
-                        <div class="demo-main-chart">
-                            <canvas id="demographicsChart"></canvas>
-                        </div>
-                        <!-- Timeline wydarzeń historycznych -->
-                        <div class="demo-timeline">
-                            <h4><i class="fas fa-history"></i> Kluczowe wydarzenia</h4>
-                            <div class="timeline-track" id="demo-timeline-track">
+                            <!-- Główny wykres demograficzny -->
+                            <div class="demo-main-chart">
+                                <canvas id="demographicsChart"></canvas>
+                            </div>
+                            <!-- Timeline wydarzeń historycznych -->
+                            <div class="demo-timeline">
+                                <h4><i class="fas fa-history"></i> Kluczowe wydarzenia</h4>
+                                <div class="timeline-track" id="demo-timeline-track">
+                                    <!-- Generowane dynamicznie przez JavaScript -->
+                                </div>
+                            </div>
+                            <!-- Karty szczegółowe -->
+                            <div class="demo-cards-grid" id="demo-cards">
                                 <!-- Generowane dynamicznie przez JavaScript -->
                             </div>
-                        </div>
-                        <!-- Karty szczegółowe -->
-                        <div class="demo-cards-grid" id="demo-cards">
-                            <!-- Generowane dynamicznie przez JavaScript -->
-                        </div>
                             <!-- Analiza porównawcza -->
                             <div class="demo-comparison" id="demo-comparison">
                                 <h4><i class="fas fa-balance-scale"></i> Analiza porównawcza</h4>
@@ -810,164 +820,170 @@
                             <p>Analiza danych osobowych i rodzinnych</p>
                         </div>
                         <div class="dashboard-grid">
-                        <!-- Wskaźniki genealogiczne -->
-                        <div class="dashboard-card">
-                            <div class="card-header">
-                                <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
-                            </div>
-                            <div class="stats-grid">
-                                <div class="mini-stat">
-                                    <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
-                                    <div class="mini-data">
-                                        <span class="mini-label">Wszystkie osoby</span>
-                                        <span class="mini-value" id="stat-total-people">0</span>
+                            <!-- Wskaźniki genealogiczne -->
+                            <div class="dashboard-card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
+                                </div>
+                                <div class="stats-grid">
+                                    <div class="mini-stat">
+                                        <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Wszystkie osoby</span>
+                                            <span class="mini-value" id="stat-total-people">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="mini-stat">
+                                        <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
+                                        <div class="mini-data">
+                                            <span class="mini-label">Mężczyźni / Kobiety</span>
+                                            <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="mini-stat">
-                                    <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
-                                    <div class="mini-data">
-                                        <span class="mini-label">Mężczyźni / Kobiety</span>
-                                        <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+                            </div>
+                            <!-- Ranking nazwisk -->
+                            <div class="dashboard-card">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
+                                </div>
+                                <div class="ranking-list" id="top-surnames-list">
+                                    <!-- Generowane dynamicznie przez JavaScript -->
+                                </div>
+                            </div>
+                            <!-- Wykres urodzeń -->
+                            <!-- Wykres serii genealogicznych (urodzenia / zgony / śluby) -->
+                            <div class="dashboard-card wide">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-birthday-cake"></i> Ruch naturalny – wg dekad</h3>
+                                    <!-- Przełącznik serii -->
+                                    <div class="segmented" id="genealogy-series-toggle" role="tablist"
+                                        aria-label="Seria genealogiczna">
+                                        <input type="radio" name="gen-series" id="gen-series-births" value="births"
+                                            checked>
+                                        <label for="gen-series-births" title="Urodzenia"><i class="fas fa-baby"></i>
+                                            Urodzenia</label>
+
+                                        <input type="radio" name="gen-series" id="gen-series-deaths" value="deaths">
+                                        <label for="gen-series-deaths" title="Zgony"><i class="fas fa-cross"></i>
+                                            Zgony</label>
+
+                                        <input type="radio" name="gen-series" id="gen-series-marriages"
+                                            value="marriages">
+                                        <label for="gen-series-marriages" title="Śluby"><i class="fas fa-ring"></i>
+                                            Śluby</label>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                        <!-- Ranking nazwisk -->
-                        <div class="dashboard-card">
-                             <div class="card-header">
-                                <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
-                            </div>
-                            <div class="ranking-list" id="top-surnames-list">
-                                <!-- Generowane dynamicznie przez JavaScript -->
-                            </div>
-                        </div>
-                        <!-- Wykres urodzeń -->
-                        <!-- Wykres serii genealogicznych (urodzenia / zgony / śluby) -->
-                        <div class="dashboard-card wide">
-                            <div class="card-header">
-                                <h3><i class="fas fa-birthday-cake"></i> Ruch naturalny – wg dekad</h3>
-                                <!-- Przełącznik serii -->
-                                <div class="segmented" id="genealogy-series-toggle" role="tablist" aria-label="Seria genealogiczna">
-                                <input type="radio" name="gen-series" id="gen-series-births" value="births" checked>
-                                <label for="gen-series-births" title="Urodzenia"><i class="fas fa-baby"></i> Urodzenia</label>
-
-                                <input type="radio" name="gen-series" id="gen-series-deaths" value="deaths">
-                                <label for="gen-series-deaths" title="Zgony"><i class="fas fa-cross"></i> Zgony</label>
-
-                                <input type="radio" name="gen-series" id="gen-series-marriages" value="marriages">
-                                <label for="gen-series-marriages" title="Śluby"><i class="fas fa-ring"></i> Śluby</label>
-                                </div>
-                            </div>
                                 <div class="card-body">
                                     <canvas id="genealogy-births-chart"></canvas>
                                 </div>
-                        </div>
-
-                        <!-- NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU -->
-
-                        <!-- 1. Śmiertelność niemowląt -->
-                        <div class="dashboard-card wide">
-                            <div class="card-header">
-                                <h3><i class="fas fa-baby"></i> Śmiertelność niemowląt</h3>
                             </div>
-                            <div class="card-body">
-                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                                    <div class="mini-stat">
-                                        <div class="mini-icon red"><i class="fas fa-heart-broken"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Zgony niemowląt</span>
-                                            <span class="mini-value" id="stat-infant-deaths">0</span>
-                                        </div>
-                                    </div>
-                                    <div class="mini-stat">
-                                        <div class="mini-icon orange"><i class="fas fa-percentage"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Wskaźnik śmiertelności</span>
-                                            <span class="mini-value" id="stat-infant-mortality-rate">0%</span>
-                                        </div>
-                                    </div>
+
+                            <!-- NOWE STATYSTYKI DEMOGRAFICZNE XIX WIEKU -->
+
+                            <!-- 1. Śmiertelność niemowląt -->
+                            <div class="dashboard-card wide">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-baby"></i> Śmiertelność niemowląt</h3>
                                 </div>
-                                <canvas id="infant-mortality-chart"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- 2. Długość życia według pokoleń -->
-                        <div class="dashboard-card wide">
-                            <div class="card-header">
-                                <h3><i class="fas fa-hourglass-half"></i> Długość życia według pokoleń</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                                    <div class="mini-stat">
-                                        <div class="mini-icon green"><i class="fas fa-clock"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Średnia długość życia</span>
-                                            <span class="mini-value" id="stat-avg-lifespan">0 lat</span>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon red"><i class="fas fa-heart-broken"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Zgony niemowląt</span>
+                                                <span class="mini-value" id="stat-infant-deaths">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon orange"><i class="fas fa-percentage"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Wskaźnik śmiertelności</span>
+                                                <span class="mini-value" id="stat-infant-mortality-rate">0%</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="mini-stat">
-                                        <div class="mini-icon blue"><i class="fas fa-users"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Liczba rekordów</span>
-                                            <span class="mini-value" id="stat-lifespan-records">0</span>
-                                        </div>
-                                    </div>
+                                    <canvas id="infant-mortality-chart"></canvas>
                                 </div>
-                                <canvas id="lifespan-chart"></canvas>
                             </div>
-                        </div>
 
-                        <!-- 3. Rozkład zmarłych według wieku -->
-                        <div class="dashboard-card wide">
-                            <div class="card-header">
-                                <h3><i class="fas fa-chart-bar"></i> Rozkład zmarłych według wieku</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                                    <div class="mini-stat">
-                                        <div class="mini-icon purple"><i class="fas fa-users"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Łączna liczba zgonów</span>
-                                            <span class="mini-value" id="stat-total-deaths">0</span>
+                            <!-- 2. Długość życia według pokoleń -->
+                            <div class="dashboard-card wide">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-hourglass-half"></i> Długość życia według pokoleń</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon green"><i class="fas fa-clock"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Średnia długość życia</span>
+                                                <span class="mini-value" id="stat-avg-lifespan">0 lat</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon blue"><i class="fas fa-users"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Liczba rekordów</span>
+                                                <span class="mini-value" id="stat-lifespan-records">0</span>
+                                            </div>
                                         </div>
                                     </div>
+                                    <canvas id="lifespan-chart"></canvas>
                                 </div>
-                                <canvas id="death-age-chart"></canvas>
                             </div>
-                        </div>
 
-                        <!-- 4. Struktura rodzin -->
-                        <div class="dashboard-card wide">
-                            <div class="card-header">
-                                <h3><i class="fas fa-home"></i> Struktura rodzin</h3>
-                            </div>
-                            <div class="card-body">
-                                <div class="stats-grid" style="margin-bottom: 1.5rem;">
-                                    <div class="mini-stat">
-                                        <div class="mini-icon teal"><i class="fas fa-child"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Średnia liczba dzieci</span>
-                                            <span class="mini-value" id="stat-avg-children">0</span>
-                                        </div>
-                                    </div>
-                                    <div class="mini-stat">
-                                        <div class="mini-icon indigo"><i class="fas fa-house-user"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Średnia wielkość gospodarstwa</span>
-                                            <span class="mini-value" id="stat-avg-household">0</span>
-                                        </div>
-                                    </div>
-                                    <div class="mini-stat">
-                                        <div class="mini-icon pink"><i class="fas fa-users"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Liczba rodzin</span>
-                                            <span class="mini-value" id="stat-total-families">0</span>
-                                        </div>
-                                    </div>
+                            <!-- 3. Rozkład zmarłych według wieku -->
+                            <div class="dashboard-card wide">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-chart-bar"></i> Rozkład zmarłych według wieku</h3>
                                 </div>
-                                <canvas id="family-structure-chart"></canvas>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon purple"><i class="fas fa-users"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Łączna liczba zgonów</span>
+                                                <span class="mini-value" id="stat-total-deaths">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <canvas id="death-age-chart"></canvas>
+                                </div>
                             </div>
-                        </div>
+
+                            <!-- 4. Struktura rodzin -->
+                            <div class="dashboard-card wide">
+                                <div class="card-header">
+                                    <h3><i class="fas fa-home"></i> Struktura rodzin</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                                        <div class="mini-stat">
+                                            <div class="mini-icon teal"><i class="fas fa-child"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Średnia liczba dzieci</span>
+                                                <span class="mini-value" id="stat-avg-children">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon indigo"><i class="fas fa-house-user"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Średnia wielkość gospodarstwa</span>
+                                                <span class="mini-value" id="stat-avg-household">0</span>
+                                            </div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <div class="mini-icon pink"><i class="fas fa-users"></i></div>
+                                            <div class="mini-data">
+                                                <span class="mini-label">Liczba rodzin</span>
+                                                <span class="mini-value" id="stat-total-families">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <canvas id="family-structure-chart"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -983,49 +999,49 @@
                             <p>Eksport danych i zaawansowane analizy</p>
                         </div>
                         <div class="analysis-container">
-                        <!-- Narzędzia analityczne -->
-                        <div class="analysis-tools">
-                            <button class="tool-btn" id="compare-btn">
-                                <i class="fas fa-balance-scale"></i>
-                                <span>Porównaj okresy</span>
-                            </button>
-                            <button class="tool-btn" id="export-btn">
-                                <i class="fas fa-file-excel"></i>
-                                <span>Eksport do Excel</span>
-                            </button>
-                            <button class="tool-btn" id="print-btn">
-                                <i class="fas fa-print"></i>
-                                <span>Drukuj raport</span>
-                            </button>
-                            <button class="tool-btn" id="share-btn">
-                                <i class="fas fa-share-alt"></i>
-                                <span>Udostępnij</span>
-                            </button>
-                        </div>
-                        <!-- Karty z wnioskami analitycznymi -->
-                        <div class="insights-grid">
-                            <div class="insight-card">
-                                <div class="insight-icon">
-                                    <i class="fas fa-lightbulb"></i>
-                                </div>
-                                <h4>Największy właściciel</h4>
-                                <p id="biggest-owner">Analizowanie...</p>
+                            <!-- Narzędzia analityczne -->
+                            <div class="analysis-tools">
+                                <button class="tool-btn" id="compare-btn">
+                                    <i class="fas fa-balance-scale"></i>
+                                    <span>Porównaj okresy</span>
+                                </button>
+                                <button class="tool-btn" id="export-btn">
+                                    <i class="fas fa-file-excel"></i>
+                                    <span>Eksport do Excel</span>
+                                </button>
+                                <button class="tool-btn" id="print-btn">
+                                    <i class="fas fa-print"></i>
+                                    <span>Drukuj raport</span>
+                                </button>
+                                <button class="tool-btn" id="share-btn">
+                                    <i class="fas fa-share-alt"></i>
+                                    <span>Udostępnij</span>
+                                </button>
                             </div>
-                            <div class="insight-card">
-                                <div class="insight-icon">
-                                    <i class="fas fa-chart-line"></i>
+                            <!-- Karty z wnioskami analitycznymi -->
+                            <div class="insights-grid">
+                                <div class="insight-card">
+                                    <div class="insight-icon">
+                                        <i class="fas fa-lightbulb"></i>
+                                    </div>
+                                    <h4>Największy właściciel</h4>
+                                    <p id="biggest-owner">Analizowanie...</p>
                                 </div>
-                                <h4>Trend własności</h4>
-                                <p id="ownership-trend">Analizowanie...</p>
-                            </div>
-                            <div class="insight-card">
-                                <div class="insight-icon">
-                                    <i class="fas fa-percentage"></i>
+                                <div class="insight-card">
+                                    <div class="insight-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <h4>Trend własności</h4>
+                                    <p id="ownership-trend">Analizowanie...</p>
                                 </div>
-                                <h4>Koncentracja</h4>
-                                <p id="concentration">Analizowanie...</p>
+                                <div class="insight-card">
+                                    <div class="insight-icon">
+                                        <i class="fas fa-percentage"></i>
+                                    </div>
+                                    <h4>Koncentracja</h4>
+                                    <p id="concentration">Analizowanie...</p>
+                                </div>
                             </div>
-                        </div>
                         </div>
                     </div>
 
@@ -1131,7 +1147,8 @@
             </div>
             <div class="modal-body print-modal-body">
                 <p class="modal-description">
-                    Wybierz sekcje które chcesz uwzględnić w raporcie. Raport zostanie otwarty w nowym oknie i przygotowany do druku.
+                    Wybierz sekcje które chcesz uwzględnić w raporcie. Raport zostanie otwarty w nowym oknie i
+                    przygotowany do druku.
                 </p>
 
                 <div class="checkbox-grid">

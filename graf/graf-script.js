@@ -371,6 +371,26 @@ class GraphManager {
 
         toggleBtn.addEventListener('click', collapsePanel);
         expandHandle.addEventListener('click', expandPanel);
+
+        // Mobile panel toggle
+        const mobilePanelToggle = document.getElementById('mobile-panel-toggle');
+        if (mobilePanelToggle) {
+            mobilePanelToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (panel.classList.contains('mobile-open')) {
+                    collapsePanel();
+                    panel.classList.remove('mobile-open');
+                } else {
+                    expandPanel();
+                    panel.classList.add('mobile-open');
+                }
+            });
+        }
+
+        // Collapse panel by default on mobile
+        if (window.innerWidth <= 768) {
+            collapsePanel();
+        }
         
         // === WYSZUKIWARKA ===
         const searchInput = document.getElementById('search-input');

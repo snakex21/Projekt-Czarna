@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
@@ -24,15 +25,16 @@
     <!-- Arkusz stylów aplikacji -->
     <link rel="stylesheet" href="graf_style.css">
 </head>
+
 <body>
     <!-- ==========================================================================
          GŁÓWNY KONTENER GRAFU
          ========================================================================== -->
     <div id="mynetwork"></div>
-    
+
     <!-- Gradient dla efektu wizualnego głębi -->
     <div class="gradient-overlay"></div>
-    
+
     <!-- ==========================================================================
          PANEL KONTROLNY - GŁÓWNY INTERFEJS UŻYTKOWNIKA
          ========================================================================== -->
@@ -44,7 +46,7 @@
                 <i class="fas fa-chevron-left"></i>
             </button>
         </div>
-        
+
         <div class="panel-content">
             <!-- ==========================================================================
                  SEKCJA WYSZUKIWANIA
@@ -52,19 +54,14 @@
             <div class="search-section">
                 <div class="search-container">
                     <i class="fas fa-search search-icon"></i>
-                    <input 
-                        type="text" 
-                        id="search-input" 
-                        placeholder="Szukaj protokołu..."
-                        autocomplete="off"
-                    />
+                    <input type="text" id="search-input" placeholder="Szukaj protokołu..." autocomplete="off" />
                     <button id="clear-search" class="clear-btn" style="display: none;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <ul id="search-results"></ul>
             </div>
-            
+
             <!-- ==========================================================================
                  SEKCJA STATYSTYK
                  ========================================================================== -->
@@ -85,7 +82,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  KONTROLKI WIDOKU
                  ========================================================================== -->
@@ -106,7 +103,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  FILTRY DANYCH
                  ========================================================================== -->
@@ -124,16 +121,10 @@
                 </div>
                 <div class="connections-filter">
                     <label for="min-connections">Min. powiązań: <span id="connections-value">0</span></label>
-                    <input 
-                        type="range" 
-                        id="min-connections" 
-                        min="0" 
-                        max="10" 
-                        value="0"
-                    />
+                    <input type="range" id="min-connections" min="0" max="10" value="0" />
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  LEGENDA
                  ========================================================================== -->
@@ -154,7 +145,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  NAWIGACJA DO INNYCH SEKCJI
                  ========================================================================== -->
@@ -176,13 +167,13 @@
     <div class="panel-expand-handle" style="display: none;">
         <i class="fas fa-chevron-right"></i>
     </div>
-    
+
     <!-- Tooltip wyświetlający szczegóły węzła -->
     <div id="node-tooltip" class="tooltip"></div>
-    
+
     <!-- Mini-mapa dla nawigacji w dużych grafach -->
     <div id="minimap" class="minimap"></div>
-    
+
     <!-- ==========================================================================
          EKRAN ŁADOWANIA
          ========================================================================== -->
@@ -195,10 +186,26 @@
             </div>
         </div>
     </div>
-    
+
+    <div class="mobile-bottom-nav">
+        <a href="../strona_glowna/index.html" class="mobile-nav-item">
+            <i class="fas fa-home"></i>
+            <span>Główna</span>
+        </a>
+        <a href="../mapa/mapa.html" class="mobile-nav-item">
+            <i class="fas fa-map"></i>
+            <span>Mapa</span>
+        </a>
+        <a href="#" class="mobile-nav-item" id="mobile-panel-toggle">
+            <i class="fas fa-sliders-h"></i>
+            <span>Panel</span>
+        </a>
+    </div>
+
     <!-- ==========================================================================
          SKRYPTY APLIKACJI
          ========================================================================== -->
     <script src="graf-script.js"></script>
 </body>
+
 </html>

@@ -151,70 +151,156 @@ function initSearch() {
   const searchBar = document.getElementById('search-bar');
   const searchClose = document.getElementById('search-close');
   const searchInput = document.getElementById('global-search');
+  const searchContainer = document.querySelector('.search-container');
+
+  // Utwórz kontener wyników, jeśli nie istnieje
+  let resultsContainer = document.querySelector('.search-results-container');
+  if (!resultsContainer) {
+    resultsContainer = document.createElement('div');
+    resultsContainer.className = 'search-results-container';
+    searchContainer.appendChild(resultsContainer);
+  }
 
   searchToggle?.addEventListener('click', () => {
     searchBar.classList.toggle('active');
-    if (searchBar.classList.contains('active')) searchInput?.focus();
+    if (searchBar.classList.contains('active')) {
+      searchInput?.focus();
+    } else {
+      resultsContainer.classList.remove('visible');
+    }
   });
 
   searchClose?.addEventListener('click', () => {
     searchBar.classList.remove('active');
     if (searchInput) searchInput.value = '';
-    performGlobalSearch('');
+    resultsContainer.classList.remove('visible');
+    resultsContainer.innerHTML = '';
   });
 
   searchInput?.addEventListener('input', (e) => {
-    performGlobalSearch(e.target.value);
+    const query = e.target.value.trim();
+    if (query.length > 1) {
+      performGlobalSearch(query);
+    } else {
+      resultsContainer.classList.remove('visible');
+      resultsContainer.innerHTML = '';
+    }
+  });
+
+  // Zamknij wyniki po kliknięciu poza
+  document.addEventListener('click', (e) => {
+    if (!searchContainer.contains(e.target) && !searchToggle.contains(e.target)) {
+      resultsContainer.classList.remove('visible');
+    }
   });
 }
 
 /**
- * Wyszukiwanie w aktywnej zakładce – podświetlanie + hide/show.
+ * Wyszukiwanie w danych (statsData) i wyświetlanie wyników.
  * @param {string} query
  */
 function performGlobalSearch(query) {
-  const normalizedQuery = query.trim().toLowerCase();
-  const activePanel = document.querySelector('.tab-panel.active');
-  if (!activePanel) return;
+  if (!statsData) return;
 
-  clearHighlights(activePanel);
-  activePanel.querySelector('.no-results-message')?.remove();
+  const normalizedQuery = query.toLowerCase();
+  const resultsContainer = document.querySelector('.search-results-container');
 
-  // Bez frazy – przywróć widoczność
-  if (!normalizedQuery) {
-    activePanel.querySelectorAll('.ranking-item, .timeline-item, .demo-year-card')
-      .forEach(item => item.style.display = '');
+  // Jeśli kontener nie istnieje (bo initSearch nie zadziałał), stwórz go
+  if (!resultsContainer) {
+    console.warn('Search results container not found, skipping render');
     return;
   }
 
-  const searchable = activePanel.querySelectorAll('.ranking-item, .timeline-item, .demo-year-card');
-  let found = 0;
+  resultsContainer.innerHTML = '';
 
-  searchable.forEach(item => {
-    const txt = item.textContent.toLowerCase();
-    if (txt.includes(normalizedQuery)) {
-      item.style.display = '';
-      highlightText(item, normalizedQuery);
-      found++;
-    } else {
-      item.style.display = 'none';
-    }
-  });
+  const results = {
+    owners: [],
+    parcels: []
+  };
 
-  if (!found) {
-    const noResults = document.createElement('div');
-    noResults.className = 'no-results-message';
-    noResults.innerHTML = `
-      <i class="fas fa-search"></i>
-      <h3>Brak wyników</h3>
-      <p>Nie znaleziono wyników dla frazy "${query}"</p>`;
-    const targetContainer =
-      activePanel.querySelector('.ranking-list') ||
-      activePanel.querySelector('.timeline') ||
-      activePanel.querySelector('.demo-cards-grid') ||
-      activePanel;
-    targetContainer.appendChild(noResults);
+  // Szukaj właścicieli - używamy rankings_real.all_plots
+  if (statsData.rankings_real && statsData.rankings_real.all_plots) {
+    results.owners = statsData.rankings_real.all_plots.filter(owner => {
+      const name = (owner.nazwa_wlasciciela || '').toLowerCase();
+      return name.includes(normalizedQuery);
+    }).slice(0, 5); // Limit 5
   }
+
+  // Szukaj działek - używamy parcels_ranking.all
+  if (statsData.parcels_ranking && statsData.parcels_ranking.all) {
+    results.parcels = statsData.parcels_ranking.all.filter(parcel => {
+      return (parcel.parcel_number || '').toString().includes(normalizedQuery);
+    }).slice(0, 5); // Limit 5
+  }
+
+  // Wyświetl wyniki
+  if (results.owners.length === 0 && results.parcels.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="no-results">
+        <i class="fas fa-search"></i>
+        <p>Nie znaleziono wyników dla "${query}"</p>
+      </div>
+    `;
+  } else {
+    // Sekcja Właściciele
+    if (results.owners.length > 0) {
+      const category = document.createElement('div');
+      category.className = 'search-result-category';
+      category.textContent = 'Właściciele';
+      resultsContainer.appendChild(category);
+
+      results.owners.forEach(owner => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        const areaDisplay = formatArea(owner.total_area_m2 || 0);
+        item.innerHTML = `
+          <div class="result-icon"><i class="fas fa-user"></i></div>
+          <div class="result-content">
+            <span class="result-title">${owner.nazwa_wlasciciela}</span>
+            <span class="result-subtitle">
+              Klucz: ${owner.unikalny_klucz} | Działek: ${owner.plot_count} | Pow: ${areaDisplay}
+            </span>
+          </div>
+        `;
+        item.addEventListener('click', () => {
+          window.location.href = `../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}`;
+        });
+        resultsContainer.appendChild(item);
+      });
+    }
+
+    // Sekcja Działki
+    if (results.parcels.length > 0) {
+      const category = document.createElement('div');
+      category.className = 'search-result-category';
+      category.textContent = 'Działki';
+      resultsContainer.appendChild(category);
+
+      results.parcels.forEach(parcel => {
+        const areaM2 = parcel.area_m2 || parcel.area || 0;
+        const areaDisplay = formatArea(areaM2);
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.innerHTML = `
+          <div class="result-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div class="result-content">
+            <span class="result-title">Działka nr ${parcel.parcel_number}</span>
+            <span class="result-subtitle">Powierzchnia: ${areaDisplay}</span>
+          </div>
+        `;
+        item.addEventListener('click', () => {
+          if (parcel.unikalny_klucz) {
+            window.location.href = `../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}`;
+          } else {
+            window.location.href = `../mapa/mapa.html?highlightParcel=${parcel.parcel_number}`;
+          }
+        });
+        resultsContainer.appendChild(item);
+      });
+    }
+  }
+
+  resultsContainer.classList.add('visible');
 }
 
 /**
@@ -425,7 +511,7 @@ function animateCounter(element, target) {
  */
 function updateCounters(stats) {
   const ownersCounter = document.querySelector('#total-owners .counter');
-  const plotsCounter  = document.querySelector('#total-plots .counter');
+  const plotsCounter = document.querySelector('#total-plots .counter');
 
   if (ownersCounter) {
     ownersCounter.dataset.target = stats.total_owners;
@@ -479,19 +565,19 @@ function updateRiversRoadsStats(riversStats, roadsStats) {
     const riverMax = document.getElementById('stat-river-max');
     const riverAvg = document.getElementById('stat-river-avg');
     const riverMin = document.getElementById('stat-river-min');
-    
+
     if (riversCount) riversCount.textContent = riversStats.total_count;
     if (riverMax) riverMax.textContent = `${Math.round(riversStats.max_length_m)} m`;
     if (riverAvg) riverAvg.textContent = `${Math.round(riversStats.avg_length_m)} m`;
     if (riverMin) riverMin.textContent = `${Math.round(riversStats.min_length_m)} m`;
   }
-  
+
   if (roadsStats) {
     const roadsCount = document.getElementById('stat-roads-count');
     const roadMax = document.getElementById('stat-road-max');
     const roadAvg = document.getElementById('stat-road-avg');
     const roadMin = document.getElementById('stat-road-min');
-    
+
     if (roadsCount) roadsCount.textContent = roadsStats.total_count;
     if (roadMax) roadMax.textContent = `${Math.round(roadsStats.max_length_m)} m`;
     if (roadAvg) roadAvg.textContent = `${Math.round(roadsStats.avg_length_m)} m`;
@@ -713,10 +799,10 @@ function loadRankings(data) {
  */
 function formatArea(areaM2) {
   if (!areaM2 || areaM2 === 0) return '0 m²';
-  
+
   const ha = areaM2 / 10000;
   const ares = areaM2 / 100;
-  
+
   if (ha >= 1) {
     return `${ha.toFixed(2)} ha`;
   } else if (ares >= 1) {
@@ -733,22 +819,22 @@ function formatArea(areaM2) {
  */
 function displayRanking(rankingData, container) {
   const sortBy = document.querySelector('input[name="sort-by"]:checked')?.value || 'count';
-  
+
   container.innerHTML = (rankingData || []).slice(0, 50).map((owner, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const prot = owner.numer_protokolu ?? 'Brak';
     const areaM2 = owner.total_area_m2 || 0;
     const plotNumbers = owner.plot_numbers || [];
-    
-    const plotNumbersDisplay = plotNumbers.length > 0 
+
+    const plotNumbersDisplay = plotNumbers.length > 0
       ? plotNumbers.slice(0, 5).join(', ') + (plotNumbers.length > 5 ? '...' : '')
       : 'Brak';
-    
-    const valueDisplay = sortBy === 'area' 
+
+    const valueDisplay = sortBy === 'area'
       ? `<div style="text-align: right;"><strong>${formatArea(areaM2)}</strong><br><small>${owner.plot_count} działek</small></div>`
       : `<div style="text-align: right;"><strong>${owner.plot_count}</strong> działek<br><small>${formatArea(areaM2)}</small></div>`;
-    
+
     return `
       <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
         <div class="ranking-position ${cls}">${pos}</div>
@@ -802,7 +888,7 @@ function filterRankings() {
  */
 function loadParcelsRanking(parcelsData) {
   if (!parcelsData) return;
-  
+
   const container = document.getElementById('parcels-ranking-list');
   if (!container) return;
 
@@ -829,21 +915,21 @@ function displayParcelsRanking(parcelsData, container) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const owner = parcel.nazwa_wlasciciela || 'Brak właściciela';
     const areaM2 = parcel.area_m2 || 0;
-    
+
     // Jeśli jest wielu właścicieli (rozdzieleni przecinkami), pokaż tylko pierwszy z linkiem
     let ownerDisplay;
     if (owner.includes(', ')) {
       const firstOwner = owner.split(', ')[0];
       const ownersCount = owner.split(', ').length;
-      ownerDisplay = parcel.unikalny_klucz 
+      ownerDisplay = parcel.unikalny_klucz
         ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${firstOwner}</a> <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`
         : `${firstOwner} <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`;
     } else {
-      ownerDisplay = parcel.unikalny_klucz 
+      ownerDisplay = parcel.unikalny_klucz
         ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
         : owner;
     }
-    
+
     return `
       <div class="ranking-item" style="cursor: default; pointer-events: auto;">
         <div class="ranking-position ${cls}">${pos}</div>
@@ -991,7 +1077,7 @@ function loadDemographics(demografiaData) {
 
   // Podstawowe metryki
   const firstYear = demografiaData[0];
-  const lastYear  = demografiaData[demografiaData.length - 1];
+  const lastYear = demografiaData[demografiaData.length - 1];
   const growthPercent = ((lastYear.populacja_ogolem - firstYear.populacja_ogolem) / firstYear.populacja_ogolem * 100).toFixed(1);
   const yearSpan = lastYear.rok - firstYear.rok;
 
@@ -1015,8 +1101,8 @@ function createDemographicsChart(data) {
   const years = data.map(d => d.rok);
   const total = data.map(d => d.populacja_ogolem || 0);
   const catholics = data.map(d => d.katolicy || 0);
-  const jewish    = data.map(d => d.zydzi || 0);
-  const others    = data.map(d => d.inni || 0);
+  const jewish = data.map(d => d.zydzi || 0);
+  const others = data.map(d => d.inni || 0);
 
   if (charts.demographics) charts.demographics.destroy();
 
@@ -1158,8 +1244,8 @@ function createDemographicsCards(data) {
 
     const total = entry.populacja_ogolem || 1;
     const catholicPercent = entry.katolicy ? (entry.katolicy / total * 100).toFixed(1) : 0;
-    const jewishPercent   = entry.zydzi    ? (entry.zydzi    / total * 100).toFixed(1) : 0;
-    const otherPercent    = entry.inni     ? (entry.inni     / total * 100).toFixed(1) : 0;
+    const jewishPercent = entry.zydzi ? (entry.zydzi / total * 100).toFixed(1) : 0;
+    const otherPercent = entry.inni ? (entry.inni / total * 100).toFixed(1) : 0;
 
     let eventIcon = '📅';
     const eventText = entry.opis || '';
@@ -1213,7 +1299,7 @@ function createDemographicsCards(data) {
         <div class="demo-card-footer">
           <div class="demo-change ${changeType}">
             <i class="fas fa-chart-line"></i>
-            <span>${idx > 0 ? (changePercent > 0 ? `+${changePercent}% vs ${data[idx-1].rok}` : `${changePercent}% vs ${data[idx-1].rok}`) : '—'}</span>
+            <span>${idx > 0 ? (changePercent > 0 ? `+${changePercent}% vs ${data[idx - 1].rok}` : `${changePercent}% vs ${data[idx - 1].rok}`) : '—'}</span>
           </div>
           ${eventText ? `
             <div class="demo-event">
@@ -1234,7 +1320,7 @@ function createComparisonAnalysis(data) {
   if (!container || data.length < 2) return;
 
   const first = data[0];
-  const last  = data[data.length - 1];
+  const last = data[data.length - 1];
 
   const totalGrowth = (last.populacja_ogolem || 0) - (first.populacja_ogolem || 0);
   const years = Math.max(1, last.rok - first.rok);
@@ -1291,7 +1377,7 @@ function renderActivityCalendar(protocolsData) {
 
   const maxCount = Math.max(...Array.from(dataMap.values()));
   const startDate = new Date(protocolsData[0].protocol_date);
-  const endDate   = new Date(protocolsData[protocolsData.length - 1].protocol_date);
+  const endDate = new Date(protocolsData[protocolsData.length - 1].protocol_date);
 
   let html = '<div class="activity-calendar">';
   const current = new Date(startDate);
@@ -1366,8 +1452,8 @@ function renderActivityCalendar(protocolsData) {
 function loadInsights(data) {
   const counts = data.category_counts || {};
   document.getElementById('stat-buildings').textContent = counts.budynek || 0;
-  document.getElementById('stat-chapels')  .textContent = counts.kapliczka || 0;
-  document.getElementById('stat-special')  .textContent = counts.obiekt_specjalny || 0;
+  document.getElementById('stat-chapels').textContent = counts.kapliczka || 0;
+  document.getElementById('stat-special').textContent = counts.obiekt_specjalny || 0;
 
   // Największy właściciel
   const first = data.rankings_real?.all_plots?.[0];
@@ -1503,9 +1589,9 @@ function updateGenealogySeries(series) {
 
   const s = statsData.genealogy_stats;
   const map = {
-    'births':    { key: 'births_by_decade',    label: 'Liczba urodzeń',   color: '#764ba2' },
-    'deaths':    { key: 'deaths_by_decade',    label: 'Liczba zgonów',    color: '#ef4444' },
-    'marriages': { key: 'marriages_by_decade', label: 'Liczba ślubów',    color: '#10b981' }
+    'births': { key: 'births_by_decade', label: 'Liczba urodzeń', color: '#764ba2' },
+    'deaths': { key: 'deaths_by_decade', label: 'Liczba zgonów', color: '#ef4444' },
+    'marriages': { key: 'marriages_by_decade', label: 'Liczba ślubów', color: '#10b981' }
   };
 
   const cfg = map[series] || map['births'];
@@ -1579,7 +1665,7 @@ function renderInfantMortalityChart(data) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               return `Zgony niemowląt: ${context.parsed.y}`;
             }
           }
@@ -1636,7 +1722,7 @@ function renderLifespanChart(data) {
         legend: { display: true, position: 'top' },
         tooltip: {
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               return `Średni wiek: ${context.parsed.y} lat`;
             }
           }
@@ -1696,7 +1782,7 @@ function renderDeathAgeChart(data) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
               const percent = ((context.parsed.x / total) * 100).toFixed(1);
               return `Zgony: ${context.parsed.x} (${percent}%)`;
@@ -1754,7 +1840,7 @@ function renderFamilyStructureChart(data) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               return `Rodzin: ${context.parsed.y}`;
             }
           }
@@ -1767,11 +1853,6 @@ function renderFamilyStructureChart(data) {
     }
   });
 }
-
-
-/* ==========================================================================
-   EKSPORT / UDOSTĘPNIANIE
-   ========================================================================== */
 
 /**
  * Pobiera obraz bieżącego wykresu (PNG).
@@ -1932,7 +2013,7 @@ function generatePrintReport() {
   printWindow.document.close();
 
   // Automatycznie otwórz okno drukowania po załadowaniu
-  printWindow.onload = function() {
+  printWindow.onload = function () {
     printWindow.print();
   };
 
@@ -2113,9 +2194,9 @@ function generateReportHTML(sections) {
       </thead>
       <tbody>
         ${rankings.map((owner, idx) => {
-          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
-          const area_ha = area_m2 / 10000;
-          return `
+      const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+      const area_ha = area_m2 / 10000;
+      return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
@@ -2123,7 +2204,7 @@ function generateReportHTML(sections) {
           <td>${area_ha.toFixed(2)} ha</td>
         </tr>
         `;
-        }).join('')}
+    }).join('')}
       </tbody>
     </table>
   </div>
@@ -2304,9 +2385,9 @@ function generateReportHTML(sections) {
       </thead>
       <tbody>
         ${rankings.map((owner, idx) => {
-          const area_m2 = owner.total_area_m2 || owner.total_area || 0;
-          const area_ha = area_m2 / 10000;
-          return `
+      const area_m2 = owner.total_area_m2 || owner.total_area || 0;
+      const area_ha = area_m2 / 10000;
+      return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
@@ -2314,7 +2395,7 @@ function generateReportHTML(sections) {
           <td>${area_ha.toFixed(2)} ha</td>
         </tr>
         `;
-        }).join('')}
+    }).join('')}
       </tbody>
     </table>
   </div>
@@ -2339,9 +2420,9 @@ function generateReportHTML(sections) {
       </thead>
       <tbody>
         ${parcels.map((parcel, idx) => {
-          const area_m2 = parcel.area_m2 || parcel.area || 0;
-          const area_ha = area_m2 / 10000;
-          return `
+      const area_m2 = parcel.area_m2 || parcel.area || 0;
+      const area_ha = area_m2 / 10000;
+      return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${parcel.parcel_number || '-'}</td>
@@ -2350,7 +2431,7 @@ function generateReportHTML(sections) {
           <td>${parcel.nazwa_wlasciciela || parcel.owner_name || '-'}</td>
         </tr>
         `;
-        }).join('')}
+    }).join('')}
       </tbody>
     </table>
   </div>
@@ -2398,8 +2479,8 @@ function generateReportHTML(sections) {
           <th>Numer drogi</th>
           <th>Długość (m)</th>
         </tr>
-      </thead>
-      <tbody>
+      </thead >
+    <tbody>
         ${roads.map((road, idx) => `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
@@ -2407,17 +2488,17 @@ function generateReportHTML(sections) {
           <td>${(road.length_m || 0).toFixed(2)} m</td>
         </tr>
         `).join('')}
-      </tbody>
-    </table>
-  </div>
-`;
+    </tbody>
+    </table >
+  </div >
+    `;
   }
 
   // Sekcja: Statystyki właścicieli żydowskich
   if (sections.jewishStats && statsData?.jewish_stats && statsData.jewish_stats.owners_count > 0) {
     const jewishStats = statsData.jewish_stats;
     html += `
-  <div class="report-section">
+    < div class="report-section" >
     <h2 class="section-title"><i class="fas fa-star-of-david"></i> Statystyki Właścicieli Żydowskich</h2>
     <div class="stat-grid">
       <div class="stat-card">
@@ -2448,8 +2529,8 @@ function generateReportHTML(sections) {
       </thead>
       <tbody>
         ${jewishStats.owners.map((owner, idx) => {
-          const areaHa = ((owner.total_area_m2 || 0) / 10000).toFixed(2);
-          return `
+      const areaHa = ((owner.total_area_m2 || 0) / 10000).toFixed(2);
+      return `
         <tr>
           <td class="ranking-position">${idx + 1}</td>
           <td>${owner.nazwa_wlasciciela || 'Nieznany'}</td>
@@ -2458,12 +2539,13 @@ function generateReportHTML(sections) {
           <td>${areaHa} ha</td>
         </tr>
         `;
-        }).join('')}
+    }).join('')}
       </tbody>
     </table>
-    ` : ''}
-  </div>
-`;
+    ` : ''
+      }
+  </div >
+    `;
   }
 
   // Sekcja: Postęp digitalizacji
@@ -2472,8 +2554,8 @@ function generateReportHTML(sections) {
     const locationArea = statsData?.location_area;
 
     html += `
-  <div class="report-section">
-    <h2 class="section-title"><i class="fas fa-tasks"></i> Postęp Digitalizacji</h2>
+    < div class="report-section" >
+        <h2 class="section-title"><i class="fas fa-tasks"></i> Postęp Digitalizacji</h2>
 
     ${drawnStats ? `
     <h3 style="margin: 1.5rem 0 1rem; color: #667eea;">Wyrysowane działki</h3>
@@ -2495,7 +2577,8 @@ function generateReportHTML(sections) {
         <div class="stat-value">${drawnStats.missing_count || 0}</div>
       </div>
     </div>
-    ` : ''}
+    ` : ''
+      }
 
     ${locationArea ? `
     <h3 style="margin: 1.5rem 0 1rem; color: #667eea;">Powierzchnia miejscowości</h3>
@@ -2509,18 +2592,19 @@ function generateReportHTML(sections) {
         <div class="stat-value">${locationArea.area_km2 || '-'} km²</div>
       </div>
     </div>
-    ` : ''}
-  </div>
-`;
+    ` : ''
+      }
+  </div >
+    `;
   }
 
   html += `
-  <div class="footer">
+    < div class="footer" >
     <p>Raport wygenerowany automatycznie przez Centrum Analityczne - ${locationFullName}</p>
     <p>© ${new Date().getFullYear()} Projekt Czarna - Historyczna Baza Danych Katastralnych</p>
-  </div>
-</body>
-</html>`;
+  </div >
+</body >
+</html > `;
 
   return html;
 }
@@ -2634,11 +2718,11 @@ function createComparisonModal() {
   const modal = document.createElement('div');
   modal.className = 'modal active';
   modal.id = 'comparison-modal';
-  
+
   const availableYears = statsData.demografia.map(d => d.rok).sort((a, b) => a - b);
-  
+
   modal.innerHTML = `
-    <div class="modal-content">
+    < div class="modal-content" >
       <div class="modal-header">
         <h2><i class="fas fa-balance-scale"></i> Porównaj okresy demograficzne</h2>
         <button class="modal-close" onclick="closeComparisonModal()">&times;</button>
@@ -2670,9 +2754,9 @@ function createComparisonModal() {
           <div class="comparison-summary" id="comparison-summary"></div>
         </div>
       </div>
-    </div>
-  `;
-  
+    </div >
+    `;
+
   document.body.appendChild(modal);
 }
 
@@ -2682,25 +2766,25 @@ function createComparisonModal() {
 function performComparison() {
   const year1 = parseInt(document.getElementById('period1').value);
   const year2 = parseInt(document.getElementById('period2').value);
-  
+
   if (!year1 || !year2) {
     showToast('error', 'Błąd', 'Wybierz oba okresy do porównania');
     return;
   }
-  
+
   if (year1 === year2) {
     showToast('error', 'Błąd', 'Wybierz różne okresy do porównania');
     return;
   }
-  
+
   const data1 = statsData.demografia.find(d => d.rok === year1);
   const data2 = statsData.demografia.find(d => d.rok === year2);
-  
+
   if (!data1 || !data2) {
     showToast('error', 'Błąd', 'Nie znaleziono danych dla wybranych okresów');
     return;
   }
-  
+
   displayComparisonResults(data1, data2);
 }
 
@@ -2710,15 +2794,15 @@ function performComparison() {
 function displayComparisonResults(data1, data2) {
   const resultsDiv = document.getElementById('comparison-results');
   resultsDiv.style.display = 'block';
-  
+
   // Wykres porównawczy
   createComparisonChart(data1, data2);
-  
+
   // Podsumowanie tekstowe
   const summary = generateComparisonSummary(data1, data2);
   document.getElementById('comparison-summary').innerHTML = summary;
-  
-  showToast('success', 'Porównanie', `Porównano lata ${data1.rok} i ${data2.rok}`);
+
+  showToast('success', 'Porównanie', `Porównano lata ${data1.rok} i ${data2.rok} `);
 }
 
 /**
@@ -2726,12 +2810,12 @@ function displayComparisonResults(data1, data2) {
  */
 function createComparisonChart(data1, data2) {
   const ctx = document.getElementById('comparison-chart').getContext('2d');
-  
+
   // Zniszcz poprzedni wykres jeśli istnieje
   if (charts.comparison) {
     charts.comparison.destroy();
   }
-  
+
   const categories = ['Populacja ogółem', 'Katolicy', 'Żydzi', 'Inni'];
   const values1 = [
     data1.populacja_ogolem || 0,
@@ -2745,21 +2829,21 @@ function createComparisonChart(data1, data2) {
     data2.zydzi || 0,
     data2.inni || 0
   ];
-  
+
   charts.comparison = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: categories,
       datasets: [
         {
-          label: `Rok ${data1.rok}`,
+          label: `Rok ${data1.rok} `,
           data: values1,
           backgroundColor: 'rgba(102, 126, 234, 0.8)',
           borderColor: '#667eea',
           borderWidth: 1
         },
         {
-          label: `Rok ${data2.rok}`,
+          label: `Rok ${data2.rok} `,
           data: values2,
           backgroundColor: 'rgba(118, 75, 162, 0.8)',
           borderColor: '#764ba2',
@@ -2773,7 +2857,7 @@ function createComparisonChart(data1, data2) {
       plugins: {
         title: {
           display: true,
-          text: `Porównanie demograficzne: ${data1.rok} vs ${data2.rok}`
+          text: `Porównanie demograficzne: ${data1.rok} vs ${data2.rok} `
         },
         legend: {
           position: 'top'
@@ -2800,12 +2884,12 @@ function generateComparisonSummary(data1, data2) {
   const pop2 = data2.populacja_ogolem || 0;
   const change = pop2 - pop1;
   const changePercent = pop1 > 0 ? ((change / pop1) * 100).toFixed(1) : 0;
-  
+
   const yearDiff = data2.rok - data1.rok;
   const avgPerYear = yearDiff > 0 ? (change / yearDiff).toFixed(1) : 0;
-  
+
   return `
-    <div class="summary-grid">
+    < div class="summary-grid" >
       <div class="summary-card">
         <h4>Zmiana populacji</h4>
         <div class="summary-value ${change >= 0 ? 'positive' : 'negative'}">
@@ -2857,10 +2941,10 @@ function closeComparisonModal() {
 
 /**
  * Prosty system toastów (kontener #toast-container w HTML).
- * @param {'success'|'error'|'info'} type
- * @param {string} title
- * @param {string} message
- */
+ * @param {'success' | 'error' | 'info'} type
+            * @param {string} title
+            * @param {string} message
+            */
 function showToast(type, title, message) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -2868,13 +2952,13 @@ function showToast(type, title, message) {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `
-    <div class="toast-icon">
-      <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}"></i>
-    </div>
-    <div class="toast-content">
-      <div class="toast-title">${title}</div>
-      <div class="toast-message">${message}</div>
-    </div>`;
+            <div class="toast-icon">
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}"></i>
+            </div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>`;
 
   container.appendChild(toast);
 

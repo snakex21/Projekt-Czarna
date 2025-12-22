@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
          ========================================================================== -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {% raw %}<meta name="description" content="Interaktywna mapa katastralna miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    {% raw %}
+    <meta name="description" content="Interaktywna mapa katastralna miejscowości {{MIEJSCOWOSC_PELNA}} z {{YEAR}} roku">
     <meta name="author" content="System GIS - {{MIEJSCOWOSC_PELNA}}">
     <meta name="keywords" content="mapa katastralna, {{MIEJSCOWOSC}}, GIS, {{YEAR}}">
     <title>Interaktywna Mapa Katastralna - {{MIEJSCOWOSC_PELNA}}</title>{% endraw %}
@@ -18,11 +20,10 @@
          KONFIGURACJA MAPY (WSTRZYKIWANA PRZEZ SERWER)
          ========================================================================== -->
     <script>
-      // Ten obiekt jest dynamicznie generowany przez backend (Flask)
-      // Używamy `JSON.parse` z cudzysłowami, aby edytor kodu poprawnie interpretował składnię.
-      window.MAP_CONFIG = {{ map_config_data | tojson | safe }};
+        // Ten obiekt jest dynamicznie generowany przez backend (Flask)
+        window.MAP_CONFIG = {{ map_config_data | tojson | safe }};
     </script>
-    
+
     <!-- ==========================================================================
          STYLE ZEWNĘTRZNE I BIBLIOTEKI
          ========================================================================== -->
@@ -32,27 +33,28 @@
     <!-- Leaflet MarkerCluster - grupowanie markerów -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-    
+
     <!-- Font Awesome - ikony -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Google Fonts - typografia -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Style aplikacji -->
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <!-- ==========================================================================
          TŁO APLIKACJI
          ========================================================================== -->
     <div class="background-gradient"></div>
-    
+
     <!-- ==========================================================================
          GŁÓWNY KONTENER APLIKACJI
          ========================================================================== -->
     <div id="app-wrapper">
-        
+
         <!-- ==========================================================================
              GÓRNY PASEK NARZĘDZI
              ========================================================================== -->
@@ -74,7 +76,7 @@
                     </span>
                 </div>
             </div>
-            
+
             <!-- Sekcja prawa - wyszukiwarka i akcje -->
             <div class="toolbar-right">
                 <!-- Uniwersalna wyszukiwarka -->
@@ -83,7 +85,7 @@
                     <input type="text" placeholder="Szybkie wyszukiwanie..." id="universal-search">
                     <div class="search-results-dropdown" id="universal-search-results"></div>
                 </div>
-                
+
                 <!-- Przyciski akcji -->
                 <div class="toolbar-actions">
                     <button class="toolbar-btn" id="fullscreen-btn" title="Pełny ekran">
@@ -98,12 +100,12 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- ==========================================================================
              GŁÓWNY KONTENER Z MAPĄ I PANELAMI
              ========================================================================== -->
         <div id="main-container">
-            
+
             <!-- ==========================================================================
                  PANEL LEWY - WŁAŚCICIELE
                  ========================================================================== -->
@@ -115,7 +117,7 @@
                         <i class="fas fa-chevron-left"></i>
                     </button>
                 </div>
-                
+
                 <!-- Zawartość panelu -->
                 <div class="panel-content">
                     <!-- Kontrolki właścicieli -->
@@ -128,7 +130,7 @@
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        
+
                         <!-- Filtry sortowania -->
                         <div class="filter-buttons">
                             <button class="filter-btn" data-sort="name">
@@ -141,7 +143,7 @@
                                 <i class="fas fa-chart-bar"></i> Liczba działek
                             </button>
                         </div>
-                        
+
                         <!-- Sekcja porównywania -->
                         <div class="compare-section">
                             <button id="compareModeBtn" class="compare-btn">
@@ -153,7 +155,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Lista właścicieli (dynamiczna) -->
                     <div id="ownersList" class="owners-list"></div>
                 </div>
@@ -166,7 +168,7 @@
                     <span>Właściciele</span>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  KONTENER MAPY
                  ========================================================================== -->
@@ -175,7 +177,7 @@
                 <div id="map"></div>
 
                 <!-- Nakładki mapowe -->
-                
+
                 <!-- Kontrolki podświetlania -->
                 <div id="highlight-controls" class="hidden">
                     <button id="clearHighlightBtn" class="clear-highlight-btn">
@@ -188,9 +190,9 @@
                     <i class="fas fa-crosshairs"></i>
                     <span id="mouse-coordinates">—</span>
                 </div>
-                
+
                 <!-- Legenda warstw -->
-                <div class="map-legend map-overlay bottom-left" id="legend">
+                <div class="map-legend map-overlay bottom-left collapsed" id="legend">
                     <div class="legend-header">
                         <h3><i class="fas fa-list"></i> Warstwy</h3>
                         <button class="legend-toggle">
@@ -210,7 +212,7 @@
                     <span>Działki</span>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  PANEL PRAWY - DZIAŁKI I OBIEKTY
                  ========================================================================== -->
@@ -222,7 +224,7 @@
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
-                
+
                 <!-- Zawartość panelu -->
                 <div class="panel-content">
                     <!-- Zakładki nawigacyjne -->
@@ -237,13 +239,13 @@
                             <i class="fas fa-star"></i> Specjalne
                         </button>
                     </div>
-                    
+
                     <!-- Wyszukiwarka -->
                     <div class="search-box">
                         <i class="fas fa-search"></i>
                         <input type="text" id="parcelSearch" placeholder="Szukaj działki...">
                     </div>
-                    
+
                     <!-- Filtry kategorii -->
                     <div class="category-filters" id="parcel-category-filters">
                         <label class="category-filter">
@@ -263,23 +265,23 @@
                             <span class="filter-badge pastwisko">Pastwiska</span>
                         </label>
                     </div>
-                    
+
                     <!-- Zawartość zakładek -->
                     <div class="tab-content active" id="parcels-tab">
                         <div id="dzialki_panel" class="parcels-list"></div>
                     </div>
-                    
+
                     <div class="tab-content" id="objects-tab">
                         <div id="obiekty_panel" class="parcels-list"></div>
                     </div>
-                    
+
                     <div class="tab-content" id="special-tab">
                         <div class="special-objects-list"></div>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <!-- ==========================================================================
              DOLNY PASEK NAWIGACYJNY
              ========================================================================== -->
@@ -288,7 +290,7 @@
             <div class="nav-links">
                 <a href="../strona_glowna/index.html" class="nav-link">
                     <i class="fas fa-home"></i>
-                    <span>Strona główna</span>
+                    <span>Główna</span>
                 </a>
                 <a href="../wlasciciele/stats.html" class="nav-link">
                     <i class="fas fa-chart-pie"></i>
@@ -296,20 +298,21 @@
                 </a>
                 <a href="../graf/graf.html" class="nav-link">
                     <i class="fas fa-project-diagram"></i>
-                    <span>Graf powiązań</span>
+                    <span>Graf</span>
                 </a>
                 <a href="../genealogia/genealogia.html" class="nav-link">
-                    <i class="fas fa-sitemap"></i>
+                    <i class="fas fa-tree"></i>
                     <span>Genealogia</span>
                 </a>
+                <!-- Przycisk szukaj dla mobile -->
+                <a href="#" class="nav-link mobile-only" id="mobile-search-trigger">
+                    <i class="fas fa-search"></i>
+                    <span>Szukaj</span>
+                </a>
             </div>
-            
-            <!-- Liczniki informacyjne -->
+
+            <!-- Liczniki informacyjne (ukryte na bardzo małych ekranach) -->
             <div class="nav-info">
-                <span class="info-badge">
-                    <i class="fas fa-mouse-pointer"></i>
-                    Zaznaczonych: <span id="selected-count">0</span>
-                </span>
                 <span class="info-badge">
                     <i class="fas fa-eye"></i>
                     Widocznych: <span id="visible-count">0</span>
@@ -317,7 +320,26 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Pełnoekranowa wyszukiwarka dla mobile -->
+    <div id="mobile-search-overlay" class="mobile-search-overlay">
+        <div class="mobile-search-header">
+            <button id="close-mobile-search" class="close-search-btn">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="mobile-search-input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="mobile-universal-search" placeholder="Szukaj właściciela lub działki...">
+            </div>
+        </div>
+        <div id="mobile-search-results" class="mobile-search-results">
+            <div class="search-placeholder">
+                <i class="fas fa-search"></i>
+                <p>Wpisz co najmniej 2 znaki, aby wyszukać</p>
+            </div>
+        </div>
+    </div>
+
     <!-- ==========================================================================
          NAKŁADKA ŁADOWANIA
          ========================================================================== -->
@@ -331,11 +353,11 @@
             <p class="loading-status">Pobieranie danych...</p>
         </div>
     </div>
-    
+
     <!-- ==========================================================================
          MODALE
          ========================================================================== -->
-    
+
     <!-- Modal pomocy -->
     <div class="modal" id="help-modal" style="display: none;">
         <div class="modal-content">
@@ -351,7 +373,7 @@
                     <li><kbd>+</kbd> / <kbd>-</kbd> - Zoom</li>
                     <li><kbd>Esc</kbd> - Anuluj zaznaczenie</li>
                 </ul>
-                
+
                 <h3>Wskazówki</h3>
                 <ul>
                     <li>Kliknij dwukrotnie na właściciela aby zobaczyć protokół</li>
@@ -362,7 +384,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Modal ustawień -->
     <div class="modal" id="settings-modal" style="display: none;">
         <div class="modal-content">
@@ -379,7 +401,7 @@
                         <span class="slider round"></span>
                     </label>
                 </div>
-                
+
                 <h3>Aplikacja</h3>
                 <div class="setting-item">
                     <span>Zresetuj widok</span>
@@ -410,4 +432,5 @@
     <!-- Główny skrypt aplikacji -->
     <script src="map-script.js"></script>
 </body>
+
 </html>
