@@ -500,7 +500,10 @@ function setupOwnerPanel() {
      * @param {Array} owners - Tablica właścicieli do wyświetlenia
      */
     const render = (owners) => {
-        document.getElementById('visible-count').textContent = owners.length;
+        const visibleCountEl = document.getElementById('visible-count');
+        if (visibleCountEl) {
+            visibleCountEl.textContent = owners.length;
+        }
         ownerContainer.innerHTML = "";
 
         owners.forEach(owner => {
@@ -1612,7 +1615,10 @@ function highlightFeaturesByIds(featureIds, color, ownerName = null, ownershipTy
         }
     }
 
-    document.getElementById('selected-count').textContent = highlightedLayer.getLayers().length;
+    const selectedCountEl = document.getElementById('selected-count');
+    if (selectedCountEl) {
+        selectedCountEl.textContent = highlightedLayer.getLayers().length;
+    }
 }
 
 /**
@@ -1856,7 +1862,10 @@ function clearAllHighlights() {
     url.searchParams.delete("highlightRoads");
     history.pushState({}, "", url);
 
-    document.getElementById('selected-count').textContent = 0;
+    const selectedCountEl = document.getElementById('selected-count');
+    if (selectedCountEl) {
+        selectedCountEl.textContent = 0;
+    }
 }
 
 /* ==========================================================================
@@ -1963,11 +1972,11 @@ function handleUrlParameters() {
 
     /* Zastosowanie podświetleń */
     if (idsToHighlight.size > 0) {
-        highlightFeaturesByIds(Array.from(idsToHighlight), 'fuchsia');
+        highlightFeaturesByIds(Array.from(idsToHighlight), '#ffc107');
     }
 
     if (popupInfo) {
-        map.setView(popupInfo.latlng, 11);
+        // map.setView(popupInfo.latlng, 11); // Usunięto, ponieważ highlightFeaturesByIds już robi fitBounds
         L.popup()
             .setLatLng(popupInfo.latlng)
             .setContent(popupInfo.content)

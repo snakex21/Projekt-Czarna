@@ -186,7 +186,7 @@ def get_protocols_data():
 
 @app.route("/api/genealogia", methods=["GET"])
 def get_genealogia_data():
-    """Pobiera dane genealogiczne i przekształca je dla edytora."""
+    """Pobiera dane genealogiczne i przekształca je dla edytora (format admina)."""
     if not os.path.exists(GENEALOGIA_JSON_PATH):
         return jsonify([])
     
@@ -194,141 +194,184 @@ def get_genealogia_data():
         with open(GENEALOGIA_JSON_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # Przekształcenie formatu danych
-        if "persons" in data:
-            transformed_persons = []
+        persons = data.get("persons", []) if isinstance(data, dict) else data
+        transformed_persons = []
             
-            for person in data["persons"]:
-                # Rozdzielenie imienia i nazwiska
-                name_parts = person["name"].split(" ", 1)
-                imie = name_parts[0] if name_parts else ""
-                nazwisko = name_parts[1] if len(name_parts) > 1 else ""
+        for person in persons:
+            # Rozdzielenie imienia i nazwiska
+            name_parts = person["name"].split(" ", 1)
+            imie = name_parts[0] if name_parts else ""
+            nazwisko = name_parts[1] if len(name_parts) > 1 else ""
 
-                # Budowanie obiektu osoby
-                transformed_person = {
-                    "id_osoby": str(person["id"]),
-                    "imie": imie,
-                    "nazwisko": nazwisko,
-                    "rok_urodzenia": (
-                        person["birthDate"]["year"] if person.get("birthDate") else None
-                    ),
-                    "rok_smierci": (
-                        person["deathDate"]["year"] if person.get("deathDate") else None
-                    ),
-                    "id_ojca": (
-                        str(person["fatherId"]) if person.get("fatherId") else None
-                    ),
-                    "id_matki": (
-                        str(person["motherId"]) if person.get("motherId") else None
-                    ),
-                    "id_malzonka": (
-                        str(person["spouseIds"][0])
-                        if person.get("spouseIds") and len(person["spouseIds"]) > 0
-                        else None
-                    ),
-                    "protokol_klucz": person.get("protocolKey"),
-                    "plec": person.get("gender", "M"),
-                    "numer_domu": person.get("houseNumber"),
-                    "uwagi": person.get("notes", ""),
-                }
-                transformed_persons.append(transformed_person)
+            # Obsługa małżeństw (lista)
+            spouse_ids = person.get("spouseIds", [])
+            marriages = []
+            if spouse_ids:
+                for sid in spouse_ids:
+                    # Obecny format pliku nie przechowuje dat małżeństw, więc zwracamy tylko ID
+                    marriages.append({"spouseId": str(sid), "date": ""})
+
+            # Budowanie obiektu osoby (format dla admin.js)
+            transformed_person = {
+                "id_osoby": str(person["id"]),
+                "db_id": str(person["id"]), # Dla kompatybilności
+                "imie": imie,
+                "nazwisko": nazwisko,
+                "rok_urodzenia": person.get("birthDate", {}).get("year") if person.get("birthDate") else None,
+                "rok_smierci": person.get("deathDate", {}).get("year") if person.get("deathDate") else None,
+                "id_ojca": str(person["fatherId"]) if person.get("fatherId") else None,
+                "id_matki": str(person["motherId"]) if person.get("motherId") else None,
+                "id_malzonka": str(spouse_ids[0]) if spouse_ids else None, # Fallback
+                "marriages": marriages, 
+                "protokol_klucz": person.get("protocolKey"),
+                "plec": person.get("gender", "M"),
+                "numer_domu": person.get("houseNumber"),
+                "uwagi": person.get("notes", ""),
+            }
+            transformed_persons.append(transformed_person)
             
-            return jsonify(transformed_persons)
-        else:
-            return jsonify(data)
+        return jsonify(transformed_persons)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/genealogia", methods=["POST"])
-def save_genealogia_data():
-    """
-    Zapisuje dane genealogiczne z walidacją i auto-symetryzacją małżeństw.
+def _get_storage_data():
+    if not os.path.exists(GENEALOGIA_JSON_PATH):
+        return {"persons": []}
+    with open(GENEALOGIA_JSON_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def _save_storage_data(data):
+    with open(GENEALOGIA_JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+def _convert_to_storage_format(frontend_data, existing_person=None):
+    # Logika konwersji z frontu (PL) na storage (EN)
     
-    Walidacja obejmuje:
-    - Unikalność ID osób
-    - Poprawność referencji rodzinnych
-    - Automatyczną symetryzację relacji małżeńskich
-    """
-    people = request.get_json()
-    if not isinstance(people, list):
-        return jsonify({"error": "Oczekiwano listy osób w formacie JSON"}), 400
-
-    # Walidacja unikalności ID
-    ids = [p.get("id_osoby") for p in people]
-    dup = [i for i, cnt in Counter(ids).items() if cnt > 1]
-    if dup:
-        return jsonify({"error": f"Duplikaty ID: {dup}"}), 400
-
-    by_id = {p["id_osoby"]: p for p in people}
-
-    # Walidacja referencji i symetryzacja małżeństw
-    problems = []
-    
-    for p in people:
-        pid = p["id_osoby"]
-
-        # Sprawdzenie rodziców
-        for rel in ("id_ojca", "id_matki"):
-            rid = p.get(rel)
-            if rid and rid not in by_id:
-                problems.append(f"{pid}: {rel}={rid} nie istnieje")
-
-        # Symetryzacja małżeństw
-        spouse_id = p.get("id_malzonka")
-        if spouse_id:
-            if spouse_id not in by_id:
-                problems.append(f"{pid}: id_malzonka={spouse_id} nie istnieje")
-            else:
-                spouse = by_id[spouse_id]
-                if spouse.get("id_malzonka") != pid:
-                    spouse["id_malzonka"] = pid
-
-    if problems:
-        return jsonify({"error": "Błędne referencje", "details": problems}), 400
-
-    # Przekształcenie do formatu zapisu
+    # ID
     try:
-        existing_data = {}
-        if os.path.exists(GENEALOGIA_JSON_PATH):
-            with open(GENEALOGIA_JSON_PATH, "r", encoding="utf-8") as f:
-                existing_data = json.load(f)
+        pid = int(frontend_data.get("id_osoby"))
+    except:
+        pid = int(time.time()) # Fallback ID gen (nie powinno wystąpić przy edycji)
 
-        transformed_persons = []
+    # Imię i Nazwisko
+    imie = frontend_data.get("imie", "").strip()
+    nazwisko = frontend_data.get("nazwisko", "").strip()
+    full_name = f"{imie} {nazwisko}".strip()
+
+    # Daty
+    b_year = frontend_data.get("rok_urodzenia")
+    d_year = frontend_data.get("rok_smierci")
+    
+    # Rodzice
+    fid = frontend_data.get("id_ojca")
+    mid = frontend_data.get("id_matki")
+    
+    # Małżonkowie
+    # Frontend wysyła marriages: [{spouse_json_id: "...", year: ...}]
+    marriages_data = frontend_data.get("marriages", [])
+    spouse_ids = []
+    if marriages_data:
+        for m in marriages_data:
+            sid = m.get("spouse_json_id")
+            if sid: spouse_ids.append(int(sid))
+    
+    # Jeśli frontend przysłał pustą listę marriages, ale id_malzonka jest ustawione (compatibility)
+    if not spouse_ids and frontend_data.get("id_malzonka"):
+         try: spouse_ids.append(int(frontend_data.get("id_malzonka")))
+         except: pass
+
+    # Inne pola
+    gender = frontend_data.get("plec", existing_person.get("gender", "M") if existing_person else "M")
+    protocol = frontend_data.get("protokol_klucz")
+    notes = frontend_data.get("uwagi", "")
+
+    return {
+        "id": pid,
+        "name": full_name,
+        "gender": gender,
+        "birthDate": {"year": int(b_year)} if b_year else None,
+        "deathDate": {"year": int(d_year)} if d_year else None,
+        "fatherId": int(fid) if fid else None,
+        "motherId": int(mid) if mid else None,
+        "spouseIds": spouse_ids, # Obecnie nie zapisujemy lat małżeństw w pliku JSON, tylko ID
+        "protocolKey": protocol if protocol else None,
+        "notes": notes,
+        "houseNumber": frontend_data.get("numer_domu")
+    }
+
+@app.route("/api/genealogia", methods=["POST"])
+def create_person():
+    try:
+        new_p = request.get_json()
         
-        for p in people:
-            # Zachowanie dodatkowych pól z istniejących danych
-            existing_person = next(
-                (
-                    person
-                    for person in existing_data.get("persons", [])
-                    if str(person["id"]) == p["id_osoby"]
-                ),
-                {},
-            )
+        # Walidacja ID
+        if not new_p.get("id_osoby"):
+            return jsonify({"error": "Brak ID osoby"}), 400
+            
+        data = _get_storage_data()
+        persons = data.get("persons", [])
+        
+        # Sprawdź unikalność
+        if any(str(p["id"]) == str(new_p["id_osoby"]) for p in persons):
+            return jsonify({"error": "Osoba o takim ID już istnieje"}), 400
+            
+        storage_person = _convert_to_storage_format(new_p)
+        persons.append(storage_person)
+        data["persons"] = persons
+        
+        _save_storage_data(data)
+        
+        # Zwróć obiekt w formacie frontendowym (jak GET)
+        # Dla uproszczenia zwracamy to co przyszło + success
+        return jsonify(new_p), 201
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-            transformed_person = {
-                "id": int(p["id_osoby"]),
-                "name": f"{p['imie']} {p['nazwisko']}".strip(),
-                "gender": p.get("plec", existing_person.get("gender", "M")),
-                "houseNumber": p.get("numer_domu", existing_person.get("houseNumber")),
-                "birthDate": (
-                    {"year": p["rok_urodzenia"]} if p["rok_urodzenia"] else None
-                ),
-                "deathDate": {"year": p["rok_smierci"]} if p["rok_smierci"] else None,
-                "protocolKey": p.get("protokol_klucz"),
-                "fatherId": int(p["id_ojca"]) if p.get("id_ojca") else None,
-                "motherId": int(p["id_matki"]) if p.get("id_matki") else None,
-                "spouseIds": [int(p["id_malzonka"])] if p.get("id_malzonka") else [],
-                "notes": p.get("uwagi", ""),
-            }
-            transformed_persons.append(transformed_person)
+@app.route("/api/genealogia/<id>", methods=["PUT"])
+def update_person(id):
+    try:
+        update_data = request.get_json()
+        data = _get_storage_data()
+        persons = data.get("persons", [])
+        
+        # Znajdź indeks
+        idx = next((i for i, p in enumerate(persons) if str(p["id"]) == str(id)), -1)
+        if idx == -1:
+            return jsonify({"error": "Osoba nie znaleziona"}), 404
+            
+        existing = persons[idx]
+        updated_person = _convert_to_storage_format(update_data, existing)
+        
+        # Zachowaj pola, których edytor może nie przesyłać (jeśli są)
+        # W tym przypadku _convert_to_storage_format buduje pełny obiekt, więc jest OK.
+        
+        persons[idx] = updated_person
+        data["persons"] = persons
+        
+        _save_storage_data(data)
+        return jsonify(update_data)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        # Zapis do pliku
-        data_to_save = {"persons": transformed_persons}
-        with open(GENEALOGIA_JSON_PATH, "w", encoding="utf-8") as f:
-            json.dump(data_to_save, f, indent=4, ensure_ascii=False)
-
-        return jsonify({"message": "Dane zapisane pomyślnie ✔"})
+@app.route("/api/genealogia/<id>", methods=["DELETE"])
+def delete_person(id):
+    try:
+        data = _get_storage_data()
+        persons = data.get("persons", [])
+        
+        initial_len = len(persons)
+        persons = [p for p in persons if str(p["id"]) != str(id)]
+        
+        if len(persons) == initial_len:
+            return jsonify({"error": "Osoba nie znaleziona"}), 404
+            
+        data["persons"] = persons
+        _save_storage_data(data)
+        
+        return jsonify({"message": "Usunięto pomyślnie"})
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -505,6 +548,7 @@ def get_family_tree_data(family_name):
                 "malzonek_id": p.get("id_malzonka"),
                 "unikalny_klucz": p.get("protokol_klucz"),
                 "malzenstwa": [],
+                "plec": p.get("plec", "M"),
             }
             for p in family_people
         ]

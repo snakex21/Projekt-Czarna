@@ -486,6 +486,73 @@ def get_wlasciciel_by_key(unikalny_klucz):
 
     return jsonify(wlasciciel)
 
+@app.route('/api/genealogia/list')
+def get_genealogy_list():
+    """Zwraca pełną listę osób do widoku listy."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    
+    # Pobierz wszystkie osoby
+    cur.execute("""
+        SELECT 
+            og.id, og.json_id, og.imie_nazwisko as name, og.plec as gender, 
+            og.rok_urodzenia, og.rok_smierci, og.uwagi as notes,
+            og.id_ojca, og.id_matki, w.unikalny_klucz as protocol_key
+        FROM osoby_genealogia og
+        LEFT JOIN wlasciciele w ON og.id_protokolu = w.id
+    """)
+    persons_db = cur.fetchall()
+    
+    # Pobierz małżeństwa
+    cur.execute("""
+        SELECT malzonek1_id, malzonek2_id, rok_slubu, data_slubu 
+        FROM malzenstwa
+    """)
+    marriages_db = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+    
+    # Zbuduj mapę osób
+    persons_map = {}
+    for p in persons_db:
+        pid = p['id']
+        persons_map[pid] = {
+            "id": pid, 
+            "originalId": p['json_id'], # Zachowujemy oryginalne ID z JSON
+            "name": p['name'],
+            "gender": p['gender'],
+            "birthDate": {"year": p['rok_urodzenia']} if p['rok_urodzenia'] else None,
+            "deathDate": {"year": p['rok_smierci']} if p['rok_smierci'] else None,
+            "notes": p['notes'],
+            "protocolId": p['protocol_key'],
+            "parentIds": [],
+            "spouseIds": [],
+            "marriages": []
+        }
+        
+        # Dodaj rodziców
+        if p['id_ojca']: persons_map[pid]['parentIds'].append(p['id_ojca'])
+        if p['id_matki']: persons_map[pid]['parentIds'].append(p['id_matki'])
+
+    # Dodaj małżeństwa
+    for m in marriages_db:
+        id1 = m['malzonek1_id']
+        id2 = m['malzonek2_id']
+        date_str = m['data_slubu'] or (str(m['rok_slubu']) if m['rok_slubu'] else None)
+        
+        if id1 in persons_map and id2 in persons_map:
+            if id2 not in persons_map[id1]['spouseIds']:
+                persons_map[id1]['spouseIds'].append(id2)
+                persons_map[id1]['marriages'].append({"spouseId": id2, "date": date_str})
+            
+            if id1 not in persons_map[id2]['spouseIds']:
+                persons_map[id2]['spouseIds'].append(id1)
+                persons_map[id2]['marriages'].append({"spouseId": id1, "date": date_str})
+
+    return jsonify({"persons": list(persons_map.values())})
+
+
 @app.route('/api/genealogia/<string:unikalny_klucz>')
 def get_drzewo_genealogiczne(unikalny_klucz):
     """Pobiera dane do zbudowania drzewa genealogicznego dla właściciela."""
@@ -509,23 +576,47 @@ def get_drzewo_genealogiczne(unikalny_klucz):
         conn.close()
         return jsonify({"error": "Nie znaleziono osoby powiązanej z tym protokołem"}), 404
 
-    # Algorytm BFS do znalezienia wszystkich połączonych osób
-    queue = [root_person['id']]
-    visited_ids = {root_person['id']}
+    # Algorytm BFS z LIMITEM GŁĘBOKOŚCI
+    # Max 2 pokolenia w górę (rodzice, dziadkowie) i 2 w dół (dzieci, wnuki)
+    MAX_DEPTH = 2
+    
+    # visited_ids z głębokością: {id: depth}
+    visited_ids = {root_person['id']: 0}
+    queue = [(root_person['id'], 0)]  # (id, depth)
+    
     while queue:
-        current_id = queue.pop(0)
-        cur.execute("""
-            SELECT id_ojca as id FROM osoby_genealogia WHERE id = %s AND id_ojca IS NOT NULL UNION
-            SELECT id_matki as id FROM osoby_genealogia WHERE id = %s AND id_matki IS NOT NULL UNION
-            SELECT malzonek2_id as id FROM malzenstwa WHERE malzonek1_id = %s UNION
-            SELECT malzonek1_id as id FROM malzenstwa WHERE malzonek2_id = %s UNION
-            SELECT id FROM osoby_genealogia WHERE id_ojca = %s OR id_matki = %s;
-        """, (current_id, current_id, current_id, current_id, current_id, current_id))
+        current_id, depth = queue.pop(0)
         
+        # Rodzice i małżonkowie (głębokość -1, czyli "w górę")
+        if depth > -MAX_DEPTH:
+            cur.execute("""
+                SELECT id_ojca as id FROM osoby_genealogia WHERE id = %s AND id_ojca IS NOT NULL UNION
+                SELECT id_matki as id FROM osoby_genealogia WHERE id = %s AND id_matki IS NOT NULL
+            """, (current_id, current_id))
+            for person in cur.fetchall():
+                if person['id'] not in visited_ids:
+                    visited_ids[person['id']] = depth - 1
+                    queue.append((person['id'], depth - 1))
+        
+        # Małżonkowie (ten sam poziom)
+        cur.execute("""
+            SELECT malzonek2_id as id FROM malzenstwa WHERE malzonek1_id = %s UNION
+            SELECT malzonek1_id as id FROM malzenstwa WHERE malzonek2_id = %s
+        """, (current_id, current_id))
         for person in cur.fetchall():
             if person['id'] not in visited_ids:
-                visited_ids.add(person['id'])
-                queue.append(person['id'])
+                visited_ids[person['id']] = depth
+                queue.append((person['id'], depth))
+        
+        # Dzieci (głębokość +1, czyli "w dół")
+        if depth < MAX_DEPTH:
+            cur.execute("""
+                SELECT id FROM osoby_genealogia WHERE id_ojca = %s OR id_matki = %s
+            """, (current_id, current_id))
+            for person in cur.fetchall():
+                if person['id'] not in visited_ids:
+                    visited_ids[person['id']] = depth + 1
+                    queue.append((person['id'], depth + 1))
 
     if not visited_ids:
         cur.close()
@@ -2781,87 +2872,159 @@ def admin_get_genealogia():
     cur.close()
     conn.close()
     
+    # Mapowanie db_id -> json_id dla relacji
+    db_id_to_json_id = {p['db_id']: p['id_osoby'] for p in people}
+
     # Mapowanie małżeństw do osób w Pythonie (szybsze niż skomplikowany SQL aggregation)
-    marriages_map = {} # db_id -> list of marriages
+    marriages_map = {} # db_id -> list of marriages (with json_id)
     
     for m in all_marriages:
         id1, id2 = m['malzonek1_id'], m['malzonek2_id']
         date = m.get('rok_slubu') or m.get('rok') # Obsługa różnych nazw kolumn
         
-        # Dodaj dla pierwszego małżonka (wskazuje na drugiego)
-        if id1 not in marriages_map: marriages_map[id1] = []
-        marriages_map[id1].append({'spouseDbId': id2, 'date': date})
+        json_id1 = db_id_to_json_id.get(id1)
+        json_id2 = db_id_to_json_id.get(id2)
         
-        # Dodaj dla drugiego małżonka (wskazuje na pierwszego)
-        if id2 not in marriages_map: marriages_map[id2] = []
-        marriages_map[id2].append({'spouseDbId': id1, 'date': date})
+        if json_id1 and json_id2:
+            # Dodaj dla pierwszego małżonka
+            if id1 not in marriages_map: marriages_map[id1] = []
+            marriages_map[id1].append({'spouseId': json_id2, 'date': date})
+            
+            # Dodaj dla drugiego małżonka
+            if id2 not in marriages_map: marriages_map[id2] = []
+            marriages_map[id2].append({'spouseId': json_id1, 'date': date})
 
-    # Rozdzielenie imienia i nazwiska oraz przypisanie małżeństw
+    # Rozdzielenie imienia i nazwiska oraz przypisanie relacji (konwersja na json_id)
     for person in people:
         name_parts = (person['imie_nazwisko'] or '').split(' ', 1)
         person['imie'] = name_parts[0]
         person['nazwisko'] = name_parts[1] if len(name_parts) > 1 else ''
         
+        # Konwersja rodziców DB_ID -> JSON_ID
+        if person.get('id_ojca'):
+            person['id_ojca'] = db_id_to_json_id.get(person['id_ojca'])
+        if person.get('id_matki'):
+            person['id_matki'] = db_id_to_json_id.get(person['id_matki'])
+            
+        # Przypisanie małżeństw (już skonwertowane na json_id)
         person['marriages'] = marriages_map.get(person['db_id'], [])
+        
         # Kompatybilność wsteczna (pierwszy małżonek)
         person['id_malzonka'] = None
         if person['marriages']:
-            # Musimy znaleźć json_id małżonka na podstawie db_id, ale tutaj upraszczamy:
-            # Frontend dostanie marriages z db_id i sobie poradzi
-            pass 
+            person['id_malzonka'] = person['marriages'][0]['spouseId']
 
-    return jsonify(people)
-    for person in people:
-        name_parts = (person['imie_nazwisko'] or '').split(' ', 1)
-        person['imie'] = name_parts[0]
-        person['nazwisko'] = name_parts[1] if len(name_parts) > 1 else ''
     return jsonify(people)
 
 @app.route('/api/admin/genealogia', methods=['POST'])
 def admin_create_osoba():
     """Tworzenie nowej osoby w genealogii."""
+    import datetime
     data = request.get_json()
+    
+    # Simple file logger 
+    def to_log(msg):
+        with open(r'c:\Users\Hp\Desktop\Projekt-Czarna\debug_log.txt', 'a', encoding='utf-8') as f:
+            f.write(f"{datetime.datetime.now()}: {msg}\n")
+
+    to_log(f"Received data for create_osoba: {data}")
+
+    # Podstawowa walidacja
+    if not data.get('id_osoby'):
+        msg = 'ID Osoby jest wymagane'
+        to_log(f"Validation error: {msg}")
+        return jsonify({'status': 'error', 'message': msg}), 400
+    try:
+        int(data['id_osoby'])
+    except ValueError:
+        msg = 'ID Osoby musi być liczbą'
+        to_log(f"Validation error: {msg}")
+        return jsonify({'status': 'error', 'message': msg}), 400
+
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            # 1. Rozwiąż JSON_ID -> DB_ID dla rodziców
+            parent_ids = {}
+            for field in ['id_ojca', 'id_matki']:
+                if data.get(field):
+                    cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (int(data[field]),))
+                    res = cur.fetchone()
+                    parent_ids[field] = res[0] if res else None
+                    to_log(f"Resolved {field} ({data[field]}) -> {parent_ids[field]}")
+                else:
+                    parent_ids[field] = None
+
+            sql_insert = """
                 INSERT INTO osoby_genealogia (json_id, imie_nazwisko, plec, numer_domu, 
                     rok_urodzenia, rok_smierci, id_ojca, id_matki, id_protokolu, uwagi)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 
                     (SELECT id FROM wlasciciele WHERE unikalny_klucz = %s), %s) RETURNING id;
-            """, (int(data['id_osoby']), f"{data['imie']} {data['nazwisko']}".strip(), 
-                  data.get('plec'), data.get('numer_domu'), data.get('rok_urodzenia'), 
-                  data.get('rok_smierci'), data.get('id_ojca'), data.get('id_matki'), 
-                  data.get('protokol_klucz'), data.get('uwagi')))
+            """
+            
+            # Konwersja dat
+            rok_ur = data.get('rok_urodzenia')
+            rok_sm = data.get('rok_smierci')
+            # Handle empty strings converting to None/Integers as needed
+            if rok_ur == '': rok_ur = None
+            if rok_sm == '': rok_sm = None
+            
+            params = (int(data['id_osoby']), f"{data['imie']} {data['nazwisko']}".strip(), 
+                  data.get('plec'), data.get('numer_domu'), rok_ur, 
+                  rok_sm, parent_ids['id_ojca'], parent_ids['id_matki'], 
+                  data.get('protokol_klucz'), data.get('uwagi'))
+            
+            to_log(f"Executing INSERT with params: {params}")
+
+            cur.execute(sql_insert, params)
             new_id = cur.fetchone()[0]
+            to_log(f"Created new person, DB ID: {new_id}")
             
             # Małżeństwa (lista)
             marriages = data.get('marriages', [])
+            to_log(f"Processing marriages: {marriages}")
             
             # Fallback dla starego formatu (pojedyncze id_malzonka)
             if not marriages and data.get('id_malzonka'):
-                marriages.append({'spouseDbId': int(data['id_malzonka']), 'date': None})
+                # Tutaj zakładamy, że id_malzonka to DB_ID (stary frontend) LUB JSON_ID. 
+                # Dla bezpieczeństwa spróbujmy rozwiązać jeśli to JSON.
+                m_id = int(data['id_malzonka'])
+                # Sprawdź czy to DB ID czy JSON ID? Trudno powiedzieć.
+                # W nowym frontendzie id_malzonka nie jest wysyłane jeśli marriages są.
+                # Zostawmy prostą logikę: traktujemy jako JSON_ID bo front operuje na JSON.
+                cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (m_id,))
+                res = cur.fetchone()
+                spouse_db_id = res[0] if res else m_id # Fallback do m_id jeśli nie znaleziono (może to było DB ID)
+                marriages.append({'spouse_db_id': spouse_db_id, 'date': None})
 
             for m in marriages:
-                spouse_db_id = m.get('spouseDbId')
+                spouse_db_id = m.get('spouseDbId') # Stary klucz
+                if not spouse_db_id and m.get('spouse_json_id'): # Nowy klucz
+                    cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (int(m['spouse_json_id']),))
+                    res = cur.fetchone()
+                    if res: spouse_db_id = res[0]
+                
                 if not spouse_db_id: continue
                 
-                date = m.get('date')
+                # date = m.get('date') or m.get('year') # Backend DB ma rok_slubu (integer)
+                year = m.get('year')
+                if year == '': year = None
+
                 # Upewnij się, że para jest posortowana (mniejsze ID pierwsze), aby uniknąć duplikatów
                 id1, id2 = sorted((new_id, int(spouse_db_id)))
                 
-                # Sprawdź czy kolumna rok_slubu istnieje (dynamicznie)
                 try:
                     cur.execute("""
                         INSERT INTO malzenstwa (malzonek1_id, malzonek2_id, rok_slubu) 
                         VALUES (%s, %s, %s) 
                         ON CONFLICT (malzonek1_id, malzonek2_id) 
                         DO UPDATE SET rok_slubu = EXCLUDED.rok_slubu;
-                    """, (id1, id2, date))
-                except Exception:
-                    # Fallback jeśli baza nie ma kolumny rok_slubu (stara struktura)
+                    """, (id1, id2, year))
+                except Exception as ex_m:
+                     # Fallback
+                    to_log(f"Marriage insert error: {ex_m}. Trying fallback.")
                     conn.rollback() 
-                    cur = conn.cursor() # nowy kursor po rollbacku
+                    cur = conn.cursor() 
                     cur.execute("""
                         INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) 
                         VALUES (%s, %s) 
@@ -2869,9 +3032,11 @@ def admin_create_osoba():
                     """, (id1, id2))
 
             conn.commit()
+            to_log("Transaction committed successfully.")
             return jsonify({'status': 'success', 'id': new_id}), 201
     except Exception as e:
         conn.rollback()
+        to_log(f"EXCEPTION: {str(e)}") # Logowanie błędu
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         conn.close()
@@ -2883,6 +3048,16 @@ def admin_update_osoba(id):
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
+            # 1. Rozwiąż JSON_ID -> DB_ID dla rodziców
+            parent_ids = {}
+            for field in ['id_ojca', 'id_matki']:
+                if data.get(field):
+                    cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (int(data[field]),))
+                    res = cur.fetchone()
+                    parent_ids[field] = res[0] if res else None
+                else:
+                    parent_ids[field] = None
+
             cur.execute("""
                 UPDATE osoby_genealogia SET json_id = %s, imie_nazwisko = %s, plec = %s, 
                     numer_domu = %s, rok_urodzenia = %s, rok_smierci = %s, id_ojca = %s, 
@@ -2890,22 +3065,26 @@ def admin_update_osoba(id):
                     uwagi = %s WHERE id = %s;
             """, (int(data['id_osoby']), f"{data['imie']} {data['nazwisko']}".strip(), 
                   data.get('plec'), data.get('numer_domu'), data.get('rok_urodzenia'), 
-                  data.get('rok_smierci'), data.get('id_ojca'), data.get('id_matki'), 
+                  data.get('rok_smierci'), parent_ids['id_ojca'], parent_ids['id_matki'], 
                   data.get('protokol_klucz'), data.get('uwagi'), id))
             
             # Aktualizacja małżeństw
             cur.execute("DELETE FROM malzenstwa WHERE malzonek1_id = %s OR malzonek2_id = %s;", (id, id))
             
             marriages = data.get('marriages', [])
-            # Fallback dla starego inputa
-            if not marriages and data.get('id_malzonka'):
-                marriages.append({'spouseDbId': int(data['id_malzonka']), 'date': None})
-
+            
             for m in marriages:
                 spouse_db_id = m.get('spouseDbId')
+                if not spouse_db_id and m.get('spouse_json_id'):
+                    cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (int(m['spouse_json_id']),))
+                    res = cur.fetchone()
+                    if res: spouse_db_id = res[0]
+
                 if not spouse_db_id: continue
                 
-                date = m.get('date')
+                year = m.get('year')
+                if year == '': year = None
+
                 id1, id2 = sorted((id, int(spouse_db_id)))
                 
                 try:
@@ -2914,10 +3093,11 @@ def admin_update_osoba(id):
                         VALUES (%s, %s, %s) 
                         ON CONFLICT (malzonek1_id, malzonek2_id) 
                         DO UPDATE SET rok_slubu = EXCLUDED.rok_slubu;
-                    """, (id1, id2, date))
+                    """, (id1, id2, year))
                 except Exception:
-                    conn.rollback()
-                    cur = conn.cursor()
+                     # Fallback
+                    conn.rollback() 
+                    cur = conn.cursor() 
                     cur.execute("""
                         INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) 
                         VALUES (%s, %s) 
@@ -2928,6 +3108,7 @@ def admin_update_osoba(id):
             return jsonify({'status': 'success'})
     except Exception as e:
         conn.rollback()
+        print(f"Błąd aktualizacji osoby: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         conn.close()
@@ -3030,7 +3211,11 @@ def export_backup():
         demografia_data = cur.fetchall()
 
         # Genealogia
-        cur.execute("SELECT * FROM osoby_genealogia;")
+        cur.execute("""
+            SELECT og.*, w.unikalny_klucz as protokol_key
+            FROM osoby_genealogia og
+            LEFT JOIN wlasciciele w ON og.id_protokolu = w.id;
+        """)
         osoby_db = cur.fetchall()
         cur.execute("SELECT * FROM malzenstwa;")
         malzenstwa_db = cur.fetchall()
@@ -3049,7 +3234,7 @@ def export_backup():
                 "gender": p['plec'], "houseNumber": p.get('numer_domu'),
                 "birthDate": {"year": p.get('rok_urodzenia')} if p.get('rok_urodzenia') else None,
                 "deathDate": {"year": p.get('rok_smierci')} if p.get('rok_smierci') else None,
-                "protocolKey": None, 
+                "protokolKey": p.get('protokol_key'),  # Numer protokołu z wlasciciele
                 "fatherId": db_id_to_json_id.get(p.get('id_ojca')), 
                 "motherId": db_id_to_json_id.get(p.get('id_matki')),
                 "spouseIds": [spouse for spouse in spouse_map.get(p['id'], []) if spouse is not None], 

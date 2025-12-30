@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --primary-color: #667eea;
     --primary-dark: #5a67d8;
@@ -14,10 +14,10 @@
     --text-secondary: #718096;
     --text-light: #a0aec0;
     --border-color: #e2e8f0;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
-    --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
-    --shadow-xl: 0 20px 25px rgba(0,0,0,0.1);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
     --radius: 12px;
     --radius-sm: 8px;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -62,15 +62,22 @@ body {
 }
 
 @keyframes gradientShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
 }
 
 .login-card {
     background: white;
     padding: 3rem;
     border-radius: 20px;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
     width: 100%;
     max-width: 450px;
     animation: slideUp 0.5s ease-out;
@@ -81,6 +88,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -144,7 +152,8 @@ body {
 .input-group input {
     flex: 1;
     width: 100%;
-    padding: 0.75rem 1rem 0.75rem 0; /* Usunięto lewy padding */
+    padding: 0.75rem 1rem 0.75rem 0;
+    /* Usunięto lewy padding */
     border: none;
     background: transparent;
     font-size: 1rem;
@@ -164,7 +173,8 @@ body {
     transition: var(--transition);
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Zmieniono z center na space-between */
+    justify-content: space-between;
+    /* Zmieniono z center na space-between */
 }
 
 .btn-login:hover {
@@ -173,7 +183,8 @@ body {
 }
 
 .error-message {
-    margin-bottom: 1.5rem; /* Zmieniono z margin-top na margin-bottom */
+    margin-bottom: 1.5rem;
+    /* Zmieniono z margin-top na margin-bottom */
     padding: 0.75rem;
     background: #fed7d7;
     color: var(--danger-color);
@@ -184,9 +195,19 @@ body {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-10px);
+    }
+
+    75% {
+        transform: translateX(10px);
+    }
 }
 
 .admin-wrapper {
@@ -268,7 +289,7 @@ body {
 }
 
 .menu-item.active {
-    background: linear-gradient(90deg, rgba(102,126,234,0.1) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, transparent 100%);
     color: var(--primary-color);
 }
 
@@ -360,11 +381,30 @@ body {
     display: block;
 }
 
+/* Specjalny styl dla sekcji genealogii - pełna wysokość */
+#genealogy.section.active {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 140px);
+    min-height: 600px;
+}
+
+#genealogy .section-header {
+    flex-shrink: 0;
+}
+
+#genealogy .genealogy-layout {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -458,22 +498,22 @@ body {
 }
 
 .gradient-blue .stat-icon {
-    background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(99,179,237,0.1));
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(99, 179, 237, 0.1));
     color: #667eea;
 }
 
 .gradient-green .stat-icon {
-    background: linear-gradient(135deg, rgba(72,187,120,0.1), rgba(56,161,105,0.1));
+    background: linear-gradient(135deg, rgba(72, 187, 120, 0.1), rgba(56, 161, 105, 0.1));
     color: #48bb78;
 }
 
 .gradient-purple .stat-icon {
-    background: linear-gradient(135deg, rgba(159,122,234,0.1), rgba(237,100,166,0.1));
+    background: linear-gradient(135deg, rgba(159, 122, 234, 0.1), rgba(237, 100, 166, 0.1));
     color: #9f7aea;
 }
 
 .gradient-orange .stat-icon {
-    background: linear-gradient(135deg, rgba(237,137,54,0.1), rgba(246,173,85,0.1));
+    background: linear-gradient(135deg, rgba(237, 137, 54, 0.1), rgba(246, 173, 85, 0.1));
     color: #ed8936;
 }
 
@@ -613,7 +653,11 @@ body {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-cancel {
+.btn-primary,
+.btn-success,
+.btn-danger,
+.btn-warning,
+.btn-cancel {
     padding: 0.625rem 1.25rem;
     border: none;
     border-radius: var(--radius-sm);
@@ -682,8 +726,9 @@ body {
     display: flex;
     justify-content: space-between;
     /* Używamy align-items: flex-start; aby wyrównać elementy do góry */
-    align-items: flex-start; 
-    gap: 0.5rem; /* Dodajemy mały odstęp na wszelki wypadek */
+    align-items: flex-start;
+    gap: 0.5rem;
+    /* Dodajemy mały odstęp na wszelki wypadek */
     margin-bottom: 1rem;
 }
 
@@ -692,7 +737,7 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     /* Pozwalamy nazwie rosnąć, ale nie wypychać innych elementów */
-    flex-grow: 1; 
+    flex-grow: 1;
 }
 
 .owner-protocol {
@@ -703,7 +748,7 @@ body {
     font-size: 0.75rem;
     font-weight: 600;
     /* Zapobiegamy kurczeniu się plakietki */
-    flex-shrink: 0; 
+    flex-shrink: 0;
 }
 
 .owner-name {
@@ -731,9 +776,9 @@ body {
     display: flex;
     gap: 0.5rem;
     /* Krok 2: Wypchnij sekcję z przyciskami na sam dół karty */
-    margin-top: auto; 
+    margin-top: auto;
     /* Krok 3 (opcjonalny): Dodaj trochę przestrzeni nad przyciskami */
-    padding-top: 1rem; 
+    padding-top: 1rem;
 }
 
 .owner-actions button {
@@ -761,8 +806,10 @@ body {
     background: white;
     border-radius: var(--radius);
     box-shadow: var(--shadow-md);
-    overflow: auto; /* Włącza paski przewijania (pionowe i poziome) gdy są potrzebne */
-    max-height: 75vh; /* Ogranicza wysokość tabeli, aby nie rozciągała strony */
+    overflow: auto;
+    /* Włącza paski przewijania (pionowe i poziome) gdy są potrzebne */
+    max-height: 75vh;
+    /* Ogranicza wysokość tabeli, aby nie rozciągała strony */
 }
 
 .data-table {
@@ -977,7 +1024,8 @@ body {
 
 .spouse-row select,
 .spouse-row input {
-    margin-bottom: 0; /* Reset domyślnego marginesu wewnątrz grupy */
+    margin-bottom: 0;
+    /* Reset domyślnego marginesu wewnątrz grupy */
 }
 
 .spouse-row .btn-remove {
@@ -1085,6 +1133,7 @@ body {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -1145,7 +1194,7 @@ body.dark-mode .menu-item:hover {
 }
 
 body.dark-mode .menu-item.active {
-    background: linear-gradient(90deg, rgba(102,126,234,0.12) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.12) 0%, transparent 100%);
     color: #a5b4fc;
 }
 
@@ -1521,23 +1570,23 @@ body.dark-mode .cards-grid {
         z-index: 999;
         height: 100vh;
     }
-    
+
     .sidebar.active {
         left: 0;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .cards-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .form-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .filters-bar {
         flex-direction: column;
     }
@@ -1653,6 +1702,7 @@ body.modal-open {
         opacity: 0;
         transform: scale(0.8);
     }
+
     to {
         opacity: 1;
         transform: scale(1);
@@ -1696,11 +1746,11 @@ body.modal-open {
         height: 90vh !important;
         border-radius: 8px !important;
     }
-    
+
     #treeModal .modal-header h2 {
         font-size: 1.2rem !important;
     }
-    
+
     #treeModal .tree-container {
         padding: 1rem !important;
     }
@@ -1715,8 +1765,10 @@ body.modal-open {
 
 /* === Tryb ciemny (global) === */
 body.dark-theme {
-    background: #0f172a;                /* tło strony */
-    color: #e2e8f0;                     /* domyślny tekst */
+    background: #0f172a;
+    /* tło strony */
+    color: #e2e8f0;
+    /* domyślny tekst */
 }
 
 /* Nawigacja / top bar / karty / kontenery */
@@ -1745,12 +1797,14 @@ body.dark-theme .menu-item {
 body.dark-theme .sidebar {
     border-right: 1px solid #374151;
 }
+
 body.dark-theme .menu-item:hover {
     background: #111827;
     color: #93c5fd;
 }
+
 body.dark-theme .menu-item.active {
-    background: linear-gradient(90deg, rgba(102,126,234,0.12) 0%, transparent 100%);
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.12) 0%, transparent 100%);
     color: #a5b4fc;
 }
 
@@ -1758,10 +1812,12 @@ body.dark-theme .menu-item.active {
 body.dark-theme .top-bar {
     border-bottom: 1px solid #374151;
 }
+
 body.dark-theme .theme-btn {
     background: #0b1220;
     color: #e5e7eb;
 }
+
 body.dark-theme .theme-btn:hover {
     background: var(--primary-gradient);
     color: #fff;
@@ -1770,8 +1826,9 @@ body.dark-theme .theme-btn:hover {
 /* Karty (właściciele, statystyki) */
 body.dark-theme .owner-card,
 body.dark-theme .quick-actions {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
+
 body.dark-theme .owner-protocol {
     color: #fff;
 }
@@ -1787,10 +1844,12 @@ body.dark-theme .input-wrapper input {
     color: #e5e7eb;
     border: 1px solid #374151;
 }
+
 body.dark-theme .search-bar i,
 body.dark-theme .input-wrapper i {
     color: #94a3b8;
 }
+
 body.dark-theme ::placeholder {
     color: #94a3b8;
 }
@@ -1799,12 +1858,14 @@ body.dark-theme ::placeholder {
 body.dark-theme .data-table thead {
     background: #0b1220;
 }
+
 body.dark-theme .data-table th,
 body.dark-theme .data-table td {
     color: #e5e7eb;
     background: #1f2937;
     border-color: #374151;
 }
+
 body.dark-theme .data-table tbody tr:hover {
     background: #111827;
 }
@@ -1825,9 +1886,11 @@ body.dark-theme .modal-content {
 body.dark-theme .login-wrapper {
     background: #0f172a;
 }
+
 body.dark-theme .login-card {
     border: 1px solid #374151;
 }
+
 body.dark-theme .error-message {
     background: rgba(245, 101, 101, 0.15);
     color: #fecaca;
@@ -1847,19 +1910,27 @@ body.dark-theme .background-gradient {
 
 /* --- Poprawki dla pól edycji w tabeli Demografii --- */
 #demography .data-table textarea {
-    min-height: 40px; /* Zmniejszamy minimalną wysokość */
-    height: 40px;     /* Ustawiamy stałą wysokość początkową */
-    line-height: 1.4; /* Poprawia ułożenie tekstu w jednej linii */
+    min-height: 40px;
+    /* Zmniejszamy minimalną wysokość */
+    height: 40px;
+    /* Ustawiamy stałą wysokość początkową */
+    line-height: 1.4;
+    /* Poprawia ułożenie tekstu w jednej linii */
     padding-top: 0.6rem;
     padding-bottom: 0.6rem;
-    resize: none;     /* Wyłączamy ręczną zmianę rozmiaru */
-    overflow-y: hidden; /* Ukrywamy pasek przewijania, gdy nie jest potrzebny */
+    resize: none;
+    /* Wyłączamy ręczną zmianę rozmiaru */
+    overflow-y: hidden;
+    /* Ukrywamy pasek przewijania, gdy nie jest potrzebny */
 }
 
 #demography .data-table textarea:focus {
-    height: 120px; /* Pole powiększa się po kliknięciu */
-    resize: vertical; /* Włączamy zmianę rozmiaru w trybie edycji */
-    overflow-y: auto; /* Pokazujemy pasek przewijania w razie potrzeby */
+    height: 120px;
+    /* Pole powiększa się po kliknięciu */
+    resize: vertical;
+    /* Włączamy zmianę rozmiaru w trybie edycji */
+    overflow-y: auto;
+    /* Pokazujemy pasek przewijania w razie potrzeby */
 }
 
 /* === NOWA, ULEPSZONA OBSŁUGA TABEL === */
@@ -1869,17 +1940,18 @@ body.dark-theme .background-gradient {
     width: 100%;
     border-collapse: collapse;
     /* To jest klucz do stabilnego layoutu. Tabela użyje zdefiniowanych szerokości, ignorując treść. */
-    table-layout: fixed; 
+    table-layout: fixed;
 }
 
 .data-table th,
 .data-table td {
     padding: 1rem;
     text-align: left;
-    vertical-align: middle; /* Lepsze wyrównanie w pionie */
+    vertical-align: middle;
+    /* Lepsze wyrównanie w pionie */
     border-bottom: 1px solid var(--border-color);
     /* Zapobiega "wpychaniu" się długich słów i psuciu układu */
-    word-break: break-word; 
+    word-break: break-word;
 }
 
 .data-table th {
@@ -1890,8 +1962,10 @@ body.dark-theme .background-gradient {
 
 /* 2. Style dla komórki z przyciskami akcji */
 .data-table td.actions {
-    text-align: center; /* Wyrównanie do środka */
-    white-space: nowrap; /* Zapobiega łamaniu się przycisków do nowej linii */
+    text-align: center;
+    /* Wyrównanie do środka */
+    white-space: nowrap;
+    /* Zapobiega łamaniu się przycisków do nowej linii */
 }
 
 /* Dodatkowe wyrównanie dla nagłówka kolumny Akcje */
@@ -1901,27 +1975,86 @@ body.dark-theme .background-gradient {
 
 /* 3. Precyzyjne szerokości kolumn dla tabeli GENEALOGIA */
 #genealogy .data-table {
-    min-width: 900px; /* Minimalna szerokość tabeli, poniżej której pojawi się scrollbar */
+    min-width: 900px;
+    /* Minimalna szerokość tabeli, poniżej której pojawi się scrollbar */
 }
-#genealogy .data-table th:nth-child(1) { width: 6%; }  /* ID */
-#genealogy .data-table th:nth-child(2) { width: 28%; } /* Imię i Nazwisko */
-#genealogy .data-table th:nth-child(3) { width: 12%; } /* Lata życia */
-#genealogy .data-table th:nth-child(4) { width: 15%; } /* Rodzice */
-#genealogy .data-table th:nth-child(5) { width: 15%; } /* Małżonek */
-#genealogy .data-table th:nth-child(6) { width: 11%; } /* Protokół */
-#genealogy .data-table th:nth-child(7) { width: 13%; } /* Akcje */
+
+#genealogy .data-table th:nth-child(1) {
+    width: 6%;
+}
+
+/* ID */
+#genealogy .data-table th:nth-child(2) {
+    width: 28%;
+}
+
+/* Imię i Nazwisko */
+#genealogy .data-table th:nth-child(3) {
+    width: 12%;
+}
+
+/* Lata życia */
+#genealogy .data-table th:nth-child(4) {
+    width: 15%;
+}
+
+/* Rodzice */
+#genealogy .data-table th:nth-child(5) {
+    width: 15%;
+}
+
+/* Małżonek */
+#genealogy .data-table th:nth-child(6) {
+    width: 11%;
+}
+
+/* Protokół */
+#genealogy .data-table th:nth-child(7) {
+    width: 13%;
+}
+
+/* Akcje */
 
 /* 4. Precyzyjne szerokości kolumn dla tabeli DEMOGRAFIA */
 #demography .data-table {
     min-width: 800px;
 }
-#demography .data-table th:nth-child(1) { width: 8%; }  /* Rok */
-#demography .data-table th:nth-child(2) { width: 10%; } /* Populacja */
-#demography .data-table th:nth-child(3) { width: 10%; } /* Katolicy */
-#demalogy .data-table th:nth-child(4) { width: 10%; } /* Żydzi */
-#demalogy .data-table th:nth-child(5) { width: 10%; } /* Inni */
-#demography .data-table th:nth-child(6) { width: 32%; } /* Opis */
-#demography .data-table th:nth-child(7) { width: 20%; } /* Akcje */
+
+#demography .data-table th:nth-child(1) {
+    width: 8%;
+}
+
+/* Rok */
+#demography .data-table th:nth-child(2) {
+    width: 10%;
+}
+
+/* Populacja */
+#demography .data-table th:nth-child(3) {
+    width: 10%;
+}
+
+/* Katolicy */
+#demalogy .data-table th:nth-child(4) {
+    width: 10%;
+}
+
+/* Żydzi */
+#demalogy .data-table th:nth-child(5) {
+    width: 10%;
+}
+
+/* Inni */
+#demography .data-table th:nth-child(6) {
+    width: 32%;
+}
+
+/* Opis */
+#demography .data-table th:nth-child(7) {
+    width: 20%;
+}
+
+/* Akcje */
 
 
 /* 5. Poprawki dla pól edycji w tabelach */
@@ -1955,6 +2088,7 @@ body.dark-theme .background-gradient {
     padding-top: 0.6rem;
     padding-bottom: 0.6rem;
 }
+
 #demography .data-table textarea:focus {
     height: 120px;
     resize: vertical;
@@ -1963,8 +2097,8 @@ body.dark-theme .background-gradient {
 
 /* Style dla autouzupełniania przez przeglądarkę */
 input:-webkit-autofill,
-input:-webkit-autofill:hover, 
-input:-webkit-autofill:focus, 
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 30px var(--bg-main) inset !important;
     -webkit-text-fill-color: var(--text-primary) !important;
@@ -1974,10 +2108,893 @@ input:-webkit-autofill:active {
 
 /* To samo dla trybu ciemnego */
 body.dark-mode input:-webkit-autofill,
-body.dark-mode input:-webkit-autofill:hover, 
-body.dark-mode input:-webkit-autofill:focus, 
+body.dark-mode input:-webkit-autofill:hover,
+body.dark-mode input:-webkit-autofill:focus,
 body.dark-mode input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px #111827 inset !important; /* Kolor tła inputa w dark mode */
-    -webkit-text-fill-color: #e5e7eb !important; /* Kolor tekstu w dark mode */
+    -webkit-box-shadow: 0 0 0 30px #111827 inset !important;
+    /* Kolor tła inputa w dark mode */
+    -webkit-text-fill-color: #e5e7eb !important;
+    /* Kolor tekstu w dark mode */
     caret-color: #e5e7eb;
+}
+
+/* =================================================================
+   PRZEPROJEKTOWANA SEKCJA GENEALOGII - LISTA + PANEL SZCZEGÓŁÓW
+   (na wzór genealogia.html)
+   ================================================================= */
+
+/* Główny layout - dwie kolumny */
+.genealogy-layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 0;
+    height: 100%;
+    /* Pełna wysokość rodzica */
+    min-height: 500px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+}
+
+/* LEWA STRONA - Sidebar z listą osób */
+.genealogy-sidebar {
+    background: #f8fafc;
+    color: #334155;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e2e8f0;
+    overflow: hidden;
+    min-height: 0;
+    /* KLUCZOWE dla flex overflow */
+}
+
+/* Wyszukiwarka */
+.genealogy-search-box {
+    padding: 1rem;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.genealogy-search-box i {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.genealogy-search-box input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #334155;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.genealogy-search-box input::placeholder {
+    color: #94a3b8;
+}
+
+/* Filtry */
+.genealogy-filters {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.filter-btn {
+    padding: 0.4rem 0.75rem;
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    color: #64748b;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.filter-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.family-filter-select {
+    padding: 0.4rem 0.5rem;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 0.8rem;
+    cursor: pointer;
+    flex: 1;
+    min-width: 120px;
+}
+
+/* Licznik */
+.genealogy-count {
+    padding: 0.5rem 1rem;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+.genealogy-count strong {
+    color: #334155;
+}
+
+/* Lista osób - KLUCZOWE: overflow-y: auto! */
+.persons-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+    /* Ważne dla flex overflow */
+}
+
+/* Scrollbar dla listy */
+.persons-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.persons-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.persons-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.persons-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.person-list-item {
+    padding: 0.875rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.person-list-item:hover {
+    background: #e2e8f0;
+}
+
+.person-list-item.active {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.15) 0%, transparent 100%);
+    border-left-color: var(--primary-color);
+}
+
+.person-list-item.male {
+    border-left-color: #3b82f6;
+}
+
+.person-list-item.female {
+    border-left-color: #ec4899;
+}
+
+.person-list-item.active.male {
+    border-left-color: #3b82f6;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, transparent 100%);
+}
+
+.person-list-item.active.female {
+    border-left-color: #ec4899;
+    background: linear-gradient(90deg, rgba(236, 72, 153, 0.15) 0%, transparent 100%);
+}
+
+.person-list-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.person-list-item.male .person-list-icon {
+    background: rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+
+.person-list-item.female .person-list-icon {
+    background: rgba(236, 72, 153, 0.15);
+    color: #db2777;
+}
+
+.person-list-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.person-list-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.person-list-dates {
+    font-size: 0.8rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.person-list-arrow {
+    color: #94a3b8;
+    font-size: 0.8rem;
+}
+
+/* PRAWA STRONA - Panel szczegółów */
+.genealogy-details {
+    padding: 2rem;
+    overflow-y: auto;
+    background: var(--bg-main);
+}
+
+.no-selection-placeholder {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-light);
+    text-align: center;
+}
+
+.no-selection-placeholder i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.no-selection-placeholder h3 {
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+/* Nagłówek profilu osoby */
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.profile-title h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.profile-id {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.profile-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.profile-actions .btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.profile-actions .btn-primary {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.profile-actions .btn-secondary {
+    background: var(--bg-main);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.profile-actions .btn-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.profile-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Sekcje w profilu */
+.section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+    margin: 1.5rem 0 0.75rem 0;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title i {
+    color: var(--primary-color);
+}
+
+.section-subtitle {
+    font-size: 0.65rem;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    font-style: italic;
+}
+
+/* Siatka kart relacji - jak w genealogia.html */
+.relations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Karta relacji - jak w genealogia.html */
+.relation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.relation-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.relation-card.male {
+    border-left: 4px solid #3b82f6;
+}
+
+.relation-card.female {
+    border-left: 4px solid #ec4899;
+}
+
+.relation-card.unknown {
+    border-left: 4px solid var(--text-light);
+    opacity: 0.6;
+}
+
+.relation-role {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+    font-weight: 800;
+}
+
+.relation-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+    color: var(--text-primary);
+}
+
+.relation-dates {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Responsywność */
+@media (max-width: 1024px) {
+    .genealogy-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .genealogy-sidebar {
+        max-height: 400px;
+    }
+
+    .genealogy-details {
+        min-height: 500px;
+    }
+}
+
+@media (max-width: 600px) {
+    .relations-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .profile-actions {
+        align-items: flex-start;
+    }
+}
+
+/* Dark mode support */
+body.dark-mode .genealogy-layout {
+    background: #1f2937;
+}
+
+body.dark-mode .genealogy-sidebar {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-right-color: #334155;
+}
+
+body.dark-mode .genealogy-search-box {
+    background: #0f172a;
+    border-bottom-color: #334155;
+}
+
+body.dark-mode .genealogy-search-box i {
+    color: #64748b;
+}
+
+body.dark-mode .genealogy-search-box input {
+    color: #e2e8f0;
+}
+
+body.dark-mode .genealogy-search-box input::placeholder {
+    color: #64748b;
+}
+
+body.dark-mode .genealogy-filters {
+    border-bottom-color: #334155;
+}
+
+body.dark-mode .filter-btn {
+    border-color: #475569;
+    color: #94a3b8;
+}
+
+body.dark-mode .filter-btn:hover {
+    background: #334155;
+    color: #e2e8f0;
+}
+
+body.dark-mode .family-filter-select {
+    background: #0f172a;
+    border-color: #475569;
+    color: #94a3b8;
+}
+
+body.dark-mode .genealogy-count {
+    background: #0f172a;
+}
+
+body.dark-mode .genealogy-count strong {
+    color: #e2e8f0;
+}
+
+body.dark-mode .persons-list::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+body.dark-mode .persons-list::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+body.dark-mode .person-list-item:hover {
+    background: #334155;
+}
+
+body.dark-mode .person-list-item.active {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, transparent 100%);
+}
+
+body.dark-mode .person-list-item.active.male {
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.2) 0%, transparent 100%);
+}
+
+body.dark-mode .person-list-item.active.female {
+    background: linear-gradient(90deg, rgba(236, 72, 153, 0.2) 0%, transparent 100%);
+}
+
+body.dark-mode .person-list-item.male .person-list-icon {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+}
+
+body.dark-mode .person-list-item.female .person-list-icon {
+    background: rgba(236, 72, 153, 0.2);
+    color: #f472b6;
+}
+
+body.dark-mode .person-list-name {
+    color: #f1f5f9;
+}
+
+body.dark-mode .person-list-arrow {
+    color: #475569;
+}
+
+body.dark-mode .genealogy-details {
+    background: #111827;
+}
+
+body.dark-mode .relation-card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+body.dark-mode .relation-card:hover {
+    border-color: #6366f1;
+    background: #111827;
+}
+
+body.dark-mode .relation-name {
+    color: #e5e7eb;
+}
+
+body.dark-mode .profile-title h1 {
+    color: #e5e7eb;
+}
+
+body.dark-mode .profile-header {
+    border-bottom-color: #374151;
+}
+
+/* Larger Geneology Filters */
+#filterHouse {
+    max-width: 100px !important;
+    padding: 10px 12px !important;
+    font-size: 1rem !important;
+}
+
+#sortFilter {
+    padding: 10px 12px !important;
+    font-size: 1rem !important;
+    height: auto !important;
+    cursor: pointer;
+    background-color: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-radius: 6px;
+    flex: 1;
+}
+
+#sortFilter option {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 10px;
+}
+
+/* =================================================================
+   AUTOCOMPLETE SUGGESTIONS (Protocol search dropdown)
+   ================================================================= */
+.autocomplete-suggestions {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.autocomplete-suggestions.hidden {
+    display: none;
+}
+
+.autocomplete-suggestion {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s ease;
+    font-size: 0.95rem;
+}
+
+.autocomplete-suggestion:last-child {
+    border-bottom: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.autocomplete-suggestion:hover {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%);
+}
+
+.autocomplete-suggestion strong {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* Dark mode for autocomplete */
+body.dark-mode .autocomplete-suggestions {
+    background: #1f2937;
+    border-color: #374151;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .autocomplete-suggestion {
+    border-bottom-color: #374151;
+}
+
+body.dark-mode .autocomplete-suggestion:hover {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, transparent 100%);
+}
+
+body.dark-mode .autocomplete-suggestion strong {
+    color: #f1f5f9;
+}
+
+/* =================================================================
+   MINI-TREE VISUALIZATION (genealogy tree in modal)
+   Based on mapa_rodzin.html styles
+   ================================================================= */
+
+/* Make tree modal use full height without double scrollbar */
+#treeModal .modal-content {
+    width: 95vw !important;
+    max-width: 1400px !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    display: flex;
+    flex-direction: column;
+}
+
+#treeModal .modal-header {
+    flex-shrink: 0;
+}
+
+#treeModal #treeContainer {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+}
+
+/* Single scrollable tree wrapper that fills the container */
+.tree-scroll-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: 1.5rem;
+    box-sizing: border-box;
+}
+
+.tree-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 1rem;
+    min-width: max-content;
+}
+
+.tree-level {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    position: relative;
+}
+
+.tree-connector-down {
+    width: 2px;
+    height: 30px;
+    background: var(--border);
+    margin: 0 auto;
+}
+
+.tree-pair {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tree-pair-connector {
+    width: 30px;
+    height: 2px;
+    background: #e74c3c;
+    position: relative;
+}
+
+.tree-pair-connector::after {
+    content: '💕';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+}
+
+.tree-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tree-main-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tree-with-siblings {
+    display: flex;
+    align-items: flex-start;
+    gap: 2rem;
+}
+
+.tree-siblings-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0.8;
+    padding-top: 1.5rem;
+}
+
+.tree-siblings-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-width: 400px;
+    justify-content: center;
+}
+
+.tree-children {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    position: relative;
+    padding-top: 30px;
+    flex-wrap: wrap;
+}
+
+.tree-children::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 15px;
+    background: var(--border);
+}
+
+.tree-children-connector {
+    position: absolute;
+    top: 15px;
+    height: 2px;
+    background: var(--border);
+}
+
+.tree-child-branch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tree-child-branch::before {
+    content: '';
+    width: 2px;
+    height: 15px;
+    background: var(--border);
+}
+
+.generation-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-tertiary);
+    margin: 1rem 0 0.5rem;
+    font-weight: 700;
+}
+
+.section-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-tertiary);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.tree-node {
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    min-width: 140px;
+    max-width: 180px;
+    text-align: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.tree-node:hover {
+    transform: scale(1.05);
+}
+
+/* Node colors */
+.tree-node-male {
+    background: #e3f2fd;
+    border: 2px solid #1976d2;
+}
+
+.tree-node-female {
+    background: #fce4ec;
+    border: 2px solid #c2185b;
+}
+
+.tree-node-root {
+    background: #fff3cd;
+    border: 2px solid #f57f17;
+}
+
+/* Dark mode adjustments for tree */
+body.dark-mode .tree-node-male {
+    background: #1e3a5f;
+    border-color: #42a5f5;
+}
+
+body.dark-mode .tree-node-female {
+    background: #4a1e3a;
+    border-color: #f06292;
+}
+
+body.dark-mode .tree-node-root {
+    background: #4a4000;
+    border-color: #ffca28;
+}
+
+body.dark-mode .tree-node {
+    color: var(--text-primary);
+}
+
+.tree-legend {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    width: 100%;
 }
