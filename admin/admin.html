@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,9 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin.css">
 </head>
+
 <body>
     <div class="background-gradient"></div>
-    
+
     <div id="loginScreen" class="login-wrapper">
         <div class="login-card">
             <div class="login-header">
@@ -106,7 +108,7 @@
                         <h1><i class="fas fa-tachometer-alt"></i> Pulpit Główny</h1>
                         <p class="section-subtitle">Centrum zarządzania systemem</p>
                     </div>
-                    
+
                     <div class="stats-grid">
                         <div class="stat-card gradient-blue">
                             <div class="stat-icon"><i class="fas fa-users"></i></div>
@@ -172,12 +174,12 @@
                             <i class="fas fa-plus"></i> Dodaj Właściciela
                         </button>
                     </div>
-                    
+
                     <div class="search-bar">
                         <i class="fas fa-search"></i>
                         <input type="text" id="searchOwners" placeholder="Szukaj właściciela...">
                     </div>
-                    
+
                     <div id="ownersList" class="cards-grid"></div>
                 </section>
 
@@ -185,12 +187,12 @@
                     <div class="section-header">
                         <h1><i class="fas fa-map"></i> Zarządzanie Obiektami</h1>
                     </div>
-                    
+
                     <div class="search-bar">
                         <i class="fas fa-search"></i>
                         <input type="text" id="searchObjects" placeholder="Filtruj obiekty...">
                     </div>
-                    
+
                     <div class="table-wrapper">
                         <table class="data-table">
                             <thead>
@@ -213,7 +215,7 @@
                             <i class="fas fa-plus"></i> Dodaj Wpis
                         </button>
                     </div>
-                    
+
                     <div class="table-wrapper">
                         <table class="data-table">
                             <thead>
@@ -232,6 +234,7 @@
                     </div>
                 </section>
 
+                <!-- PRZEPROJEKTOWANA SEKCJA GENEALOGII - LISTA + PANEL SZCZEGÓŁÓW -->
                 <section id="genealogy" class="section">
                     <div class="section-header">
                         <h1><i class="fas fa-sitemap"></i> Zarządzanie Genealogią</h1>
@@ -239,32 +242,47 @@
                             <i class="fas fa-plus"></i> Dodaj Osobę
                         </button>
                     </div>
-                    
-                    <div class="filters-bar">
-                        <div class="search-bar">
-                            <i class="fas fa-search"></i>
-                            <input type="text" id="searchGenealogy" placeholder="Szukaj osoby...">
+
+                    <div class="genealogy-layout">
+                        <!-- LEWA STRONA - Lista osób -->
+                        <div class="genealogy-sidebar">
+                            <div class="genealogy-search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="searchGenealogy"
+                                    placeholder="Szukaj osoby, rocznika lub domu...">
+                            </div>
+
+                            <div class="genealogy-filters">
+                                <button class="filter-btn active" data-filter="all">Wszyscy</button>
+                                <button class="filter-btn" data-filter="male">Mężczyźni</button>
+                                <button class="filter-btn" data-filter="female">Kobiety</button>
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px;">
+                                <input type="text" id="filterHouse" placeholder="Dom" class="search-input"
+                                    style="max-width: 80px; padding: 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-primary);">
+                                <select id="sortFilter" class="family-select" style="flex: 1;">
+                                    <option value="az">A-Z</option>
+                                    <option value="za">Z-A</option>
+                                </select>
+                            </div>
+
+                            <div class="genealogy-count">
+                                ZNALEZIONO: <strong id="genPersonCount">0</strong>
+                            </div>
+
+                            <div class="persons-list" id="personsListContainer">
+                                <!-- Lista osób będzie generowana dynamicznie -->
+                            </div>
                         </div>
-                        <select id="familyFilter" class="filter-select">
-                            <option value="">Wszystkie rodziny</option>
-                        </select>
-                    </div>
-                    
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Imię i Nazwisko</th>
-                                    <th>Lata życia</th>
-                                    <th>Rodzice</th>
-                                    <th>Małżonek</th>
-                                    <th>Protokół</th>
-                                    <th>Akcje</th>
-                                </tr>
-                            </thead>
-                            <tbody id="genealogyTableBody"></tbody>
-                        </table>
+
+                        <!-- PRAWA STRONA - Panel szczegółów rodziny -->
+                        <div class="genealogy-details" id="personDetailsPanel">
+                            <div class="no-selection-placeholder">
+                                <i class="fas fa-user-friends"></i>
+                                <h3>Wybierz osobę z listy</h3>
+                                <p>Kliknij na osobę aby zobaczyć jej rodzinę</p>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -300,4 +318,5 @@
     <script src="admin.js"></script>
     <script src="genealogia_admin.js"></script>
 </body>
+
 </html>

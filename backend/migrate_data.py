@@ -616,10 +616,53 @@ try:
         # 7.1) Wstawianie osób + mapowanie json_id -> id w bazie
         json_id_to_db_id = {}
 
+        # Zbuduj mapę numer_protokołu -> id_właściciela
+        protocol_num_map = {}
+        for key, v in owner_data.items():
+            order_num = v.get("orderNumber")
+            if order_num is not None:
+                try:
+                    protocol_num_map[int(order_num)] = owner_id_map.get(key)
+                except (ValueError, TypeError):
+                    pass
+
         print("  → Wstawianie osób...")
         for osoba in genealogia_data:
-            # powiązanie z protokołem (jeśli w JSON jest klucz protokołu)
-            id_protokolu = owner_id_map.get(osoba.get("protocolKey"))
+            # powiązanie z protokołem - obsługa różnych formatów:
+            # 1) protokolKey jako tekst (np. "Adam_Sak") - nowy główny format
+            # 2) protokolKey jako numer (np. 12) - stary numeryczny format
+            # 3) protokol_klucz (stary format) - fallback dla kompatybilności wstecznej
+            id_protokolu = None
+            protokol_key = osoba.get("protokolKey")
+            if protokol_key is not None:
+                # Obsługa listy
+                if isinstance(protokol_key, list):
+                    protokol_key = protokol_key[0] if protokol_key else None
+                if protokol_key is not None:
+                    # Najpierw próbuj jako klucz tekstowy (np. "Adam_Sak")
+                    id_protokolu = owner_id_map.get(str(protokol_key))
+                    # Jeśli nie znaleziono, spróbuj jako numer
+                    if id_protokolu is None:
+                        try:
+                            id_protokolu = protocol_num_map.get(int(protokol_key))
+                        except (ValueError, TypeError):
+                            pass
+            
+            # Fallback do starego formatu protokol_klucz (numeryczny)
+            if id_protokolu is None:
+                old_key = osoba.get("protokol_klucz")
+                if old_key is not None:
+                    if isinstance(old_key, list):
+                        old_key = old_key[0] if old_key else None
+                    if old_key is not None:
+                        try:
+                            id_protokolu = protocol_num_map.get(int(old_key))
+                        except (ValueError, TypeError):
+                            pass
+            
+            # Ostatni fallback do protocolKey jako klucz tekstowy (bardzo stary format)
+            if id_protokolu is None:
+                id_protokolu = owner_id_map.get(osoba.get("protocolKey"))
 
             # bezpieczne pobranie lat (rok może nie istnieć)
             birth = osoba.get("birthDate") or {}

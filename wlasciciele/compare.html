@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
@@ -20,7 +21,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts - typografia -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- ==========================================================================
          ARKUSZE STYLÓW APLIKACJI
          ========================================================================== -->
@@ -28,7 +29,7 @@
     <link rel="stylesheet" href="protokol_styles.css">
     <!-- Dedykowane style dla funkcji porównywania -->
     <link rel="stylesheet" href="compare-style.css">
-    
+
     <!-- ==========================================================================
          BIBLIOTEKI JAVASCRIPT
          ========================================================================== -->
@@ -36,20 +37,20 @@
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <!-- html2pdf - generowanie dokumentów PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- D3.js - wizualizacja drzewa genealogicznego -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+
 </head>
+
 <body>
     <!-- ==========================================================================
          WARSTWA TŁA
          ========================================================================== -->
     <div class="background-gradient"></div>
-    
+
     <!-- ==========================================================================
          GŁÓWNY KONTENER APLIKACJI
          ========================================================================== -->
     <div id="app-wrapper">
-        
+
         <!-- ==========================================================================
              NAGŁÓWEK APLIKACJI
              ========================================================================== -->
@@ -94,7 +95,7 @@
                 </div>
             </div>
         </header>
-        
+
         <!-- ==========================================================================
              GŁÓWNA ZAWARTOŚĆ - PORÓWNANIE PROTOKOŁÓW
              ========================================================================== -->
@@ -105,14 +106,14 @@
                 <div class="protocol-column" id="protocol-1">
                     <!-- Zawartość generowana dynamicznie przez JavaScript -->
                 </div>
-                
+
                 <!-- KOLUMNA 2: Drugi protokół -->
                 <div class="protocol-column" id="protocol-2">
                     <!-- Zawartość generowana dynamicznie przez JavaScript -->
                 </div>
             </div>
         </main>
-        
+
         <!-- ==========================================================================
              STOPKA APLIKACJI
              ========================================================================== -->
@@ -142,7 +143,7 @@
             </button>
         </div>
     </div>
-    
+
     <!-- ==========================================================================
          DIALOG: Drzewo genealogiczne
          ========================================================================== -->
@@ -163,4 +164,5 @@
          ========================================================================== -->
     <script src="compare.js"></script>
 </body>
+
 </html>

@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ==========================================================================
      INICJALIZACJA KOMPONENTÓW UI
      ========================================================================== */
-  
+
   /**
    * Konfiguracja dialogu drzewa genealogicznego
    */
@@ -17,9 +17,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeTreeBtn = document.getElementById("closeTreeBtn");
     const treeDialog = document.getElementById("treeDialog");
     const treeContainer = document.getElementById("treeContainer");
-    
+
     console.log("Inicjalizacja dialogu drzewa:", { closeTreeBtn, treeDialog, treeContainer });
-    
+
     if (closeTreeBtn && !closeTreeBtn.hasAttribute('data-initialized')) {
       closeTreeBtn.addEventListener("click", () => {
         console.log("Zamykanie dialogu drzewa");
@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
       closeTreeBtn.setAttribute('data-initialized', 'true');
-      
+
       // Obsługa klawisza ESC
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && treeDialog && treeDialog.open) {
@@ -37,11 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
           if (treeContainer) treeContainer.innerHTML = "";
         }
       });
-      
+
       console.log("Dialog drzewa zainicjalizowany");
     }
   };
-  
+
   /**
    * Zarządzanie motywem kolorystycznym
    */
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       applyTheme(newTheme);
     });
   };
-  
+
   /**
    * Zarządzanie trybem pełnoekranowym
    */
@@ -81,17 +81,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const icon = fullscreenBtn.querySelector('i');
 
     fullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen();
-        } else if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
     });
 
     document.addEventListener('fullscreenchange', () => {
-        if (icon) {
-            icon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
-        }
+      if (icon) {
+        icon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
+      }
     });
   };
 
@@ -99,11 +99,11 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTreeDialog();
   setupThemeLogic();
   setupFullscreen();
-  
+
   /* ==========================================================================
      WALIDACJA PARAMETRÓW I INICJALIZACJA
      ========================================================================== */
-  
+
   const urlParams = new URLSearchParams(window.location.search);
   const ownerKeys = urlParams.get("owners")?.split(",");
 
@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ==========================================================================
      KONFIGURACJA LINKÓW DO MAPY
      ========================================================================== */
-  
+
   const mapLinkReal = document.getElementById("mapLinkReal");
   const mapLinkProtocol = document.getElementById("mapLinkProtocol");
   const mapLinkBoth = document.getElementById("mapLinkBoth");
@@ -168,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ==========================================================================
      MODAL SKANÓW PROTOKOŁU
      ========================================================================== */
-  
+
   const imageModal = document.getElementById("imageModal");
   const modalImg = document.getElementById("modalImageSrc");
   const prevBtn = document.getElementById("prevImageBtn");
@@ -249,547 +249,403 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   /* ==========================================================================
-     WIZUALIZACJA DRZEWA GENEALOGICZNEGO
+  /* ==========================================================================
+     DRZEWO GENEALOGICZNE
      ========================================================================== */
 
   /**
-   * Rysuje drzewo genealogiczne przy użyciu D3.js
+   * Rysuje drzewo genealogiczne (metoda kart - port z protokol.js)
    */
-  function drawGenealogyTree(treeData) {
-    console.log("=== ROZPOCZĘCIE RYSOWANIA DRZEWA ===");
-    console.log("Otrzymane dane:", treeData);
-    
+  const drawGenealogyTree = (treeData) => {
     // Pobieranie elementów DOM
     const treeDialog = document.getElementById("treeDialog");
     const treeContainer = document.getElementById("treeContainer");
-    
+
     // Walidacja elementów
     if (!treeDialog || !treeContainer) {
       console.error("BŁĄD: Nie znaleziono elementów dialogu", { treeDialog, treeContainer });
       alert("Błąd: Nie można otworzyć drzewa genealogicznego (brak elementów DOM)");
       return;
     }
-    
-    // Walidacja danych wejściowych
-    if (!treeData) {
-      console.error("BŁĄD: Brak danych drzewa");
-      treeContainer.innerHTML = `
-        <div style="padding: 2rem; text-align: center;">
-          <p style="color: red;">Błąd: Nie otrzymano danych drzewa</p>
-        </div>
-      `;
-      treeDialog.showModal();
-      return;
-    }
-    
+
     if (!treeData.persons || treeData.persons.length === 0) {
-      console.warn("Brak osób w drzewie, pokazuję komunikat");
-      treeContainer.innerHTML = `
-        <div style="padding: 2rem; text-align: center;">
-          <p>Brak danych genealogicznych do wyświetlenia</p>
-          <p style="font-size: 0.9em; color: #666;">Dane genealogiczne nie zostały jeszcze wprowadzone dla tego właściciela</p>
-        </div>
-      `;
-      treeDialog.showModal();
+      alert('Brak danych genealogicznych do wyświetlenia');
       return;
     }
 
-    console.log(`Liczba osób w drzewie: ${treeData.persons.length}`);
-    
-    // Czyszczenie kontenera
-    treeContainer.innerHTML = "";
+    // Przygotowanie mapy osób i dzieci
+    const personMap = new Map();
+    const childrenMap = new Map();
 
-    try {
-      // Konfiguracja wymiarów
-      const NODE_WIDTH = 200,
-        NODE_HEIGHT = 120,
-        HORIZONTAL_SPACING = 80,
-        VERTICAL_SPACING = 180,
-        MARRIAGE_LINE_OFFSET = 20,
-        MARGIN = 50,
-        LEGEND_HEIGHT = 120;
+    treeData.persons.forEach(p => {
+      personMap.set(p.id, p);
 
-      // Tworzenie mapy osób
-      const persons = new Map();
-      treeData.persons.forEach((p) => {
-        const personData = {
-          id: p.id,
-          name: p.name || "Nieznana osoba",
-          gender: p.gender || "?",
-          birthYear: p.birthDate?.year,
-          deathYear: p.deathDate?.year,
-          fatherId: p.fatherId,
-          motherId: p.motherId,
-          spouseIds: p.spouseIds || [],
-          protocolKey: p.protocolKey,
-          notes: p.notes,
-          houseNumber: p.houseNumber,
-          isRoot: p.id === treeData.rootId,
-        };
-        persons.set(p.id, personData);
-        console.log(`Dodano osobę: ${personData.name} (ID: ${personData.id})`);
-      });
-
-      /**
-       * Oblicza poziomy generacji
-       */
-      function calculateGenerations() {
-        const generations = new Map();
-        
-        function assignGeneration(personId, level) {
-          const current = generations.get(personId);
-          if (current !== undefined && current >= level) return;
-          
-          generations.set(personId, level);
-          const person = persons.get(personId);
-          if (!person) return;
-          
-          // Małżonkowie - ten sam poziom
-          (person.spouseIds || []).forEach((spId) =>
-            assignGeneration(spId, level)
-          );
-          
-          // Dzieci - następny poziom
-          persons.forEach((child) => {
-            if (child.fatherId === personId || child.motherId === personId) {
-              assignGeneration(child.id, level + 1);
-            }
-          });
-        }
-        
-        // Start od osób bez rodziców
-        persons.forEach((p, id) => {
-          if (!p.fatherId && !p.motherId) {
-            assignGeneration(id, 0);
-          }
-        });
-        
-        return generations;
+      // Buduj mapę dzieci
+      if (p.fatherId) {
+        if (!childrenMap.has(p.fatherId)) childrenMap.set(p.fatherId, []);
+        childrenMap.get(p.fatherId).push(p.id);
       }
-
-      /**
-       * Tworzy grupy małżeńskie
-       */
-      function createMarriageGroups() {
-        const marriages = new Map();
-        const processed = new Set();
-        
-        persons.forEach((person, id) => {
-          if (processed.has(id)) return;
-          
-          const spouses = person.spouseIds.filter((spouseId) =>
-            persons.has(spouseId)
-          );
-          
-          if (spouses.length > 0) {
-            spouses.forEach((spouseId) => {
-              if (!processed.has(spouseId)) {
-                const marriageKey = [id, spouseId].sort().join("-");
-                marriages.set(marriageKey, {
-                  person1: person,
-                  person2: persons.get(spouseId),
-                  id: `marriage-${marriageKey}`,
-                });
-                processed.add(id);
-                processed.add(spouseId);
-              }
-            });
-          }
-        });
-        
-        return marriages;
+      if (p.motherId) {
+        if (!childrenMap.has(p.motherId)) childrenMap.set(p.motherId, []);
+        childrenMap.get(p.motherId).push(p.id);
       }
+    });
 
-      // Obliczanie układu drzewa
-      console.log("Obliczanie generacji...");
-      const generations = calculateGenerations();
-      const marriages = createMarriageGroups();
-      const generationGroups = new Map();
-
-      // Grupowanie według generacji
-      persons.forEach((person, id) => {
-        const gen = generations.get(id) || 0;
-        if (!generationGroups.has(gen)) {
-          generationGroups.set(gen, []);
-        }
-        generationGroups.get(gen).push({ ...person, generation: gen });
-      });
-
-      const sortedGenerations = Array.from(generationGroups.entries()).sort(
-        (a, b) => a[0] - b[0]
-      );
-      
-      console.log(`Liczba generacji: ${sortedGenerations.length}`);
-
-      // Obliczanie pozycji węzłów
-      const nodePositions = new Map();
-      let maxWidth = 0;
-
-      sortedGenerations.forEach(([genLevel, personsInGen], genIndex) => {
-        const arranged = [];
-        const processed = new Set();
-
-        // Układanie małżeństw
-        marriages.forEach((marriage) => {
-          const p1Gen = generations.get(marriage.person1.id);
-          const p2Gen = generations.get(marriage.person2.id);
-          
-          if (p1Gen === genLevel && p2Gen === genLevel) {
-            arranged.push({
-              type: "marriage",
-              persons: [marriage.person1, marriage.person2],
-              width: NODE_WIDTH * 2 + MARRIAGE_LINE_OFFSET,
-            });
-            processed.add(marriage.person1.id);
-            processed.add(marriage.person2.id);
-          }
-        });
-
-        // Układanie pojedynczych osób
-        personsInGen.forEach((person) => {
-          if (!processed.has(person.id)) {
-            arranged.push({
-              type: "single",
-              persons: [person],
-              width: NODE_WIDTH,
-            });
-          }
-        });
-
-        // Obliczanie pozycji
-        const totalWidth =
-          arranged.reduce((sum, group) => sum + group.width + HORIZONTAL_SPACING, 0) - HORIZONTAL_SPACING;
-        
-        if (totalWidth > maxWidth) maxWidth = totalWidth;
-
-        let currentX = MARGIN;
-        const y = MARGIN + LEGEND_HEIGHT + genIndex * (NODE_HEIGHT + VERTICAL_SPACING);
-
-        arranged.forEach((group) => {
-          if (group.type === "marriage") {
-            nodePositions.set(group.persons[0].id, {
-              x: currentX,
-              y: y,
-              person: group.persons[0],
-            });
-            nodePositions.set(group.persons[1].id, {
-              x: currentX + NODE_WIDTH + MARRIAGE_LINE_OFFSET,
-              y: y,
-              person: group.persons[1],
-            });
-          } else {
-            nodePositions.set(group.persons[0].id, {
-              x: currentX,
-              y: y,
-              person: group.persons[0],
-            });
-          }
-          currentX += group.width + HORIZONTAL_SPACING;
-        });
-      });
-
-      // Wymiary SVG
-      const svgWidth = Math.max(maxWidth + 2 * MARGIN, 1000);
-      const svgHeight = MARGIN + LEGEND_HEIGHT + sortedGenerations.length * (NODE_HEIGHT + VERTICAL_SPACING) + MARGIN;
-      
-      console.log(`Wymiary SVG: ${svgWidth}x${svgHeight}`);
-
-      // Tworzenie SVG z D3.js
-      const svg = d3
-        .create("svg")
-        .attr("width", "100%")
-        .attr("height", "100%")
-        .attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`)
-        .style("background", "#fafafa")
-        .call(
-          d3.zoom()
-            .scaleExtent([0.1, 3])
-            .on("zoom", (event) => g.attr("transform", event.transform))
-        );
-      
-      const g = svg.append("g");
-
-      /**
-       * Tworzy połączenia rodzic-dziecko
-       */
-      function createParentChildConnections() {
-        const connections = [];
-        
-        nodePositions.forEach((childPos, childId) => {
-          const child = childPos.person;
-          const fatherPos = child.fatherId ? nodePositions.get(child.fatherId) : null;
-          const motherPos = child.motherId ? nodePositions.get(child.motherId) : null;
-
-          if (fatherPos || motherPos) {
-            let parentCenterX, parentY;
-
-            // Obliczanie punktu wyjścia
-            if (fatherPos && motherPos) {
-              parentCenterX = (fatherPos.x + NODE_WIDTH / 2 + motherPos.x + NODE_WIDTH / 2) / 2;
-              parentY = Math.max(fatherPos.y, motherPos.y) + NODE_HEIGHT;
-            } else if (fatherPos) {
-              parentCenterX = fatherPos.x + NODE_WIDTH / 2;
-              parentY = fatherPos.y + NODE_HEIGHT;
-            } else {
-              parentCenterX = motherPos.x + NODE_WIDTH / 2;
-              parentY = motherPos.y + NODE_HEIGHT;
-            }
-
-            // Tworzenie ścieżki
-            const childCenterX = childPos.x + NODE_WIDTH / 2;
-            const childY = childPos.y;
-            const midY = parentY + (childY - parentY) / 2;
-
-            connections.push({
-              path: `M${parentCenterX},${parentY} L${parentCenterX},${midY} L${childCenterX},${midY} L${childCenterX},${childY}`,
-              type: "parent-child",
-            });
-          }
-        });
-        
-        return connections;
-      }
-
-      // Rysowanie połączeń rodzic-dziecko
-      const parentChildConnections = createParentChildConnections();
-      console.log(`Liczba połączeń rodzic-dziecko: ${parentChildConnections.length}`);
-      
-      g.selectAll(".parent-child-connection")
-        .data(parentChildConnections)
-        .enter()
-        .append("path")
-        .attr("class", "parent-child-connection")
-        .attr("d", (d) => d.path)
-        .attr("stroke", "#666")
-        .attr("stroke-width", 2)
-        .attr("fill", "none")
-        .attr("stroke-dasharray", "5,5");
-
-      // Rysowanie linii małżeńskich
-      console.log(`Liczba małżeństw: ${marriages.size}`);
-      
-      marriages.forEach((marriage) => {
-        const pos1 = nodePositions.get(marriage.person1.id);
-        const pos2 = nodePositions.get(marriage.person2.id);
-        
-        if (pos1 && pos2 && Math.abs(pos1.y - pos2.y) < 10) {
-          // Linia małżeńska
-          g.append("line")
-            .attr("class", "marriage-line")
-            .attr("x1", pos1.x + NODE_WIDTH)
-            .attr("y1", pos1.y + NODE_HEIGHT / 2)
-            .attr("x2", pos2.x)
-            .attr("y2", pos2.y + NODE_HEIGHT / 2)
-            .attr("stroke", "#e74c3c")
-            .attr("stroke-width", 4);
-          
-          // Symbol małżeństwa
-          g.append("text")
-            .attr("x", (pos1.x + NODE_WIDTH + pos2.x) / 2)
-            .attr("y", pos1.y + NODE_HEIGHT / 2 - 8)
-            .attr("text-anchor", "middle")
-            .attr("font-size", "20px")
-            .attr("fill", "#e74c3c")
-            .text("💕");
-        }
-      });
-
-      // Tworzenie węzłów osób
-      const nodeGroups = g
-        .selectAll(".person-node")
-        .data(Array.from(nodePositions.entries()))
-        .enter()
-        .append("g")
-        .attr("class", "person-node")
-        .attr("transform", (d) => `translate(${d[1].x}, ${d[1].y})`);
-
-      // Prostokąty węzłów
-      nodeGroups
-        .append("rect")
-        .attr("width", NODE_WIDTH)
-        .attr("height", NODE_HEIGHT)
-        .attr("rx", 10)
-        .attr("ry", 10)
-        .attr("fill", (d) => {
-          const person = d[1].person;
-          if (person.isRoot) return "#ffeb3b";
-          return person.gender === "M" ? "#e3f2fd" : "#fce4ec";
-        })
-        .attr("stroke", (d) => {
-          const person = d[1].person;
-          if (person.isRoot) return "#f57f17";
-          return person.gender === "M" ? "#1976d2" : "#c2185b";
-        })
-        .attr("stroke-width", (d) => (d[1].person.isRoot ? 3 : 2))
-        .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
-
-      // Imiona i nazwiska
-      nodeGroups
-        .append("text")
-        .attr("x", NODE_WIDTH / 2)
-        .attr("y", 25)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "14px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text((d) => d[1].person.name);
-
-      // Lata życia
-      nodeGroups
-        .append("text")
-        .attr("x", NODE_WIDTH / 2)
-        .attr("y", 50)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "12px")
-        .attr("fill", "#666")
-        .text((d) => {
-          const p = d[1].person;
-          const b = p.birthYear;
-          const dth = p.deathYear;
-          if (b && dth) return `${b} - ${dth}`;
-          if (b) return `ur. ${b}`;
-          if (dth) return `zm. ${dth}`;
-          return "";
-        });
-
-      // Numer domu
-      nodeGroups
-        .append("text")
-        .attr("x", NODE_WIDTH / 2)
-        .attr("y", 70)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "11px")
-        .attr("fill", "#888")
-        .text((d) => d[1].person.houseNumber ? `Dom: ${d[1].person.houseNumber}` : "");
-
-      // Link do protokołu
-      nodeGroups
-        .filter((d) => d[1].person.protocolKey && !d[1].person.isRoot)
-        .append("g")
-        .attr("class", "protocol-link")
-        .style("cursor", "pointer")
-        .on("click", (event, d) => {
-          window.open(`../wlasciciele/protokol.html?ownerId=${d[1].person.protocolKey}`, "_blank");
-        })
-        .append("text")
-        .attr("x", NODE_WIDTH / 2)
-        .attr("y", NODE_HEIGHT - 15)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "10px")
-        .attr("fill", "#007bff")
-        .attr("text-decoration", "underline")
-        .text("📜 Zobacz protokół");
-
-      // Symbol płci
-      nodeGroups
-        .append("text")
-        .attr("x", NODE_WIDTH - 20)
-        .attr("y", 25)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "18px")
-        .text((d) => (d[1].person.gender === "M" ? "♂" : "♀"))
-        .attr("fill", (d) => (d[1].person.gender === "M" ? "#1976d2" : "#c2185b"));
-
-      // Tworzenie legendy
-      const legend = g
-        .append("g")
-        .attr("class", "legend")
-        .attr("transform", `translate(${MARGIN}, ${MARGIN})`);
-
-      // Tło legendy
-      legend
-        .append("rect")
-        .attr("width", 350)
-        .attr("height", LEGEND_HEIGHT - 20)
-        .attr("fill", "white")
-        .attr("stroke", "#ccc")
-        .attr("stroke-width", 2)
-        .attr("rx", 8)
-        .attr("ry", 8)
-        .style("filter", "drop-shadow(0 2px 4px rgba(0,0,0,0.1))");
-
-      // Tytuł legendy
-      legend
-        .append("text")
-        .attr("x", 15)
-        .attr("y", 20)
-        .attr("font-size", "14px")
-        .attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text("Legenda:");
-
-      // Elementy legendy
-      const legendItems = [
-        { text: "💕 - Małżeństwo", y: 35 },
-        { text: "📜 - Kliknij aby zobaczyć protokół", y: 50 },
-        { text: "♂ - Mężczyzna, ♀ - Kobieta", y: 65 },
-        { text: "Żółte tło - główna osoba protokołu", y: 80 },
-      ];
-
-      legendItems.forEach((item) => {
-        legend
-          .append("text")
-          .attr("x", 15)
-          .attr("y", item.y)
-          .attr("font-size", "11px")
-          .attr("fill", "#555")
-          .text(item.text);
-      });
-
-      // Dodanie SVG do kontenera
-      console.log("Dodawanie SVG do kontenera...");
-      treeContainer.appendChild(svg.node());
-      
-      // Pokazanie dialogu
-      console.log("Otwieranie dialogu...");
-      try {
-        treeDialog.showModal();
-        console.log("Dialog otwarty pomyślnie");
-      } catch (e) {
-        console.error("Błąd przy otwieraniu dialogu:", e);
-        // Fallback dla starszych przeglądarek
-        treeDialog.style.display = "block";
-      }
-      
-      console.log("=== DRZEWO NARYSOWANE POMYŚLNIE ===");
-      
-    } catch (error) {
-      console.error("BŁĄD podczas rysowania drzewa:", error);
-      console.error("Stack trace:", error.stack);
-      
-      // Komunikat o błędzie
-      treeContainer.innerHTML = `
-        <div style="padding: 2rem; text-align: center; color: red;">
-          <h3>Wystąpił błąd podczas rysowania drzewa</h3>
-          <p>${error.message}</p>
-          <details style="margin-top: 1rem;">
-            <summary>Szczegóły techniczne</summary>
-            <pre style="text-align: left; background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow: auto;">
-${error.stack}
-            </pre>
-          </details>
-        </div>
-      `;
-      
-      // Próba otwarcia dialogu mimo błędu
-      try {
-        treeDialog.showModal();
-      } catch (e) {
-        treeDialog.style.display = "block";
-      }
+    // Znajdź osobę główną (root)
+    const rootPerson = personMap.get(treeData.rootId);
+    if (!rootPerson) {
+      alert('Nie znaleziono osoby głównej');
+      return;
     }
-  }
+
+    // Pomocnicze funkcje
+    const getParentRole = (p) => p?.gender === 'M' ? 'Ojciec' : (p?.gender === 'F' ? 'Matka' : 'Rodzic');
+    const getGrandparentRole = (p) => p?.gender === 'M' ? 'Dziadek' : (p?.gender === 'F' ? 'Babcia' : 'Dziadek/Babcia');
+    const formatYears = (p) => {
+      if (!p) return '';
+      const birth = p.birthDate?.year || '?';
+      const death = p.deathDate?.year || '?';
+      return `${birth} - ${death}`;
+    };
+
+    // Zbierz rodzinę
+    const father = personMap.get(rootPerson.fatherId);
+    const mother = personMap.get(rootPerson.motherId);
+
+    const parents = [];
+    if (father) parents.push({ role: getParentRole(father), ...father });
+    if (mother) parents.push({ role: getParentRole(mother), ...mother });
+
+    // Dziadkowie
+    const grandparentsFather = [];
+    const grandparentsMother = [];
+
+    if (father) {
+      const gf = personMap.get(father.fatherId);
+      const gm = personMap.get(father.motherId);
+      if (gf) grandparentsFather.push({ role: getGrandparentRole(gf), ...gf });
+      if (gm) grandparentsFather.push({ role: getGrandparentRole(gm), ...gm });
+    }
+    if (mother) {
+      const gf = personMap.get(mother.fatherId);
+      const gm = personMap.get(mother.motherId);
+      if (gf) grandparentsMother.push({ role: getGrandparentRole(gf), ...gf });
+      if (gm) grandparentsMother.push({ role: getGrandparentRole(gm), ...gm });
+    }
+
+    // Małżonkowie
+    const spouses = (rootPerson.spouseIds || [])
+      .map(sid => personMap.get(sid))
+      .filter(s => s)
+      .map(s => ({ role: 'Małżonek', ...s }));
+
+    // Dzieci
+    const children = (childrenMap.get(rootPerson.id) || [])
+      .map(cid => personMap.get(cid))
+      .filter(c => c)
+      .map(c => ({ role: 'Dziecko', ...c }));
+
+    // Rodzeństwo
+    const siblingIds = new Set();
+    if (rootPerson.fatherId) {
+      (childrenMap.get(rootPerson.fatherId) || []).forEach(id => {
+        if (id !== rootPerson.id) siblingIds.add(id);
+      });
+    }
+    if (rootPerson.motherId) {
+      (childrenMap.get(rootPerson.motherId) || []).forEach(id => {
+        if (id !== rootPerson.id) siblingIds.add(id);
+      });
+    }
+    const siblings = Array.from(siblingIds)
+      .map(sid => personMap.get(sid))
+      .filter(s => s)
+      .map(s => ({ role: 'Rodzeństwo', ...s }));
+
+    // Renderowanie węzła drzewa
+    const renderTreeNode = (person, isRoot = false, showRole = true) => {
+      if (!person) return '';
+      const bgColor = isRoot ? '#fff3cd' : (person.gender === 'M' ? '#e3f2fd' : '#fce4ec');
+      const borderColor = isRoot ? '#f57f17' : (person.gender === 'M' ? '#1976d2' : '#c2185b');
+
+      return `
+            <div class="tree-node" style="
+                background: ${bgColor}; 
+                border: 2px solid ${borderColor}; 
+                border-radius: 10px; 
+                padding: 0.75rem 1rem;
+                min-width: 140px;
+                max-width: 180px;
+                text-align: center;
+                cursor: ${person.protocolKey ? 'pointer' : 'default'};
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            " 
+            onclick="${person.protocolKey ? `window.open('../wlasciciele/protokol.html?ownerId=${person.protocolKey}', '_blank')` : ''}"
+            title="${person.protocolKey ? 'Kliknij aby otworzyć protokół' : person.name}">
+                ${showRole && person.role ? `<div style="font-size: 0.6rem; text-transform: uppercase; color: #888; margin-bottom: 0.2rem;">${person.role}</div>` : ''}
+                <div style="font-weight: 700; font-size: 0.85rem; color: #333;">
+                    ${person.name}
+                </div>
+                <div style="font-size: 0.7rem; color: #666; margin-top: 0.2rem;">
+                    ${formatYears(person)}
+                </div>
+                ${person.protocolKey ? '<div style="font-size: 0.65rem; color: #007bff; margin-top: 0.2rem;">📜</div>' : ''}
+            </div>
+        `;
+    };
+
+    // CSS dla linii drzewa
+    const treeStyles = `
+        <style>
+            .tree-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+                padding: 1.5rem;
+                min-width: max-content;
+            }
+            .tree-scroll-wrapper {
+                height: 100%;
+                width: 100%;
+                padding: 1rem;
+                box-sizing: border-box;
+            }
+            .tree-level {
+                display: flex;
+                justify-content: center;
+                gap: 2rem;
+                position: relative;
+            }
+            .tree-connector-down {
+                width: 2px;
+                height: 30px;
+                background: #ccc;
+                margin: 0 auto;
+            }
+            .tree-pair {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .tree-pair-connector {
+                width: 30px;
+                height: 2px;
+                background: #e74c3c;
+                position: relative;
+            }
+            .tree-pair-connector::after {
+                content: '💕';
+                position: absolute;
+                top: -10px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 14px;
+            }
+            .tree-branch {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .tree-main-column {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .tree-with-siblings {
+                display: flex;
+                align-items: flex-start;
+                gap: 2rem;
+            }
+            .tree-siblings-section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                opacity: 0.8;
+                padding-top: 1.5rem;
+            }
+            .tree-siblings-grid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+                max-width: 400px;
+                justify-content: center;
+            }
+            .tree-children {
+                display: flex;
+                justify-content: center;
+                gap: 1rem;
+                position: relative;
+                padding-top: 30px;
+                flex-wrap: wrap;
+            }
+            .tree-children::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 50%;
+                width: 2px;
+                height: 15px;
+                background: #ccc;
+            }
+            .tree-children-connector {
+                position: absolute;
+                top: 15px;
+                height: 2px;
+                background: #ccc;
+            }
+            .tree-child-branch {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .tree-child-branch::before {
+                content: '';
+                width: 2px;
+                height: 15px;
+                background: #ccc;
+            }
+            .generation-label {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: #888;
+                margin: 1rem 0 0.5rem;
+                font-weight: 700;
+            }
+            .section-label {
+                font-size: 0.6rem;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                color: #999;
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+            }
+        </style>
+    `;
+
+    // Generowanie HTML drzewa
+    let treeHTML = treeStyles + '<div class="tree-scroll-wrapper"><div class="tree-container">';
+
+    // POKOLENIE 1: Dziadkowie
+    if (grandparentsFather.length > 0 || grandparentsMother.length > 0) {
+      treeHTML += '<div class="generation-label">Dziadkowie</div>';
+      treeHTML += '<div class="tree-level" style="gap: 4rem;">';
+
+      if (grandparentsFather.length > 0) {
+        treeHTML += '<div class="tree-branch"><div style="font-size: 0.6rem; color: #888; margin-bottom: 0.25rem;">od ojca</div><div class="tree-pair">';
+        grandparentsFather.forEach((gp, i) => {
+          if (i > 0) treeHTML += '<div class="tree-pair-connector"></div>';
+          treeHTML += renderTreeNode(gp, false, false);
+        });
+        treeHTML += '</div></div>';
+      }
+
+      if (grandparentsMother.length > 0) {
+        treeHTML += '<div class="tree-branch"><div style="font-size: 0.6rem; color: #888; margin-bottom: 0.25rem;">od matki</div><div class="tree-pair">';
+        grandparentsMother.forEach((gp, i) => {
+          if (i > 0) treeHTML += '<div class="tree-pair-connector"></div>';
+          treeHTML += renderTreeNode(gp, false, false);
+        });
+        treeHTML += '</div></div>';
+      }
+
+      treeHTML += '</div>';
+      treeHTML += '<div class="tree-connector-down"></div>';
+    }
+
+    // POKOLENIE 2: Rodzice
+    if (parents.length > 0) {
+      treeHTML += '<div class="generation-label">Rodzice</div>';
+      treeHTML += '<div class="tree-level"><div class="tree-pair">';
+      parents.forEach((p, i) => {
+        if (i > 0) treeHTML += '<div class="tree-pair-connector"></div>';
+        treeHTML += renderTreeNode(p);
+      });
+      treeHTML += '</div></div>';
+      treeHTML += '<div class="tree-connector-down"></div>';
+    }
+
+    // POKOLENIE 3: Layout z rodzeństwem po bokach
+    treeHTML += '<div class="tree-with-siblings">';
+
+    // Rodzeństwo po LEWEJ stronie
+    if (siblings.length > 0) {
+      treeHTML += '<div class="tree-siblings-section">';
+      treeHTML += '<div class="section-label">Rodzeństwo</div>';
+      treeHTML += '<div class="tree-siblings-grid">';
+      siblings.forEach(s => {
+        treeHTML += renderTreeNode(s);
+      });
+      treeHTML += '</div></div>';
+    }
+
+    // GŁÓWNA KOLUMNA: Osoba + Małżonek + Dzieci
+    treeHTML += '<div class="tree-main-column">';
+    treeHTML += '<div class="generation-label">Główna osoba</div>';
+
+    // Główna osoba z małżonkiem
+    treeHTML += '<div class="tree-pair">';
+    treeHTML += renderTreeNode(rootPerson, true);
+    if (spouses.length > 0) {
+      treeHTML += '<div class="tree-pair-connector"></div>';
+      treeHTML += renderTreeNode(spouses[0]);
+    }
+    treeHTML += '</div>';
+
+    // Dzieci - BEZPOŚREDNIO POD główną osobą
+    if (children.length > 0) {
+      treeHTML += '<div class="tree-connector-down"></div>';
+      treeHTML += '<div class="generation-label">Dzieci</div>';
+      treeHTML += '<div class="tree-children">';
+
+      if (children.length > 1) {
+        const childWidth = 160;
+        const connectorWidth = (children.length - 1) * childWidth;
+        treeHTML += `<div class="tree-children-connector" style="width: ${connectorWidth}px; left: calc(50% - ${connectorWidth / 2}px);"></div>`;
+      }
+
+      children.forEach(child => {
+        treeHTML += '<div class="tree-child-branch">';
+        treeHTML += renderTreeNode(child);
+        treeHTML += '</div>';
+      });
+      treeHTML += '</div>';
+    }
+
+    treeHTML += '</div>'; // koniec tree-main-column
+    treeHTML += '</div>'; // koniec tree-with-siblings
+
+
+
+    treeHTML += '</div></div>'; // koniec tree-container i scroll-wrapper
+    treeContainer.innerHTML = treeHTML;
+
+    // Aktualizacja legendy w nagłówku
+    const dialogTitle = treeDialog.querySelector('.dialog-header h3');
+    if (dialogTitle) {
+      dialogTitle.innerHTML = `<i class="fas fa-sitemap"></i> Drzewo Genealogiczne <span style="font-size: 0.7rem; font-weight: normal; margin-left: 15px; color: #e0e0e0;">(Legenda: 💙 Mężczyzna | 💗 Kobieta | 💛 Właściciel | 💕 Małżeństwo)</span>`;
+    }
+
+    // Wyświetlenie dialogu
+    if (treeDialog.showModal) {
+      treeDialog.showModal();
+    } else {
+      treeDialog.setAttribute('open', '');
+    }
+  };
 
   /* ==========================================================================
      FUNKCJE POMOCNICZE
      ========================================================================== */
-  
+
   /**
    * Generuje HTML dla formatowania ułamków
    */
   const generateFractionHTML = (txt) => {
     if (!txt) return "";
-    
+
     return String(txt)
       .replace(
         /(\d+)\/(\d+)/g,
@@ -890,7 +746,7 @@ ${error.stack}
 
     // Oczekiwanie na stabilność renderowania
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    if (document.fonts?.ready) { try { await document.fonts.ready; } catch(e) {} }
+    if (document.fonts?.ready) { try { await document.fonts.ready; } catch (e) { } }
     await new Promise(r => setTimeout(r, 50));
 
     // Konfiguracja PDF
@@ -1140,7 +996,7 @@ ${error.stack}
     const numbersDiv = summaryEl.querySelector(".plot-numbers");
     const summaryDiv = summaryEl.querySelector(".plot-summary");
     const detailsList = plotsSection.querySelector(".plot-details-list");
-    
+
     // Lista numerów działek
     numbersDiv.innerHTML = plots
       .map((p) => generateFractionHTML(p.nazwa_lub_numer))
@@ -1216,16 +1072,16 @@ ${error.stack}
     // Przełącznik widoków
     const switcher = colEl.querySelector(".view-switcher");
     const switchBtns = switcher.querySelectorAll(".switch-btn");
-    
+
     switchBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         const view = btn.dataset.view;
         const uid = switcher.dataset.targetId;
-        
+
         colEl.querySelectorAll(".view-container").forEach((v) => v.classList.add("hidden"));
         const targetView = colEl.querySelector(`#view-${view}-${uid}`);
         if (targetView) targetView.classList.remove("hidden");
-        
+
         switchBtns.forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
       });
@@ -1237,12 +1093,12 @@ ${error.stack}
         const targetId = btn.dataset.target;
         const targetEl = document.getElementById(targetId);
         const icon = btn.querySelector('i');
-        
+
         if (targetEl) {
           targetEl.classList.toggle('hidden');
           if (icon) {
-            icon.className = targetEl.classList.contains('hidden') 
-              ? 'fas fa-chevron-down' 
+            icon.className = targetEl.classList.contains('hidden')
+              ? 'fas fa-chevron-down'
               : 'fas fa-chevron-up';
           }
         }
@@ -1270,13 +1126,13 @@ ${error.stack}
     const treeBtn = colEl.querySelector(`#showTreeBtn-${data.unikalny_klucz}`);
     if (treeBtn) {
       console.log(`Znaleziono przycisk drzewa dla ${data.unikalny_klucz}`);
-      
+
       treeBtn.addEventListener("click", () => {
         console.log(`Kliknięto przycisk drzewa dla ${data.unikalny_klucz}`);
-        
+
         treeBtn.disabled = true;
         treeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ładowanie...';
-        
+
         fetch(`/api/genealogia/${data.unikalny_klucz}`)
           .then((r) => {
             console.log(`Odpowiedź API dla ${data.unikalny_klucz}:`, r.status);
@@ -1289,11 +1145,11 @@ ${error.stack}
           })
           .catch((err) => {
             console.error(`Błąd ładowania drzewa dla ${data.unikalny_klucz}:`, err);
-            
+
             // Komunikat o błędzie w dialogu
             const treeDialog = document.getElementById("treeDialog");
             const treeContainer = document.getElementById("treeContainer");
-            
+
             if (treeDialog && treeContainer) {
               treeContainer.innerHTML = `
                 <div style="padding: 2rem; text-align: center;">
@@ -1332,7 +1188,7 @@ ${error.stack}
   /* ==========================================================================
      GŁÓWNA LOGIKA - POBIERANIE I WYŚWIETLANIE DANYCH
      ========================================================================== */
-  
+
   // Wyświetlenie spinnera ładowania
   showLoadingSpinner();
 
@@ -1374,7 +1230,7 @@ ${error.stack}
       const maDzialkiRzeczywiste =
         data1.dzialki_wszystkie?.some((p) => p.typ_posiadania === "własność rzeczywista") ||
         data2.dzialki_wszystkie?.some((p) => p.typ_posiadania === "własność rzeczywista");
-      
+
       const maDzialkiProtokol =
         data1.dzialki_wszystkie?.some((p) => p.typ_posiadania !== "własność rzeczywista") ||
         data2.dzialki_wszystkie?.some((p) => p.typ_posiadania !== "własność rzeczywista");
@@ -1382,7 +1238,7 @@ ${error.stack}
       // Pokazanie odpowiednich przycisków nawigacji
       if (maDzialkiRzeczywiste && mapLinkReal) mapLinkReal.classList.remove("hidden");
       if (maDzialkiProtokol && mapLinkProtocol) mapLinkProtocol.classList.remove("hidden");
-      if (maDzialkiRzeczywiste && maDzialkiProtokol && mapLinkBoth) 
+      if (maDzialkiRzeczywiste && maDzialkiProtokol && mapLinkBoth)
         mapLinkBoth.classList.remove("hidden");
     })
     .catch((error) => {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
     <!-- ==========================================================================
          METADANE I KONFIGURACJA
@@ -22,7 +23,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Arkusz stylów aplikacji -->
     <link rel="stylesheet" href="protokol_styles.css">
-    
+
     <!-- ==========================================================================
          BIBLIOTEKI JAVASCRIPT
          ========================================================================== -->
@@ -33,17 +34,18 @@
     <!-- D3.js - wizualizacja drzewa genealogicznego -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
+
 <body>
     <!-- ==========================================================================
          WARSTWA TŁA
          ========================================================================== -->
     <div class="background-gradient"></div>
-    
+
     <!-- ==========================================================================
          GŁÓWNY KONTENER APLIKACJI
          ========================================================================== -->
     <div id="app-wrapper">
-        
+
         <!-- ==========================================================================
              NAGŁÓWEK APLIKACJI
              ========================================================================== -->
@@ -59,7 +61,7 @@
                         L.p. <span id="orderNumber">—</span>
                     </div>
                 </div>
-                
+
                 <!-- Prawa strona nagłówka - przyciski akcji -->
                 <div class="header-right">
                     <button id="downloadPdfBtn" class="header-btn" title="Pobierz PDF">
@@ -84,12 +86,12 @@
                 </div>
             </div>
         </header>
-        
+
         <!-- ==========================================================================
              GŁÓWNA ZAWARTOŚĆ PROTOKOŁU
              ========================================================================== -->
         <main class="main-content">
-            
+
             <!-- Sekcja tytułowa protokołu -->
             <div class="protocol-title-section">
                 <h2 class="protocol-main-title">
@@ -101,12 +103,12 @@
                     <span><i class="fas fa-map-marker-alt"></i> <span id="protocolLocation">—</span></span>
                 </div>
             </div>
-            
+
             <!-- ==========================================================================
                  KARTY Z DANYMI PROTOKOŁU
                  ========================================================================== -->
             <div class="content-container">
-                
+
                 <!-- KARTA: Dane właściciela -->
                 <div class="content-card owner-card-section">
                     <div class="card-header">
@@ -116,12 +118,12 @@
                         <div class="owner-info" id="ownerName">
                             <!-- Dynamicznie generowane przez JavaScript -->
                         </div>
-                        <button id="showHouseOnMapBtn" class="action-btn map-btn hidden">
+                        <button id="showHouseOnMapBtn" class="action-btn map-btn hidden" style="margin-top: 1.5rem;">
                             <i class="fas fa-home"></i> Pokaż dom na mapie
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- KARTA: Genealogia -->
                 <div class="content-card genealogy-section hidden" id="genealogySection">
                     <div class="card-header">
@@ -131,12 +133,12 @@
                         <div class="info-content" id="genealogy">
                             <!-- Dynamicznie generowane przez JavaScript -->
                         </div>
-                        <button id="showTreeBtn" class="action-btn tree-btn hidden">
+                        <button id="showTreeBtn" class="action-btn tree-btn hidden" style="margin-top: 1.5rem;">
                             <i class="fas fa-project-diagram"></i> Pokaż drzewo genealogiczne
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- PRZEŁĄCZNIK: Widoki działek -->
                 <div class="view-switcher hidden">
                     <button id="btn-view-rzeczywiste" class="switch-btn active" data-view="rzeczywiste">
@@ -146,7 +148,7 @@
                         <i class="fas fa-file-alt"></i> Stan wg Protokołu
                     </button>
                 </div>
-                
+
                 <!-- WIDOK: Stan rzeczywisty działek -->
                 <div id="view-rzeczywiste" class="view-container">
                     <div class="content-card plots-section">
@@ -167,7 +169,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- WIDOK: Stan protokołu działek -->
                 <div id="view-protokol" class="view-container hidden">
                     <div class="content-card plots-section">
@@ -208,7 +210,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- KARTA: Treść protokołu -->
                 <div class="content-card protocol-content-section">
                     <div class="card-header">
@@ -220,11 +222,11 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- ==========================================================================
                      SEKCJE OPCJONALNE (wyświetlane warunkowo)
                      ========================================================================== -->
-                
+
                 <!-- KARTA: Współwłasność -->
                 <div class="content-card hidden" id="wspolwlasnoscSection">
                     <div class="card-header">
@@ -236,7 +238,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- KARTA: Powiązania i transakcje -->
                 <div class="content-card hidden" id="powiazaniaTransakcjeSection">
                     <div class="card-header">
@@ -248,7 +250,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- KARTA: Interpretacja i wnioski -->
                 <div class="content-card hidden" id="interpretacjaWnioskiSection">
                     <div class="card-header">
@@ -260,10 +262,10 @@
                         </div>
                     </div>
                 </div>
-                
+
             </div>
         </main>
-        
+
         <!-- ==========================================================================
              STOPKA APLIKACJI
              ========================================================================== -->
@@ -273,7 +275,7 @@
             </div>
         </footer>
     </div>
-    
+
     <!-- ==========================================================================
          MODAL: Przeglądarka skanów protokołu
          ========================================================================== -->
@@ -293,7 +295,7 @@
             </button>
         </div>
     </div>
-    
+
     <!-- ==========================================================================
          DIALOG: Drzewo genealogiczne
          ========================================================================== -->
@@ -308,10 +310,11 @@
             <!-- Wizualizacja renderowana przez D3.js -->
         </div>
     </dialog>
-    
+
     <!-- ==========================================================================
          SKRYPT GŁÓWNY
          ========================================================================== -->
     <script src="protokol.js"></script>
 </body>
+
 </html>
