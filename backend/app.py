@@ -1947,8 +1947,8 @@ def get_genealogy_persons_format():
     """)
     wszystkie_osoby = cur.fetchall()
 
-    # Pobierz wszystkie małżeństwa
-    cur.execute("SELECT malzonek1_id, malzonek2_id FROM malzenstwa;")
+    # Pobierz wszystkie małżeństwa z rokiem
+    cur.execute("SELECT malzonek1_id, malzonek2_id, rok_slubu FROM malzenstwa;")
     wszystkie_malzenstwa = cur.fetchall()
 
     cur.close()
@@ -1957,14 +1957,24 @@ def get_genealogy_persons_format():
     # Stwórz mapę db_id -> json_id
     db_id_to_json_id = {p['id']: p['json_id'] for p in wszystkie_osoby}
     
-    # Stwórz mapę współmałżonków
+    # Stwórz mapę współmałżonków (lista ID)
     spouse_map = {}
+    # Stwórz mapę małżeństw z datami (dla osi czasu)
+    marriages_map = {}
+    
     for marriage in wszystkie_malzenstwa:
         id1, id2 = marriage['malzonek1_id'], marriage['malzonek2_id']
+        rok = marriage.get('rok_slubu')
         json_id1, json_id2 = db_id_to_json_id.get(id1), db_id_to_json_id.get(id2)
         if json_id1 and json_id2:
             spouse_map.setdefault(id1, []).append(json_id2)
             spouse_map.setdefault(id2, []).append(json_id1)
+            
+            # Dodaj małżeństwo z datą dla obu stron
+            marriage_data_1 = {"spouseId": json_id2, "year": rok}
+            marriage_data_2 = {"spouseId": json_id1, "year": rok}
+            marriages_map.setdefault(id1, []).append(marriage_data_1)
+            marriages_map.setdefault(id2, []).append(marriage_data_2)
 
     # Formatuj osoby do formatu genealogicznego
     persons_json = []
@@ -1978,6 +1988,7 @@ def get_genealogy_persons_format():
             "parents": [],
             "children": [],
             "spouses": spouse_map.get(p['id'], []),
+            "marriages": marriages_map.get(p['id'], []),
             "notes": p.get('uwagi')
         }
         

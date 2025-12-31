@@ -1007,7 +1007,7 @@
                 return p ? { role: getParentRole(p), ...p } : null;
             }).filter(p => p);
 
-            const spouses = (person.spouseIds || []).map(pid => ({ role: 'Małżonek', ...personMap.get(pid) })).filter(p => p.id);
+            const spouses = (person.spouseIds || person.spouses || []).map(pid => ({ role: 'Małżonek', ...personMap.get(pid) })).filter(p => p.id);
             const children = (childrenMap.get(person.id) || []).map(cid => ({ role: 'Dziecko', ...personMap.get(cid) })).filter(p => p.id);
 
             const siblingsSet = new Set();
@@ -1114,7 +1114,7 @@
                                 <div class="timeline-dot marriage"></div>
                                 <div class="timeline-content">
                                     <h4>Ślub ${spouse ? 'z ' + spouse.name : ''}</h4>
-                                    <div class="timeline-date">${m.date || 'Data nieznana'}</div>
+                                    <div class="timeline-date">${m.year ? m.year : (m.date || 'Data nieznana')}</div>
                                 </div>
                             </div>`;
             }).join('')}

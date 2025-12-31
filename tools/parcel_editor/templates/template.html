@@ -1,129 +1,115 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
-    <!-- ==========================================================================
-         METADANE I KONFIGURACJA
-         ========================================================================== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Interaktywny edytor mapy katastralnej gminy Czarna">
-    <meta name="keywords" content="mapa katastralna, edytor, działki, Czarna">
-    <title>Edytor Mapy Katastralnej - Czarna</title>
+    <meta name="description" content="Interaktywny edytor mapy katastralnej">
+    <title>Edytor Mapy Katastralnej</title>
 
-    <!-- ==========================================================================
-         KONFIGURACJA MAPY (DANE Z SERWERA)
-         ========================================================================== -->
+    <!-- Favicon -->
+    <link rel="icon" href="https://img.icons8.com/color/48/map.png" type="image/x-icon">
+
+    <!-- MAP CONFIG from Flask -->
     <script>
-        // Konfiguracja wstrzykiwana przez Flask przy renderowaniu
         window.MAP_CONFIG = JSON.parse('{{ map_config_data | tojson | safe }}');
     </script>
 
-    <!-- ==========================================================================
-         BIBLIOTEKI ZEWNĘTRZNE
-         ========================================================================== -->
-    <!-- Leaflet 1.9.4 - biblioteka map -->
-    <link rel="stylesheet" 
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin="">
-    
-    <!-- Leaflet.PM 2.14.2 - narzędzia rysowania i edycji -->
-    <link rel="stylesheet" 
-          href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.css">
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Style aplikacji -->
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+    <!-- Leaflet.PM -->
+    <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.css">
+
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="../static/style.css">
 </head>
-<body>
-    <!-- ==========================================================================
-         KONTENER GŁÓWNY
-         ========================================================================== -->
-    <div class="container">
-        
-        <!-- ==========================================================================
-             GÓRNY PASEK NARZĘDZI
-             ========================================================================== -->
-        <div id="top-toolbar">
-            <!-- Przyciski tworzenia obiektów -->
-            <div id="create-actions">
-                <span class="toolbar-label">Nowy obiekt:</span>
-                <button data-category="budowlana">Działka Budowlana</button>
-                <button data-category="rolna">Działka Rolna</button>
-                <button data-category="droga">Droga</button>
-                <button data-category="rzeka">Rzeka</button>
-                <button data-category="las">Las</button>
-                <button data-category="pastwisko">Pastwisko</button>
-                <button data-category="budynek">Budynek</button>
-                <button data-category="kapliczka">Kapliczka</button>
-            </div>
 
-            <!-- Akcje kontekstowe (widoczne przy edycji) -->
+<body>
+    <div class="background-gradient"></div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="top-bar">
+            <div class="brand">
+                <i class="fas fa-map-marked-alt"></i>
+                <h1>Edytor Mapy Katastralnej</h1>
+            </div>
+            <div class="top-bar-info">
+                <span id="currentDate"></span>
+                <span id="currentTime" style="margin-left: 0.5rem; font-weight: 600;"></span>
+            </div>
+            <div class="controls">
+                <button id="themeToggle" class="theme-btn" title="Przełącz motyw"><i class="fas fa-moon"></i></button>
+                <button id="open-backup-manager" class="btn-secondary"><i class="fas fa-history"></i> Backupy</button>
+                <button id="exitServerBtn" class="btn-danger"><i class="fas fa-power-off"></i> Wyjście</button>
+            </div>
+        </header>
+
+        <!-- CATEGORY TOOLBAR -->
+        <div id="top-toolbar">
+            <div id="create-actions">
+                <span class="toolbar-label"><i class="fas fa-plus-circle"></i> Nowy obiekt:</span>
+                <button data-category="budowlana"><i class="fas fa-home"></i> Budowlana</button>
+                <button data-category="rolna"><i class="fas fa-seedling"></i> Rolna</button>
+                <button data-category="droga"><i class="fas fa-road"></i> Droga</button>
+                <button data-category="rzeka"><i class="fas fa-water"></i> Rzeka</button>
+                <button data-category="las"><i class="fas fa-tree"></i> Las</button>
+                <button data-category="pastwisko"><i class="fas fa-leaf"></i> Pastwisko</button>
+                <button data-category="budynek"><i class="fas fa-building"></i> Budynek</button>
+                <button data-category="kapliczka"><i class="fas fa-church"></i> Kapliczka</button>
+            </div>
             <div id="dynamic-actions" style="display: none"></div>
         </div>
 
-        <!-- ==========================================================================
-             OBSZAR ROBOCZY
-             ========================================================================== -->
-        <div class="content">
-            <!-- Kontener mapy Leaflet -->
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- MAP -->
             <div id="map"></div>
-            
-            <!-- ==========================================================================
-                 PANEL BOCZNY
-                 ========================================================================== -->
+
+            <!-- SIDEBAR -->
             <aside id="parcel-panel">
-                <!-- Przełącznik zakładek -->
                 <div class="sidebar-tabs">
-                    <button class="tab-btn active" data-tab="parcels">Działki</button>
-                    <button class="tab-btn" data-tab="others">Inne Obiekty</button>
-                </div>
-                
-                <!-- Pole wyszukiwania -->
-                <div class="search-container">
-                    <input type="search" 
-                           id="search-filter" 
-                           placeholder="Wyszukaj po nazwie/numerze..."
-                           autocomplete="off">
+                    <button class="tab-btn active" data-tab="parcels"><i class="fas fa-th-list"></i> Działki</button>
+                    <button class="tab-btn" data-tab="others"><i class="fas fa-layer-group"></i> Inne</button>
                 </div>
 
-                <!-- Lista obiektów -->
+                <div class="search-container">
+                    <input type="search" id="search-filter" placeholder="🔍 Szukaj działki..." autocomplete="off">
+                </div>
+
                 <div class="list-container">
                     <ul id="parcel-list"></ul>
                 </div>
 
-                <!-- Panel kontrolny -->
                 <div class="main-controls">
-                    <button id="open-backup-manager">Zarządzaj Kopiami</button>
                     <button id="delete-all-parcels-btn" class="danger">
-                        Usuń Wszystkie Obiekty
-                    </button>
-                    <button id="shutdown-app-btn" class="danger">
-                        Zamknij Aplikację
+                        <i class="fas fa-trash-alt"></i> Usuń Wszystkie Obiekty
                     </button>
                 </div>
             </aside>
-        </div>
-
-        <!-- Komunikaty statusu -->
-        <div id="status-message"></div>
+        </main>
     </div>
 
-    <!-- ==========================================================================
-         OKNO MODALNE - KOPIE ZAPASOWE
-         ========================================================================== -->
+    <!-- BACKUP MODAL -->
     <div id="backupModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" aria-label="Zamknij">&times;</span>
-            <h2>Menedżer Kopii Zapasowych</h2>
-            
-            <!-- Sekcja tworzenia kopii -->
+        <div class="modal-content" style="position: relative;">
+            <button class="close-button" aria-label="Zamknij">&times;</button>
+            <h2><i class="fas fa-history"></i> Kopie Zapasowe</h2>
+
             <div class="modal-section">
-                <button id="create-backup-btn">Utwórz Nową Kopię</button>
+                <button id="create-backup-btn">
+                    <i class="fas fa-plus-circle"></i> Utwórz Nową Kopię
+                </button>
             </div>
-            
-            <!-- Lista istniejących kopii -->
+
             <div class="modal-section">
-                <h4>Dostępne kopie (od najnowszej)</h4>
+                <h4 style="margin-bottom: 12px; color: var(--text-secondary);">Dostępne kopie:</h4>
                 <div id="backup-list-container">
                     <ul id="backup-list">
                         <li>Wczytywanie...</li>
@@ -133,18 +119,35 @@
         </div>
     </div>
 
-    <!-- ==========================================================================
-         SKRYPTY JAVASCRIPT
-         ========================================================================== -->
-    <!-- Leaflet - biblioteka map -->
+    <!-- EXIT MODAL -->
+    <div id="exitModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 style="padding: 20px 24px; border-bottom: 1px solid var(--border-color);">
+                <i class="fas fa-power-off"></i> Zakończ pracę
+            </h2>
+            <div style="padding: 30px 24px; text-align: center;">
+                <p style="font-size: 1.1rem; margin-bottom: 1rem;">Czy na pewno chcesz zamknąć edytor?</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Serwer zostanie wyłączony.</p>
+            </div>
+            <div
+                style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: center; gap: 12px;">
+                <button id="confirmExitBtn" class="btn-danger"><i class="fas fa-power-off"></i> Zamknij serwer</button>
+                <button id="cancelExitBtn" class="btn-cancel">Anuluj</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATUS MESSAGE -->
+    <div id="status-message"></div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
-    
-    <!-- Leaflet.PM - edycja geometrii -->
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script>
-    
-    <!-- Logika aplikacji -->
     <script src="../static/editor.js"></script>
 </body>
+
 </html>
