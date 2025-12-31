@@ -34,6 +34,94 @@ import psycopg2
 # Struktura folderów wymaga przejścia przez trzy poziomy katalogów nadrzędnych
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# ==========================================================================
+# KONFIGURACJA PORTÓW
+# ==========================================================================
+
+def get_ports_config(backup_folder=None):
+    """
+    Odczytuje konfigurację portów z pliku .env w folderze backup miejscowości.
+    
+    Args:
+        backup_folder: Ścieżka do folderu backup miejscowości
+        
+    Returns:
+        dict: Słownik z konfiguracją portów
+    """
+    config = {
+        "MAIN_SERVER_PORT": 5000,
+        "GENEALOGY_EDITOR_PORT": 5001,
+        "PARCEL_EDITOR_PORT": 5003
+    }
+    
+    # Mapowanie nazw z .env na config
+    env_to_config = {
+        "FLASK_PORT": "MAIN_SERVER_PORT",
+        "GENEALOGY_EDITOR_PORT": "GENEALOGY_EDITOR_PORT",
+        "PARCEL_EDITOR_PORT": "PARCEL_EDITOR_PORT"
+    }
+    
+    # Szukaj pliku .env w folderze backup
+    if backup_folder:
+        env_path = os.path.join(backup_folder, ".env")
+    else:
+        # Fallback - użyj globalnej ścieżki BACKUP_FOLDER jeśli istnieje
+        env_path = os.path.join(BASE_DIR, "backup", ".env")
+    
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        # Sprawdź czy klucz jest w mapowaniu
+                        config_key = env_to_config.get(key, key)
+                        if config_key in config:
+                            try:
+                                config[config_key] = int(value)
+                            except ValueError:
+                                pass
+        except Exception as e:
+            print(f"⚠️ Błąd odczytu konfiguracji portów: {e}")
+    
+    return config
+
+def is_port_available(port):
+    """
+    Sprawdza czy port jest dostępny (nie zajęty).
+    
+    Args:
+        port: Numer portu do sprawdzenia
+        
+    Returns:
+        bool: True jeśli port jest wolny
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1)
+        result = sock.connect_ex(('127.0.0.1', port))
+        return result != 0  # 0 = połączenie udane = port zajęty
+
+def find_available_port(start_port, max_attempts=10):
+    """
+    Znajduje wolny port zaczynając od podanego.
+    
+    Args:
+        start_port: Port startowy
+        max_attempts: Maksymalna liczba prób
+        
+    Returns:
+        int: Wolny port lub None
+    """
+    for offset in range(max_attempts):
+        port = start_port + offset
+        if is_port_available(port):
+            return port
+    return None
+
+
 # Funkcja do określenia aktywnej miejscowości
 def get_active_location_backup_folder():
     """Zwraca folder backup aktywnej miejscowości."""
@@ -223,7 +311,7 @@ def get_genealogia_data():
                 "id_matki": str(person["motherId"]) if person.get("motherId") else None,
                 "id_malzonka": str(spouse_ids[0]) if spouse_ids else None, # Fallback
                 "marriages": marriages, 
-                "protokol_klucz": person.get("protocolKey"),
+                "protokol_klucz": person.get("protokolKey"),
                 "plec": person.get("gender", "M"),
                 "numer_domu": person.get("houseNumber"),
                 "uwagi": person.get("notes", ""),
@@ -294,7 +382,7 @@ def _convert_to_storage_format(frontend_data, existing_person=None):
         "fatherId": int(fid) if fid else None,
         "motherId": int(mid) if mid else None,
         "spouseIds": spouse_ids, # Obecnie nie zapisujemy lat małżeństw w pliku JSON, tylko ID
-        "protocolKey": protocol if protocol else None,
+        "protokolKey": protocol if protocol else None,
         "notes": notes,
         "houseNumber": frontend_data.get("numer_domu")
     }
@@ -518,15 +606,41 @@ def get_family_tree_data(family_name):
             add_related(p.get("id_matki"))
             add_related(p.get("id_malzonka"))
 
-        # Algorytm BFS dla dzieci
+        # NOWA LOGIKA: Dodaj rodzeństwo (dzieci tych samych rodziców)
+        def add_siblings():
+            """Dodaje rodzeństwo dla wszystkich osób w drzewie."""
+            newly_added = True
+            while newly_added:
+                newly_added = False
+                # Zbierz wszystkich rodziców osób już w drzewie
+                parent_ids = set()
+                for p in family_people:
+                    if p.get("id_ojca"):
+                        parent_ids.add(p["id_ojca"])
+                    if p.get("id_matki"):
+                        parent_ids.add(p["id_matki"])
+                
+                # Znajdź wszystkie dzieci tych rodziców
+                for person in all_people:
+                    if person["id_osoby"] in related_ids:
+                        continue
+                    # Jeśli ta osoba ma tego samego ojca lub matkę
+                    if (person.get("id_ojca") in parent_ids or 
+                        person.get("id_matki") in parent_ids):
+                        family_people.append(person)
+                        related_ids.add(person["id_osoby"])
+                        newly_added = True
+        
+        add_siblings()
+
+        # Algorytm BFS dla dzieci (bez ograniczenia nazwiska)
         newly_added = True
         while newly_added:
             newly_added = False
             for child in all_people:
                 if child["id_osoby"] in related_ids:
                     continue
-                if not surname_matches(child.get("nazwisko", ""), family_name):
-                    continue
+                # Usunieto wymaganie surname_matches - dodajemy wszystkie dzieci osób w drzewie
                 if (
                     child.get("id_ojca") in related_ids
                     or child.get("id_matki") in related_ids
@@ -700,19 +814,22 @@ def editor_heartbeat():
 
 @app.route("/api/editor/check-main", methods=["GET"])
 def check_main_editor():
-    """Sprawdza dostępność głównego edytora na porcie 5000."""
-    main_port = 5000
+    """Sprawdza dostępność głównego serwera na skonfigurowanym porcie."""
+    ports_config = get_ports_config(BACKUP_FOLDER)
+    main_port = ports_config.get("MAIN_SERVER_PORT", 5000)
     main_host = "127.0.0.1"
     
     if is_port_open(main_host, main_port):
         return jsonify({
             "available": True,
-            "url": f"http://{main_host}:{main_port}"
+            "url": f"http://{main_host}:{main_port}",
+            "port": main_port
         })
     else:
         return jsonify({
             "available": False,
-            "url": None
+            "url": None,
+            "port": main_port
         })
 
 @app.route("/api/editor/launch-main", methods=["POST"])
@@ -786,10 +903,28 @@ def main():
     """
     Uruchamia serwer Flask i otwiera przeglądarkę.
     
-    Port: 5001 (edytor genealogii)
-    Automatyczne otwarcie przeglądarki po starcie.
+    Port jest odczytywany z pliku .ports.env.
+    Jeśli port jest zajęty, szuka wolnego portu automatycznie.
     """
-    port = 5001
+    # Pobierz port z konfiguracji (z backup aktywnej miejscowości)
+    print(f"📂 BACKUP_FOLDER: {BACKUP_FOLDER}")
+    ports_config = get_ports_config(BACKUP_FOLDER)
+    print(f"📋 Konfiguracja portów: {ports_config}")
+    configured_port = ports_config.get("GENEALOGY_EDITOR_PORT", 5001)
+    print(f"🎯 Skonfigurowany port edytora genealogii: {configured_port}")
+    
+    # Sprawdź czy port jest dostępny
+    if is_port_available(configured_port):
+        port = configured_port
+    else:
+        print(f"⚠️ Port {configured_port} jest zajęty!")
+        port = find_available_port(configured_port + 1)
+        if port:
+            print(f"✅ Używam alternatywnego portu: {port}")
+        else:
+            print(f"❌ Nie znaleziono wolnego portu! Używam domyślnego {configured_port}")
+            port = configured_port
+    
     url = f"http://127.0.0.1:{port}"
 
     # Automatyczne otwarcie przeglądarki

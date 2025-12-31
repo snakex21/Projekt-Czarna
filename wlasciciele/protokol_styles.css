@@ -777,8 +777,166 @@ body {
     width: 100%;
     height: calc(100% - 50px);
     background: #fafafa;
-    overflow: auto;
     padding: 0.25rem;
+    /* Wymuś scrollowanie poziome gdy zawartość jest szersza */
+    overflow-x: scroll;
+    overflow-y: auto;
+    /* Wymuś widoczność scrollbara nawet gdy nie jest hover */
+    scrollbar-gutter: stable;
+}
+
+/* Stylizowany pasek przewijania dla drzewa genealogicznego */
+.tree-container::-webkit-scrollbar {
+    width: 14px;
+    height: 18px;
+    /* Większy scrollbar poziomy */
+}
+
+.tree-container::-webkit-scrollbar-track {
+    background: #d0d0d0;
+    border-radius: 9px;
+    margin: 0 10px;
+}
+
+.tree-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 9px;
+    border: 3px solid #d0d0d0;
+    min-width: 60px;
+    /* Minimalny rozmiar suwaka */
+}
+
+.tree-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+    cursor: grab;
+}
+
+.tree-container::-webkit-scrollbar-thumb:active {
+    cursor: grabbing;
+}
+
+.tree-container::-webkit-scrollbar-corner {
+    background: #d0d0d0;
+}
+
+/* Firefox scrollbar */
+.tree-container {
+    scrollbar-width: auto;
+    scrollbar-color: #667eea #d0d0d0;
+}
+
+/* Style dla zawartości drzewa - wymuś minimalną szerokość */
+.tree-scroll-wrapper {
+    min-width: max-content;
+    display: inline-block;
+    padding-bottom: 10px;
+    /* Dodatkowa przestrzeń dla scrollbara */
+}
+
+/* =========== WŁASNY SUWAK POZIOMY =========== */
+.tree-horizontal-scroll-control {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(to top, #f0f0f0 0%, #fafafa 100%);
+    border-top: 2px solid #e0e0e0;
+    z-index: 10;
+}
+
+.scroll-arrow {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.scroll-arrow:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.scroll-arrow:active {
+    transform: scale(0.95);
+}
+
+.horizontal-scroll-slider {
+    flex: 1;
+    max-width: 500px;
+    height: 20px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+/* Track Chrome/Safari */
+.horizontal-scroll-slider::-webkit-slider-runnable-track {
+    height: 12px;
+    background: #d0d0d0;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+}
+
+/* Thumb Chrome/Safari */
+.horizontal-scroll-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: grab;
+    margin-top: -9px;
+    transition: transform 0.15s ease;
+}
+
+.horizontal-scroll-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.horizontal-scroll-slider::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.05);
+}
+
+/* Track Firefox */
+.horizontal-scroll-slider::-moz-range-track {
+    height: 12px;
+    background: #d0d0d0;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+}
+
+/* Thumb Firefox */
+.horizontal-scroll-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: grab;
+}
+
+.horizontal-scroll-slider::-moz-range-thumb:active {
+    cursor: grabbing;
 }
 
 /* Style dla elementów drzewa D3.js */

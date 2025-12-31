@@ -7,6 +7,7 @@ Opis: Serwer Flask obsługujący edycję działek na mapie interaktywnej.
 """
 
 import os
+import sys
 import json
 import shutil
 import threading
@@ -21,6 +22,78 @@ import psycopg2
 # ==========================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.abspath(os.path.join(BASE_DIR, os.pardir, os.pardir))
+
+import socket
+
+# ==========================================================================
+# KONFIGURACJA PORTÓW
+# ==========================================================================
+
+def get_ports_config(backup_folder=None):
+    """
+    Odczytuje konfigurację portów z pliku .env w folderze backup miejscowości.
+    
+    Args:
+        backup_folder: Ścieżka do folderu backup miejscowości
+        
+    Returns:
+        dict: Słownik z konfiguracją portów
+    """
+    config = {
+        "MAIN_SERVER_PORT": 5000,
+        "GENEALOGY_EDITOR_PORT": 5001,
+        "PARCEL_EDITOR_PORT": 5003
+    }
+    
+    # Mapowanie nazw z .env na config
+    env_to_config = {
+        "FLASK_PORT": "MAIN_SERVER_PORT",
+        "GENEALOGY_EDITOR_PORT": "GENEALOGY_EDITOR_PORT",
+        "PARCEL_EDITOR_PORT": "PARCEL_EDITOR_PORT"
+    }
+    
+    # Szukaj pliku .env w folderze backup
+    if backup_folder:
+        env_path = os.path.join(backup_folder, ".env")
+    else:
+        env_path = os.path.join(PROJECT_DIR, "backup", ".env")
+    
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        # Sprawdź czy klucz jest w mapowaniu
+                        config_key = env_to_config.get(key, key)
+                        if config_key in config:
+                            try:
+                                config[config_key] = int(value)
+                            except ValueError:
+                                pass
+        except Exception as e:
+            print(f"⚠️ Błąd odczytu konfiguracji portów: {e}")
+    
+    return config
+
+def is_port_available(port):
+    """Sprawdza czy port jest dostępny (nie zajęty)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1)
+        result = sock.connect_ex(('127.0.0.1', port))
+        return result != 0
+
+def find_available_port(start_port, max_attempts=10):
+    """Znajduje wolny port zaczynając od podanego."""
+    for offset in range(max_attempts):
+        port = start_port + offset
+        if is_port_available(port):
+            return port
+    return None
+
 
 # Funkcja do określenia aktywnej miejscowości
 def get_active_location_backup_folder():
@@ -554,12 +627,27 @@ if __name__ == "__main__":
     load_data_from_file()
     load_map_config_from_file()
     
-    # Konfiguracja serwera
-    port = 5003
+    # Pobierz port z konfiguracji (z backup aktywnej miejscowości)
+    ports_config = get_ports_config(BACKUP_DIR)
+    configured_port = ports_config.get("PARCEL_EDITOR_PORT", 5003)
+    
+    # Sprawdź czy port jest dostępny
+    if is_port_available(configured_port):
+        port = configured_port
+    else:
+        print(f"⚠️ Port {configured_port} jest zajęty!")
+        port = find_available_port(configured_port + 1)
+        if port:
+            print(f"✅ Używam alternatywnego portu: {port}")
+        else:
+            print(f"❌ Nie znaleziono wolnego portu! Używam domyślnego {configured_port}")
+            port = configured_port
+    
     url = f"http://127.0.0.1:{port}/template.html"
     
-    # Auto-otwarcie przeglądarki po 1.25s
-    threading.Timer(1.25, lambda: webbrowser.open(url)).start()
+    # Auto-otwarcie przeglądarki (tylko gdy nie uruchomione przez launcher)
+    if "--launched-by-gui" not in sys.argv:
+        threading.Timer(1.25, lambda: webbrowser.open(url)).start()
     
     print("=" * 50)
     print(f"🚀 Edytor Mapy Katastralnej")
