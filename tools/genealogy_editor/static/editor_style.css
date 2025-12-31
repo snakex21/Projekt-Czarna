@@ -1,38 +1,37 @@
 :root {
-  --primary-color: #3b82f6;
-  /* Niebieski z screenshota */
-  --primary-dark: #2563eb;
-  --secondary-color: #64748b;
-  --bg-main: #f1f5f9;
-  --bg-card: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --primary-color: #667eea;
+  --primary-dark: #5a67d8;
+  --secondary-color: #764ba2;
+  --success-color: #48bb78;
+  --danger-color: #f56565;
+  --warning-color: #ed8936;
+  --info-color: #4299e1;
+  --bg-main: #f7fafc;
+  --bg-card: white;
+  --bg-dark: #1a202c;
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+  --text-light: #a0aec0;
   --border-color: #e2e8f0;
-  --danger-color: #ef4444;
-  --success-color: #22c55e;
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
   --radius: 12px;
-  /* Bardziej zaokrąglone */
+  --radius-sm: 8px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --header-height: 64px;
-
-  /* Specific Colors from Screenshot Style */
-  --card-bg-light: #ffffff;
-  --card-bg-dark: #1e293b;
-  /* Ciemny granat */
-  --label-color: #94a3b8;
 }
 
+/* Dark mode */
 body.dark-mode {
   --bg-main: #0f172a;
-  /* Bardzo ciemny granat tła */
-  --bg-card: #1e293b;
-  /* Karty */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --border-color: #334155;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+  --bg-card: #1f2937;
+  --text-primary: #f3f4f6;
+  --text-secondary: #e5e7eb;
+  --text-light: #cbd5e1;
+  --border-color: #374151;
 }
 
 * {
@@ -42,11 +41,134 @@ body.dark-mode {
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-main);
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
+  line-height: 1.6;
+}
+
+/* Kolorowe scrollbary */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-card);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  border-radius: 5px;
+  border: 2px solid var(--bg-card);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, var(--primary-dark), var(--secondary-color));
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-color) var(--bg-card);
+}
+
+/* Tree Dialog - pełnoekranowy i wyśrodkowany */
+.tree-dialog {
+  width: 95vw;
+  max-width: 1400px;
+  height: 85vh;
+  max-height: 85vh;
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  background: var(--bg-card);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  display: none;
+  flex-direction: column;
+  /* Nadpisanie domyślnych stylów przeglądarki dla <dialog> */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
+
+.tree-dialog[open] {
+  display: flex;
+}
+
+.tree-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.tree-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: var(--primary-gradient);
+  color: white;
+}
+
+.tree-dialog-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tree-dialog-header h2 i {
+  font-size: 1.1rem;
+}
+
+.tree-legend-inline {
+  font-size: 0.75rem;
+  font-weight: 400;
+  margin-left: 1rem;
+  opacity: 0.9;
+}
+
+.tree-dialog .close-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.tree-dialog .close-btn:hover {
+  opacity: 1;
+}
+
+.tree-dialog .tree-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.background-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--primary-gradient);
+  opacity: 0.05;
+  z-index: -1;
+}
+
+body.dark-mode .background-gradient {
+  opacity: 0.02;
 }
 
 .app-container {
@@ -55,7 +177,7 @@ body {
   height: 100%;
 }
 
-/* HEADER */
+/* HEADER / TOP BAR */
 .top-bar {
   height: var(--header-height);
   background: var(--bg-card);
@@ -64,65 +186,119 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--primary-color);
+}
+
+.brand i {
+  font-size: 1.5rem;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand h1 {
   font-size: 1.25rem;
   font-weight: 700;
+  color: var(--text-primary);
+}
+
+.top-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
 }
 
-.btn-icon {
-  background: none;
+.theme-btn {
+  background: var(--bg-main);
   border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  color: var(--text-secondary);
-  transition: color 0.2s;
-  padding: 8px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text-primary);
 }
 
-.btn-icon:hover {
-  color: var(--primary-color);
-  background: rgba(59, 130, 246, 0.1);
+.theme-btn:hover {
+  background: var(--primary-gradient);
+  color: white;
+}
+
+.btn-primary,
+.btn-success,
+.btn-danger,
+.btn-warning,
+.btn-cancel,
+.btn-secondary {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: var(--primary-gradient);
   color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  transition: background 0.2s;
 }
 
 .btn-primary:hover {
-  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #e53e3e;
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background: var(--warning-color);
+  color: white;
+}
+
+.btn-cancel {
+  background: var(--text-light);
+  color: white;
 }
 
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 8px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
 }
 
 .btn-secondary:hover {
@@ -138,81 +314,222 @@ body {
   padding: 24px;
 }
 
+/* SECTION */
+.section {
+  display: none;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.section.active {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.section-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-header h2 i {
+  color: var(--primary-color);
+}
+
 /* GENEALOGY LAYOUT */
 .genealogy-layout {
-  display: flex;
-  gap: 24px;
-  height: 100%;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-card);
+  border-radius: var(--radius);
   overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
 
 /* SIDEBAR */
 .genealogy-sidebar {
-  width: 360px;
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
+  background: #f8fafc;
+  color: #334155;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-color);
+  border-right: 1px solid #e2e8f0;
+  overflow: hidden;
+  min-height: 0;
 }
 
+body.dark-mode .genealogy-sidebar {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-right-color: #374151;
+}
+
+/* Search Box */
 .genealogy-search-box {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  position: relative;
+  padding: 1rem;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
-.genealogy-search-box input {
-  width: 100%;
-  padding: 12px 12px 12px 40px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  outline: none;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-size: 0.95rem;
+body.dark-mode .genealogy-search-box {
+  background: #0f172a;
+  border-bottom-color: #374151;
 }
 
 .genealogy-search-box i {
-  position: absolute;
-  left: 32px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-secondary);
+  color: #94a3b8;
+  font-size: 0.9rem;
 }
 
+.genealogy-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.genealogy-search-box input::placeholder {
+  color: #94a3b8;
+}
+
+/* Filters */
 .genealogy-filters {
-  padding: 12px 20px;
+  padding: 0.75rem 1rem;
   display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.02);
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+body.dark-mode .genealogy-filters {
+  border-bottom-color: #374151;
 }
 
 .filter-btn {
-  flex: 1;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 8px;
-  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  color: #64748b;
+  font-size: 0.8rem;
   cursor: pointer;
-  border-radius: 6px;
-  text-align: center;
-  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .filter-btn.active {
-  background: var(--primary-color);
+  background: var(--primary-gradient);
+  border-color: transparent;
   color: white;
-  border-color: var(--primary-color);
 }
 
+body.dark-mode .filter-btn {
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+body.dark-mode .filter-btn.active {
+  color: white;
+}
+
+/* Secondary Filters */
+.secondary-filters {
+  padding: 0.75rem 1rem;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+body.dark-mode .secondary-filters {
+  border-bottom-color: #374151;
+}
+
+.mini-input {
+  max-width: 80px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.mini-select {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+body.dark-mode .mini-input,
+body.dark-mode .mini-select {
+  background: #0f172a;
+  border-color: #374151;
+  color: #e2e8f0;
+}
+
+/* Genealogy Count */
+.genealogy-count {
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+body.dark-mode .genealogy-count {
+  color: #94a3b8;
+  border-bottom-color: #374151;
+}
+
+/* Persons List */
 .persons-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 1rem;
 }
 
 .person-list-item {
@@ -220,7 +537,6 @@ body {
   border-radius: 8px;
   margin-bottom: 10px;
   background: var(--bg-main);
-  /* Sidebar items bit contrast */
   border: 1px solid transparent;
   cursor: pointer;
   transition: all 0.2s;
@@ -236,12 +552,13 @@ body {
 }
 
 .person-list-item.active {
-  background: var(--primary-color);
+  background: var(--primary-gradient);
   color: white;
+  border-color: transparent;
 }
 
 .person-list-item.active .person-name {
-  color: white;
+  color: white !important;
 }
 
 .person-list-item.active .person-details-mini {
@@ -253,26 +570,25 @@ body {
   color: white;
 }
 
+body.dark-mode .person-list-item {
+  background: #0f172a;
+}
+
+body.dark-mode .person-list-item:hover {
+  background: #1e293b;
+}
+
 .person-name {
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .person-name.male {
-  color: #60a5fa;
-}
-
-/* Brighter blue for dark mode compat */
-body:not(.dark-mode) .person-name.male {
-  color: #2563eb;
+  color: #3b82f6;
 }
 
 .person-name.female {
-  color: #f472b6;
-}
-
-body:not(.dark-mode) .person-name.female {
-  color: #db2777;
+  color: #ec4899;
 }
 
 .person-details-mini {
@@ -289,16 +605,43 @@ body:not(.dark-mode) .person-name.female {
   color: var(--text-secondary);
 }
 
+body.dark-mode .person-id {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* DETAILS PANEL */
 .genealogy-details {
   flex: 1;
   background: var(--bg-card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
   padding: 40px;
   overflow-y: auto;
   position: relative;
+  color: var(--text-primary);
+}
+
+body.dark-mode .genealogy-details {
+  background: #1e293b;
+}
+
+.no-selection-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.no-selection-placeholder i {
+  font-size: 4rem;
+  opacity: 0.3;
+  margin-bottom: 1.5rem;
+}
+
+.no-selection-placeholder h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
   color: var(--text-primary);
 }
 
@@ -310,10 +653,12 @@ body:not(.dark-mode) .person-name.female {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .person-title h1 {
-  font-size: 2.2rem;
+  font-size: 2rem;
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -328,11 +673,11 @@ body:not(.dark-mode) .person-name.female {
 }
 
 .gender-icon.fa-mars {
-  color: #60a5fa;
+  color: #3b82f6;
 }
 
 .gender-icon.fa-venus {
-  color: #f472b6;
+  color: #ec4899;
 }
 
 .dates {
@@ -341,7 +686,24 @@ body:not(.dark-mode) .person-name.female {
   font-weight: 400;
 }
 
-/* MODERN RELATION CARDS (Screenshot Style) */
+.person-id-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--primary-gradient);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* RELATION CARDS */
 .relation-group {
   margin-bottom: 32px;
 }
@@ -372,7 +734,6 @@ body:not(.dark-mode) .person-name.female {
   background: var(--bg-main);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  /* High radius like screenshot */
   padding: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -389,10 +750,8 @@ body:not(.dark-mode) .person-name.female {
   box-shadow: var(--shadow-md);
 }
 
-/* Active Highlight for Parents/Spouse in screenshot style (border glow) */
-.modern-card.highlight {
-  border: 1px solid var(--primary-color);
-  background: rgba(59, 130, 246, 0.05);
+body.dark-mode .modern-card {
+  background: #0f172a;
 }
 
 .card-role {
@@ -404,10 +763,6 @@ body:not(.dark-mode) .person-name.female {
   color: var(--text-secondary);
 }
 
-.modern-card.highlight .card-role {
-  color: var(--primary-color);
-}
-
 .card-name {
   font-size: 1.1rem;
   font-weight: 700;
@@ -416,9 +771,22 @@ body:not(.dark-mode) .person-name.female {
   line-height: 1.3;
 }
 
+.card-name.male {
+  color: #3b82f6;
+}
+
+.card-name.female {
+  color: #ec4899;
+}
+
 .card-dates {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-light);
+  font-style: italic;
 }
 
 /* MODALS */
@@ -428,12 +796,13 @@ body:not(.dark-mode) .person-name.female {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .modal-overlay.hidden {
@@ -442,59 +811,253 @@ body:not(.dark-mode) .person-name.female {
 
 .modal-content {
   background: var(--bg-card);
-  border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-color);
-  width: 600px;
-  max-width: 95vw;
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
-  color: var(--text-primary);
+  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content.large {
+  max-width: 800px;
+}
+
+.modal-content.small {
+  max-width: 500px;
+}
+
+body.dark-mode .modal-content {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-header {
-  padding: 24px;
+  padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.modal-title {
-  font-size: 1.25rem;
+.modal-header h2 {
+  font-size: 1.5rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--text-light);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.modal-close:hover {
+  background: var(--bg-main);
+  color: var(--text-primary);
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 1.5rem;
+  flex: 1;
   overflow-y: auto;
 }
 
+.modal-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* FORMS */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
 .form-group {
-  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
 }
 
 .form-group label {
-  display: block;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
   font-weight: 500;
-  font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .form-group input,
-.form-group select,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
   width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  padding: 0.625rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: var(--transition);
   background: var(--bg-main);
   color: var(--text-primary);
-  font-size: 1rem;
 }
 
-/* TREE CSS from Previous Step */
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+body.dark-mode .form-group input,
+body.dark-mode .form-group textarea,
+body.dark-mode .form-group select {
+  background: #0f172a;
+  border-color: #374151;
+  color: #e2e8f0;
+}
+
+/* Pola readonly (np. ID osoby) w trybie ciemnym */
+body.dark-mode .form-group input[readonly] {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #475569;
+}
+
+/* Przycisk Anuluj w trybie ciemnym */
+body.dark-mode .btn-cancel {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+body.dark-mode .btn-cancel:hover {
+  background: #64748b;
+}
+
+/* Pole tylko do odczytu (np. ID osoby) */
+.readonly-field {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  cursor: not-allowed;
+}
+
+body.dark-mode .readonly-field {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border-color: #475569 !important;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Autocomplete */
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+}
+
+.autocomplete-suggestions.hidden {
+  display: none;
+}
+
+.autocomplete-suggestion {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.autocomplete-suggestion:hover {
+  background: var(--bg-main);
+}
+
+body.dark-mode .autocomplete-suggestions {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+body.dark-mode .autocomplete-suggestion:hover {
+  background: #0f172a;
+}
+
+/* Spouse Row */
+.spouse-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+/* Przycisk usuwania małżonka */
+.btn-remove-spouse {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 6px;
+  background: #f87171;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-remove-spouse:hover {
+  background: #ef4444;
+  transform: scale(1.05);
+}
+
+body.dark-mode .btn-remove-spouse {
+  background: #f87171;
+  color: #fff;
+}
+
+body.dark-mode .btn-remove-spouse:hover {
+  background: #dc2626;
+}
+
+/* TREE DIALOG */
 .tree-dialog {
   border: none;
   border-radius: 12px;
@@ -502,110 +1065,198 @@ body:not(.dark-mode) .person-name.female {
   width: 95vw;
   height: 90vh;
   color: var(--text-primary);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
 }
 
 .tree-dialog::backdrop {
   background: rgba(0, 0, 0, 0.7);
 }
 
+body.dark-mode .tree-dialog {
+  background: #1f2937;
+}
+
 .tree-dialog-header {
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
+  background: var(--primary-gradient);
+  color: white;
   padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.tree-dialog-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  color: white;
+  font-size: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.close-btn:hover {
+  background: white;
+  color: var(--primary-color);
+  transform: rotate(90deg);
 }
 
 .tree-container {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
   background: var(--bg-main);
   width: 100%;
   height: calc(100% - 70px);
-  overflow: auto;
-  display: flex;
-  justify-content: center;
-  padding: 50px;
 }
 
-.tree-level {
-  display: flex;
-  justify-content: center;
-  gap: 40px;
-  margin-bottom: 60px;
-  position: relative;
+body.dark-mode .tree-container {
+  background: #0f172a;
 }
 
-.tree-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-  z-index: 2;
+/* BACKUP LIST */
+.backup-actions {
+  margin-bottom: 1.5rem;
 }
 
-.tree-person-card {
-  background: var(--bg-card);
-  border: 2px solid var(--border-color);
-  border-radius: 12px;
-  padding: 10px 15px;
-  width: 180px;
-  text-align: center;
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: transform 0.2s;
-}
-
-.tree-person-card:hover {
-  transform: scale(1.02);
-  border-color: var(--primary-color);
-}
-
-.tree-person-card.male {
-  border-bottom-width: 4px;
-  border-bottom-color: #60a5fa;
-}
-
-.tree-person-card.female {
-  border-bottom-width: 4px;
-  border-bottom-color: #f472b6;
-}
-
-.tree-person-name {
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.tree-person-years {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-.tree-lines svg {
-  position: absolute;
-  top: 0;
-  left: 0;
+.full-width {
   width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
 }
 
-.tree-line-path {
-  fill: none;
-  stroke: var(--border-color);
-  stroke-width: 2px;
+.backup-list-container h3 {
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.backup-list {
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.backup-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.backup-list li:last-child {
+  border-bottom: none;
 }
 
 /* TOAST */
+.toast-container {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  z-index: 2000;
+}
+
 .toast {
   background: var(--bg-card);
-  color: var(--text-primary);
-  padding: 16px 24px;
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-lg);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 1rem;
+  animation: slideInRight 0.3s ease-out;
+  color: var(--text-primary);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast.success {
+  border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+  border-left: 4px solid var(--danger-color);
+}
+
+body.dark-mode .toast {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+/* LOADER */
+.loader {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .genealogy-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .genealogy-sidebar {
+    max-height: 50vh;
+  }
+}
+
+/* BACKUP LIST */
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 10px;
+}
+
+.backup-item:last-child {
+  border-bottom: none;
+}
+
+.backup-name {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-success.small,
+.btn-danger.small {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+}
+
+.btn-success.small i,
+.btn-danger.small i {
+  margin-right: 4px;
 }

@@ -6,17 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edytor Genealogii (Tools)</title>
     <!-- Favicon -->
-    <link rel="icon" href="https://img.icons8.com/color/48/family-tree.png" type="image/x-icon">
+    <link rel="icon" href="https://img.icons8.com/color/48/genealogy.png" type="image/x-icon">
 
     <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- D3.js for Tree -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='editor_style.css') }}">
 </head>
 
 <body>
+    <div class="background-gradient"></div>
+
     <div class="app-container">
         <!-- HEADER -->
         <header class="top-bar">
@@ -24,11 +29,14 @@
                 <i class="fas fa-sitemap"></i>
                 <h1>Edytor Genealogii</h1>
             </div>
+            <div class="top-bar-info">
+                <span id="currentDate"></span>
+                <span id="currentTime" style="margin-left: 0.5rem; font-weight: 600;"></span>
+            </div>
             <div class="controls">
-                <button id="themeToggle" class="btn-icon" title="Przełącz motyw"><i class="fas fa-moon"></i></button>
-                <div class="separator">|</div>
-                <button id="manageBackupsBtn" class="btn-secondary small"><i class="fas fa-history"></i>
-                    Backupy</button>
+                <button id="themeToggle" class="theme-btn" title="Przełącz motyw"><i class="fas fa-moon"></i></button>
+                <button id="manageBackupsBtn" class="btn-secondary"><i class="fas fa-history"></i> Backupy</button>
+                <button id="exitServerBtn" class="btn-danger"><i class="fas fa-power-off"></i> Wyjście</button>
             </div>
         </header>
 
@@ -37,8 +45,7 @@
             <section id="genealogy" class="section active">
                 <div class="section-header">
                     <div class="header-left">
-                        <h2>Baza Osób</h2>
-                        <span class="badge" id="totalCount">0</span>
+                        <h2><i class="fas fa-sitemap"></i> Zarządzanie Genealogią</h2>
                     </div>
                     <button class="btn-primary" id="addGenealogyBtn">
                         <i class="fas fa-plus"></i> Dodaj Osobę
@@ -50,7 +57,7 @@
                     <div class="genealogy-sidebar">
                         <div class="genealogy-search-box">
                             <i class="fas fa-search"></i>
-                            <input type="text" id="searchGenealogy" placeholder="Szukaj osoby, rocznika...">
+                            <input type="text" id="searchGenealogy" placeholder="Szukaj osoby, rocznika lub domu...">
                         </div>
 
                         <div class="genealogy-filters">
@@ -69,6 +76,10 @@
                             </select>
                         </div>
 
+                        <div class="genealogy-count">
+                            ZNALEZIONO: <strong id="totalCount">0</strong>
+                        </div>
+
                         <div class="persons-list" id="personsListContainer">
                             <!-- Lista generowana dynamicznie -->
                             <div class="loader">Ładowanie...</div>
@@ -78,7 +89,7 @@
                     <!-- PRAWA STRONA - Panel szczegółów -->
                     <div class="genealogy-details" id="personDetailsPanel">
                         <div class="no-selection-placeholder">
-                            <i class="fas fa-user-circle"></i>
+                            <i class="fas fa-user-friends"></i>
                             <h3>Wybierz osobę z listy</h3>
                             <p>Kliknij na osobę po lewej stronie, aby zobaczyć szczegóły, edytować dane lub wyświetlić
                                 drzewo.</p>
@@ -107,7 +118,6 @@
     </div>
 
     <!-- MODAL DRZEWA (HTML based) -->
-    <!-- Używamy <dialog> dla spójności z ostatnim sukcesem drzewa, ale tu wrapujemy w overlay adminowy -->
     <dialog id="treeDialog" class="tree-dialog">
         <div class="tree-dialog-header">
             <h2>Drzewo Genealogiczne</h2>
@@ -133,6 +143,25 @@
                     <h3>Dostępne kopie:</h3>
                     <ul id="backupList" class="backup-list"></ul>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POTWIERDZENIA WYJŚCIA -->
+    <div id="exitModal" class="modal-overlay hidden">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h2><i class="fas fa-power-off"></i> Zakończ pracę</h2>
+                <button class="modal-close" id="closeExitModal">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 2rem;">
+                <p style="font-size: 1.1rem; margin-bottom: 1.5rem;">Czy na pewno chcesz zamknąć edytor genealogii?</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Serwer zostanie wyłączony, a ta strona
+                    stanie się niedostępna.</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 1rem;">
+                <button class="btn-danger" id="confirmExitBtn"><i class="fas fa-power-off"></i> Zamknij serwer</button>
+                <button class="btn-cancel" id="cancelExitBtn">Anuluj</button>
             </div>
         </div>
     </div>

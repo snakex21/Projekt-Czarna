@@ -7,7 +7,118 @@
  */
 
 document.addEventListener("DOMContentLoaded", function () {
-  
+
+  // ==========================================================================
+  // INICJALIZACJA UI (Theme, Data/Czas)
+  // ==========================================================================
+
+  // Theme Toggle
+  const savedTheme = localStorage.getItem('parcelEditorTheme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+    const themeBtn = document.getElementById('themeToggle');
+    if (themeBtn) themeBtn.innerHTML = '<i class="fas fa-sun"></i>';
+  }
+
+  const themeToggle = document.getElementById('themeToggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      themeToggle.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+      localStorage.setItem('parcelEditorTheme', isDark ? 'dark' : 'light');
+    });
+  }
+
+  // Data i czas
+  const updateDateTime = () => {
+    const now = new Date();
+    const dateEl = document.getElementById('currentDate');
+    const timeEl = document.getElementById('currentTime');
+
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString('pl-PL', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    if (timeEl) {
+      timeEl.textContent = now.toLocaleTimeString('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  };
+  updateDateTime();
+  setInterval(updateDateTime, 1000);
+
+  // Exit Modal
+  const exitBtn = document.getElementById('exitServerBtn');
+  const exitModal = document.getElementById('exitModal');
+  const confirmExitBtn = document.getElementById('confirmExitBtn');
+  const cancelExitBtn = document.getElementById('cancelExitBtn');
+
+  if (exitBtn && exitModal) {
+    exitBtn.addEventListener('click', () => exitModal.classList.remove('hidden'));
+  }
+  if (cancelExitBtn) {
+    cancelExitBtn.addEventListener('click', () => exitModal.classList.add('hidden'));
+  }
+  if (exitModal) {
+    exitModal.addEventListener('click', (e) => {
+      if (e.target === exitModal) exitModal.classList.add('hidden');
+    });
+  }
+  if (confirmExitBtn) {
+    confirmExitBtn.addEventListener('click', () => {
+      confirmExitBtn.disabled = true;
+      confirmExitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Zamykanie...';
+
+      const showShutdownScreen = () => {
+        document.body.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:Inter,sans-serif;flex-direction:column;">
+            <i class="fas fa-check-circle" style="font-size:4rem;color:#48bb78;margin-bottom:1rem;"></i>
+            <h1 style="margin-bottom:0.5rem;">Serwer zamknięty</h1>
+            <p style="color:#94a3b8;">Ta karta zamknie się automatycznie...</p>
+            <p style="color:#64748b;font-size:0.85rem;margin-top:1rem;">Zamykanie za <span id="countdown">3</span>s</p>
+          </div>
+        `;
+        let countdown = 3;
+        const countdownEl = document.getElementById('countdown');
+        const timer = setInterval(() => {
+          countdown--;
+          if (countdownEl) countdownEl.textContent = countdown;
+          if (countdown <= 0) {
+            clearInterval(timer);
+            window.close();
+            setTimeout(() => {
+              document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:Inter,sans-serif;flex-direction:column;">
+                  <i class="fas fa-check-circle" style="font-size:4rem;color:#48bb78;margin-bottom:1rem;"></i>
+                  <h1>Serwer zamknięty</h1>
+                  <p style="color:#94a3b8;">Możesz teraz zamknąć tę kartę ręcznie.</p>
+                </div>
+              `;
+            }, 500);
+          }
+        }, 1000);
+      };
+
+      fetch('/api/shutdown', { method: 'POST' })
+        .then(response => {
+          if (response.ok) {
+            showShutdownScreen();
+          }
+        })
+        .catch(() => {
+          // Serwer się zamknął zanim odpowiedział - to OK
+          showShutdownScreen();
+        });
+    });
+  }
+
   // ==========================================================================
   // STAN APLIKACJI
   // ==========================================================================
@@ -21,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==========================================================================
   // INICJALIZACJA MAPY LEAFLET
   // ==========================================================================
-  
+
   // Wczytanie konfiguracji z obiektu globalnego
   const mapDefaults = window.MAP_CONFIG.defaults;
   const mapCalibration = window.MAP_CONFIG.calibration;
@@ -34,7 +145,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const southWest = L.latLng(sw.lat - latPadding, sw.lng - lngPadding);
   const northEast = L.latLng(ne.lat + latPadding, ne.lng + lngPadding);
   const bounds = L.latLngBounds(southWest, northEast);
-  
+
   // Utworzenie mapy
   const map = L.map("map", {
     maxBounds: bounds,
@@ -44,14 +155,14 @@ document.addEventListener("DOMContentLoaded", function () {
     zoomSnap: 0.25,
     zoomDelta: 0.25,
   }).setView([mapDefaults.center.lat, mapDefaults.center.lng], mapDefaults.zoom);
-  
+
   // ==========================================================================
   // WARSTWY MAPY
   // ==========================================================================
-  
+
   // Warstwa 1: Mapa historyczna
   const imageBounds = [
-    [mapCalibration.sw.lat, mapCalibration.sw.lng], 
+    [mapCalibration.sw.lat, mapCalibration.sw.lng],
     [mapCalibration.ne.lat, mapCalibration.ne.lng]
   ];
   const historicalMapLayer = L.imageOverlay("/static/mapa.jpg", imageBounds);
@@ -77,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
   historicalMapLayer.addTo(map);
   parcelLayerGroup.addTo(map);
 
-  L.control.layers({}, overlays, { 
+  L.control.layers({}, overlays, {
     position: 'topright',
     collapsed: true
   }).addTo(map);
@@ -142,7 +253,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     };
   }
-  
+
   // ==========================================================================
   // KONTROLKA WSPÓŁRZĘDNYCH
   // ==========================================================================
@@ -162,7 +273,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     },
   });
-  
+
   const coordDisplay = new CoordinatesControl({ position: "bottomright" });
   coordDisplay.addTo(map);
 
@@ -235,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==========================================================================
   // TRYB RYSOWANIA
   // ==========================================================================
-  
+
   /**
    * Włącza tryb rysowania dla wybranej kategorii.
    */
@@ -367,7 +478,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Użytkownik anulował lub wpisał pustą nazwę
       if (parcelId === null || parcelId.trim() === "") {
-        try { layer.remove(); } catch (err) {}
+        try { layer.remove(); } catch (err) { }
         activeDrawingLayer = null;
         exitDrawingMode();
         return;
@@ -417,7 +528,7 @@ document.addEventListener("DOMContentLoaded", function () {
       geometryToSave = ring.map((ll) => [ll.lat, ll.lng]);
     } else {
       alert("Nieznany typ geometrii.");
-      try { layer.remove(); } catch (err) {}
+      try { layer.remove(); } catch (err) { }
       activeDrawingLayer = null;
       exitDrawingMode();
       return;
@@ -440,7 +551,7 @@ document.addEventListener("DOMContentLoaded", function () {
           currentParcelsData[savedFullKey] = newParcel;
 
           // Usuń tymczasową warstwę z rysowania
-          try { layer.remove(); } catch (err) {}
+          try { layer.remove(); } catch (err) { }
 
           // Dodaj ostateczną warstwę na mapę
           addParcelToMap(savedFullKey, newParcel);
@@ -471,9 +582,9 @@ document.addEventListener("DOMContentLoaded", function () {
    * Wyłącza tryb rysowania i przywraca interfejs.
    */
   function exitDrawingMode() {
-    try { map.pm.disableDraw("Marker"); } catch (e) {}
-    try { map.pm.disableDraw("Polygon"); } catch (e) {}
-    try { map.pm.disableDraw("Line"); } catch (e) {}
+    try { map.pm.disableDraw("Marker"); } catch (e) { }
+    try { map.pm.disableDraw("Polygon"); } catch (e) { }
+    try { map.pm.disableDraw("Line"); } catch (e) { }
 
     map.off("pm:create", handleDrawingFinish);
 
@@ -481,10 +592,10 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       if (map.pm?.getGeomanDrawLayers) {
         map.pm.getGeomanDrawLayers().forEach((layer) => {
-          try { layer.remove(); } catch (e) {}
+          try { layer.remove(); } catch (e) { }
         });
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Reset interfejsu
     if (createActions) {
@@ -833,7 +944,7 @@ document.addEventListener("DOMContentLoaded", function () {
    */
   function updateParcelList(parcelsToShow) {
     parcelList.innerHTML = "";
-    
+
     // Sortowanie alfanumeryczne
     Object.entries(parcelsToShow)
       .sort(([idA], [idB]) =>
@@ -956,7 +1067,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Usuń starą warstwę
     const oldLayer = findLayerById(parcelId);
     if (oldLayer) {
-      try { oldLayer.remove(); } catch (e) {}
+      try { oldLayer.remove(); } catch (e) { }
     }
 
     // Dodaj nową warstwę
@@ -992,7 +1103,7 @@ document.addEventListener("DOMContentLoaded", function () {
       alert(`Kategoria "${currentCategory}" jest nieznana.`);
       return;
     }
-    
+
     const allowedOptionsString = allowedTargetCategories
       .filter(cat => cat !== currentCategory)
       .map(cat => formatCategoryName(cat))
@@ -1117,7 +1228,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     const data = await response.json();
     alert(data.message);
-    
+
     if (data.status === "success") {
       findLayerById(parcelId)?.remove();
       document.querySelector(`#parcel-list li[data-parcel-id="${parcelId}"]`)?.remove();
@@ -1184,8 +1295,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const body = JSON.stringify({ filename });
 
     // Przywracanie
-    if (target.matches(".btn-restore") && 
-        confirm(`Przywrócić "${filename}"?\n\nDane zostaną nadpisane!`)) {
+    if (target.matches(".btn-restore") &&
+      confirm(`Przywrócić "${filename}"?\n\nDane zostaną nadpisane!`)) {
       fetch("/restore", { method: "POST", headers, body })
         .then((res) => res.json())
         .then((data) => {
@@ -1195,8 +1306,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Usuwanie
-    if (target.matches(".btn-delete") && 
-        confirm(`Usunąć "${filename}"?\n\nNieodwracalne!`)) {
+    if (target.matches(".btn-delete") &&
+      confirm(`Usunąć "${filename}"?\n\nNieodwracalne!`)) {
       fetch("/delete_backup", { method: "POST", headers, body })
         .then(async (res) => {
           const payload = await res.json().catch(() => null);
@@ -1220,14 +1331,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function loadBackupList() {
     const backupList = document.getElementById("backup-list");
     backupList.innerHTML = "<li>Ładowanie...</li>";
-    
+
     fetch("/api/backups")
       .then((r) => r.json())
       .then((files) => {
-        backupList.innerHTML = files.length === 0 
-          ? "<li>Brak kopii.</li>" 
+        backupList.innerHTML = files.length === 0
+          ? "<li>Brak kopii.</li>"
           : "";
-        
+
         files.forEach((file) => {
           const li = document.createElement("li");
           li.dataset.filename = file;
@@ -1243,33 +1354,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .catch(() => backupList.innerHTML = "<li>Błąd wczytywania.</li>");
   }
 
-  // ==========================================================================
-  // ZAMYKANIE APLIKACJI
-  // ==========================================================================
-  document.getElementById("shutdown-app-btn").addEventListener("click", () => {
-    if (!confirm("Zamknąć aplikację?\n\nSerwer zostanie wyłączony!")) return;
-
-    fetch("/api/shutdown", { method: "POST" })
-      .then((response) => {
-        if (response.ok) {
-          document.body.innerHTML = `
-            <div style="text-align:center; padding-top:100px; font-size:1.5em; color:#333;">
-              <h1>Serwer wyłączony. Do zobaczenia!</h1>
-            </div>`;
-          setTimeout(() => window.close(), 700);
-        } else {
-          alert("Błąd zamykania serwera.");
-        }
-      })
-      .catch((error) => {
-        console.warn("Błąd komunikacji:", error);
-        document.body.innerHTML = `
-          <div style="text-align:center; padding-top:100px; font-size:1.5em; color:#333;">
-            <h1>Serwer wyłączony. Do zobaczenia!</h1>
-          </div>`;
-        setTimeout(() => window.close(), 700);
-      });
-  });
+  // (Stary przycisk zamykania usunięty - obsługa w nowym modalu exit)  
 
   // Usuwanie wszystkich
   document.getElementById('delete-all-parcels-btn').addEventListener('click', deleteAllParcels);
@@ -1278,7 +1363,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // INICJALIZACJA APLIKACJI
   // ==========================================================================
   loadAndDrawParcels();
-  
+
   console.log("✅ Edytor działek załadowany");
   console.log("📍 Współrzędne: 50.0614 N, 21.2461 E");
   console.log("🔍 Maksymalny zoom: 21");

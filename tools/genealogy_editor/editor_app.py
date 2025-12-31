@@ -510,12 +510,12 @@ def get_family_tree_data(family_name):
             family_people.append(pers)
             related_ids.add(pid)
             add_related(pers.get("id_ojca"))
-            add_related(pers.get("id_matka"))
+            add_related(pers.get("id_matki"))
             add_related(pers.get("id_malzonka"))
 
         for p in family_people.copy():
             add_related(p.get("id_ojca"))
-            add_related(p.get("id_matka"))
+            add_related(p.get("id_matki"))
             add_related(p.get("id_malzonka"))
 
         # Algorytm BFS dla dzieci

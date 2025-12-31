@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resource: '/api/genealogia',   // + /<id> dla PUT/DELETE
     tree: '/api/genealogia/drzewo', // + /<nazwisko>
     protocols: '/api/protocols',
-    backups: '/api/backups'
+    backups: '/api/genealogy/backups'
   };
 
   // --- ELEMENTY DOM ---
@@ -51,7 +51,123 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupEventListeners();
+    setupDateTime();
+    setupExitButton();
     await loadData();
+  };
+
+  // --- DATA I CZAS ---
+  const setupDateTime = () => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const dateEl = document.getElementById('currentDate');
+      const timeEl = document.getElementById('currentTime');
+
+      if (dateEl) {
+        dateEl.textContent = now.toLocaleDateString('pl-PL', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+      if (timeEl) {
+        timeEl.textContent = now.toLocaleTimeString('pl-PL', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+    };
+
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+  };
+
+  // --- PRZYCISK WYJŚCIA (SHUTDOWN) ---
+  const setupExitButton = () => {
+    const exitBtn = document.getElementById('exitServerBtn');
+    const exitModal = document.getElementById('exitModal');
+    const confirmBtn = document.getElementById('confirmExitBtn');
+    const cancelBtn = document.getElementById('cancelExitBtn');
+    const closeBtn = document.getElementById('closeExitModal');
+
+    if (exitBtn && exitModal) {
+      exitBtn.addEventListener('click', () => {
+        exitModal.classList.remove('hidden');
+      });
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        exitModal.classList.add('hidden');
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        exitModal.classList.add('hidden');
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Zamykanie...';
+
+        try {
+          const response = await fetch('/shutdown', { method: 'POST' });
+          if (response.ok) {
+            showToast('success', 'Serwer jest zamykany...');
+            setTimeout(() => {
+              document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:Inter,sans-serif;flex-direction:column;">
+                  <i class="fas fa-check-circle" style="font-size:4rem;color:#48bb78;margin-bottom:1rem;"></i>
+                  <h1 style="margin-bottom:0.5rem;">Serwer zamknięty</h1>
+                  <p style="color:#94a3b8;">Ta karta zamknie się automatycznie...</p>
+                  <p style="color:#64748b;font-size:0.85rem;margin-top:1rem;">Zamykanie za <span id="countdown">3</span>s</p>
+                </div>
+              `;
+              // Auto zamknij kartę po 3 sekundach
+              let countdown = 3;
+              const countdownEl = document.getElementById('countdown');
+              const timer = setInterval(() => {
+                countdown--;
+                if (countdownEl) countdownEl.textContent = countdown;
+                if (countdown <= 0) {
+                  clearInterval(timer);
+                  window.close();
+                  // Fallback jeśli window.close() nie zadziała (ograniczenia przeglądarki)
+                  setTimeout(() => {
+                    document.body.innerHTML = `
+                      <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#e2e8f0;font-family:Inter,sans-serif;flex-direction:column;">
+                        <i class="fas fa-check-circle" style="font-size:4rem;color:#48bb78;margin-bottom:1rem;"></i>
+                        <h1>Serwer zamknięty</h1>
+                        <p style="color:#94a3b8;">Możesz teraz zamknąć tę kartę ręcznie.</p>
+                      </div>
+                    `;
+                  }, 500);
+                }
+              }, 1000);
+            }, 1000);
+          } else {
+            throw new Error('Nie udało się zamknąć serwera');
+          }
+        } catch (err) {
+          showToast('error', err.message);
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i class="fas fa-power-off"></i> Zamknij serwer';
+        }
+      });
+    }
+
+    // Zamknij modal po kliknięciu w tło
+    if (exitModal) {
+      exitModal.addEventListener('click', (e) => {
+        if (e.target === exitModal) {
+          exitModal.classList.add('hidden');
+        }
+      });
+    }
   };
 
   const setupEventListeners = () => {
@@ -115,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('createBackupBtn')) {
       document.getElementById('createBackupBtn').addEventListener('click', async () => {
         try {
-          const res = await fetch(API.backups, { method: 'POST' });
+          const res = await fetch(`${API.backups}/create`, { method: 'POST' });
           if (res.ok) {
             showToast('success', 'Utworzono kopię zapasową');
             loadBackups();
@@ -127,12 +243,27 @@ document.addEventListener('DOMContentLoaded', () => {
     window.restoreBackup = async (filename) => {
       if (!confirm(`Czy na pewno przywrócić kopię ${filename}? Aktualne dane zostaną nadpisane.`)) return;
       try {
-        const res = await fetch(`${API.backups}/${filename}`, { method: 'POST' });
+        const res = await fetch(`${API.backups}/restore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: filename })
+        });
         if (res.ok) {
           showToast('success', 'Przywrócono dane z kopii');
           backupModal.classList.add('hidden');
           loadData();
         } else showToast('error', 'Błąd przywracania');
+      } catch (e) { showToast('error', e.message); }
+    };
+
+    window.deleteBackup = async (filename) => {
+      if (!confirm(`Czy na pewno usunąć kopię ${filename}?`)) return;
+      try {
+        const res = await fetch(`${API.backups}/${filename}`, { method: 'DELETE' });
+        if (res.ok) {
+          showToast('success', 'Usunięto kopię zapasową');
+          loadBackups();
+        } else showToast('error', 'Błąd usuwania kopii');
       } catch (e) { showToast('error', e.message); }
     };
 
@@ -143,9 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(API.backups);
         const files = await res.json();
         listEl.innerHTML = files.map(f => `
-                    <li style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #eee;">
-                        <span>${f}</span>
-                        <button class="btn-secondary small" onclick="window.restoreBackup('${f}')">Przywróć</button>
+                    <li class="backup-item">
+                        <span class="backup-name">${f}</span>
+                        <div class="backup-actions">
+                            <button class="btn-success small" onclick="window.restoreBackup('${f}')"><i class="fas fa-undo"></i> Przywróć</button>
+                            <button class="btn-danger small" onclick="window.deleteBackup('${f}')"><i class="fas fa-trash"></i> Usuń</button>
+                        </div>
                     </li>
                 `).join('');
         if (files.length === 0) listEl.innerHTML = '<li style="padding:10px;">Brak kopii zapasowych</li>';
@@ -163,10 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error('Błąd sieci');
       allPeople = await res.json();
 
-      // Wstępne sortowanie A-Z
-      allPeople.sort((a, b) => (a.nazwisko || '').localeCompare(b.nazwisko || ''));
-
       filteredPeople = [...allPeople];
+
+      // Wywołaj sortData() dla właściwego sortowania (A-Z po imieniu)
+      sortData();
+
       updateCount();
       renderList();
 
@@ -252,6 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- RENDEROWANIE LISTY ---
+  let currentDisplayLimit = 200;
+
   const renderList = () => {
     els.listContainer.innerHTML = '';
     if (filteredPeople.length === 0) {
@@ -259,8 +396,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Renderuj pierwsze 100, reszta lazy loading? Na razie 200 hard limit dla wydajności
-    const limit = 200;
+    // Renderuj do limitu
+    const limit = currentDisplayLimit;
     filteredPeople.slice(0, limit).forEach(p => {
       const el = document.createElement('div');
       el.className = 'person-list-item';
@@ -289,12 +426,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (filteredPeople.length > limit) {
-      const more = document.createElement('div');
-      more.style.textAlign = 'center';
-      more.style.padding = '10px';
-      more.style.color = '#888';
-      more.textContent = `... i ${filteredPeople.length - limit} więcej (użyj wyszukiwania)`;
-      els.listContainer.appendChild(more);
+      const remaining = filteredPeople.length - limit;
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'btn-primary';
+      moreBtn.style.cssText = 'width:100%; margin:10px 0; padding:12px; border-radius:8px; cursor:pointer;';
+      moreBtn.innerHTML = `<i class="fas fa-plus-circle"></i> Załaduj więcej (${remaining} pozostało)`;
+      moreBtn.addEventListener('click', () => {
+        currentDisplayLimit += 200;
+        renderList();
+      });
+      els.listContainer.appendChild(moreBtn);
     }
   };
 
@@ -387,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
     els.detailsPanel.innerHTML = `
         <div class="detail-header">
             <div class="person-title">
-                <h1>${genderIcon} ${person.imie} ${person.nazwisko}</h1>
+                <h1>${genderIcon} ${person.imie} ${person.nazwisko} <span class="person-id-badge">ID: ${person.id_osoby}</span></h1>
                 <div class="dates">${years}</div>
                 ${person.numer_domu ? `<div style="margin-top:5px;"><strong>Dom:</strong> ${person.numer_domu}</div>` : ''}
                 ${person.uwagi ? `<div style="margin-top:10px;font-style:italic;">"${person.uwagi}"</div>` : ''}
@@ -463,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Globalne handlery
     window.editCurrentPerson = () => openEditModal(currentPerson);
     window.deleteCurrentPerson = () => deletePerson(currentPerson.id_osoby);
-    window.showTreeForCurrent = () => showFamilyTree(person.nazwisko);
+    window.showTreeForCurrent = () => showFamilyTree(person.nazwisko, person.id_osoby);
     window.openProtocol = (key) => window.open(`../wlasciciele/protokol.html?ownerId=${key}`, '_blank');
     window.goToPerson = (id) => {
       const target = allPeople.find(p => String(p.id_osoby) === String(id));
@@ -515,7 +656,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="form-grid">
                     <div class="form-group">
                         <label>ID Osoby (Unikalne)</label>
-                        <input type="number" name="id_osoby" value="${safe(person?.id_osoby)}" required ${person ? 'readonly style="background:#f7fafc;"' : ''}>
+                        <input type="number" name="id_osoby" id="idOsobyInput" value="${safe(person?.id_osoby)}" required>
+                        <small style="color:var(--text-secondary);margin-top:4px;">⚠️ Zmiana ID może wpłynąć na powiązania rodzinne</small>
                     </div>
                 </div>
 
@@ -619,7 +761,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <input type="text" class="spouse-ac" id="sac_${uniq}" value="${initName}" placeholder="Imię małżonka..." autocomplete="off">
                     <div id="ssug_${uniq}" class="autocomplete-suggestions hidden"></div>
                 </div>
-                <button type="button" class="btn-icon" style="color:red;" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+                <button type="button" class="btn-remove-spouse" onclick="this.parentElement.remove()" title="Usuń małżonka">
+                    <i class="fas fa-times"></i>
+                </button>
              `;
       spousesContainer.appendChild(row);
       // Setup AC
@@ -666,8 +810,20 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       data.marriages = marriages; // Backend expect this structure (from editor_app.py update)
 
-      // Walidacje
-      // ...
+      // Walidacja unikalności ID
+      const newId = data.id_osoby;
+      const originalId = person?.id_osoby;
+
+      // Sprawdź czy ID się zmieniło i czy nowe ID jest już zajęte
+      if (String(newId) !== String(originalId)) {
+        const existingPerson = allPeople.find(p => String(p.id_osoby) === String(newId));
+        if (existingPerson) {
+          showToast('error', `ID ${newId} jest już zajęte przez: ${existingPerson.imie} ${existingPerson.nazwisko}`);
+          document.getElementById('idOsobyInput').focus();
+          document.getElementById('idOsobyInput').style.borderColor = '#f87171';
+          return;
+        }
+      }
 
       if (person) {
         // UPDATE
@@ -743,7 +899,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showToast('success', 'Zapisano pomyślnie');
       closeModal();
+
+      // ID osoby którą dodaliśmy/edytowaliśmy
+      const savedPersonId = data.id_osoby || id;
+
       await loadData(); // Reload list
+
+      // Po dodaniu nowej osoby - przejdź do jej widoku
+      if (savedPersonId) {
+        const savedPerson = allPeople.find(p => String(p.id_osoby) === String(savedPersonId));
+        if (savedPerson) {
+          showDetails(savedPerson);
+          // Scroll do osoby na liście
+          setTimeout(() => {
+            const listItems = document.querySelectorAll('.person-list-item');
+            listItems.forEach(item => {
+              if (item.textContent.includes(`ID: ${savedPersonId}`)) {
+                item.classList.add('active');
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            });
+          }, 100);
+        }
+      }
     } catch (e) {
       console.error(e);
       showToast('error', e.message);
@@ -778,14 +956,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- DRZEWO GENEALOGICZNE (HTML Version) ---
   // Ported from previous implementation
 
-  window.showFamilyTree = async (familyName) => {
+  window.showFamilyTree = async (familyName, personId) => {
     if (!familyName) {
       showToast('error', 'Osoba nie ma nazwiska, nie można wygenerować drzewa rodu.');
       return;
     }
 
     const treeHeader = document.querySelector('.tree-dialog-header h2');
-    if (treeHeader) treeHeader.textContent = `Drzewo: Rodzina ${familyName}`;
+    if (treeHeader) {
+      treeHeader.innerHTML = `<i class="fas fa-tree"></i> Drzewo: ${familyName} <span class="tree-legend-inline">💙 Mężczyzna | 💗 Kobieta | 💛 Główna osoba | 💕 Małżeństwo</span>`;
+    }
 
     els.treeContainer.innerHTML = '<div class="loader">Generowanie drzewa...</div>';
 
@@ -798,311 +978,187 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok) throw new Error('Błąd pobierania drzewa');
       const data = await response.json(); // { people: [...], start_node_id: ... }
 
-      drawGenealogyTree_Impl(data.people, data.start_node_id, els.treeContainer);
+      // Użyj personId (ID wybranej osoby) zamiast start_node_id z API
+      const rootId = personId || data.start_node_id;
+      drawGenealogyTree_Impl(data.people, rootId, els.treeContainer);
     } catch (error) {
       console.error("Tree Error:", error);
       els.treeContainer.innerHTML = `<div class="error">Błąd: ${error.message}</div>`;
     }
   };
 
-  // --- FUNKCJE RYSOWANIA DRZEWA (D3 z Admina) ---
+  // --- FUNKCJE RYSOWANIA DRZEWA (HTML Version from protokol.js) ---
   function drawGenealogyTree_Impl(peopleList, rootId, container) {
+    console.log('drawGenealogyTree_Impl called with:', { peopleCount: peopleList?.length, rootId, firstPerson: peopleList?.[0] });
+
     container.innerHTML = '';
     if (!peopleList || !peopleList.length) {
       container.innerHTML = '<div style="padding:50px;text-align:center;">Brak danych do wyświetlenia</div>';
       return;
     }
 
-    // Konfiguracja
-    const CFG = {
-      NODE_H: 80,
-      NODE_W_MIN: 140,
-      GAP_H: 60,
-      GAP_V: 100,
-      MARGIN: 50,
-      FONT: '14px Inter, sans-serif'
+    // Mapowanie danych z formatu backendu
+    const personMap = new Map();
+    const childrenMap = new Map();
+
+    peopleList.forEach(p => {
+      // API zwraca: ojciec_id, matka_id, malzonek_id (format polski)
+      // Lub: id_ojca, id_matki, id_malzonka (format alternatywny)
+      const person = {
+        id: p.id || p.id_osoby,
+        name: `${p.imie || ''} ${p.nazwisko || ''}`.trim() || p.name || 'Nieznany',
+        gender: p.plec || p.gender || 'M',
+        birthYear: p.rok_urodzenia || p.birthDate?.year,
+        deathYear: p.rok_smierci || p.deathDate?.year,
+        fatherId: p.ojciec_id || p.id_ojca || p.fatherId,
+        motherId: p.matka_id || p.id_matki || p.motherId,
+        spouseId: p.malzonek_id || p.id_malzonka || (p.spouseIds && p.spouseIds[0]),
+        spouseIds: p.spouseIds || (p.malzonek_id ? [p.malzonek_id] : (p.id_malzonka ? [p.id_malzonka] : []))
+      };
+      personMap.set(String(person.id), person);
+
+      if (person.fatherId) {
+        const fKey = String(person.fatherId);
+        if (!childrenMap.has(fKey)) childrenMap.set(fKey, []);
+        childrenMap.get(fKey).push(person.id);
+      }
+      if (person.motherId) {
+        const mKey = String(person.motherId);
+        if (!childrenMap.has(mKey)) childrenMap.set(mKey, []);
+        childrenMap.get(mKey).push(person.id);
+      }
+    });
+
+    // Szukaj rootPerson - próbuj różne formaty ID
+    // Funkcja pomocnicza dla spójnego wyszukiwania
+    const getPerson = (id) => id ? personMap.get(String(id)) : null;
+
+    let rootPerson = getPerson(rootId);
+    if (!rootPerson) {
+      // Fallback - szukaj po id_osoby w oryginalnej liście
+      const found = peopleList.find(p => String(p.id_osoby) === String(rootId) || String(p.id) === String(rootId));
+      if (found) {
+        rootPerson = getPerson(found.id || found.id_osoby);
+      }
+    }
+    if (!rootPerson) {
+      rootPerson = personMap.values().next().value;
+    }
+    if (!rootPerson) {
+      container.innerHTML = '<div style="padding:50px;text-align:center;">Nie znaleziono osoby głównej</div>';
+      return;
+    }
+
+    const getParentRole = (p) => p?.gender === 'M' ? 'Ojciec' : (p?.gender === 'F' ? 'Matka' : 'Rodzic');
+    const getGrandparentRole = (p) => p?.gender === 'M' ? 'Dziadek' : (p?.gender === 'F' ? 'Babcia' : 'Dziadek/Babcia');
+    const formatYears = (p) => {
+      if (!p) return '';
+      return `${p.birthYear || '?'} - ${p.deathYear || '?'}`;
     };
 
-    // 1. Mapowanie danych (Backend PL format -> D3 friendly)
-    // peopleList items: {id, imie, nazwisko, plec, rok_urodzenia, rok_smierci, id_ojca, id_matki, id_malzonka, ...}
+    const father = getPerson(rootPerson.fatherId);
+    const mother = getPerson(rootPerson.motherId);
+    const parents = [];
+    if (father) parents.push({ role: getParentRole(father), ...father });
+    if (mother) parents.push({ role: getParentRole(mother), ...mother });
 
-    const nodes = peopleList.map(p => ({
-      id: String(p.id),
-      name: `${p.imie} ${p.nazwisko}`,
-      gender: p.plec,
-      birth: p.rok_urodzenia,
-      death: p.rok_smierci,
-      fatherId: p.id_ojca ? String(p.id_ojca) : null,
-      motherId: p.id_matki ? String(p.id_matki) : null,
-      spouseId: p.id_malzonka ? String(p.id_malzonka) : null,
-      isRoot: String(p.id) === String(rootId),
-
-      // Layout props
-      w: 0, h: CFG.NODE_H, x: 0, y: 0, gen: 0
-    }));
-
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-    // 2. Obliczanie szerokości węzłów
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    ctx.font = CFG.FONT; // approximate
-    nodes.forEach(n => {
-      const txtW = ctx.measureText(n.name).width;
-      n.w = Math.max(CFG.NODE_W_MIN, txtW + 40);
-    });
-
-    // 3. Ustalanie Generacji (BFS od roota lub najstarszego)
-    // Jeśli rootId nie jest podany, znajdź "protoplastę" (brak rodziców, najstarszy)
-    let chartRoot = nodes.find(n => n.id === String(rootId));
-    if (!chartRoot) {
-      // Find oldest without parents
-      const roots = nodes.filter(n => !n.fatherId && !n.motherId);
-      roots.sort((a, b) => (a.birth || 0) - (b.birth || 0));
-      chartRoot = roots[0] || nodes[0];
+    const grandparentsFather = [];
+    const grandparentsMother = [];
+    if (father) {
+      const gf = getPerson(father.fatherId);
+      const gm = getPerson(father.motherId);
+      if (gf) grandparentsFather.push({ role: getGrandparentRole(gf), ...gf });
+      if (gm) grandparentsFather.push({ role: getGrandparentRole(gm), ...gm });
+    }
+    if (mother) {
+      const gf = getPerson(mother.fatherId);
+      const gm = getPerson(mother.motherId);
+      if (gf) grandparentsMother.push({ role: getGrandparentRole(gf), ...gf });
+      if (gm) grandparentsMother.push({ role: getGrandparentRole(gm), ...gm });
     }
 
-    // Reset Generations
-    nodes.forEach(n => n.gen = null);
-    if (chartRoot) chartRoot.gen = 0;
+    const spouses = (rootPerson.spouseIds || []).map(sid => getPerson(sid)).filter(s => s).map(s => ({ role: 'Małżonek', ...s }));
+    const children = (childrenMap.get(String(rootPerson.id)) || []).map(cid => getPerson(cid)).filter(c => c).map(c => ({ role: 'Dziecko', ...c }));
 
-    const queue = [chartRoot];
-    const visited = new Set([chartRoot.id]);
+    const siblingIds = new Set();
+    if (rootPerson.fatherId) (childrenMap.get(String(rootPerson.fatherId)) || []).forEach(id => { if (String(id) !== String(rootPerson.id)) siblingIds.add(id); });
+    if (rootPerson.motherId) (childrenMap.get(String(rootPerson.motherId)) || []).forEach(id => { if (String(id) !== String(rootPerson.id)) siblingIds.add(id); });
+    const siblings = Array.from(siblingIds).map(sid => getPerson(sid)).filter(s => s).map(s => ({ role: 'Rodzeństwo', ...s }));
 
-    // Prosty BFS do ustawienia generacji w dół
-    let head = 0;
-    while (head < queue.length) {
-      const curr = queue[head++];
+    const renderTreeNode = (person, isRoot = false, showRole = true) => {
+      if (!person) return '';
+      const bgColor = isRoot ? '#fff3cd' : (person.gender === 'M' ? '#e3f2fd' : '#fce4ec');
+      const borderColor = isRoot ? '#f57f17' : (person.gender === 'M' ? '#1976d2' : '#c2185b');
+      return `<div style="background:${bgColor};border:2px solid ${borderColor};border-radius:10px;padding:0.75rem 1rem;min-width:140px;max-width:180px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        ${showRole && person.role ? `<div style="font-size:0.6rem;text-transform:uppercase;color:#888;margin-bottom:0.2rem;">${person.role}</div>` : ''}
+        <div style="font-weight:700;font-size:0.85rem;color:#333;">${person.name}</div>
+        <div style="font-size:0.7rem;color:#666;margin-top:0.2rem;">${formatYears(person)}</div>
+      </div>`;
+    };
 
-      // Find children
-      nodes.forEach(n => {
-        if ((n.fatherId === curr.id || n.motherId === curr.id) && !visited.has(n.id)) {
-          n.gen = curr.gen + 1;
-          visited.add(n.id);
-          queue.push(n);
-        }
-      });
+    let html = `<style>
+      .tree-scroll-area{flex:1;overflow:auto;padding:1rem;display:flex;justify-content:center;}
+      .tree-content{display:flex;flex-direction:column;align-items:center;padding:1.5rem;min-width:max-content;}
+      .tree-level{display:flex;justify-content:center;gap:2rem;}
+      .tree-connector-down{width:2px;height:30px;background:#ccc;margin:0 auto;}
+      .tree-pair{display:flex;align-items:center;gap:0.5rem;}
+      .tree-pair-connector{width:30px;height:2px;background:#e74c3c;position:relative;}
+      .tree-pair-connector::after{content:'💕';position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:14px;}
+      .tree-branch{display:flex;flex-direction:column;align-items:center;}
+      .tree-main-column{display:flex;flex-direction:column;align-items:center;}
+      .tree-with-siblings{display:flex;align-items:flex-start;gap:2rem;}
+      .tree-siblings-section{display:flex;flex-direction:column;align-items:center;opacity:0.8;padding-top:1.5rem;}
+      .tree-siblings-grid{display:flex;flex-wrap:wrap;gap:0.5rem;max-width:400px;justify-content:center;}
+      .tree-children{display:flex;justify-content:center;gap:1rem;position:relative;padding-top:30px;flex-wrap:wrap;}
+      .tree-child-branch{display:flex;flex-direction:column;align-items:center;}
+      .tree-child-branch::before{content:'';width:2px;height:15px;background:#ccc;}
+      .generation-label{font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:#888;margin:1rem 0 0.5rem;font-weight:700;}
+      .section-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:0.5rem;font-weight:600;}
+    </style>`;
 
-      // Find spouses (same Gen)
-      if (curr.spouseId && nodeMap.has(curr.spouseId)) {
-        const sp = nodeMap.get(curr.spouseId);
-        if (!visited.has(sp.id)) {
-          sp.gen = curr.gen;
-          visited.add(sp.id);
-          queue.push(sp);
-        }
+    html += '<div class="tree-scroll-area"><div class="tree-content">';
+
+    if (grandparentsFather.length > 0 || grandparentsMother.length > 0) {
+      html += '<div class="generation-label">Dziadkowie</div><div class="tree-level" style="gap:4rem;">';
+      if (grandparentsFather.length > 0) {
+        html += '<div class="tree-branch"><div style="font-size:0.6rem;color:#888;margin-bottom:0.25rem;">od ojca</div><div class="tree-pair">';
+        grandparentsFather.forEach((gp, i) => { if (i > 0) html += '<div class="tree-pair-connector"></div>'; html += renderTreeNode(gp, false, false); });
+        html += '</div></div>';
       }
+      if (grandparentsMother.length > 0) {
+        html += '<div class="tree-branch"><div style="font-size:0.6rem;color:#888;margin-bottom:0.25rem;">od matki</div><div class="tree-pair">';
+        grandparentsMother.forEach((gp, i) => { if (i > 0) html += '<div class="tree-pair-connector"></div>'; html += renderTreeNode(gp, false, false); });
+        html += '</div></div>';
+      }
+      html += '</div><div class="tree-connector-down"></div>';
     }
 
-    // Fix null generations (orphan nodes) -> set to 0 or derive from spouse
-    nodes.forEach(n => {
-      if (n.gen === null) {
-        if (n.spouseId && nodeMap.has(n.spouseId) && nodeMap.get(n.spouseId).gen !== null) {
-          n.gen = nodeMap.get(n.spouseId).gen;
-        } else {
-          n.gen = 0;
-        }
-      }
-    });
+    if (parents.length > 0) {
+      html += '<div class="generation-label">Rodzice</div><div class="tree-level"><div class="tree-pair">';
+      parents.forEach((p, i) => { if (i > 0) html += '<div class="tree-pair-connector"></div>'; html += renderTreeNode(p); });
+      html += '</div></div><div class="tree-connector-down"></div>';
+    }
 
-    // 4. Pozycjonowanie (Proste: Generacje wierszami)
-    const gens = new Map();
-    nodes.forEach(n => {
-      if (!gens.has(n.gen)) gens.set(n.gen, []);
-      gens.get(n.gen).push(n);
-    });
+    html += '<div class="tree-with-siblings">';
+    if (siblings.length > 0) {
+      html += '<div class="tree-siblings-section"><div class="section-label">Rodzeństwo</div><div class="tree-siblings-grid">';
+      siblings.forEach(s => { html += renderTreeNode(s); });
+      html += '</div></div>';
+    }
 
-    const sortedGens = Array.from(gens.keys()).sort((a, b) => a - b);
-    let currentY = CFG.MARGIN;
+    html += '<div class="tree-main-column"><div class="generation-label">Główna osoba</div><div class="tree-pair">';
+    html += renderTreeNode(rootPerson, true);
+    if (spouses.length > 0) { html += '<div class="tree-pair-connector"></div>'; html += renderTreeNode(spouses[0]); }
+    html += '</div>';
 
-    sortedGens.forEach(g => {
-      const rowNodes = gens.get(g);
-      // Grupuj małżeństwa
-      const couples = [];
-      const singles = [];
-      const processed = new Set();
+    if (children.length > 0) {
+      html += '<div class="tree-connector-down"></div><div class="generation-label">Dzieci</div><div class="tree-children">';
+      children.forEach(child => { html += '<div class="tree-child-branch">' + renderTreeNode(child) + '</div>'; });
+      html += '</div>';
+    }
 
-      rowNodes.forEach(n => {
-        if (processed.has(n.id)) return;
-
-        if (n.spouseId && nodeMap.has(n.spouseId)) {
-          const sp = nodeMap.get(n.spouseId);
-          // Check if spouse is in same gen (should be)
-          if (sp.gen === g && !processed.has(sp.id)) {
-            couples.push([n, sp]);
-            processed.add(n.id);
-            processed.add(sp.id);
-          } else {
-            singles.push(n);
-            processed.add(n.id);
-          }
-        } else {
-          singles.push(n);
-          processed.add(n.id);
-        }
-      });
-
-      // Sort inside row by birth or name?
-      // (Skipped for brevity)
-
-      let currentX = CFG.MARGIN;
-
-      // Render Couples
-      couples.forEach(([n1, n2]) => {
-        n1.x = currentX; n1.y = currentY;
-        currentX += n1.w + 20; // 20px gap between spouses
-        n2.x = currentX; n2.y = currentY;
-        currentX += n2.w + CFG.GAP_H;
-      });
-
-      // Render Singles
-      singles.forEach(n => {
-        n.x = currentX; n.y = currentY;
-        currentX += n.w + CFG.GAP_H;
-      });
-
-      currentY += CFG.NODE_H + CFG.GAP_V;
-    });
-
-    // 5. Rysowanie SVG (D3)
-    // Oblicz rozmiar sceny
-    const allX = nodes.map(n => n.x + n.w);
-    const allY = nodes.map(n => n.y + n.h);
-    const maxW = Math.max(...allX) + CFG.MARGIN;
-    const maxH = Math.max(...allY) + CFG.MARGIN;
-
-    const svg = d3.create("svg")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("viewBox", `0 0 ${maxW} ${maxH}`)
-      .style("font-family", "Inter, sans-serif");
-
-    // Zoom behavior
-    const g = svg.append("g");
-    svg.call(d3.zoom().scaleExtent([0.1, 3]).on("zoom", (e) => {
-      g.attr("transform", e.transform);
-    }));
-
-    // --- Connections ---
-    // Lines for Spouses
-    nodes.forEach(n => {
-      if (n.spouseId && nodeMap.has(n.spouseId)) {
-        const sp = nodeMap.get(n.spouseId);
-        // Draw only once (if n.x < sp.x)
-        if (n.x < sp.x) {
-          g.append("line")
-            .attr("x1", n.x + n.w)
-            .attr("y1", n.y + n.h / 2)
-            .attr("x2", sp.x)
-            .attr("y2", sp.h / 2 + sp.y)
-            .attr("stroke", "#e53e3e")
-            .attr("stroke-width", 2)
-            .attr("stroke-dasharray", "4");
-        }
-      }
-    });
-
-    // Lines for Children
-    nodes.forEach(n => {
-      // Find parents
-      const f = n.fatherId ? nodeMap.get(n.fatherId) : null;
-      const m = n.motherId ? nodeMap.get(n.motherId) : null;
-
-      if (!f && !m) return;
-
-      let startX, startY;
-
-      if (f && m && Math.abs(f.y - m.y) < 10) {
-        // Both parents in same row -> start from middle of spouse link
-        const left = f.x < m.x ? f : m;
-        const right = f.x < m.x ? m : f;
-        startX = (left.x + left.w + right.x) / 2;
-        startY = left.y + left.h / 2;
-      } else {
-        // Single parent or diff rows -> start from bottom of parent
-        const p = f || m;
-        startX = p.x + p.w / 2;
-        startY = p.y + p.h;
-      }
-
-      const endX = n.x + n.w / 2;
-      const endY = n.y;
-
-      // Elbow Link
-      const path = d3.path();
-      path.moveTo(startX, startY);
-      if (Math.abs(f?.y - m?.y) < 10) {
-        // From spouse line center
-        path.lineTo(startX, startY + CFG.GAP_V / 2);
-        path.lineTo(endX, startY + CFG.GAP_V / 2);
-        path.lineTo(endX, endY);
-      } else {
-        // Direct from parent bottom
-        path.lineTo(startX, startY + CFG.GAP_V / 2);
-        path.lineTo(endX, startY + CFG.GAP_V / 2);
-        path.lineTo(endX, endY);
-      }
-
-      g.append("path")
-        .attr("d", path.toString())
-        .attr("fill", "none")
-        .attr("stroke", "#cbd5e0")
-        .attr("stroke-width", 2);
-    });
-
-    // --- Nodes ---
-    const nodeG = g.selectAll(".node")
-      .data(nodes)
-      .enter()
-      .append("g")
-      .attr("transform", d => `translate(${d.x},${d.y})`)
-      .style("cursor", "pointer")
-      .on("click", (e, d) => {
-        // Optional: Pokazanie szczegółów po kliknięciu
-        console.log("Clicked:", d.name);
-      });
-
-    // Card Rect
-    nodeG.append("rect")
-      .attr("width", d => d.w)
-      .attr("height", d => d.h)
-      .attr("rx", 6)
-      .attr("fill", d => d.gender === 'M' ? '#ebf8ff' : '#fff5f7')
-      .attr("stroke", d => d.isRoot ? '#ed8936' : (d.gender === 'M' ? '#90cdf4' : '#f687b3'))
-      .attr("stroke-width", d => d.isRoot ? 3 : 1)
-      .style("filter", "drop-shadow(0 2px 3px rgba(0,0,0,0.1))");
-
-    // Name
-    nodeG.append("text")
-      .attr("x", d => d.w / 2)
-      .attr("y", 30)
-      .attr("text-anchor", "middle")
-      .style("font-weight", "600")
-      .style("fill", "#2d3748")
-      .text(d => d.name);
-
-    // Date
-    nodeG.append("text")
-      .attr("x", d => d.w / 2)
-      .attr("y", 50)
-      .attr("text-anchor", "middle")
-      .style("font-size", "0.85em")
-      .style("fill", "#718096")
-      .text(d => {
-        const b = d.birth || '?';
-        const dd = d.death || (d.birth && (2025 - d.birth > 100) ? '?' : '');
-        return dd ? `${b} - ${dd}` : `ur. ${b}`;
-      });
-
-    // Gender Icon
-    nodeG.append("text")
-      .attr("x", 12)
-      .attr("y", 20)
-      .style("font-size", "12px")
-      .style("fill", d => d.gender === 'M' ? '#3182ce' : '#d53f8c')
-      .text(d => d.gender === 'M' ? '♂' : '♀');
-
-    container.appendChild(svg.node());
+    html += '</div></div></div></div>';
+    container.innerHTML = html;
   }
 
   // Inicjalizacja

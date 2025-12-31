@@ -1,456 +1,915 @@
-/**
- * ============================================================================
- * Aplikacja: Edytor Działek - Arkusz Stylów
- * Opis: Style dla interaktywnej mapy z panelem zarządzania działkami.
- *       Obsługuje komponenty Leaflet, panel boczny oraz modale.
- * ============================================================================
- */
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --primary-color: #667eea;
+  --primary-dark: #5a67d8;
+  --secondary-color: #764ba2;
+  --success-color: #48bb78;
+  --danger-color: #f56565;
+  --warning-color: #ed8936;
+  --info-color: #4299e1;
+  --bg-main: #f7fafc;
+  --bg-card: white;
+  --bg-dark: #1a202c;
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+  --text-light: #a0aec0;
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --header-height: 64px;
+}
 
-/* ==========================================================================
-   RESET I STYLE GLOBALNE
-   ========================================================================== */
-body {
-  font-family: Arial, sans-serif;
+/* Dark mode */
+body.dark-mode {
+  --bg-main: #0f172a;
+  --bg-card: #1f2937;
+  --text-primary: #f3f4f6;
+  --text-secondary: #e5e7eb;
+  --text-light: #cbd5e1;
+  --border-color: #374151;
+}
+
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  background-color: #f0ebe5;
-  color: #333;
 }
 
-.container {
-  width: 100%;
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-main);
+  color: var(--text-primary);
   height: 100vh;
-  margin: 0;
-  padding: 20px;
-  box-sizing: border-box;
+  overflow: hidden;
+  line-height: 1.6;
+}
+
+.background-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--primary-gradient);
+  opacity: 0.05;
+  z-index: -1;
+}
+
+body.dark-mode .background-gradient {
+  opacity: 0.02;
+}
+
+.app-container {
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
-.content {
+/* HEADER / TOP BAR */
+.top-bar {
+  height: var(--header-height);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand i {
+  font-size: 1.5rem;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.top-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-btn {
+  background: var(--bg-main);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--text-primary);
+}
+
+.theme-btn:hover {
+  background: var(--primary-gradient);
+  color: white;
+}
+
+/* BUTTONS */
+.btn-primary,
+.btn-success,
+.btn-danger,
+.btn-warning,
+.btn-cancel,
+.btn-secondary {
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+}
+
+.btn-danger {
+  background: var(--danger-color);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #e53e3e;
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background: var(--warning-color);
+  color: white;
+}
+
+.btn-cancel {
+  background: var(--text-light);
+  color: white;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--text-secondary);
+}
+
+/* MAIN CONTENT */
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  padding: 20px;
   gap: 20px;
-  flex-grow: 1;
+}
+
+/* MAP CONTAINER */
+#map {
+  flex: 1;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+}
+
+/* Leaflet controls */
+.leaflet-control-coordinates {
+  background: var(--bg-card) !important;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-family: 'Inter', monospace;
+  color: var(--text-primary);
+}
+
+body.dark-mode .leaflet-control-coordinates {
+  background: #1f2937 !important;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.leaflet-control-layers {
+  background: var(--bg-card) !important;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+}
+
+body.dark-mode .leaflet-control-layers {
+  background: #1f2937 !important;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+/* SIDEBAR PANEL */
+#parcel-panel {
+  width: 380px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
-/* ==========================================================================
-   MAPA LEAFLET
-   ========================================================================== */
-#map {
-  height: 100%;
-  flex-grow: 1;
-  border: 1px solid #ccc;
+body.dark-mode #parcel-panel {
+  background: #1f2937;
 }
 
-/* Kontrolka współrzędnych */
-.leaflet-control-coordinates {
-  background: rgba(255, 255, 255, 0.8);
-  padding: 5px 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-  font-family: monospace;
-}
-
-/* Kontrolka warstw */
-.leaflet-control-layers {
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 5px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
-  line-height: 1.5;
-}
-
-.leaflet-control-layers-expanded {
-  padding: 8px 10px;
-  min-width: 180px;
-}
-
-.leaflet-control-layers-selector {
-  margin-right: 8px;
-  vertical-align: middle;
-}
-
-/* ==========================================================================
-   PASEK NARZĘDZI
-   ========================================================================== */
-#top-toolbar {
-  margin-bottom: 20px;
-}
-
-.toolbar-label {
-  font-weight: bold;
-  margin-right: 10px;
-}
-
-#top-toolbar button {
-  background-color: #fdfdfd;
-  color: white;
-  border: 2px solid #bbb;
-  padding: 5px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-  font-weight: bold;
-  transition: transform 0.1s ease-in-out;
-}
-
-#top-toolbar button:hover {
-  transform: scale(1.05);
-}
-
-/* Kolory kategorii */
-#top-toolbar button[data-category="budowlana"] {
-  background-color: #e67e22;
-  border-color: #c0392b;
-}
-
-#top-toolbar button[data-category="rolna"] {
-  background-color: #2ecc71;
-  border-color: #27ae60;
-}
-
-#top-toolbar button[data-category="droga"] {
-  background-color: #88540b;
-  border-color: #603a08;
-}
-
-#top-toolbar button[data-category="rzeka"] {
-  background-color: #3498db;
-  border-color: #2980b9;
-}
-
-#top-toolbar button[data-category="las"] {
-  background-color: #1abc9c;
-  border-color: #16a085;
-}
-
-#top-toolbar button[data-category="pastwisko"] {
-  background-color: #f1c40f;
-  border-color: #f39c12;
-}
-
-#top-toolbar button[data-category="budynek"] {
-  background-color: #9b59b6;
-  border-color: #8e44ad;
-}
-
-#top-toolbar button[data-category="kapliczka"] {
-  background-color: #e74c3c;
-  border-color: #c0392b;
-}
-
-/* Akcje dynamiczne */
-#dynamic-actions {
-  display: flex;
-  gap: 8px;
-}
-
-#dynamic-actions button {
-  font-weight: bold;
-}
-
-#dynamic-actions button.action-cancel,
-#dynamic-actions button.action-finish-edit {
-  background-color: #f8d7da;
-  border-color: #dc3545;
-}
-
-#dynamic-actions button.action-finish,
-#dynamic-actions button.action-save-changes {
-  background-color: #d4edda;
-  border-color: #28a745;
-}
-
-/* Przycisk magnesu */
-#dynamic-actions button.action-snap {
-  background-color: #e9ecef;
-  border-color: #6c757d;
-  color: #6c757d;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-#dynamic-actions button.action-snap:not(.active) {
-  text-decoration: line-through;
-  opacity: 0.6;
-}
-
-#dynamic-actions button.action-snap.active {
-  background-color: #d4edda;
-  border-color: #28a745;
-  color: #28a745;
-}
-
-/* ==========================================================================
-   PANEL BOCZNY
-   ========================================================================== */
-#parcel-panel {
-  width: 320px;
-  flex-shrink: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #ccc;
-  background-color: #fff;
-  box-sizing: border-box;
-  padding: 0;
-}
-
-/* Zakładki nawigacji */
+/* Tabs */
 .sidebar-tabs {
   display: flex;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 12px;
-  background: #f0f0f0;
+  padding: 14px;
+  background: var(--bg-main);
   border: none;
-  border-right: 1px solid #ccc;
   cursor: pointer;
-  font-size: 1em;
-  font-weight: 700;
-  color: #555;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: var(--transition);
 }
 
-.tab-btn:last-child {
-  border-right: none;
+.tab-btn:hover {
+  color: var(--primary-color);
 }
 
 .tab-btn.active {
-  background: #fff;
-  color: #007bff;
-  border-bottom: 2px solid #007bff;
-  margin-bottom: -1px;
+  background: var(--bg-card);
+  color: var(--primary-color);
+  border-bottom: 3px solid var(--primary-color);
 }
 
-/* Pole wyszukiwania */
+body.dark-mode .tab-btn {
+  background: #0f172a;
+  color: #94a3b8;
+}
+
+body.dark-mode .tab-btn.active {
+  background: #1f2937;
+  color: #a5b4fc;
+}
+
+/* Search */
 .search-container {
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 #search-filter {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  transition: var(--transition);
 }
 
-/* Lista działek */
+#search-filter:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+body.dark-mode #search-filter {
+  background: #0f172a;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+/* Parcel List */
 .list-container {
-  flex-grow: 1;
+  flex: 1;
   overflow-y: auto;
+}
+
+#parcel-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 #parcel-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  transition: var(--transition);
+}
+
+#parcel-list li:hover {
+  background: var(--bg-main);
+}
+
+body.dark-mode #parcel-list li:hover {
+  background: #0f172a;
 }
 
 .parcel-info {
   cursor: pointer;
-  flex-grow: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.parcel-info:hover {
-  color: #007bff;
+.parcel-info:hover .parcel-id {
+  color: var(--primary-color);
 }
 
 .parcel-id {
   font-weight: 700;
-  margin-right: 10px;
+  color: var(--text-primary);
+  transition: var(--transition);
 }
 
 .parcel-category {
-  color: #666;
-  font-style: italic;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
 }
 
-/* Przyciski akcji */
+/* Category colors */
+.parcel-category.budowlana {
+  background: #fed7aa;
+  color: #c2410c;
+}
+
+.parcel-category.rolna {
+  background: #bbf7d0;
+  color: #166534;
+}
+
+.parcel-category.droga {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.parcel-category.rzeka {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+
+.parcel-category.las {
+  background: #a7f3d0;
+  color: #065f46;
+}
+
+.parcel-category.pastwisko {
+  background: #fef08a;
+  color: #854d0e;
+}
+
+.parcel-category.budynek {
+  background: #e9d5ff;
+  color: #7c3aed;
+}
+
+.parcel-category.kapliczka {
+  background: #fecaca;
+  color: #dc2626;
+}
+
+/* Action buttons */
 .parcel-actions {
   display: flex;
-  gap: 5px;
+  gap: 6px;
 }
 
 .btn-action {
-  padding: 4px;
-  width: 30px;
-  height: 30px;
-  border: 1px solid #ccc;
-  background-color: #f0f0f0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-main);
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  color: var(--text-secondary);
 }
 
 .btn-action:hover {
-  background-color: #e2e2e2;
-  border-color: #999;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
 }
 
-/* Panel kontrolny */
+body.dark-mode .btn-action {
+  background: #0f172a;
+  border-color: #374151;
+}
+
+/* Main Controls */
 .main-controls {
-  padding: 12px;
-  border-top: 1px solid #ccc;
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  background-color: #f0f0f0;
-  flex-wrap: wrap;
+  background: var(--bg-main);
+}
+
+body.dark-mode .main-controls {
+  background: #0f172a;
 }
 
 .main-controls button {
-  color: white;
-  border-radius: 4px;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: bold;
-  flex-grow: 1;
-  flex-basis: 0;
-  min-width: 120px;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-  border: 1px solid #333;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 #open-backup-manager {
-  background-color: #3498db;
-  border-color: #2980b9;
+  background: var(--info-color);
+  border: none;
+  color: white;
 }
 
 #open-backup-manager:hover {
-  background-color: #5dade2;
+  background: #3182ce;
 }
 
 .main-controls button.danger {
-  background-color: #e74c3c;
-  border-color: #c0392b;
+  background: var(--danger-color);
+  border: none;
+  color: white;
 }
 
 .main-controls button.danger:hover {
-  background-color: #ec7063;
+  background: #e53e3e;
 }
 
-/* ==========================================================================
-   OKNO MODALNE
-   ========================================================================== */
+/* TOP TOOLBAR - Category buttons */
+#top-toolbar {
+  padding: 16px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+body.dark-mode #top-toolbar {
+  background: #1f2937;
+}
+
+.toolbar-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+#create-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#top-toolbar button {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-size: 0.85rem;
+  border: 2px solid transparent;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+#top-toolbar button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Category button colors */
+#top-toolbar button[data-category="budowlana"] {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+#top-toolbar button[data-category="rolna"] {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+#top-toolbar button[data-category="droga"] {
+  background: linear-gradient(135deg, #a16207, #854d0e);
+}
+
+#top-toolbar button[data-category="rzeka"] {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+#top-toolbar button[data-category="las"] {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+}
+
+#top-toolbar button[data-category="pastwisko"] {
+  background: linear-gradient(135deg, #eab308, #ca8a04);
+}
+
+#top-toolbar button[data-category="budynek"] {
+  background: linear-gradient(135deg, #a855f7, #9333ea);
+}
+
+#top-toolbar button[data-category="kapliczka"] {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+#top-toolbar button[data-category="obiekt_specjalny"] {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+#top-toolbar button[data-category="obrys_miejscowosci"] {
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+}
+
+/* Dynamic actions */
+#dynamic-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: center;
+}
+
+#dynamic-actions button {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+#dynamic-actions button.action-cancel,
+#dynamic-actions button.action-finish-edit {
+  background: var(--danger-color);
+  border: none;
+  color: white;
+}
+
+#dynamic-actions button.action-finish,
+#dynamic-actions button.action-save-changes {
+  background: var(--success-color);
+  border: none;
+  color: white;
+}
+
+#dynamic-actions button.action-undo {
+  background: var(--warning-color);
+  border: none;
+  color: white;
+}
+
+#dynamic-actions button.action-snap {
+  background: #64748b;
+  border: none;
+  color: white;
+}
+
+#dynamic-actions button.action-snap.active {
+  background: var(--success-color);
+}
+
+#dynamic-actions button.action-snap:not(.active) {
+  opacity: 0.7;
+}
+
+/* MODALS */
 .modal {
   display: none;
   position: fixed;
-  z-index: 1000;
-  left: 0;
   top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.show {
+  display: flex;
+}
+
+/* Backup modal uses different show mechanism (block vs flex) */
+#backupModal {
+  display: none;
+}
+
+#backupModal[style*="block"] {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal-content {
-  background-color: #fefefe;
-  margin: 10% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 600px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
-  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.3s ease-out;
+}
+
+body.dark-mode .modal-content {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h2 {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .close-button {
-  color: #aaa;
   position: absolute;
-  top: 10px;
+  top: 12px;
   right: 20px;
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 2rem;
+  color: var(--text-light);
   cursor: pointer;
+  transition: var(--transition);
+  background: none;
+  border: none;
 }
 
-.close-button:hover,
-.close-button:focus {
-  color: #000;
-  text-decoration: none;
+.close-button:hover {
+  color: var(--text-primary);
 }
 
 .modal-section {
-  margin-top: 20px;
+  padding: 20px 24px;
 }
 
-/* ==========================================================================
-   MENEDŻER KOPII ZAPASOWYCH
-   ========================================================================== */
 #create-backup-btn {
-  background-color: #27ae60;
+  width: 100%;
+  padding: 14px;
+  background: var(--success-color);
+  border: none;
+  border-radius: var(--radius-sm);
   color: white;
-  border: 2px solid black;
-  font-weight: bold;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 #create-backup-btn:hover {
-  background-color: #2ecc71;
+  background: #38a169;
 }
 
 #backup-list-container {
-  border: 1px solid #ddd;
-  margin-top: 10px;
   max-height: 300px;
   overflow-y: auto;
+  margin-top: 16px;
+}
+
+#backup-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 #backup-list li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 15px;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-  margin-top: 8px;
-  background-color: #f9f9f9;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--bg-main);
 }
 
-#backup-list li:first-child {
-  margin-top: 0;
+body.dark-mode #backup-list li {
+  background: #0f172a;
+  border-color: #374151;
 }
 
-#backup-list li:only-child {
-  background-color: transparent;
-  border: none;
-  font-style: italic;
-  color: #888;
+.backup-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .backup-actions button {
-  margin-left: 5px;
-  padding: 5px 10px;
-  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: none;
   color: white;
-  font-weight: bold;
-  border: 2px solid black;
-  border-radius: 4px;
 }
 
 .backup-actions .btn-restore {
-  background-color: #3498db;
+  background: var(--info-color);
 }
 
 .backup-actions .btn-restore:hover {
-  background-color: #5dade2;
+  background: #3182ce;
 }
 
 .backup-actions .btn-delete {
-  background-color: #e74c3c;
+  background: var(--danger-color);
 }
 
 .backup-actions .btn-delete:hover {
-  background-color: #ec7063;
+  background: #e53e3e;
+}
+
+/* EXIT MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+/* STATUS MESSAGE / TOAST */
+#status-message {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  z-index: 2000;
+  display: none;
+  font-weight: 500;
+}
+
+#status-message.show {
+  display: block;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+#status-message.success {
+  border-left: 4px solid var(--success-color);
+}
+
+#status-message.error {
+  border-left: 4px solid var(--danger-color);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+body.dark-mode #status-message {
+  background: #1f2937;
+}
+
+/* TOAST CONTAINER */
+.toast-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 2000;
+}
+
+.toast {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  animation: slideInRight 0.3s ease-out;
+  color: var(--text-primary);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.toast.success {
+  border-left: 4px solid var(--success-color);
+}
+
+.toast.error {
+  border-left: 4px solid var(--danger-color);
+}
+
+body.dark-mode .toast {
+  background: #1f2937;
 }
