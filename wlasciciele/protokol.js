@@ -808,17 +808,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // CSS dla linii drzewa
         const treeStyles = `
             <style>
-                .tree-container {
+                .tree-content {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     gap: 0;
                     padding: 1.5rem;
                     min-width: max-content;
+                    width: max-content;
                 }
                 .tree-scroll-wrapper {
-                    height: 100%;
-                    width: 100%;
+                    min-width: max-content;
+                    display: inline-block;
                     padding: 1rem;
                     box-sizing: border-box;
                 }
@@ -827,6 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     justify-content: center;
                     gap: 2rem;
                     position: relative;
+                    min-width: max-content;
                 }
                 .tree-connector-down {
                     width: 2px;
@@ -838,12 +840,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
+                    min-width: max-content;
                 }
                 .tree-pair-connector {
                     width: 30px;
                     height: 2px;
                     background: #e74c3c;
                     position: relative;
+                    flex-shrink: 0;
                 }
                 .tree-pair-connector::after {
                     content: '💕';
@@ -867,6 +871,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     display: flex;
                     align-items: flex-start;
                     gap: 2rem;
+                    min-width: max-content;
                 }
                 .tree-siblings-section {
                     display: flex;
@@ -877,10 +882,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 .tree-siblings-grid {
                     display: flex;
-                    flex-wrap: wrap;
                     gap: 0.5rem;
-                    max-width: 400px;
                     justify-content: center;
+                    min-width: max-content;
                 }
                 .tree-children {
                     display: flex;
@@ -888,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     gap: 1rem;
                     position: relative;
                     padding-top: 30px;
-                    flex-wrap: wrap;
+                    min-width: max-content;
                 }
                 .tree-children::before {
                     content: '';
@@ -909,6 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
+                    flex-shrink: 0;
                 }
                 .tree-child-branch::before {
                     content: '';
@@ -936,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         // Generowanie HTML drzewa
-        let treeHTML = treeStyles + '<div class="tree-scroll-wrapper"><div class="tree-container">';
+        let treeHTML = treeStyles + '<div class="tree-scroll-wrapper"><div class="tree-content">';
 
         // POKOLENIE 1: Dziadkowie
         if (grandparentsFather.length > 0 || grandparentsMother.length > 0) {
@@ -1029,8 +1034,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-        treeHTML += '</div></div>'; // koniec tree-container i scroll-wrapper
+        treeHTML += '</div></div>'; // koniec tree-content i scroll-wrapper
+
+        // Dodaj własny suwak do przesuwania w poziomie
+        treeHTML += `
+            <div class="tree-horizontal-scroll-control">
+                <button class="scroll-arrow scroll-left" title="Przewiń w lewo">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <input type="range" class="horizontal-scroll-slider" min="0" max="100" value="50" title="Przesuń drzewo w lewo/prawo">
+                <button class="scroll-arrow scroll-right" title="Przewiń w prawo">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+
         treeContainer.innerHTML = treeHTML;
+
+        // Konfiguracja suwaka poziomego
+        const scrollWrapper = treeContainer.querySelector('.tree-scroll-wrapper');
+        const slider = treeContainer.querySelector('.horizontal-scroll-slider');
+        const scrollLeftBtn = treeContainer.querySelector('.scroll-left');
+        const scrollRightBtn = treeContainer.querySelector('.scroll-right');
+
+        if (scrollWrapper && slider) {
+            // Funkcja aktualizacji suwaka
+            const updateSlider = () => {
+                const maxScroll = treeContainer.scrollWidth - treeContainer.clientWidth;
+                if (maxScroll > 0) {
+                    slider.value = (treeContainer.scrollLeft / maxScroll) * 100;
+                    slider.parentElement.style.display = 'flex';
+                } else {
+                    slider.parentElement.style.display = 'none';
+                }
+            };
+
+            // Obsługa suwaka
+            slider.addEventListener('input', () => {
+                const maxScroll = treeContainer.scrollWidth - treeContainer.clientWidth;
+                treeContainer.scrollLeft = (slider.value / 100) * maxScroll;
+            });
+
+            // Obsługa przycisków strzałek
+            scrollLeftBtn.addEventListener('click', () => {
+                treeContainer.scrollBy({ left: -200, behavior: 'smooth' });
+            });
+
+            scrollRightBtn.addEventListener('click', () => {
+                treeContainer.scrollBy({ left: 200, behavior: 'smooth' });
+            });
+
+            // Synchronizacja suwaka z przewijaniem
+            treeContainer.addEventListener('scroll', updateSlider);
+
+            // Początkowa aktualizacja po załadowaniu
+            setTimeout(updateSlider, 100);
+        }
 
         // Aktualizacja legendy w nagłówku
         const dialogTitle = treeDialog.querySelector('.dialog-header h3');

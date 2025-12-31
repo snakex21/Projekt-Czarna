@@ -1213,6 +1213,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Sortowanie
         filtered.sort((a, b) => {
+            // Sortowanie po ID
+            if (sortOrder === 'id_asc') {
+                const idA = parseInt(a.id_osoby) || 0;
+                const idB = parseInt(b.id_osoby) || 0;
+                return idA - idB;
+            }
+            if (sortOrder === 'id_desc') {
+                const idA = parseInt(a.id_osoby) || 0;
+                const idB = parseInt(b.id_osoby) || 0;
+                return idB - idA;
+            }
+
+            // Sortowanie alfabetyczne (A-Z, Z-A)
             // 1. Sprawdź czy osoba ma nazwisko (w polu lub w nawiasie w imieniu)
             const getSurnameStatus = (p) => {
                 if (p.nazwisko && p.nazwisko.trim()) return true;
@@ -1227,14 +1240,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hasSurnameA && !hasSurnameB) return -1;
             if (!hasSurnameA && hasSurnameB) return 1;
 
-            // 2. Sortowanie po IMIENIU (a nie nazwisku)
-            const nameA = (a.imie || '').toLowerCase();
-            const nameB = (b.imie || '').toLowerCase();
+            // 2. Sortowanie po IMIENIU (główne), potem po NAZWISKU (pomocnicze)
+            const firstNameA = (a.imie || '').toLowerCase();
+            const firstNameB = (b.imie || '').toLowerCase();
+            const surnameA = (a.nazwisko || '').toLowerCase();
+            const surnameB = (b.nazwisko || '').toLowerCase();
 
             if (sortOrder === 'za') {
-                return nameB.localeCompare(nameA);
+                // Najpierw porównaj imiona Z-A
+                const firstNameCompare = firstNameB.localeCompare(firstNameA, 'pl');
+                if (firstNameCompare !== 0) return firstNameCompare;
+                // Jeśli imiona takie same, porównaj nazwiska Z-A
+                return surnameB.localeCompare(surnameA, 'pl');
             }
-            return nameA.localeCompare(nameB);
+            // Domyślnie A-Z: najpierw imię, potem nazwisko
+            const firstNameCompare = firstNameA.localeCompare(firstNameB, 'pl');
+            if (firstNameCompare !== 0) return firstNameCompare;
+            return surnameA.localeCompare(surnameB, 'pl');
         });
 
         renderGenealogy(filtered);

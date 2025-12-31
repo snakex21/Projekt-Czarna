@@ -1124,6 +1124,127 @@ body.dark-mode .tree-container {
   background: #0f172a;
 }
 
+/* =========== WŁASNY SUWAK POZIOMY DLA DRZEWA =========== */
+.tree-horizontal-scroll-control {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to top, rgba(240, 240, 240, 0.98) 0%, rgba(250, 250, 250, 0.95) 100%);
+  border-top: 2px solid #e0e0e0;
+  z-index: 10;
+}
+
+body.dark-mode .tree-horizontal-scroll-control {
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-top-color: #374151;
+}
+
+.scroll-arrow {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.scroll-arrow:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.scroll-arrow:active {
+  transform: scale(0.95);
+}
+
+.horizontal-scroll-slider {
+  flex: 1;
+  max-width: 500px;
+  height: 20px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Track Chrome/Safari */
+.horizontal-scroll-slider::-webkit-slider-runnable-track {
+  height: 12px;
+  background: #d0d0d0;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+}
+
+body.dark-mode .horizontal-scroll-slider::-webkit-slider-runnable-track {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+/* Thumb Chrome/Safari */
+.horizontal-scroll-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  background: var(--primary-gradient);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+  margin-top: -9px;
+  transition: transform 0.15s ease;
+}
+
+.horizontal-scroll-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.horizontal-scroll-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+/* Track Firefox */
+.horizontal-scroll-slider::-moz-range-track {
+  height: 12px;
+  background: #d0d0d0;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+}
+
+body.dark-mode .horizontal-scroll-slider::-moz-range-track {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+/* Thumb Firefox */
+.horizontal-scroll-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: var(--primary-gradient);
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  cursor: grab;
+}
+
+.horizontal-scroll-slider::-moz-range-thumb:active {
+  cursor: grabbing;
+}
+
 /* BACKUP LIST */
 .backup-actions {
   margin-bottom: 1.5rem;

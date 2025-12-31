@@ -535,6 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="detail-actions">
                 <button class="btn-primary" onclick="window.editCurrentPerson()"><i class="fas fa-edit"></i> Edytuj</button>
+                ${person.protokol_klucz ? `<button class="btn-secondary" onclick="window.openCurrentProtocol()"><i class="fas fa-file-alt"></i> Protokół</button>` : ''}
                 ${person.nazwisko ? `<button class="btn-secondary" onclick="window.showTreeForCurrent()"><i class="fas fa-sitemap"></i> Drzewo</button>` : ''}
                 <button class="btn-secondary" style="color:var(--danger-color);border-color:var(--danger-color);" onclick="window.deleteCurrentPerson()"><i class="fas fa-trash"></i> Usuń</button>
             </div>
@@ -589,15 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${cousinsHtml}
                 </div>
             </div>` : ''}
-            
-            ${person.protokol_klucz ? `
-                <div class="relation-group">
-                    <h3>Protokół</h3>
-                    <div class="relation-card" onclick="window.openProtocol('${person.protokol_klucz}')">
-                         <div><strong><i class="fas fa-file-alt"></i> Protokół ${person.protokol_klucz}</strong></div>
-                         <div><i class="fas fa-external-link-alt"></i></div>
-                    </div>
-                </div>` : ''}
         </div>
     `;
 
@@ -605,7 +597,35 @@ document.addEventListener('DOMContentLoaded', () => {
     window.editCurrentPerson = () => openEditModal(currentPerson);
     window.deleteCurrentPerson = () => deletePerson(currentPerson.id_osoby);
     window.showTreeForCurrent = () => showFamilyTree(person.nazwisko, person.id_osoby);
-    window.openProtocol = (key) => window.open(`../wlasciciele/protokol.html?ownerId=${key}`, '_blank');
+    window.openCurrentProtocol = async () => {
+      if (currentPerson?.protokol_klucz) {
+        await openProtocolPage(currentPerson.protokol_klucz);
+      }
+    };
+    window.openProtocol = async (key) => {
+      await openProtocolPage(key);
+    };
+
+    // Funkcja do otwierania protokołu z dynamicznym pobraniem URL głównego serwera
+    async function openProtocolPage(key) {
+      try {
+        // Zapytaj API o URL głównego serwera
+        const checkResponse = await fetch('/api/editor/check-main');
+        const checkData = await checkResponse.json();
+
+        if (checkData.available && checkData.url) {
+          // Główny serwer działa - otwórz protokół
+          const protocolUrl = `${checkData.url}/wlasciciele/protokol.html?ownerId=${key}`;
+          window.open(protocolUrl, '_blank');
+        } else {
+          // Główny serwer nie działa - pokaż komunikat
+          showToast('error', 'Główny serwer nie działa. Uruchom główny launcher aby otworzyć protokół.');
+        }
+      } catch (err) {
+        console.error('Błąd sprawdzania serwera:', err);
+        showToast('error', 'Nie można połączyć z API. Sprawdź czy serwer działa.');
+      }
+    }
     window.goToPerson = (id) => {
       const target = allPeople.find(p => String(p.id_osoby) === String(id));
       if (target) showDetails(target);
@@ -725,8 +745,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <div class="form-group">
-                    <label>Protokół (Klucz)</label>
-                     <input type="text" name="protokol_klucz" value="${safe(person?.protokol_klucz)}">
+                    <label>Protokół</label>
+                    <div style="position:relative;">
+                        <input type="hidden" name="protokol_klucz" id="protokolIdInput" value="${safe(person?.protokol_klucz)}">
+                        <input type="text" id="protokolAutocomplete" placeholder="Wpisz numer L.p. lub nazwę właściciela..." autocomplete="off">
+                        <div id="protokolSuggestions" class="autocomplete-suggestions hidden"></div>
+                    </div>
+                    <small style="color:var(--text-secondary);margin-top:4px;">Wpisz numer lub nazwę aby wyszukać protokół</small>
                 </div>
 
                 <div class="form-group">
@@ -788,6 +813,90 @@ document.addEventListener('DOMContentLoaded', () => {
     if (person?.id_matki) {
       const m = allPeople.find(p => String(p.id_osoby) == String(person.id_matki));
       if (m) document.getElementById('motherAutocomplete').value = `${m.imie} ${m.nazwisko} (ID:${m.id_osoby})`;
+    }
+
+    // Załaduj listę protokołów i ustaw autocomplete
+    const protokolInput = document.getElementById('protokolAutocomplete');
+    const protokolIdInput = document.getElementById('protokolIdInput');
+    const protokolSuggestions = document.getElementById('protokolSuggestions');
+    let allProtocols = [];
+
+    if (protokolInput && protokolIdInput && protokolSuggestions) {
+      // Pobierz listę protokołów
+      fetch(API.protocols)
+        .then(res => res.json())
+        .then(protocols => {
+          allProtocols = protocols;
+
+          // Jeśli edytujemy osobę z protokołem, pokaż jego nazwę
+          if (person?.protokol_klucz) {
+            const currentProtocol = protocols.find(p => String(p.key) === String(person.protokol_klucz));
+            if (currentProtocol) {
+              protokolInput.value = `L.p. ${currentProtocol.orderNumber} - ${currentProtocol.name}`;
+            } else {
+              protokolInput.value = `Klucz: ${person.protokol_klucz}`;
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Błąd ładowania protokołów:', err);
+        });
+
+      // Autocomplete dla protokołów
+      protokolInput.addEventListener('input', () => {
+        const val = protokolInput.value.toLowerCase().trim();
+        protokolSuggestions.innerHTML = '';
+
+        if (val.length < 1) {
+          protokolSuggestions.classList.add('hidden');
+          // Wyczyść hidden input jeśli pole puste
+          if (protokolInput.value === '') {
+            protokolIdInput.value = '';
+          }
+          return;
+        }
+
+        // Filtruj protokoły po numerze L.p. lub nazwie
+        let matches = allProtocols.filter(p => {
+          const searchText = `${p.orderNumber} ${p.name} ${p.key}`.toLowerCase();
+          return searchText.includes(val);
+        });
+
+        matches = matches.slice(0, 10); // Limit
+
+        if (matches.length > 0) {
+          matches.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-suggestion';
+            div.innerHTML = `<strong>L.p. ${p.orderNumber}</strong> - ${p.name}`;
+            div.onclick = () => {
+              protokolInput.value = `L.p. ${p.orderNumber} - ${p.name}`;
+              protokolIdInput.value = p.key;
+              protokolSuggestions.classList.add('hidden');
+            };
+            protokolSuggestions.appendChild(div);
+          });
+          protokolSuggestions.classList.remove('hidden');
+        } else {
+          protokolSuggestions.classList.add('hidden');
+        }
+      });
+
+      // Przycisk do wyczyszczenia protokołu
+      protokolInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Delete') {
+          protokolInput.value = '';
+          protokolIdInput.value = '';
+          protokolSuggestions.classList.add('hidden');
+        }
+      });
+
+      // Ukryj podpowiedzi po kliknięciu poza
+      document.addEventListener('click', (e) => {
+        if (!protokolInput.contains(e.target) && !protokolSuggestions.contains(e.target)) {
+          protokolSuggestions.classList.add('hidden');
+        }
+      });
     }
 
     // Pokaż modal
@@ -1097,20 +1206,20 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let html = `<style>
-      .tree-scroll-area{flex:1;overflow:auto;padding:1rem;display:flex;justify-content:center;}
-      .tree-content{display:flex;flex-direction:column;align-items:center;padding:1.5rem;min-width:max-content;}
-      .tree-level{display:flex;justify-content:center;gap:2rem;}
+      .tree-scroll-area{flex:1;overflow:auto;padding:1rem;}
+      .tree-content{display:flex;flex-direction:column;align-items:center;padding:1.5rem;min-width:max-content;width:max-content;}
+      .tree-level{display:flex;justify-content:center;gap:2rem;min-width:max-content;}
       .tree-connector-down{width:2px;height:30px;background:#ccc;margin:0 auto;}
-      .tree-pair{display:flex;align-items:center;gap:0.5rem;}
-      .tree-pair-connector{width:30px;height:2px;background:#e74c3c;position:relative;}
+      .tree-pair{display:flex;align-items:center;gap:0.5rem;min-width:max-content;}
+      .tree-pair-connector{width:30px;height:2px;background:#e74c3c;position:relative;flex-shrink:0;}
       .tree-pair-connector::after{content:'💕';position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:14px;}
       .tree-branch{display:flex;flex-direction:column;align-items:center;}
       .tree-main-column{display:flex;flex-direction:column;align-items:center;}
-      .tree-with-siblings{display:flex;align-items:flex-start;gap:2rem;}
+      .tree-with-siblings{display:flex;align-items:flex-start;gap:2rem;min-width:max-content;}
       .tree-siblings-section{display:flex;flex-direction:column;align-items:center;opacity:0.8;padding-top:1.5rem;}
-      .tree-siblings-grid{display:flex;flex-wrap:wrap;gap:0.5rem;max-width:400px;justify-content:center;}
-      .tree-children{display:flex;justify-content:center;gap:1rem;position:relative;padding-top:30px;flex-wrap:wrap;}
-      .tree-child-branch{display:flex;flex-direction:column;align-items:center;}
+      .tree-siblings-grid{display:flex;gap:0.5rem;justify-content:center;min-width:max-content;}
+      .tree-children{display:flex;justify-content:center;gap:1rem;position:relative;padding-top:30px;min-width:max-content;}
+      .tree-child-branch{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
       .tree-child-branch::before{content:'';width:2px;height:15px;background:#ccc;}
       .generation-label{font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;color:#888;margin:1rem 0 0.5rem;font-weight:700;}
       .section-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:0.5rem;font-weight:600;}
@@ -1158,7 +1267,61 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     html += '</div></div></div></div>';
+
+    // Dodaj własny suwak do przesuwania w poziomie
+    html += `
+        <div class="tree-horizontal-scroll-control">
+            <button class="scroll-arrow scroll-left" title="Przewiń w lewo">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <input type="range" class="horizontal-scroll-slider" min="0" max="100" value="50" title="Przesuń drzewo w lewo/prawo">
+            <button class="scroll-arrow scroll-right" title="Przewiń w prawo">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+
     container.innerHTML = html;
+
+    // Konfiguracja suwaka poziomego
+    const scrollArea = container.querySelector('.tree-scroll-area');
+    const slider = container.querySelector('.horizontal-scroll-slider');
+    const scrollLeftBtn = container.querySelector('.scroll-left');
+    const scrollRightBtn = container.querySelector('.scroll-right');
+
+    if (scrollArea && slider) {
+      // Funkcja aktualizacji suwaka
+      const updateSlider = () => {
+        const maxScroll = scrollArea.scrollWidth - scrollArea.clientWidth;
+        if (maxScroll > 0) {
+          slider.value = (scrollArea.scrollLeft / maxScroll) * 100;
+          slider.parentElement.style.display = 'flex';
+        } else {
+          slider.parentElement.style.display = 'none';
+        }
+      };
+
+      // Obsługa suwaka
+      slider.addEventListener('input', () => {
+        const maxScroll = scrollArea.scrollWidth - scrollArea.clientWidth;
+        scrollArea.scrollLeft = (slider.value / 100) * maxScroll;
+      });
+
+      // Obsługa przycisków strzałek
+      scrollLeftBtn.addEventListener('click', () => {
+        scrollArea.scrollBy({ left: -200, behavior: 'smooth' });
+      });
+
+      scrollRightBtn.addEventListener('click', () => {
+        scrollArea.scrollBy({ left: 200, behavior: 'smooth' });
+      });
+
+      // Synchronizacja suwaka z przewijaniem
+      scrollArea.addEventListener('scroll', updateSlider);
+
+      // Początkowa aktualizacja po załadowaniu
+      setTimeout(updateSlider, 100);
+    }
   }
 
   // Inicjalizacja

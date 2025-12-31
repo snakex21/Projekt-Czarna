@@ -1305,12 +1305,19 @@ def add_location(name, full_name, powiat="", region="", homepage_template="stand
 DB_NAME={db_name_for_env}
 
 # =============================================================================
-# SERWER FLASK
+# SERWER FLASK (główny serwer)
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
 FLASK_SECRET_KEY=change-me-{name.lower()}-secret
+
+# =============================================================================
+# PORTY EDYTORÓW
+# =============================================================================
+# Każdy port musi być unikalny! Nie można używać tego samego portu dla różnych serwerów.
+GENEALOGY_EDITOR_PORT=5001
+PARCEL_EDITOR_PORT=5003
 
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
@@ -2004,12 +2011,53 @@ def get_data_files(location_name=None):
 # Dla kompatybilności wstecznej
 DATA_FILES = get_data_files()
 
-URLS = {
-    "strona_glowna": "http://127.0.0.1:5000/strona_glowna/index.html",
-    "mapa": "http://127.0.0.1:5000/mapa/mapa.html",
-    "admin": "http://127.0.0.1:5000/admin",
-    "genealogy_editor": "http://127.0.0.1:5001/",
-}
+def get_urls():
+    """
+    Dynamicznie pobiera URLe na podstawie konfiguracji portów z .env.
+    """
+    # Pobierz porty z .env aktywnej miejscowości
+    try:
+        env_path = get_location_env_path()
+        ports = {
+            "FLASK_PORT": 5000,
+            "GENEALOGY_EDITOR_PORT": 5001,
+            "PARCEL_EDITOR_PORT": 5003
+        }
+        
+        if os.path.exists(env_path):
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        if key in ports:
+                            try:
+                                ports[key] = int(value)
+                            except ValueError:
+                                pass
+    except:
+        ports = {
+            "FLASK_PORT": 5000,
+            "GENEALOGY_EDITOR_PORT": 5001,
+            "PARCEL_EDITOR_PORT": 5003
+        }
+    
+    main_port = ports["FLASK_PORT"]
+    genealogy_port = ports["GENEALOGY_EDITOR_PORT"]
+    parcel_port = ports["PARCEL_EDITOR_PORT"]
+    
+    return {
+        "strona_glowna": f"http://127.0.0.1:{main_port}/strona_glowna/index.html",
+        "mapa": f"http://127.0.0.1:{main_port}/mapa/mapa.html",
+        "admin": f"http://127.0.0.1:{main_port}/admin",
+        "genealogy_editor": f"http://127.0.0.1:{genealogy_port}/",
+        "parcel_editor": f"http://127.0.0.1:{parcel_port}/template.html",
+    }
+
+# Dla kompatybilności - może być używane statycznie
+URLS = get_urls()
 
 SCRIPTS = {
     "backend": {"path": os.path.join(BACKEND_DIR, "app.py"), "cwd": BACKEND_DIR},
@@ -2078,12 +2126,19 @@ def check_env_configuration():
 DB_NAME=mapa_czarna_db
 
 # =============================================================================
-# SERWER FLASK
+# SERWER FLASK (główny serwer)
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
 FLASK_SECRET_KEY=change-me-once
+
+# =============================================================================
+# PORTY EDYTORÓW
+# =============================================================================
+# Każdy port musi być unikalny! Nie można używać tego samego portu dla różnych serwerów.
+GENEALOGY_EDITOR_PORT=5001
+PARCEL_EDITOR_PORT=5003
 
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
@@ -3413,8 +3468,9 @@ class AppLauncher(tk.Tk):
         
         threading.Thread(target=self.read_process_output, args=(key,), daemon=True).start()
         
-        if key in URLS:
-            threading.Timer(1.5, lambda: webbrowser.open(URLS[key])).start()
+        urls = get_urls()  # Pobierz aktualne URLe z konfiguracji
+        if key in urls:
+            threading.Timer(1.5, lambda u=urls[key]: webbrowser.open(u)).start()
         
         self.update_processes_ui()
 
@@ -3789,7 +3845,7 @@ if __name__ == '__main__':
             return [sys.executable, script_info["path"]] + script_info["args"]
         else:
             command = [sys.executable, "-X", "utf8", "-u", script_info["path"]]
-            if key == "genealogy_editor":
+            if key in ("genealogy_editor", "parcel_editor"):
                 command.append("--launched-by-gui")
             return command
 
@@ -6292,6 +6348,41 @@ class EnvEditor(tk.Toplevel):
         """Zapisuje zmiany do pliku .env."""
         try:
             content = self.text_editor.get('1.0', 'end-1c')
+            
+            # Walidacja: sprawdź czy porty nie są zduplikowane
+            ports = {}
+            port_keys = ["FLASK_PORT", "GENEALOGY_EDITOR_PORT", "PARCEL_EDITOR_PORT"]
+            port_names = {
+                "FLASK_PORT": "Główny serwer",
+                "GENEALOGY_EDITOR_PORT": "Edytor genealogii",
+                "PARCEL_EDITOR_PORT": "Edytor działek"
+            }
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if key in port_keys:
+                        try:
+                            port_value = int(value)
+                            if port_value in ports.values():
+                                # Znaleziono duplikat
+                                duplicate_key = [k for k, v in ports.items() if v == port_value][0]
+                                messagebox.showerror(
+                                    "❌ Błąd walidacji",
+                                    f"Port {port_value} jest używany zarówno dla:\n"
+                                    f"• {port_names[duplicate_key]}\n"
+                                    f"• {port_names[key]}\n\n"
+                                    f"Każdy serwer musi mieć unikalny port!",
+                                    parent=self
+                                )
+                                return
+                            ports[key] = port_value
+                        except ValueError:
+                            pass
+            
             with open(self.env_path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
@@ -6320,12 +6411,19 @@ class EnvEditor(tk.Toplevel):
 DB_NAME=mapa_czarna_db
 
 # =============================================================================
-# KONFIGURACJA FLASK
+# KONFIGURACJA FLASK (główny serwer)
 # =============================================================================
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
 FLASK_SECRET_KEY=change-me-once
+
+# =============================================================================
+# PORTY EDYTORÓW
+# =============================================================================
+# Każdy port musi być unikalny! Nie można używać tego samego portu dla różnych serwerów.
+GENEALOGY_EDITOR_PORT=5001
+PARCEL_EDITOR_PORT=5003
 
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
@@ -6430,6 +6528,8 @@ class AdminSettings(tk.Toplevel):
                 return
         
         self.env.setdefault('FLASK_SECRET_KEY', 'change-me-' + str(os.getpid()))
+        self.env.setdefault('GENEALOGY_EDITOR_PORT', '5001')
+        self.env.setdefault('PARCEL_EDITOR_PORT', '5003')
 
         # Zapisz .env do aktywnej miejscowości
         try:
@@ -6483,6 +6583,8 @@ class AdminSettings(tk.Toplevel):
         flask_port = self.env.get('FLASK_PORT', '5000')
         flask_debug = self.env.get('FLASK_DEBUG', 'True')
         flask_secret = self.env.get('FLASK_SECRET_KEY', 'change-me-once')
+        genealogy_editor_port = self.env.get('GENEALOGY_EDITOR_PORT', '5001')
+        parcel_editor_port = self.env.get('PARCEL_EDITOR_PORT', '5003')
         admin_enabled = self.env.get('ADMIN_AUTH_ENABLED', '0')
         admin_user = self.env.get('ADMIN_USERNAME', 'admin')
         admin_hash = self.env.get('ADMIN_PASSWORD_HASH', '')
@@ -6501,12 +6603,19 @@ class AdminSettings(tk.Toplevel):
 DB_NAME={db_name}
 
 # =============================================================================
-# SERWER FLASK
+# SERWER FLASK (główny serwer)
 # =============================================================================
 FLASK_HOST={flask_host}
 FLASK_PORT={flask_port}
 FLASK_DEBUG={flask_debug}
 FLASK_SECRET_KEY={flask_secret}
+
+# =============================================================================
+# PORTY EDYTORÓW
+# =============================================================================
+# Każdy port musi być unikalny! Nie można używać tego samego portu dla różnych serwerów.
+GENEALOGY_EDITOR_PORT={genealogy_editor_port}
+PARCEL_EDITOR_PORT={parcel_editor_port}
 
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
