@@ -80,6 +80,7 @@ function applyTheme(theme) {
 function initUI() {
   initTabs();
   initRankingTypeSelector();
+  initInfrastructureTypeSelector();
   initSearch();
   initActionButtons();
   initHelpModal();
@@ -121,6 +122,20 @@ function initRankingTypeSelector() {
   rankingTypeInputs.forEach(input => {
     input.addEventListener('change', () => {
       switchRankingView(input.value);
+    });
+  });
+}
+
+/**
+ * Przełącznik podtypu infrastruktury (Rzeki/Drogi)
+ */
+function initInfrastructureTypeSelector() {
+  const inputs = document.querySelectorAll('input[name="infra-type"]');
+  inputs.forEach(input => {
+    input.addEventListener('change', () => {
+      const isRivers = input.value === 'rivers';
+      document.getElementById('infra-view-rivers').style.display = isRivers ? 'block' : 'none';
+      document.getElementById('infra-view-roads').style.display = isRivers ? 'none' : 'block';
     });
   });
 }
@@ -463,7 +478,7 @@ async function loadStatistics() {
     demografiaMetrical = statsData.demografia || []; // 'demografia' to domyślnie metrykalne (z app.py)
 
     // Domyślne ładowanie (metrykalne)
-    loadDemographics(demografiaMetrical);
+    loadDemographics(demografiaMetrical, 'metrical');
     initDemographyToggle(); // <--- Inicjalizacja przełącznika
 
     renderActivityCalendar(statsData.protocols_per_day);
@@ -839,28 +854,34 @@ function displayRanking(rankingData, container) {
   container.innerHTML = (rankingData || []).slice(0, 50).map((owner, i) => {
     const pos = i + 1;
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
-    const prot = owner.numer_protokolu ?? 'Brak';
+    const prot = owner.numer_protokolu ?? '-';
     const areaM2 = owner.total_area_m2 || 0;
-    const plotNumbers = owner.plot_numbers || [];
+    const plotCount = owner.plot_count || 0;
 
-    const plotNumbersDisplay = plotNumbers.length > 0
-      ? plotNumbers.slice(0, 5).join(', ') + (plotNumbers.length > 5 ? '...' : '')
-      : 'Brak';
+    // Determine metrics display
+    let primaryVal, secondaryVal;
 
-    const valueDisplay = sortBy === 'area'
-      ? `<div style="text-align: right;"><strong>${formatArea(areaM2)}</strong><br><small>${owner.plot_count} działek</small></div>`
-      : `<div style="text-align: right;"><strong>${owner.plot_count}</strong> działek<br><small>${formatArea(areaM2)}</small></div>`;
+    if (sortBy === 'area') {
+      primaryVal = formatArea(areaM2);
+      secondaryVal = `${plotCount} działek`;
+    } else {
+      primaryVal = plotCount;
+      secondaryVal = formatArea(areaM2);
+    }
 
     return `
       <a href="../wlasciciele/protokol.html?ownerId=${owner.unikalny_klucz}" class="ranking-item">
-        <div class="ranking-position ${cls}">${pos}</div>
-        <div class="ranking-info">
-          <div class="ranking-name">${owner.nazwa_wlasciciela}</div>
+        <div class="ranking-position-badge ${cls}">${pos}</div>
+        <div class="ranking-content">
+          <div class="ranking-title">${owner.nazwa_wlasciciela}</div>
           <div class="ranking-meta">
-            Protokół nr ${prot} | Działki: ${plotNumbersDisplay}
+            <i class="fas fa-file-contract"></i> Protokół ${prot}
           </div>
         </div>
-        <div class="ranking-value">${valueDisplay}</div>
+        <div class="ranking-metrics">
+          <div class="metric-primary">${primaryVal}</div>
+          <div class="metric-secondary">${secondaryVal}</div>
+        </div>
       </a>`;
   }).join('');
 }
@@ -932,14 +953,16 @@ function displayParcelsRanking(parcelsData, container) {
     const owner = parcel.nazwa_wlasciciela || 'Brak właściciela';
     const areaM2 = parcel.area_m2 || 0;
 
-    // Jeśli jest wielu właścicieli (rozdzieleni przecinkami), pokaż tylko pierwszy z linkiem
+    // Format owner link
     let ownerDisplay;
     if (owner.includes(', ')) {
       const firstOwner = owner.split(', ')[0];
-      const ownersCount = owner.split(', ').length;
+      const count = owner.split(', ').length - 1;
+      const label = firstOwner + ` (+${count})`;
+
       ownerDisplay = parcel.unikalny_klucz
-        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${firstOwner}</a> <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`
-        : `${firstOwner} <span style="color: var(--text-secondary); font-size: 0.875rem;">(+${ownersCount - 1} współwłaściciel${ownersCount === 2 ? '' : 'i'})</span>`;
+        ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${label}</a>`
+        : label;
     } else {
       ownerDisplay = parcel.unikalny_klucz
         ? `<a href="../wlasciciele/protokol.html?ownerId=${parcel.unikalny_klucz}" style="color: inherit; text-decoration: underline;">${owner}</a>`
@@ -947,17 +970,19 @@ function displayParcelsRanking(parcelsData, container) {
     }
 
     return `
-      <div class="ranking-item" style="cursor: default; pointer-events: auto;">
-        <div class="ranking-position ${cls}">${pos}</div>
-        <div class="ranking-info">
-          <div class="ranking-name">${parcel.parcel_number}</div>
-          <div class="ranking-meta">${ownerDisplay}</div>
-        </div>
-        <div class="ranking-value">
-          <div style="text-align: right;">
-            <strong>${formatArea(areaM2)}</strong>
+      <div class="ranking-item" style="cursor: default;">
+        <div class="ranking-position-badge ${cls}">${pos}</div>
+        <div class="ranking-content">
+          <div class="ranking-title">Działka nr ${parcel.parcel_number}</div>
+          <div class="ranking-meta">
+             <i class="fas fa-user-tag"></i> ${ownerDisplay}
           </div>
         </div>
+        <div class="ranking-metrics">
+          <div class="metric-primary">${formatArea(areaM2)}</div>
+          <div class="metric-secondary">Powierzchnia</div>
+        </div>
+        ${parcel.unikalny_klucz ? '' : `<button class="btn-icon" onclick="window.location.href='../mapa/mapa.html?highlightParcel=${parcel.parcel_number}'" title="Pokaż na mapie" style="margin-left:auto"><i class="fas fa-map-marker-alt"></i></button>`}
       </div>`;
   }).join('');
 }
@@ -979,23 +1004,20 @@ function loadRiversRanking(riversData) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = river.length_m || 0;
     const lengthKm = lengthM / 1000;
-
-    const lengthDisplay = lengthKm >= 1
-      ? `${lengthKm.toFixed(2)} km`
-      : `${Math.round(lengthM)} m`;
+    const lengthDisplay = lengthKm >= 1 ? `${lengthKm.toFixed(2)} km` : `${Math.round(lengthM)} m`;
 
     return `
       <div class="ranking-item" style="cursor: default;">
-        <div class="ranking-position ${cls}">${pos}</div>
-        <div class="ranking-info">
-          <div class="ranking-name">${river.river_name || 'Bez nazwy'}</div>
-          <div class="ranking-meta">Rzeka</div>
+        <div class="ranking-position-badge ${cls}">${pos}</div>
+        <div class="ranking-content">
+          <div class="ranking-title">${river.river_name || 'Bez nazwy'}</div>
+          <div class="ranking-meta"><i class="fas fa-water"></i> Rzeka</div>
         </div>
-        <div class="ranking-value">
-          <div style="text-align: right;">
-            <strong>${lengthDisplay}</strong>
-          </div>
+        <div class="ranking-metrics">
+          <div class="metric-primary">${lengthDisplay}</div>
+          <div class="metric-secondary">Długość</div>
         </div>
+        <button class="btn-icon" onclick="window.location.href='../mapa/mapa.html?highlightRivers=${encodeURIComponent(river.river_name)}'" title="Pokaż na mapie" style="margin-left:auto"><i class="fas fa-map"></i></button>
       </div>`;
   }).join('');
 }
@@ -1013,23 +1035,20 @@ function loadRoadsRanking(roadsData) {
     const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
     const lengthM = road.length_m || 0;
     const lengthKm = lengthM / 1000;
-
-    const lengthDisplay = lengthKm >= 1
-      ? `${lengthKm.toFixed(2)} km`
-      : `${Math.round(lengthM)} m`;
+    const lengthDisplay = lengthKm >= 1 ? `${lengthKm.toFixed(2)} km` : `${Math.round(lengthM)} m`;
 
     return `
       <div class="ranking-item" style="cursor: default;">
-        <div class="ranking-position ${cls}">${pos}</div>
-        <div class="ranking-info">
-          <div class="ranking-name">${road.road_number || 'Bez nazwy'}</div>
-          <div class="ranking-meta">Droga</div>
+        <div class="ranking-position-badge ${cls}">${pos}</div>
+        <div class="ranking-content">
+          <div class="ranking-title">${road.road_number || 'Bez nazwy'}</div>
+          <div class="ranking-meta"><i class="fas fa-road"></i> Droga</div>
         </div>
-        <div class="ranking-value">
-          <div style="text-align: right;">
-            <strong>${lengthDisplay}</strong>
-          </div>
+        <div class="ranking-metrics">
+          <div class="metric-primary">${lengthDisplay}</div>
+          <div class="metric-secondary">Długość</div>
         </div>
+        <button class="btn-icon" onclick="window.location.href='../mapa/mapa.html?highlightRoads=${encodeURIComponent(road.road_number)}'" title="Pokaż na mapie" style="margin-left:auto"><i class="fas fa-map"></i></button>
       </div>`;
   }).join('');
 }
@@ -1078,7 +1097,7 @@ function loadTimeline() {
  * Wczytuje i przedstawia zestaw demograficzny: wykres, karty, linię zdarzeń, porównania.
  * @param {Array} demografiaData
  */
-function loadDemographics(demografiaData) {
+function loadDemographics(demografiaData, source = 'official') {
   if (!demografiaData || demografiaData.length === 0) {
     document.getElementById('demographics').innerHTML = `
       <div class="no-data-message">
@@ -1101,8 +1120,12 @@ function loadDemographics(demografiaData) {
   document.getElementById('demo-years').textContent = `${yearSpan} lat`;
 
   createDemographicsChart(demografiaData);
-  createDemographicsTimeline(demografiaData);
-  createDemographicsCards(demografiaData);
+  if (source !== 'metrical') {
+    createDemographicsTimeline(demografiaData);
+  } else {
+    document.getElementById('demo-timeline-track').innerHTML = ''; // Całkowicie ukryj dla metrykalnych
+  }
+  createDemographicsCards(demografiaData, source);
   createComparisonAnalysis(demografiaData);
 }
 
@@ -1260,7 +1283,7 @@ function createDemographicsTimeline(data) {
  * Karty demograficzne pogrupowane DEKADAMI (akordeon).
  * @param {Array} data
  */
-function createDemographicsCards(data) {
+function createDemographicsCards(data, source = 'official') {
   const container = document.getElementById('demo-cards');
   if (!container) return;
 
@@ -1327,11 +1350,11 @@ function createDemographicsCards(data) {
 
       const religionsHtml = (entry.katolicy || entry.zydzi || entry.inni)
         ? `<div class="demo-religions">${cathHtml}${jewHtml}${otherHtml}</div>`
-        : '<div class="demo-no-religions"><i class="fas fa-inbox"></i> Brak szczegółu wyznaniowego</div>';
+        : (source === 'metrical' ? '' : '<div class="demo-no-religions"><i class="fas fa-inbox"></i> Brak szczegółu wyznaniowego</div>');
 
       // Wydarzenie
       let eventHtml = '';
-      if (entry.opis) {
+      if (source !== 'metrical' && entry.opis) {
         let icon = '📅';
         if (entry.opis.toLowerCase().includes('kolei')) icon = '🚂';
         else if (entry.opis.toLowerCase().includes('budow')) icon = '🏗️';
@@ -1577,7 +1600,8 @@ function loadGenealogyStats(data) {
   charts.genealogyBirths = new Chart(chartCtx, {
     type: 'bar',
     data: {
-      labels: stats.births_by_decade.labels,
+      // Localize labels: 1840s -> Lata 1840
+      labels: stats.births_by_decade.labels.map(l => l.replace(/(\d{4})s/, 'Lata $1')),
       datasets: [{
         label: 'Liczba urodzeń',
         data: stats.births_by_decade.data,
@@ -1655,7 +1679,8 @@ function updateGenealogySeries(series) {
   const ds = s[cfg.key] || { labels: [], data: [] };
 
   const chart = charts.genealogyBirths;
-  chart.data.labels = ds.labels;
+  // Localize labels: 1840s -> Lata 1840
+  chart.data.labels = ds.labels.map(l => l.replace(/(\d{4})s/, 'Lata $1'));
   chart.data.datasets[0].data = ds.data;
   chart.data.datasets[0].label = cfg.label;
   chart.data.datasets[0].borderColor = cfg.color;
@@ -3111,11 +3136,11 @@ function initDemographyToggle() {
     radio.addEventListener('change', (e) => {
       const source = e.target.value;
       if (source === 'metrical') {
-        loadDemographics(demografiaMetrical);
+        loadDemographics(demografiaMetrical, 'metrical');
         updateDemographicsHeader('metrical');
         showToast('info', 'Zmieniono źródło', 'Wykresy oparte na księgach metrykalnych');
       } else {
-        loadDemographics(demografiaOfficial);
+        loadDemographics(demografiaOfficial, 'official');
         updateDemographicsHeader('official');
         showToast('info', 'Zmieniono źródło', 'Wykresy oparte na danych oficjalnych');
       }

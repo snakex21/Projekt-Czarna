@@ -785,12 +785,27 @@ try:
             if source_person.get('marriageDate') is not None:
                 return source_person.get('marriageDate')
 
-            # Fallback: rok w treści notatek
+            # Fallback: rok w treści notatek (TYLKO lata historyczne 1700-1882!)
+            # WAŻNE: Pomijamy numery ID (np. "ID: # 20225" nie powinno dać roku 2022!)
             notes = source_person.get('notes') or source_person.get('uwagi') or ''
             if isinstance(notes, str):
-                m = re.search(r'(17|18|19|20)\d{2}', notes)
+                # Szukamy wzorców "ślub XXXX" lub "Ślub XXXX lp" - najpierw konkretne
+                m = re.search(r'[Śś]lub\s+(1[78]\d{2})', notes, re.IGNORECASE)
                 if m:
-                    return int(m.group(0))
+                    year = int(m.group(1))
+                    if 1700 <= year <= 1882:
+                        return year
+                
+                # Ogólny fallback - tylko lata 1700-1882, NIE pasujące do wzorca ID
+                # Pomijamy jeśli przed rokiem jest "#" lub "ID" (oznacza numer ID osoby)
+                for match in re.finditer(r'(?<![#])\b(1[78]\d{2})\b', notes):
+                    year = int(match.group(1))
+                    # Sprawdź czy przed liczbą nie ma "ID" lub "#"
+                    start = match.start()
+                    prefix = notes[max(0, start-5):start].lower()
+                    if 'id' not in prefix and '#' not in prefix:
+                        if 1700 <= year <= 1882:
+                            return year
 
             return None
 
