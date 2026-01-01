@@ -16,6 +16,17 @@ import json
 from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
+import sys
+import os
+
+# Dodajemy ścieżkę do tools aby zaimportować generator
+sys.path.append(os.path.join(os.path.dirname(__file__), "tools"))
+try:
+    from pdf_generator import generate_family_pdf
+except ImportError:
+    print("⚠️ Warning: pdf_generator not found in tools.")
+    generate_family_pdf = None
+
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
 import os
 from dotenv import load_dotenv
@@ -70,6 +81,25 @@ import sqlite3
 def get_active_location_env_path():
     """Zwraca ścieżkę do pliku .env aktywnej miejscowości."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    
+    # 1. Sprawdź ACTIVE_LOCATION (przekazywane przez Launcher)
+    active_location = os.environ.get('ACTIVE_LOCATION')
+    if active_location:
+        backup_folder = os.path.join(base_dir, "backup", active_location)
+        env_path = os.path.join(backup_folder, ".env")
+        if os.path.exists(env_path):
+            print(f"✅ Konfiguracja dla miejscowości: {active_location}")
+            return env_path
+
+    # 2. Wsparcie dla starej zmiennej (kompatybilność) lub testów
+    test_location = os.environ.get('TEST_LOCATION')
+    if test_location:
+        backup_folder = os.path.join(base_dir, "backup", test_location)
+        env_path = os.path.join(backup_folder, ".env")
+        if os.path.exists(env_path):
+            print(f"✅ Konfiguracja testowa dla: {test_location}")
+            return env_path
+
     launcher_dir = os.path.join(base_dir, "launcher")
     locations_db_path = os.path.join(launcher_dir, "locations.db")
 
@@ -90,14 +120,14 @@ def get_active_location_env_path():
             backup_folder = os.path.join(base_dir, "backup", location_name)
             env_path = os.path.join(backup_folder, ".env")
             if os.path.exists(env_path):
-                print(f"✅ Używam .env z miejscowości: {location_name}")
+                print(f"✅ Konfiguracja z bazy dla: {location_name}")
                 return env_path
     except Exception as e:
         print(f"⚠️ Błąd podczas odczytu bazy miejscowości: {e}")
 
     # Fallback do domyślnej lokalizacji
     default_env = os.path.join(base_dir, "backend", ".env")
-    print(f"⚠️ Używam domyślnej lokalizacji .env")
+    print(f"ℹ️ Używam domyślnej konfiguracji (brak aktywnej miejscowości)")
     return default_env
 
 # Wczytanie zmiennych środowiskowych z pliku .env aktywnej miejscowości
@@ -152,6 +182,20 @@ if os.path.exists(postgres_env_path):
 
 # Wczytaj konfigurację z aktywnej miejscowości (może nadpisać niektóre zmienne)
 load_env_with_encoding(active_env_path)
+
+# Definicje globalnych ścieżek
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Ustal active_location na podstawie ścieżki do .env
+# .env jest w backup/LOKALIZACJA/.env
+try:
+    active_location = os.path.basename(os.path.dirname(active_env_path))
+except:
+    active_location = "Czarna" # Fallback
+
+BACKUP_DIR = os.path.join(BASE_DIR, "backup")
+
+print(f"🌍 Aktywna lokalizacja: {active_location}")
+print(f"📂 Folder backupów: {BACKUP_DIR}")
 
 def get_env_variable(var_name, default_value=None):
     """Pobiera zmienną środowiskową z opcjonalną wartością domyślną."""
@@ -222,10 +266,22 @@ def load_system_config():
             favicon_config = config_data.get('site_favicon', {})
             if isinstance(favicon_config, dict) and favicon_config.get('path'):
                 favicon_path = favicon_config['path']
-                print(f"🖼️  Favicon załadowany: {favicon_path}")
+                print(f"🖼️  Favicon załadowany z konfiguracji: {favicon_path}")
             else:
-                favicon_path = None
-                print("🖼️  Brak niestandardowego faviconu w konfiguracji.")
+                # Fallback: sprawdź czy plik favicon istnieje w folderze backup
+                favicon_found = False
+                location_name = os.getenv('ACTIVE_LOCATION') or os.getenv('TEST_LOCATION', 'Czarna')
+                backup_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backup', location_name)
+                
+                for ext in ['.ico', '.png', '.jpg', '.jpeg']:
+                    favicon_file = os.path.join(backup_folder, f'favicon{ext}')
+                    if os.path.exists(favicon_file):
+                        print(f"🖼️  Favicon znaleziony w pliku: backup/{location_name}/favicon{ext}")
+                        favicon_found = True
+                        break
+                
+                if not favicon_found:
+                    print("🖼️  Brak niestandardowego faviconu w konfiguracji (używany domyślny).")
 
     except Exception as e:
         print(f"❌ KRYTYCZNY BŁĄD: Nie można załadować konfiguracji z bazy danych: {e}")
@@ -737,9 +793,12 @@ def get_stats():
     rankings_real = get_rankings_for_type('rzeczywista')
     rankings_protocol = get_rankings_for_type('protokol')
 
-    # ——— Demografia
+    # ——— Demografia (Dane Oficjalne - Tabela 'demografia')
     cur.execute("SELECT * FROM demografia ORDER BY rok ASC;")
-    demografia_data = cur.fetchall()
+    demografia_official = cur.fetchall()
+    
+    # Mapa wydarzeń z danych oficjalnych: {rok: opis}
+    official_events_map = {row['rok']: row['opis'] for row in demografia_official if row['opis']}
 
     # ——— Kategorie obiektów
     cur.execute("""
@@ -754,7 +813,46 @@ def get_stats():
 
     # ——— Genealogia: osoby (urodzenia/zgony + płeć, nazwiska)
     cur.execute("SELECT rok_urodzenia, rok_smierci, plec, imie_nazwisko FROM osoby_genealogia;")
-    genealogia_raw = cur.fetchall()  # :contentReference[oaicite:0]{index=0}
+    genealogia_raw = cur.fetchall()
+
+    # ——— NOWA DEMOGRAFIA (Dynamiczna) ———
+    demografia_data = []
+    _years_birth = [p['rok_urodzenia'] for p in genealogia_raw if p['rok_urodzenia']]
+    _years_death = [p['rok_smierci'] for p in genealogia_raw if p['rok_smierci']]
+    
+    if _years_birth:
+        _min_y = min(_years_birth)
+        # Znajdź najpóźniejszy rok zdarzenia (urodzenia lub śmierci) w bazie
+        _max_event_year = max(
+            max(_years_birth) if _years_birth else 0,
+            max(_years_death) if _years_death else 0
+        )
+        # Ustaw rok końcowy na ostatni znany rok + margines 1 roku (bezpiecznik: nie dalej niż obecny rok)
+        _max_y = min(_max_event_year + 1, datetime.now().year)
+        
+        for _year in range(_min_y, _max_y + 1):
+            _pop = 0
+            for _p in genealogia_raw:
+                _b = _p['rok_urodzenia']
+                _d = _p['rok_smierci']
+                if _b and _b <= _year:
+                    if _d:
+                        if _d >= _year:
+                            _pop += 1
+                    else:
+                        # Zakładamy max wiek 95 lat dla osób bez daty śmierci
+                        # (aby uniknąć akumulacji "duchów" w statystykach)
+                        if (_year - _b) <= 95:
+                            _pop += 1
+            if _pop > 0:
+                demografia_data.append({
+                    'rok': _year,
+                    'populacja_ogolem': _pop,
+                    'katolicy': 0,
+                    'zydzi': 0,
+                    'inni': 0,
+                    'opis': official_events_map.get(_year, '')  # <--- Wzbogacenie o wydarzenia
+                })
 
     total_people = len(genealogia_raw)
     gender_counts = Counter(p['plec'] for p in genealogia_raw)
@@ -1481,7 +1579,6 @@ def get_stats():
                 }
     except Exception as e:
         print(f"⚠️ Błąd statystyki żydowskie: {e}")
-
     cur.close()
     conn.close()
 
@@ -1490,14 +1587,15 @@ def get_stats():
         'protocols_per_day': protocols_per_day,
         'rankings_real': rankings_real,
         'rankings_protocol': rankings_protocol,
-        'demografia': demografia_data,
+        'demografia': demografia_data,             # Metrykalne (domyślne)
+        'demografia_official': demografia_official,# NOWE: Oficjalne
         'category_counts': category_counts,
         'genealogy_stats': genealogy_stats,
         'area_stats': area_stats,
         'parcels_ranking': parcels_ranking,
         'rivers_stats': rivers_stats,
-        'rivers_ranking': rivers_ranking,
         'roads_stats': roads_stats,
+        'rivers_ranking': rivers_ranking,
         'roads_ranking': roads_ranking,
         'drawn_percentage': drawn_percentage,
         'location_area': location_area,
@@ -2883,6 +2981,7 @@ def admin_get_genealogia():
     cur.close()
     conn.close()
     
+    
     # Mapowanie db_id -> json_id dla relacji
     db_id_to_json_id = {p['db_id']: p['id_osoby'] for p in people}
 
@@ -2904,10 +3003,11 @@ def admin_get_genealogia():
             # Dodaj dla drugiego małżonka
             if id2 not in marriages_map: marriages_map[id2] = []
             marriages_map[id2].append({'spouseId': json_id1, 'date': date})
+    
 
     # Rozdzielenie imienia i nazwiska oraz przypisanie relacji (konwersja na json_id)
     for person in people:
-        name_parts = (person['imie_nazwisko'] or '').split(' ', 1)
+        name_parts = (person.get('imie_nazwisko') or '').split(' ', 1)
         person['imie'] = name_parts[0]
         person['nazwisko'] = name_parts[1] if len(name_parts) > 1 else ''
         
@@ -2930,26 +3030,22 @@ def admin_get_genealogia():
 @app.route('/api/admin/genealogia', methods=['POST'])
 def admin_create_osoba():
     """Tworzenie nowej osoby w genealogii."""
-    import datetime
     data = request.get_json()
     
-    # Simple file logger 
-    def to_log(msg):
-        with open(r'c:\Users\Hp\Desktop\Projekt-Czarna\debug_log.txt', 'a', encoding='utf-8') as f:
-            f.write(f"{datetime.datetime.now()}: {msg}\n")
-
-    to_log(f"Received data for create_osoba: {data}")
 
     # Podstawowa walidacja
     if not data.get('id_osoby'):
         msg = 'ID Osoby jest wymagane'
-        to_log(f"Validation error: {msg}")
         return jsonify({'status': 'error', 'message': msg}), 400
+    
+    if not data.get('imie') or not data.get('nazwisko'):
+        msg = 'Imię i nazwisko są wymagane'
+        return jsonify({'status': 'error', 'message': msg}), 400
+
     try:
         int(data['id_osoby'])
     except ValueError:
         msg = 'ID Osoby musi być liczbą'
-        to_log(f"Validation error: {msg}")
         return jsonify({'status': 'error', 'message': msg}), 400
 
     conn = get_db_connection()
@@ -2962,7 +3058,6 @@ def admin_create_osoba():
                     cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (int(data[field]),))
                     res = cur.fetchone()
                     parent_ids[field] = res[0] if res else None
-                    to_log(f"Resolved {field} ({data[field]}) -> {parent_ids[field]}")
                 else:
                     parent_ids[field] = None
 
@@ -2980,33 +3075,28 @@ def admin_create_osoba():
             if rok_ur == '': rok_ur = None
             if rok_sm == '': rok_sm = None
             
-            params = (int(data['id_osoby']), f"{data['imie']} {data['nazwisko']}".strip(), 
+            # Bezpieczne składanie imienia i nazwiska
+            full_name = f"{data.get('imie', '')} {data.get('nazwisko', '')}".strip()
+            
+            params = (int(data['id_osoby']), full_name, 
                   data.get('plec'), data.get('numer_domu'), rok_ur, 
                   rok_sm, parent_ids['id_ojca'], parent_ids['id_matki'], 
                   data.get('protokol_klucz'), data.get('uwagi'))
             
-            to_log(f"Executing INSERT with params: {params}")
 
             cur.execute(sql_insert, params)
             new_id = cur.fetchone()[0]
-            to_log(f"Created new person, DB ID: {new_id}")
             
             # Małżeństwa (lista)
             marriages = data.get('marriages', [])
-            to_log(f"Processing marriages: {marriages}")
             
             # Fallback dla starego formatu (pojedyncze id_malzonka)
             if not marriages and data.get('id_malzonka'):
-                # Tutaj zakładamy, że id_malzonka to DB_ID (stary frontend) LUB JSON_ID. 
-                # Dla bezpieczeństwa spróbujmy rozwiązać jeśli to JSON.
                 m_id = int(data['id_malzonka'])
-                # Sprawdź czy to DB ID czy JSON ID? Trudno powiedzieć.
-                # W nowym frontendzie id_malzonka nie jest wysyłane jeśli marriages są.
-                # Zostawmy prostą logikę: traktujemy jako JSON_ID bo front operuje na JSON.
                 cur.execute("SELECT id FROM osoby_genealogia WHERE json_id = %s", (m_id,))
                 res = cur.fetchone()
-                spouse_db_id = res[0] if res else m_id # Fallback do m_id jeśli nie znaleziono (może to było DB ID)
-                marriages.append({'spouse_db_id': spouse_db_id, 'date': None})
+                spouse_db_id = res[0] if res else m_id 
+                marriages.append({'spouseDbId': spouse_db_id, 'year': None})
 
             for m in marriages:
                 spouse_db_id = m.get('spouseDbId') # Stary klucz
@@ -3017,11 +3107,10 @@ def admin_create_osoba():
                 
                 if not spouse_db_id: continue
                 
-                # date = m.get('date') or m.get('year') # Backend DB ma rok_slubu (integer)
                 year = m.get('year')
                 if year == '': year = None
 
-                # Upewnij się, że para jest posortowana (mniejsze ID pierwsze), aby uniknąć duplikatów
+                # Upewnij się, że para jest posortowana (mniejsze ID pierwsze)
                 id1, id2 = sorted((new_id, int(spouse_db_id)))
                 
                 try:
@@ -3032,22 +3121,13 @@ def admin_create_osoba():
                         DO UPDATE SET rok_slubu = EXCLUDED.rok_slubu;
                     """, (id1, id2, year))
                 except Exception as ex_m:
-                     # Fallback
-                    to_log(f"Marriage insert error: {ex_m}. Trying fallback.")
-                    conn.rollback() 
-                    cur = conn.cursor() 
-                    cur.execute("""
-                        INSERT INTO malzenstwa (malzonek1_id, malzonek2_id) 
-                        VALUES (%s, %s) 
-                        ON CONFLICT DO NOTHING;
-                    """, (id1, id2))
+                    # Prosty insert bez ON CONFLICT jeśli baza jest starsza/inna
+                    cur.execute("INSERT INTO malzenstwa (malzonek1_id, malzonek2_id, rok_slubu) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING", (id1, id2, year))
 
             conn.commit()
-            to_log("Transaction committed successfully.")
             return jsonify({'status': 'success', 'id': new_id}), 201
     except Exception as e:
         conn.rollback()
-        to_log(f"EXCEPTION: {str(e)}") # Logowanie błędu
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         conn.close()
@@ -3069,12 +3149,16 @@ def admin_update_osoba(id):
                 else:
                     parent_ids[field] = None
 
+            
+            # Bezpieczne składanie imienia i nazwiska
+            full_name = f"{data.get('imie', '')} {data.get('nazwisko', '')}".strip()
+
             cur.execute("""
                 UPDATE osoby_genealogia SET json_id = %s, imie_nazwisko = %s, plec = %s, 
                     numer_domu = %s, rok_urodzenia = %s, rok_smierci = %s, id_ojca = %s, 
                     id_matki = %s, id_protokolu = (SELECT id FROM wlasciciele WHERE unikalny_klucz = %s), 
                     uwagi = %s WHERE id = %s;
-            """, (int(data['id_osoby']), f"{data['imie']} {data['nazwisko']}".strip(), 
+            """, (int(data['id_osoby']), full_name, 
                   data.get('plec'), data.get('numer_domu'), data.get('rok_urodzenia'), 
                   data.get('rok_smierci'), parent_ids['id_ojca'], parent_ids['id_matki'], 
                   data.get('protokol_klucz'), data.get('uwagi'), id))
@@ -3381,6 +3465,69 @@ def clear_login_logs():
     finally:
         conn.close()
 
+
+# =============================================================================
+# EXTENSIONS: PDF GENERATOR
+# =============================================================================
+
+@app.route('/api/genealogia/pdf/<int:id>', methods=['GET'])
+def download_family_card(id):
+    """Generuje i zwraca Kartę Rodziny (PDF) dla osoby o podanym ID."""
+    if not generate_family_pdf:
+        return jsonify({"error": "PDF Generator module unavailable (check tools/pdf_generator.py)"}), 503
+        
+    try:
+        # 1. Znajdź osobę w genealogia.json
+        # Używamy tej samej logiki co w list_genealogy, ale optymalniej
+        # Załadujmy plik
+        try:
+             # Używamy aktywnej lokalizacji
+             # active_location jest zdefiniowane globalnie w tym pliku
+             path = os.path.join(BACKUP_DIR, active_location, "genealogia.json")
+             
+             # Fallback jeśli active_location jest puste lub błędne
+             if not os.path.exists(path):
+                  path = os.path.join(BACKUP_DIR, "Czarna", "genealogia.json")
+                  
+             with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                persons = data.get("persons", [])
+        except Exception as e:
+            try:
+                 with open("backup/Czarna/genealogia.json", 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    persons = data.get("persons", [])
+            except: 
+                return jsonify({"error": f"Failed to load genealogy data: {str(e)}"}), 500
+            
+        person = next((p for p in persons if p.get("id") == id), None)
+        
+        if not person:
+            return jsonify({"error": "Person not found"}), 404
+            
+        # 2. Wygeneruj PDF
+        # Przekazujemy teraz listę wszystkich osób (persons), aby generator mógł zbudować drzewo relacji
+        pdf_buffer = generate_family_pdf(person, all_persons=persons)
+        
+        if not pdf_buffer:
+             return jsonify({"error": "Failed to generate PDF map data (check logs)"}), 500
+             
+        # 3. Zwróć plik
+        safe_name = re.sub(r'[^a-zA-Z0-9]', '_', person.get('name', 'Nieznany'))
+        filename = f"Karta_Rodziny_{safe_name}.pdf"
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        print(f"Błąd generowania PDF: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # =============================================================================
 # URUCHOMIENIE SERWERA
 # =============================================================================
@@ -3390,9 +3537,16 @@ if __name__ == "__main__":
     port = int(os.getenv("FLASK_PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "True").lower() == "true"
     
+    # Sprawdź czy uruchomione przez GUI launcher
+    launched_by_gui = os.getenv("LAUNCHED_BY_GUI", "0") == "1"
+    
     print(f"\n🚀 Uruchamianie serwera Flask...")
     print(f"   Adres: http://{host}:{port}")
-    print(f"   Debug: {debug}")
-    print("=" * 60 + "\n")
-    
-    app.run(host=host, port=port, debug=debug, use_reloader=False)
+    if launched_by_gui:
+        print("   Tryb: GUI Launcher (Reloader wyłączony)")
+        # Wyłącz reloader aby uniknąć podwójnych procesów i logów w konsoli launchera
+        app.run(host=host, port=port, debug=debug, use_reloader=False)
+    else:
+        app.run(host=host, port=port, debug=debug)
+
+

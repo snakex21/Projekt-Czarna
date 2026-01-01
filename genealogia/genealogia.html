@@ -1091,6 +1091,11 @@
                             ` : (houseNumFromField ? `
                                 <div style="font-size: 0.8rem; color: var(--text-tertiary); font-style: italic; align-self: center;">(Brak na mapie)</div>
                             ` : '')}
+                            
+                            <!-- KARTA RODZINY PDF BUTTON -->
+                            <a href="/api/genealogia/pdf/${person.id}" class="btn" style="background: #e74c3c; color: white; display: flex; align-items: center; gap: 0.5rem; text-decoration: none;" target="_blank">
+                                <i class="fas fa-file-pdf"></i> Karta Rodziny
+                            </a>
                         </div>
                     </div>
                 </div>
