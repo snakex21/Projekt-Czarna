@@ -19,7 +19,15 @@
                 21281,
                 22320
             ],
-            "notes": "Syn Sebastiana i Marii Augustyn. Trzykrotnie żonaty. Zgony 1862 lp 1."
+            "notes": "Syn Sebastiana i Marii Augustyn. Trzykrotnie żonaty. Zgony 1862 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22320,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 22320,
@@ -35,6 +43,14 @@
             "motherId": null,
             "spouseIds": [
                 20002
+            ],
+            "marriages": [
+                {
+                    "spouseId": 20002,
+                    "date": {
+                        "year": 1858
+                    }
+                }
             ],
             "notes": "Wdowa po Szymonie Borowcu. Ślub 1858 lp 9."
         },
@@ -75,7 +91,15 @@
                 21301,
                 21552
             ],
-            "notes": "Syn Wojciecha i Marii Pinas. Zgony 1862 lp 8."
+            "notes": "Syn Wojciecha i Marii Pinas. Zgony 1862 lp 8. Ślub 1847 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20216,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20017,
@@ -92,7 +116,7 @@
             "spouseIds": [
                 20016
             ],
-            "notes": "Córka Wojciecha i Katarzyny Cygan. Zmarła 1846 lp 17."
+            "notes": "Córka Wojciecha i Katarzyny Cygan. Zmarła 1846 lp 17. Zgony 1846 lp 17."
         },
         {
             "id": 20019,
@@ -175,7 +199,15 @@
                 20025,
                 20171
             ],
-            "notes": "Córka Wawrzyńca i Barbary Kowal. Zmarła jako Jadwiga Rutka (Zgony 1868 lp 11)."
+            "notes": "Córka Wawrzyńca i Barbary Kowal. Zmarła jako Jadwiga Rutka (Zgony 1868 lp 11). Ślub 1858 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20171,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 20028,
@@ -861,7 +893,15 @@
             "spouseIds": [
                 20114
             ],
-            "notes": "Mąż Katarzyny. Dziadek Magdaleny (lp 14, 1841)."
+            "notes": "Mąż Katarzyny. Dziadek Magdaleny (lp 14, 1841). Ślub 1845 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20114,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20114,
@@ -880,7 +920,15 @@
             "spouseIds": [
                 20113
             ],
-            "notes": "Zgony 1848 lp 9 (wiek 40 lat). Babka Magdaleny."
+            "notes": "Zgony 1848 lp 9 (wiek 40 lat). Babka Magdaleny. Ślub 1845 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20113,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20118,
@@ -1134,7 +1182,15 @@
             "spouseIds": [
                 20149
             ],
-            "notes": "Córka Karola i Katarzyny Sak. Żona Wojciecha Pluty."
+            "notes": "Córka Karola i Katarzyny Sak. Żona Wojciecha Pluty. Ślub 1874 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20149,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 20160,
@@ -1225,7 +1281,15 @@
             "spouseIds": [
                 20026
             ],
-            "notes": "Syn Marcina i Marianny Ochał. Ślub 1858 lp 1."
+            "notes": "Syn Marcina i Marianny Ochał. Ślub 1858 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20026,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 20173,
@@ -1349,7 +1413,15 @@
             "spouseIds": [
                 20189
             ],
-            "notes": "Mąż Reginy. Ślub 1855 lp 9."
+            "notes": "Mąż Reginy. Ślub 1855 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20189,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20192,
@@ -1587,7 +1659,21 @@
                 20218,
                 20225
             ],
-            "notes": "Córka Jana i Marianny Para. Dwukrotnie zamężna."
+            "notes": "Córka Jana i Marianny Para. Dwukrotnie zamężna. Ślub 1868 lp 2. Ślub 1869 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20218,
+                    "date": {
+                        "year": 1868
+                    }
+                },
+                {
+                    "spouseId": 20225,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 20220,
@@ -2006,7 +2092,15 @@
             "spouseIds": [
                 20280
             ],
-            "notes": "Syn Macieja i Marianny Bubułki. Ślub 1868 lp 3."
+            "notes": "Syn Macieja i Marianny Bubułki. Ślub 1868 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20280,
+                    "date": {
+                        "year": 1868
+                    }
+                }
+            ]
         },
         {
             "id": 20295,
@@ -2085,7 +2179,15 @@
             "spouseIds": [
                 20291
             ],
-            "notes": "Córka Michała i Marii Para. Żona Andrzeja Sochy."
+            "notes": "Córka Michała i Marii Para. Żona Andrzeja Sochy. Ślub 1871 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20291,
+                    "date": {
+                        "year": 1871
+                    }
+                }
+            ]
         },
         {
             "id": 20300,
@@ -2122,7 +2224,21 @@
                 20305,
                 22219
             ],
-            "notes": "Syn Jana i Marii Augustyn. Ślub 1854 lp 1."
+            "notes": "Syn Jana i Marii Augustyn. Ślub 1854 lp 1. Ślub 1844 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20305,
+                    "date": {
+                        "year": 1854
+                    }
+                },
+                {
+                    "spouseId": 22219,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20311,
@@ -2139,7 +2255,15 @@
             "spouseIds": [
                 20302
             ],
-            "notes": "Syn Józefa i Reginy Początko. Ślub 1858 lp 8."
+            "notes": "Syn Józefa i Reginy Początko. Ślub 1858 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20302,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 20314,
@@ -2320,7 +2444,15 @@
                 20548,
                 20330
             ],
-            "notes": "Babka Jana (ID: # 20325)."
+            "notes": "Babka Jana (ID: # 20325). Ślub 1860 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22365,
+                    "date": {
+                        "year": 1860
+                    }
+                }
+            ]
         },
         {
             "id": 20335,
@@ -2590,7 +2722,15 @@
             "spouseIds": [
                 20368
             ],
-            "notes": "Syn Wojciecha (lub Sebastiana) i Marianny Kuroś."
+            "notes": "Syn Wojciecha (lub Sebastiana) i Marianny Kuroś. Ślub 1840 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20368,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20368,
@@ -2607,7 +2747,15 @@
             "spouseIds": [
                 20367
             ],
-            "notes": "Córka Sebastiana i Marii Para."
+            "notes": "Córka Sebastiana i Marii Para. Ślub 1840 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20367,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20369,
@@ -3268,7 +3416,15 @@
             "spouseIds": [
                 20493
             ],
-            "notes": "Syn Wojciecha i Katarzyny Kuty."
+            "notes": "Syn Wojciecha i Katarzyny Kuty. Ślub 1840 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20493,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20493,
@@ -3285,7 +3441,15 @@
             "spouseIds": [
                 20492
             ],
-            "notes": "Córka Stanisława i Marianny Cygan."
+            "notes": "Córka Stanisława i Marianny Cygan. Ślub 1840 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20492,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20498,
@@ -3302,7 +3466,15 @@
             "spouseIds": [
                 20499
             ],
-            "notes": "Syn Jana i Marii Kopacz."
+            "notes": "Syn Jana i Marii Kopacz. Ślub 1840 lp 14.",
+            "marriages": [
+                {
+                    "spouseId": 20499,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20499,
@@ -3319,7 +3491,15 @@
             "spouseIds": [
                 20498
             ],
-            "notes": "Córka Krzysztofa (lub nieznanego) i Marianny Kiełbasy."
+            "notes": "Córka Krzysztofa (lub nieznanego) i Marianny Kiełbasy. Ślub 1840 lp 14.",
+            "marriages": [
+                {
+                    "spouseId": 20498,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20441,
@@ -3506,7 +3686,15 @@
             "spouseIds": [
                 20460
             ],
-            "notes": "Mąż Reginy. Ślub 1869 lp 1."
+            "notes": "Mąż Reginy. Ślub 1869 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20460,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 20464,
@@ -3732,7 +3920,15 @@
                 20570,
                 20577
             ],
-            "notes": "Córka Józefa i Rozalii. Występuje jako Anna lub Rozalia."
+            "notes": "Córka Józefa i Rozalii. Występuje jako Anna lub Rozalia. Ślub 1863 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20577,
+                    "date": {
+                        "year": 1863
+                    }
+                }
+            ]
         },
         {
             "id": 20580,
@@ -4516,7 +4712,15 @@
             "spouseIds": [
                 20916
             ],
-            "notes": "Wdowiec po Reginie Kleszcz."
+            "notes": "Wdowiec po Reginie Kleszcz. Ślub 1845 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20916,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20916,
@@ -4531,7 +4735,15 @@
             "spouseIds": [
                 20915
             ],
-            "notes": "Córka Reginy Barnaś."
+            "notes": "Córka Reginy Barnaś. Ślub 1845 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20915,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20918,
@@ -4656,7 +4868,15 @@
             "spouseIds": [
                 20961
             ],
-            "notes": "Syn Sebastiana i Jadwigi Tatarczany."
+            "notes": "Syn Sebastiana i Jadwigi Tatarczany. Ślub 1846 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20961,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 20962,
@@ -5116,14 +5336,26 @@
             "birthDate": {
                 "year": 1831
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1881,
+                "month": 5,
+                "day": 28
+            },
             "protokolKey": "Michal_Sak_Lp12",
             "fatherId": null,
             "motherId": null,
             "spouseIds": [
                 21182
             ],
-            "notes": "Syn Józefa i Marianny Klimczak (lub Wojtas)."
+            "notes": "Syn Józefa i Marianny Klimczak (lub Wojtas). Ślub 1851 lp 1. Zgony 1881 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 21182,
+                    "date": {
+                        "year": 1851
+                    }
+                }
+            ]
         },
         {
             "id": 21481,
@@ -5143,7 +5375,15 @@
                 21482,
                 22099
             ],
-            "notes": "Zgony 1880 lp 6."
+            "notes": "Zgony 1880 lp 6. Ślub 1856 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21482,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 21521,
@@ -5308,7 +5548,15 @@
             "spouseIds": [
                 21220
             ],
-            "notes": "Zgony 1854 lp 21 (jako wdowa po Andrzeju - błąd w akcie lub inny Andrzej?)."
+            "notes": "Zgony 1854 lp 21 (jako wdowa po Andrzeju - błąd w akcie lub inny Andrzej?). Ślub 1848 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21220,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 21231,
@@ -5374,7 +5622,15 @@
             "spouseIds": [
                 21262
             ],
-            "notes": "Córka Macieja i Apolonii Skarbek. Ślub 1879 lp 3."
+            "notes": "Córka Macieja i Apolonii Skarbek. Ślub 1879 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21262,
+                    "date": {
+                        "year": 1879
+                    }
+                }
+            ]
         },
         {
             "id": 21271,
@@ -5538,7 +5794,15 @@
             "spouseIds": [
                 21336
             ],
-            "notes": "Syn Wawrzyńca i Marianny. Ślub 1878 lp 1."
+            "notes": "Syn Wawrzyńca i Marianny. Ślub 1878 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21336,
+                    "date": {
+                        "year": 1878
+                    }
+                }
+            ]
         },
         {
             "id": 21351,
@@ -5617,7 +5881,15 @@
             "spouseIds": [
                 20670
             ],
-            "notes": "Wdowa po Andrzeju Trybie."
+            "notes": "Wdowa po Andrzeju Trybie. Ślub 1857 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20670,
+                    "date": {
+                        "year": 1857
+                    }
+                }
+            ]
         },
         {
             "id": 21411,
@@ -5736,7 +6008,15 @@
                 21433,
                 21681
             ],
-            "notes": "Wdowa po Stanisławie Cyganie i Michale Pychu."
+            "notes": "Wdowa po Stanisławie Cyganie i Michale Pychu. Ślub 1862 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 21433,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21434,
@@ -6205,7 +6485,15 @@
             "spouseIds": [
                 21595
             ],
-            "notes": "Córka Marcina i Marianny Skarbek (lub Pych)."
+            "notes": "Córka Marcina i Marianny Skarbek (lub Pych). Ślub 1862 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21595,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21615,
@@ -6222,7 +6510,15 @@
             "spouseIds": [
                 21614
             ],
-            "notes": "Córka Ignacego Lisa i Reginy Sochy."
+            "notes": "Córka Ignacego Lisa i Reginy Sochy. Ślub 1869 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20850,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 21617,
@@ -6342,7 +6638,15 @@
                 22218,
                 21732
             ],
-            "notes": "Syn Franciszka i Katarzyny Kuroś."
+            "notes": "Syn Franciszka i Katarzyny Kuroś. Ślub 1844 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22218,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 21641,
@@ -6615,7 +6919,15 @@
             "spouseIds": [
                 21701
             ],
-            "notes": "Żona Stanisława Łapy."
+            "notes": "Żona Stanisława Łapy. Ślub 1863 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21701,
+                    "date": {
+                        "year": 1863
+                    }
+                }
+            ]
         },
         {
             "id": 21708,
@@ -7355,7 +7667,15 @@
             "spouseIds": [
                 21863
             ],
-            "notes": "Córka Józefa i Zofii Pych."
+            "notes": "Córka Józefa i Zofii Pych. Ślub 1869 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 21863,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 21866,
@@ -7391,7 +7711,15 @@
             "spouseIds": [
                 21869
             ],
-            "notes": "Córka Jana i Katarzyny Żmuda."
+            "notes": "Córka Jana i Katarzyny Żmuda. Ślub 1868 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21869,
+                    "date": {
+                        "year": 1868
+                    }
+                }
+            ]
         },
         {
             "id": 21833,
@@ -7515,7 +7843,15 @@
             "spouseIds": [
                 21900
             ],
-            "notes": "Ojciec Marianny (#21898). s. Józef & Regina Bartnik."
+            "notes": "Ojciec Marianny (#21898). s. Józef & Regina Bartnik. Ślub 1877 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21900,
+                    "date": {
+                        "year": 1877
+                    }
+                }
+            ]
         },
         {
             "id": 21916,
@@ -7560,7 +7896,15 @@
             "spouseIds": [
                 21920
             ],
-            "notes": "Mąż Marianny N. s. Andrzej & Regina Pluta."
+            "notes": "Mąż Marianny N. s. Andrzej & Regina Pluta. Ślub 1871 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21920,
+                    "date": {
+                        "year": 1871
+                    }
+                }
+            ]
         },
         {
             "id": 21920,
@@ -7575,7 +7919,15 @@
             "spouseIds": [
                 21919
             ],
-            "notes": "Żona Wojciecha. c. Sebastian & Agnieszka Bartnik."
+            "notes": "Żona Wojciecha. c. Sebastian & Agnieszka Bartnik. Ślub 1871 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21919,
+                    "date": {
+                        "year": 1871
+                    }
+                }
+            ]
         },
         {
             "id": 21884,
@@ -7613,14 +7965,26 @@
             "gender": "F",
             "houseNumber": "20",
             "birthDate": null,
-            "deathDate": null,
+            "deathDate": {
+                "year": 1861,
+                "month": 12,
+                "day": 5
+            },
             "protokolKey": null,
             "fatherId": null,
             "motherId": null,
             "spouseIds": [
                 21925
             ],
-            "notes": "Córka Reginy Sochy. Żona Jana Pluty."
+            "notes": "Córka Reginy Sochy. Żona Jana Pluty. Ślub 1861 lp 6. Zgony 1861 lp 20.",
+            "marriages": [
+                {
+                    "spouseId": 21925,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ]
         },
         {
             "id": 21941,
@@ -7701,7 +8065,15 @@
             "spouseIds": [
                 21993
             ],
-            "notes": "Syn Alberta i Marianny Kramarczyk."
+            "notes": "Syn Alberta i Marianny Kramarczyk. Ślub 1882 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21993,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 21997,
@@ -7718,7 +8090,15 @@
             "spouseIds": [
                 21998
             ],
-            "notes": "Syn Piotra i Marianny Sukiennik."
+            "notes": "Syn Piotra i Marianny Sukiennik. Ślub 1873 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21998,
+                    "date": {
+                        "year": 1873
+                    }
+                }
+            ]
         },
         {
             "id": 21999,
@@ -7779,14 +8159,18 @@
             "birthDate": {
                 "year": 1845
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1874,
+                "month": 4,
+                "day": 25
+            },
             "protokolKey": null,
             "fatherId": null,
             "motherId": null,
             "spouseIds": [
                 22012
             ],
-            "notes": "Córka Macieja i Katarzyny. Żona Alberta."
+            "notes": "Córka Macieja i Katarzyny. Żona Alberta. Zgony 1874 lp 8."
         },
         {
             "id": 22015,
@@ -7820,7 +8204,15 @@
             "spouseIds": [
                 22018
             ],
-            "notes": "Mąż Reginy Cygan."
+            "notes": "Mąż Reginy Cygan. Ślub 1874 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22018,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 22021,
@@ -7854,7 +8246,15 @@
             "spouseIds": [
                 22024
             ],
-            "notes": "Mąż Zofii Para."
+            "notes": "Mąż Zofii Para. Ślub 1874 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 22024,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 22038,
@@ -7952,7 +8352,15 @@
             "spouseIds": [
                 21076
             ],
-            "notes": "Mąż Marianny Pluta (wdowy po Janie Kubickim)."
+            "notes": "Mąż Marianny Pluta (wdowy po Janie Kubickim). Ślub 1875 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21076,
+                    "date": {
+                        "year": 1875
+                    }
+                }
+            ]
         },
         {
             "id": 22069,
@@ -8123,7 +8531,15 @@
             "spouseIds": [
                 22082
             ],
-            "notes": "Mąż Marii Sak."
+            "notes": "Mąż Marii Sak. Ślub 1876 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22082,
+                    "date": {
+                        "year": 1876
+                    }
+                }
+            ]
         },
         {
             "id": 22100,
@@ -9094,6 +9510,26 @@
                 22330,
                 22331
             ],
+            "marriages": [
+                {
+                    "spouseId": 22223,
+                    "date": {
+                        "year": 1845
+                    }
+                },
+                {
+                    "spouseId": 22330,
+                    "date": {
+                        "year": 1849
+                    }
+                },
+                {
+                    "spouseId": 22331,
+                    "date": {
+                        "year": 1851
+                    }
+                }
+            ],
             "notes": "Mąż Łucji Bażolon."
         },
         {
@@ -9111,7 +9547,15 @@
             "spouseIds": [
                 22222
             ],
-            "notes": "Wdowa po Wojciechu Pinasie."
+            "notes": "Wdowa po Wojciechu Pinasie.",
+            "marriages": [
+                {
+                    "spouseId": 22222,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 22224,
@@ -9128,7 +9572,15 @@
             "spouseIds": [
                 22225
             ],
-            "notes": "Mąż Katarzyny Kubickiej."
+            "notes": "Mąż Katarzyny Kubickiej. Ślub 1845 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22225,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 22230,
@@ -9235,7 +9687,15 @@
             "spouseIds": [
                 22234
             ],
-            "notes": "Wdowa po Janie Kubiku. Żona Ignacego Lisa."
+            "notes": "Wdowa po Janie Kubiku. Żona Ignacego Lisa. Ślub 1850 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22234,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22241,
@@ -9434,7 +9894,15 @@
             "spouseIds": [
                 22344
             ],
-            "notes": "Syn Elżbiety Warzechy. Zgony 1848 lp 23."
+            "notes": "Syn Elżbiety Warzechy. Zgony 1848 lp 23. Ślub 1847 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 22344,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 22347,
@@ -9629,7 +10097,15 @@
             "spouseIds": [
                 22022
             ],
-            "notes": "Mąż Reginy Lis (z d. Erazmus). Zgony 1882 lp 1."
+            "notes": "Mąż Reginy Lis (z d. Erazmus). Zgony 1882 lp 1. Ślub 1882 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22022,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22365,
@@ -9648,7 +10124,15 @@
             "spouseIds": [
                 20700
             ],
-            "notes": "Mąż Reginy Lis (z d. Barnaś). Zgony 1882 lp 3."
+            "notes": "Mąż Reginy Lis (z d. Barnaś). Zgony 1882 lp 3. Ślub 1860 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20331,
+                    "date": {
+                        "year": 1860
+                    }
+                }
+            ]
         },
         {
             "id": 22368,
@@ -9697,7 +10181,15 @@
             "spouseIds": [
                 22384
             ],
-            "notes": "Ślub 1881 lp 5."
+            "notes": "Ślub 1881 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22384,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22385,
@@ -9714,7 +10206,15 @@
             "spouseIds": [
                 22386
             ],
-            "notes": "Ślub 1881 lp 6."
+            "notes": "Ślub 1881 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22386,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22386,
@@ -9731,7 +10231,15 @@
             "spouseIds": [
                 22385
             ],
-            "notes": "c. Agata Tatarczany. Ślub 1881 lp 6."
+            "notes": "c. Agata Tatarczany. Ślub 1881 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22385,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22387,
@@ -9748,7 +10256,15 @@
             "spouseIds": [
                 22388
             ],
-            "notes": "Ślub 1882 lp 5."
+            "notes": "Ślub 1882 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22388,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22389,
@@ -9765,7 +10281,15 @@
             "spouseIds": [
                 22390
             ],
-            "notes": "Ślub 1882 lp 2."
+            "notes": "Ślub 1882 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22390,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22390,
@@ -9782,7 +10306,15 @@
             "spouseIds": [
                 22389
             ],
-            "notes": "Wdowa po Piotrze Jagustynie. Ślub 1882 lp 2."
+            "notes": "Wdowa po Piotrze Jagustynie. Ślub 1882 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22389,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22391,
@@ -9801,7 +10333,15 @@
             "spouseIds": [
                 22392
             ],
-            "notes": "Ślub 1881 lp 1."
+            "notes": "Ślub 1881 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22392,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22393,
@@ -9988,7 +10528,15 @@
             "spouseIds": [
                 22405
             ],
-            "notes": "Ślub 1840 lp 9."
+            "notes": "Ślub 1840 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 22405,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 22405,
@@ -10005,7 +10553,15 @@
             "spouseIds": [
                 22404
             ],
-            "notes": "c. Jana i ?. Kubickiej. Ślub 1840 lp 9."
+            "notes": "c. Jana i ?. Kubickiej. Ślub 1840 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 22404,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 22406,
@@ -10022,7 +10578,15 @@
             "spouseIds": [
                 22407
             ],
-            "notes": "Ślub 1840 lp 10."
+            "notes": "Ślub 1840 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 22407,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 22407,
@@ -10039,7 +10603,15 @@
             "spouseIds": [
                 22406
             ],
-            "notes": "c. Wojciecha i Katarzyny. Ślub 1840 lp 10."
+            "notes": "c. Wojciecha i Katarzyny. Ślub 1840 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 22406,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 22409,
@@ -10269,7 +10841,7 @@
             "spouseIds": [
                 20026
             ],
-            "notes": "Syn Andrzeja i Zofii Pluta. Zmarł w więzieniu w Rzeszowie (Zgony 1854 lp 2)."
+            "notes": "Syn Andrzeja i Zofii Pluta. Zmarł w więzieniu w Rzeszowie (Zgony 1854 lp 2). Zgony 1853 lp 10."
         },
         {
             "id": 20027,
@@ -10294,12 +10866,16 @@
             "birthDate": {
                 "year": 1840
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1840,
+                "month": 6,
+                "day": 19
+            },
             "protokolKey": null,
             "fatherId": 20031,
             "motherId": 20032,
             "spouseIds": [],
-            "notes": "Urodzenia 1840 lp 8."
+            "notes": "Urodzenia 1840 lp 8. Zgony 1840 lp 13."
         },
         {
             "id": 20033,
@@ -10571,7 +11147,15 @@
                 20070,
                 22278
             ],
-            "notes": "Syn Jana i Jadwigi Pych. Wdowic po Reginie Para."
+            "notes": "Syn Jana i Jadwigi Pych. Wdowic po Reginie Para. Ślub 1855 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 22278,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 22278,
@@ -10588,7 +11172,15 @@
             "spouseIds": [
                 20069
             ],
-            "notes": "Córka Sebastiana i Marii Kubickiej. Ślub 1855 lp 7."
+            "notes": "Córka Sebastiana i Marii Kubickiej. Ślub 1855 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 20069,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20071,
@@ -10603,7 +11195,15 @@
             "fatherId": 20072,
             "motherId": 20073,
             "spouseIds": [],
-            "notes": "Urodzenia 1840 lp 21 (ostatni w roku)."
+            "notes": "Urodzenia 1840 lp 21 (ostatni w roku). Ślub 1875 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20600,
+                    "date": {
+                        "year": 1875
+                    }
+                }
+            ]
         },
         {
             "id": 20077,
@@ -10638,6 +11238,20 @@
                 20079,
                 20695
             ],
+            "marriages": [
+                {
+                    "spouseId": 20079,
+                    "date": {
+                        "year": 1840
+                    }
+                },
+                {
+                    "spouseId": 20695,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ],
             "notes": "Syn Wincentego i Agaty Para. Dwukrotnie żonaty."
         },
         {
@@ -10657,6 +11271,14 @@
             "spouseIds": [
                 20078
             ],
+            "marriages": [
+                {
+                    "spouseId": 20078,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ],
             "notes": "Córka Józefa i Marianny Bieniasz. Żona Stanisława Kramarczyka. Zgony 1861 lp 8."
         },
         {
@@ -10674,7 +11296,15 @@
             "spouseIds": [
                 20085
             ],
-            "notes": "Syn Michała i Anny Rymar. Ślub 1840 lp 2."
+            "notes": "Syn Michała i Anny Rymar. Ślub 1840 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20085,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20085,
@@ -10691,7 +11321,15 @@
             "spouseIds": [
                 20084
             ],
-            "notes": "Córka Jana i Jadwigi Kubickiej. Ślub 1840 lp 2."
+            "notes": "Córka Jana i Jadwigi Kubickiej. Ślub 1840 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20084,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20090,
@@ -10727,7 +11365,15 @@
             "spouseIds": [
                 20092
             ],
-            "notes": "Syn Jana i Reginy Kliszcz."
+            "notes": "Syn Jana i Reginy Kliszcz. Ślub 1840 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20092,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20092,
@@ -10744,7 +11390,15 @@
             "spouseIds": [
                 20091
             ],
-            "notes": "Córka Jana i Marianny Korpacz."
+            "notes": "Córka Jana i Marianny Korpacz. Ślub 1840 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20091,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20093,
@@ -11313,7 +11967,15 @@
             "spouseIds": [
                 20154
             ],
-            "notes": "Urodzenia 1852 lp 3."
+            "notes": "Urodzenia 1852 lp 3. Ślub 1874 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20154,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 20155,
@@ -11368,7 +12030,15 @@
             "spouseIds": [
                 20158
             ],
-            "notes": "Urodzenia 1841 lp 19."
+            "notes": "Urodzenia 1841 lp 19. Ślub 1862 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 20158,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 20158,
@@ -11385,7 +12055,15 @@
             "spouseIds": [
                 20157
             ],
-            "notes": "Syn Mariana z Borowa. Ślub 1862 lp 7."
+            "notes": "Syn Mariana z Borowa. Ślub 1862 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 20157,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 20159,
@@ -11498,7 +12176,15 @@
             "spouseIds": [
                 20236
             ],
-            "notes": "Urodzenia 1841 lp 21."
+            "notes": "Urodzenia 1841 lp 21. Ślub 1861 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20236,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ]
         },
         {
             "id": 20175,
@@ -11677,7 +12363,15 @@
             "spouseIds": [
                 20190
             ],
-            "notes": "Córka Tomasza."
+            "notes": "Córka Tomasza. Ślub 1855 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20190,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20191,
@@ -11882,7 +12576,15 @@
             "spouseIds": [
                 20016
             ],
-            "notes": "Córka Wojciecha i Marianny Labak. Druga żona Ignacego Pinasa."
+            "notes": "Córka Wojciecha i Marianny Labak. Druga żona Ignacego Pinasa. Ślub 1847 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20016,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20217,
@@ -11892,12 +12594,16 @@
             "birthDate": {
                 "year": 1844
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1855,
+                "month": 2,
+                "day": 28
+            },
             "protokolKey": null,
             "fatherId": 20213,
             "motherId": 20214,
             "spouseIds": [],
-            "notes": "Urodzenia 1844 lp 11."
+            "notes": "Urodzenia 1844 lp 11. Zgony 1855 lp 5."
         },
         {
             "id": 20218,
@@ -11914,7 +12620,15 @@
             "spouseIds": [
                 20219
             ],
-            "notes": "Syn Wojciecha i Marianny Labak. Mąż Reginy Socha."
+            "notes": "Syn Wojciecha i Marianny Labak. Mąż Reginy Socha. Ślub 1868 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20219,
+                    "date": {
+                        "year": 1868
+                    }
+                }
+            ]
         },
         {
             "id": 20222,
@@ -11933,7 +12647,15 @@
             "spouseIds": [
                 20223
             ],
-            "notes": "Syn Andrzeja i Agaty. Zgony 1869 lp 21."
+            "notes": "Syn Andrzeja i Agaty. Zgony 1869 lp 21. Ślub 1841 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20223,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 20223,
@@ -11950,7 +12672,15 @@
             "spouseIds": [
                 20222
             ],
-            "notes": "Córka Bartłomieja Kubickiego i Zofii Para."
+            "notes": "Córka Bartłomieja Kubickiego i Zofii Para. Ślub 1841 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20222,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 20224,
@@ -11982,7 +12712,15 @@
             "spouseIds": [
                 20219
             ],
-            "notes": "Syn Stanisława. Mąż Reginy Sochy (ID: # 20219)."
+            "notes": "Syn Stanisława. Mąż Reginy Sochy (ID: # 20219). Ślub 1869 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20219,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 20226,
@@ -11999,7 +12737,15 @@
             "spouseIds": [
                 20770
             ],
-            "notes": "Urodzenia 1841 lp 3."
+            "notes": "Urodzenia 1841 lp 3. Ślub 1846 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20770,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 20227,
@@ -12101,7 +12847,15 @@
             "spouseIds": [
                 20172
             ],
-            "notes": "Mąż Agaty Kubickiej."
+            "notes": "Mąż Agaty Kubickiej. Ślub 1861 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20172,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ]
         },
         {
             "id": 20238,
@@ -12543,7 +13297,15 @@
             "spouseIds": [
                 20294
             ],
-            "notes": "Córka Józefa i Agaty. Urodzenia 1848 lp 9."
+            "notes": "Córka Józefa i Agaty. Urodzenia 1848 lp 9. Ślub 1868 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20294,
+                    "date": {
+                        "year": 1868
+                    }
+                }
+            ]
         },
         {
             "id": 20281,
@@ -12644,7 +13406,15 @@
                 20292,
                 20697
             ],
-            "notes": "Urodzenia 1843 lp 19."
+            "notes": "Urodzenia 1843 lp 19. Ślub 1867 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20697,
+                    "date": {
+                        "year": 1867
+                    }
+                }
+            ]
         },
         {
             "id": 20289,
@@ -12692,7 +13462,21 @@
                 20299,
                 22080
             ],
-            "notes": "Syn Józefa i Reginy."
+            "notes": "Syn Józefa i Reginy. Ślub 1871 lp 3. Ślub 1876 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20299,
+                    "date": {
+                        "year": 1871
+                    }
+                },
+                {
+                    "spouseId": 22080,
+                    "date": {
+                        "year": 1876
+                    }
+                }
+            ]
         },
         {
             "id": 20293,
@@ -12744,7 +13528,21 @@
                 20309,
                 20311
             ],
-            "notes": "Córka Jana i Reginy. Dwukrotnie zamężna. Zgony 1878 lp 22."
+            "notes": "Córka Jana i Reginy. Dwukrotnie zamężna. Zgony 1878 lp 22. Ślub 1858 lp 8. Ślub 1840 lp 8. Zgony 1849 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20311,
+                    "date": {
+                        "year": 1858
+                    }
+                },
+                {
+                    "spouseId": 20309,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20303,
@@ -12795,7 +13593,15 @@
             "spouseIds": [
                 20310
             ],
-            "notes": "Córka Jana i Reginy."
+            "notes": "Córka Jana i Reginy. Ślub 1854 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20310,
+                    "date": {
+                        "year": 1854
+                    }
+                }
+            ]
         },
         {
             "id": 20306,
@@ -12812,7 +13618,15 @@
             "spouseIds": [
                 20312
             ],
-            "notes": "Córka Jana i Reginy."
+            "notes": "Córka Jana i Reginy. Ślub 1862 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20312,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 20307,
@@ -12863,7 +13677,15 @@
             "spouseIds": [
                 20302
             ],
-            "notes": "Mąż Katarzyny Jamróg. Zgony 1858 lp 12."
+            "notes": "Mąż Katarzyny Jamróg. Zgony 1858 lp 12. Ślub 1840 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20302,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20312,
@@ -12880,7 +13702,15 @@
             "spouseIds": [
                 20306
             ],
-            "notes": "Syn Macieja (Wojciecha) i Zofii Pych. Ślub 1862 lp 9."
+            "notes": "Syn Macieja (Wojciecha) i Zofii Pych. Ślub 1862 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20306,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 20313,
@@ -13169,7 +13999,15 @@
             "spouseIds": [
                 20363
             ],
-            "notes": "Urodzenia 1842 lp 1. Syn Józefa i Agaty/Reginy Sroki."
+            "notes": "Urodzenia 1842 lp 1. Syn Józefa i Agaty/Reginy Sroki. Ślub 1859 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20363,
+                    "date": {
+                        "year": 1859
+                    }
+                }
+            ]
         },
         {
             "id": 20358,
@@ -13177,14 +14015,18 @@
             "gender": "M",
             "houseNumber": "96",
             "birthDate": null,
-            "deathDate": null,
+            "deathDate": {
+                "year": 1861,
+                "month": 2,
+                "day": 2
+            },
             "protokolKey": null,
             "fatherId": 20360,
             "motherId": 20361,
             "spouseIds": [
                 20359
             ],
-            "notes": "Ojciec Jana (ID: # 20357)."
+            "notes": "Ojciec Jana (ID: # 20357). Zgony 1861 lp 3."
         },
         {
             "id": 20359,
@@ -13216,7 +14058,15 @@
             "spouseIds": [
                 20357
             ],
-            "notes": "Córka Wojciecha i Reginy Sochy. Ślub 1859 lp 3."
+            "notes": "Córka Wojciecha i Reginy Sochy. Ślub 1859 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20357,
+                    "date": {
+                        "year": 1859
+                    }
+                }
+            ]
         },
         {
             "id": 20364,
@@ -13663,7 +14513,15 @@
             "spouseIds": [
                 20409
             ],
-            "notes": "Urodzenia 1847 lp 25."
+            "notes": "Urodzenia 1847 lp 25. Ślub 1865 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20409,
+                    "date": {
+                        "year": 1865
+                    }
+                }
+            ]
         },
         {
             "id": 20408,
@@ -13699,7 +14557,15 @@
             "spouseIds": [
                 20407
             ],
-            "notes": "Syn Bartłomieja i Agaty Czajki. Ślub 1865 lp 3."
+            "notes": "Syn Bartłomieja i Agaty Czajki. Ślub 1865 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20407,
+                    "date": {
+                        "year": 1865
+                    }
+                }
+            ]
         },
         {
             "id": 20410,
@@ -13748,7 +14614,15 @@
             "spouseIds": [
                 20415
             ],
-            "notes": "Córka Macieja i Marii Jędras. W aktach ślubu 1853 nazwisko pierwszego męża zapisane jako Datak."
+            "notes": "Córka Macieja i Marii Jędras. W aktach ślubu 1853 nazwisko pierwszego męża zapisane jako Datak. Ślub 1853 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 21511,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 20416,
@@ -13810,7 +14684,7 @@
             "fatherId": 20424,
             "motherId": 20425,
             "spouseIds": [],
-            "notes": "Urodzenia 1842 lp 14. Zmarła w wieku 4,5 lat (Zgony 1846 lp 16)."
+            "notes": "Urodzenia 1842 lp 14. Zmarła w wieku 4,5 lat (Zgony 1846 lp 16). Zgony 1842 lp 5."
         },
         {
             "id": 20424,
@@ -13884,7 +14758,15 @@
                 20437,
                 21817
             ],
-            "notes": "Syn Jakuba i Reginy Para. Dwukrotnie żonaty. Zgony 1877 lp 33."
+            "notes": "Syn Jakuba i Reginy Para. Dwukrotnie żonaty. Zgony 1877 lp 33. Ślub 1841 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20432,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 20432,
@@ -13903,7 +14785,15 @@
             "spouseIds": [
                 20431
             ],
-            "notes": "Córka Jana i Jadwigi Lis. Zgony 1844 lp 16."
+            "notes": "Córka Jana i Jadwigi Lis. Zgony 1844 lp 16. Ślub 1841 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20431,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 20438,
@@ -14016,7 +14906,15 @@
             "spouseIds": [
                 20478
             ],
-            "notes": "Zgony 1860 lp 10."
+            "notes": "Zgony 1860 lp 10. Ślub 1840 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20478,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20478,
@@ -14033,7 +14931,15 @@
             "spouseIds": [
                 20477
             ],
-            "notes": "Córka Wawrzyńca i Barbary Kowal."
+            "notes": "Córka Wawrzyńca i Barbary Kowal. Ślub 1840 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20477,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20479,
@@ -14357,7 +15263,15 @@
                 20765,
                 22337
             ],
-            "notes": "Syn Tomasza i Zofii Kliszcz. Zmarł 1875 lp 12."
+            "notes": "Syn Tomasza i Zofii Kliszcz. Zmarł 1875 lp 12. Ślub 1844 lp 3. Zgony 1875 lp 12.",
+            "marriages": [
+                {
+                    "spouseId": 22337,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20453,
@@ -14438,7 +15352,15 @@
             "spouseIds": [
                 20463
             ],
-            "notes": "Urodzenia 1842 lp 19."
+            "notes": "Urodzenia 1842 lp 19. Ślub 1869 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20463,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 20461,
@@ -14614,7 +15536,15 @@
             "fatherId": 20500,
             "motherId": 20502,
             "spouseIds": [],
-            "notes": "Urodzenia 1856 lp 14."
+            "notes": "Urodzenia 1856 lp 14. Ślub 1879 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21077,
+                    "date": {
+                        "year": 1879
+                    }
+                }
+            ]
         },
         {
             "id": 20509,
@@ -14742,7 +15672,15 @@
             "spouseIds": [
                 20530
             ],
-            "notes": "Urodzenia 1845 lp 13."
+            "notes": "Urodzenia 1845 lp 13. Ślub 1865 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20530,
+                    "date": {
+                        "year": 1865
+                    }
+                }
+            ]
         },
         {
             "id": 20518,
@@ -14759,7 +15697,15 @@
             "spouseIds": [
                 20531
             ],
-            "notes": "Urodzenia 1848 lp 1."
+            "notes": "Urodzenia 1848 lp 1. Ślub 1872 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20531,
+                    "date": {
+                        "year": 1872
+                    }
+                }
+            ]
         },
         {
             "id": 20519,
@@ -14893,7 +15839,21 @@
             "spouseIds": [
                 20517
             ],
-            "notes": "Syn Michała i Reginy Majka. Ślub 1865 lp 1."
+            "notes": "Syn Michała i Reginy Majka. Ślub 1865 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20517,
+                    "date": {
+                        "year": 1865
+                    }
+                },
+                {
+                    "spouseId": 20531,
+                    "date": {
+                        "year": 1865
+                    }
+                }
+            ]
         },
         {
             "id": 20531,
@@ -14911,7 +15871,21 @@
                 20518,
                 21039
             ],
-            "notes": "Córka Jana i Katarzyny Para. Ślub 1872 lp 1."
+            "notes": "Córka Jana i Katarzyny Para. Ślub 1872 lp 1. Ślub 1865 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20530,
+                    "date": {
+                        "year": 1865
+                    }
+                },
+                {
+                    "spouseId": 20518,
+                    "date": {
+                        "year": 1872
+                    }
+                }
+            ]
         },
         {
             "id": 20532,
@@ -15007,7 +15981,15 @@
             "spouseIds": [
                 20541
             ],
-            "notes": "Zgony 1859 lp 11."
+            "notes": "Zgony 1859 lp 11. Ślub 1840 lp 13.",
+            "marriages": [
+                {
+                    "spouseId": 20541,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20541,
@@ -15024,7 +16006,15 @@
             "spouseIds": [
                 20540
             ],
-            "notes": "Córka Pawła i Reginy Majka. Wdowa po Józefie (lub Wawrzyńcu) Smagaczu."
+            "notes": "Córka Pawła i Reginy Majka. Wdowa po Józefie (lub Wawrzyńcu) Smagaczu. Ślub 1840 lp 13.",
+            "marriages": [
+                {
+                    "spouseId": 20540,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20542,
@@ -15044,7 +16034,15 @@
                 21471,
                 21617
             ],
-            "notes": "Urodzenia 1844 lp 9, Zgony 1867 lp 5."
+            "notes": "Urodzenia 1844 lp 9, Zgony 1867 lp 5. Ślub 1860 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21471,
+                    "date": {
+                        "year": 1860
+                    }
+                }
+            ]
         },
         {
             "id": 20543,
@@ -15207,7 +16205,15 @@
                 20560,
                 20565
             ],
-            "notes": "Córka Jana i Jadwigi Pyrz."
+            "notes": "Córka Jana i Jadwigi Pyrz. Ślub 1853 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20565,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 20562,
@@ -15273,7 +16279,15 @@
             "spouseIds": [
                 20561
             ],
-            "notes": "Syn Jakuba i Reginy Pluta. Ślub 1853 lp 11."
+            "notes": "Syn Jakuba i Reginy Pluta. Ślub 1853 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20561,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 20566,
@@ -15400,7 +16414,15 @@
                 20571,
                 21033
             ],
-            "notes": "Mąż wdowy Anny Mickowej. Ślub 1863 lp 2."
+            "notes": "Mąż wdowy Anny Mickowej. Ślub 1863 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20571,
+                    "date": {
+                        "year": 1863
+                    }
+                }
+            ]
         },
         {
             "id": 20582,
@@ -15483,7 +16505,15 @@
             "spouseIds": [
                 20591
             ],
-            "notes": "Syn Wojciecha i Katarzyny Cygan. Zgony 1869 lp 3."
+            "notes": "Syn Wojciecha i Katarzyny Cygan. Zgony 1869 lp 3. Ślub 1844 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20591,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20591,
@@ -15500,7 +16530,15 @@
             "spouseIds": [
                 20590
             ],
-            "notes": "Córka Jakuba i Reginy Pluta."
+            "notes": "Córka Jakuba i Reginy Pluta. Ślub 1844 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20590,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20592,
@@ -15551,7 +16589,21 @@
             "spouseIds": [
                 20601
             ],
-            "notes": "Syn Jana i Marianny Majka. Zgony 1881 lp 6."
+            "notes": "Syn Jana i Marianny Majka. Zgony 1881 lp 6. Ślub 1842 lp 3. Ślub 1875 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20601,
+                    "date": {
+                        "year": 1842
+                    }
+                },
+                {
+                    "spouseId": 20071,
+                    "date": {
+                        "year": 1875
+                    }
+                }
+            ]
         },
         {
             "id": 20601,
@@ -15570,7 +16622,15 @@
             "spouseIds": [
                 20600
             ],
-            "notes": "Córka Tomasza i Zofii Kliszcz. Zgony 1873 lp 3."
+            "notes": "Córka Tomasza i Zofii Kliszcz. Zgony 1873 lp 3. Ślub 1842 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20600,
+                    "date": {
+                        "year": 1842
+                    }
+                }
+            ]
         },
         {
             "id": 20602,
@@ -15700,7 +16760,15 @@
             "spouseIds": [
                 20610
             ],
-            "notes": "Córka Stanisława i Małgorzaty Stec."
+            "notes": "Córka Stanisława i Małgorzaty Stec. Ślub 1858 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20725,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 20612,
@@ -15986,7 +17054,11 @@
             "birthDate": {
                 "year": 1817
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1862,
+                "month": 3,
+                "day": 19
+            },
             "protokolKey": null,
             "fatherId": 20600,
             "motherId": 20912,
@@ -15995,7 +17067,27 @@
                 21539,
                 21381
             ],
-            "notes": "Syn Józefa i Reginy Para. Trzykrotnie żonaty."
+            "marriages": [
+                {
+                    "spouseId": 20671,
+                    "date": {
+                        "year": 1841
+                    }
+                },
+                {
+                    "spouseId": 21539,
+                    "date": {
+                        "year": 1853
+                    }
+                },
+                {
+                    "spouseId": 21381,
+                    "date": {
+                        "year": 1857
+                    }
+                }
+            ],
+            "notes": "Syn Józefa i Reginy Para. Trzykrotnie żonaty. Ślub 1857 lp 8. Zgony 1862 lp 16. Zgony 1878 lp 8."
         },
         {
             "id": 20671,
@@ -16012,7 +17104,15 @@
             "spouseIds": [
                 20670
             ],
-            "notes": "Córka Macieja i Anny Rymarz."
+            "notes": "Córka Macieja i Anny Rymarz.",
+            "marriages": [
+                {
+                    "spouseId": 20670,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 20672,
@@ -16179,7 +17279,15 @@
             "spouseIds": [
                 20813
             ],
-            "notes": "Syn Walentego i Reginy Klimek."
+            "notes": "Syn Walentego i Reginy Klimek. Ślub 1845 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20813,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20813,
@@ -16198,7 +17306,15 @@
             "spouseIds": [
                 20812
             ],
-            "notes": "Wdowa po Pawle Para. Zgony 1855 lp 19."
+            "notes": "Wdowa po Pawle Para. Zgony 1855 lp 19. Ślub 1845 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20812,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 20820,
@@ -16234,7 +17350,15 @@
             "spouseIds": [
                 20822
             ],
-            "notes": "Syn Tomasza i Katarzyny Klimczak. Zgony 1881 lp 9."
+            "notes": "Syn Tomasza i Katarzyny Klimczak. Zgony 1881 lp 9. Ślub 1843 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20822,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 20822,
@@ -16253,7 +17377,15 @@
             "spouseIds": [
                 20821
             ],
-            "notes": "Córka Macieja i Reginy Tryby. Zgony 1873 lp 30."
+            "notes": "Córka Macieja i Reginy Tryby. Zgony 1873 lp 30. Ślub 1843 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20821,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 20835,
@@ -16323,12 +17455,24 @@
             "birthDate": {
                 "year": 1847
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1875,
+                "month": 5,
+                "day": 27
+            },
             "protokolKey": "Jan_Labak",
             "fatherId": 20851,
             "motherId": 20852,
             "spouseIds": [],
-            "notes": "Urodzenia 1847 lp 15."
+            "notes": "Urodzenia 1847 lp 15. Ślub 1869 lp 8. Zgony 1875 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 21615,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 20852,
@@ -16422,7 +17566,15 @@
             "spouseIds": [
                 20078
             ],
-            "notes": "Córka Józefa i Agaty Pluty."
+            "notes": "Córka Józefa i Agaty Pluty.",
+            "marriages": [
+                {
+                    "spouseId": 20078,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ]
         },
         {
             "id": 20696,
@@ -16454,7 +17606,15 @@
             "spouseIds": [
                 20288
             ],
-            "notes": "Urodzenia 1845 lp 22. Mąż Marianny Sochy."
+            "notes": "Urodzenia 1845 lp 22. Mąż Marianny Sochy. Ślub 1867 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20288,
+                    "date": {
+                        "year": 1867
+                    }
+                }
+            ]
         },
         {
             "id": 20699,
@@ -16474,7 +17634,21 @@
                 20700,
                 22279
             ],
-            "notes": "Syn Kazimierza. Wdowic po Zofii Para. Zgony 1856 lp 6."
+            "notes": "Syn Kazimierza. Wdowic po Zofii Para. Zgony 1856 lp 6. Ślub 1855 lp 8. Ślub 1856 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 22279,
+                    "date": {
+                        "year": 1855
+                    }
+                },
+                {
+                    "spouseId": 21804,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 22279,
@@ -16491,7 +17665,15 @@
             "spouseIds": [
                 20699
             ],
-            "notes": "Córka Wawrzyńca i Salomei Trężel. Ślub 1855 lp 8."
+            "notes": "Córka Wawrzyńca i Salomei Trężel. Ślub 1855 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20699,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20700,
@@ -16609,7 +17791,15 @@
             "spouseIds": [
                 20726
             ],
-            "notes": "Syn Jakuba i Katarzyny Kramarz."
+            "notes": "Syn Jakuba i Katarzyny Kramarz. Ślub 1858 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 20611,
+                    "date": {
+                        "year": 1858
+                    }
+                }
+            ]
         },
         {
             "id": 20726,
@@ -16656,7 +17846,15 @@
             "spouseIds": [
                 22340
             ],
-            "notes": "Córka Jana i Anny Augustyn. Matka Stanisława."
+            "notes": "Córka Jana i Anny Augustyn. Matka Stanisława. Ślub 1846 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 22340,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 20731,
@@ -16782,7 +17980,15 @@
             "spouseIds": [
                 20746
             ],
-            "notes": "Syn Józefa i Marii Pluty."
+            "notes": "Syn Józefa i Marii Pluty. Ślub 1840 lp 12.",
+            "marriages": [
+                {
+                    "spouseId": 20746,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20746,
@@ -16797,7 +18003,15 @@
             "spouseIds": [
                 20745
             ],
-            "notes": "Córka Jakuba i Zofii Para."
+            "notes": "Córka Jakuba i Zofii Para. Ślub 1840 lp 12.",
+            "marriages": [
+                {
+                    "spouseId": 20745,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 20747,
@@ -16891,7 +18105,15 @@
             "spouseIds": [
                 20756
             ],
-            "notes": "Syn Bartłomieja i Zofii Sochy."
+            "notes": "Syn Bartłomieja i Zofii Sochy. Ślub 1844 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20756,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20756,
@@ -16908,7 +18130,15 @@
             "spouseIds": [
                 20755
             ],
-            "notes": "Córka Andrzeja i Jadwigi Łapy."
+            "notes": "Córka Andrzeja i Jadwigi Łapy. Ślub 1844 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20755,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 20757,
@@ -17026,7 +18256,15 @@
             "spouseIds": [
                 20226
             ],
-            "notes": "Syn Jana i Marii Korpacz."
+            "notes": "Syn Jana i Marii Korpacz. Ślub 1846 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20226,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 20771,
@@ -17143,7 +18381,15 @@
             "spouseIds": [
                 20781
             ],
-            "notes": "Syn Jakuba i Zofii. Zgony 1854 lp 13."
+            "notes": "Syn Jakuba i Zofii. Zgony 1854 lp 13. Ślub 1847 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20781,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20781,
@@ -17161,7 +18407,21 @@
                 20780,
                 20782
             ],
-            "notes": "Córka Franciszka i Anny Kliszcz."
+            "notes": "Córka Franciszka i Anny Kliszcz. Ślub 1847 lp 3. Ślub 1855 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20780,
+                    "date": {
+                        "year": 1847
+                    }
+                },
+                {
+                    "spouseId": 20782,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20782,
@@ -17178,7 +18438,15 @@
             "spouseIds": [
                 20781
             ],
-            "notes": "Syn Bartłomieja i Józefy Durołek. Ślub 1855 lp 1."
+            "notes": "Syn Bartłomieja i Józefy Durołek. Ślub 1855 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20781,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20785,
@@ -17400,7 +18668,7 @@
             "fatherId": 20900,
             "motherId": 20901,
             "spouseIds": [],
-            "notes": "Zmarł w wieku 1 roku. Zgony 1846 lp 14."
+            "notes": "Zmarł w wieku 1 roku. Zgony 1846 lp 14. Urodzenia 1845 lp 11."
         },
         {
             "id": 20903,
@@ -17415,7 +18683,7 @@
             "fatherId": 20900,
             "motherId": 20901,
             "spouseIds": [],
-            "notes": "W akcie urodzenia wpisana jako Maria Łaza (1849 lp 6)."
+            "notes": "W akcie urodzenia wpisana jako Maria Łaza (1849 lp 6). Urodzenia 1849 lp 6."
         },
         {
             "id": 20904,
@@ -17573,7 +18841,15 @@
             "spouseIds": [
                 20923
             ],
-            "notes": "Syn Andrzeja i Jadwigi Łapy."
+            "notes": "Syn Andrzeja i Jadwigi Łapy. Ślub 1848 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20923,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 20923,
@@ -17590,7 +18866,15 @@
             "spouseIds": [
                 20922
             ],
-            "notes": "Córka Bartłomieja i Zofii Sochy."
+            "notes": "Córka Bartłomieja i Zofii Sochy. Ślub 1848 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 20922,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 20924,
@@ -17654,7 +18938,15 @@
             "spouseIds": [
                 20929
             ],
-            "notes": "Syn Macieja i Zofii."
+            "notes": "Syn Macieja i Zofii. Ślub 1847 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20929,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20929,
@@ -17673,7 +18965,15 @@
             "spouseIds": [
                 20928
             ],
-            "notes": "Córka Tomasza i Reginy Kubickiej. Zgony 1859 lp 15."
+            "notes": "Córka Tomasza i Reginy Kubickiej. Zgony 1859 lp 15. Ślub 1847 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20928,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20930,
@@ -17737,7 +19037,15 @@
             "spouseIds": [
                 20944
             ],
-            "notes": "Syn Józefa i Marii Pluty. Zgony 1853 lp 17."
+            "notes": "Syn Józefa i Marii Pluty. Zgony 1853 lp 17. Ślub 1847 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20944,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 20944,
@@ -17755,7 +19063,21 @@
                 20943,
                 21030
             ],
-            "notes": "Córka Macieja i Marii Sak."
+            "notes": "Córka Macieja i Marii Sak. Ślub 1847 lp 5. Ślub 1853 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20943,
+                    "date": {
+                        "year": 1847
+                    }
+                },
+                {
+                    "spouseId": 21030,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 20956,
@@ -17954,7 +19276,15 @@
             "spouseIds": [
                 20960
             ],
-            "notes": "Córka Jana i Zofii Bubułki."
+            "notes": "Córka Jana i Zofii Bubułki. Ślub 1846 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20960,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 20967,
@@ -18097,7 +19427,15 @@
             "spouseIds": [
                 20981
             ],
-            "notes": "Syn Michała i Katarzyny."
+            "notes": "Syn Michała i Katarzyny. Ślub 1849 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 21888,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 20975,
@@ -18114,7 +19452,15 @@
             "spouseIds": [
                 20980
             ],
-            "notes": "Syn Michała i Katarzyny Pluta."
+            "notes": "Syn Michała i Katarzyny Pluta. Ślub 1855 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20980,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20977,
@@ -18133,7 +19479,15 @@
             "spouseIds": [
                 20980
             ],
-            "notes": "Pierwszy mąż Reginy Tryby."
+            "notes": "Pierwszy mąż Reginy Tryby. Ślub 1842 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 20980,
+                    "date": {
+                        "year": 1842
+                    }
+                }
+            ]
         },
         {
             "id": 20980,
@@ -18151,7 +19505,21 @@
                 20975,
                 20977
             ],
-            "notes": "Córka Jana i Marii Madej. Dwukrotnie zamężna z braćmi Para."
+            "notes": "Córka Jana i Marii Madej. Dwukrotnie zamężna z braćmi Para. Ślub 1842 lp 5. Ślub 1855 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20977,
+                    "date": {
+                        "year": 1842
+                    }
+                },
+                {
+                    "spouseId": 20975,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 20982,
@@ -18479,7 +19847,15 @@
                 21006,
                 22347
             ],
-            "notes": "Syn Macieja i Marianny Bubułki."
+            "notes": "Syn Macieja i Marianny Bubułki. Ślub 1849 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21006,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 21006,
@@ -18497,7 +19873,15 @@
                 21005,
                 21082
             ],
-            "notes": "Córka Józefa i Marii Kliszcz."
+            "notes": "Córka Józefa i Marii Kliszcz. Ślub 1849 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21005,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 21009,
@@ -18566,7 +19950,15 @@
             "spouseIds": [
                 21015
             ],
-            "notes": "Urodzenia 1854 lp 4."
+            "notes": "Urodzenia 1854 lp 4. Ślub 1878 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21015,
+                    "date": {
+                        "year": 1878
+                    }
+                }
+            ]
         },
         {
             "id": 21015,
@@ -18583,7 +19975,15 @@
             "spouseIds": [
                 21014
             ],
-            "notes": "Córka Tomasza i Marianny Knapik."
+            "notes": "Córka Tomasza i Marianny Knapik. Ślub 1878 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21014,
+                    "date": {
+                        "year": 1878
+                    }
+                }
+            ]
         },
         {
             "id": 21018,
@@ -18648,7 +20048,15 @@
                 21022,
                 21023
             ],
-            "notes": "Syn Jana i Marii Augustyn."
+            "notes": "Syn Jana i Marii Augustyn. Ślub 1857 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 21023,
+                    "date": {
+                        "year": 1857
+                    }
+                }
+            ]
         },
         {
             "id": 21022,
@@ -18684,7 +20092,15 @@
             "spouseIds": [
                 21021
             ],
-            "notes": "Druga żona Andrzeja Saka. Córka Wojciecha i Jadwigi Hajec."
+            "notes": "Druga żona Andrzeja Saka. Córka Wojciecha i Jadwigi Hajec. Ślub 1857 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 21021,
+                    "date": {
+                        "year": 1857
+                    }
+                }
+            ]
         },
         {
             "id": 21026,
@@ -18771,7 +20187,15 @@
             "spouseIds": [
                 20944
             ],
-            "notes": "Syn Wojciecha i Reginy (lub Apolonii). Zgony 1878 lp 29."
+            "notes": "Syn Wojciecha i Reginy (lub Apolonii). Zgony 1878 lp 29. Ślub 1853 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 20944,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 21031,
@@ -18951,7 +20375,15 @@
                 21542,
                 21553
             ],
-            "notes": "Wdowiec po Mariannie Ligęza. Zgony 1874 lp 9."
+            "notes": "Wdowiec po Mariannie Ligęza. Zgony 1874 lp 9. Ślub 1856 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22290,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 22290,
@@ -18968,7 +20400,15 @@
             "spouseIds": [
                 21048
             ],
-            "notes": "Córka Andrzeja i Agaty Augustyn. Ślub 1856 lp 6."
+            "notes": "Córka Andrzeja i Agaty Augustyn. Ślub 1856 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 21048,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 21049,
@@ -18987,7 +20427,7 @@
             "spouseIds": [
                 21048
             ],
-            "notes": "Zgony 1881 lp 18."
+            "notes": "Zgony 1881 lp 18. Urodzenia 1846 lp 17."
         },
         {
             "id": 21050,
@@ -19102,7 +20542,15 @@
             "spouseIds": [
                 21063
             ],
-            "notes": "Córka Jana i Marianny Pluta."
+            "notes": "Córka Jana i Marianny Pluta. Ślub 1855 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21063,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 21063,
@@ -19119,7 +20567,15 @@
             "spouseIds": [
                 21062
             ],
-            "notes": "Syn Tomasza i Marianny Sroki."
+            "notes": "Syn Tomasza i Marianny Sroki. Ślub 1855 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21062,
+                    "date": {
+                        "year": 1855
+                    }
+                }
+            ]
         },
         {
             "id": 21064,
@@ -19281,7 +20737,15 @@
             "spouseIds": [
                 21077
             ],
-            "notes": "Urodzenia 1847 lp 19."
+            "notes": "Urodzenia 1847 lp 19. Ślub 1870 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21077,
+                    "date": {
+                        "year": 1870
+                    }
+                }
+            ]
         },
         {
             "id": 21075,
@@ -19316,7 +20780,15 @@
                 21075,
                 22068
             ],
-            "notes": "Córka Andrzeja i Zofii Jamróg. Ślub 1872 lp 5."
+            "notes": "Córka Andrzeja i Zofii Jamróg. Ślub 1872 lp 5. Ślub 1875 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22068,
+                    "date": {
+                        "year": 1875
+                    }
+                }
+            ]
         },
         {
             "id": 21077,
@@ -19333,7 +20805,21 @@
             "spouseIds": [
                 21074
             ],
-            "notes": "Syn Wojciecha i Marii Pluty. Ślub 1870 lp 4."
+            "notes": "Syn Wojciecha i Marii Pluty. Ślub 1870 lp 4. Ślub 1879 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21074,
+                    "date": {
+                        "year": 1870
+                    }
+                },
+                {
+                    "spouseId": 20508,
+                    "date": {
+                        "year": 1879
+                    }
+                }
+            ]
         },
         {
             "id": 21080,
@@ -19384,7 +20870,15 @@
             "spouseIds": [
                 21101
             ],
-            "notes": "Zgony 1862 lp 23."
+            "notes": "Zgony 1862 lp 23. Ślub 1850 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21101,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 21101,
@@ -19403,7 +20897,15 @@
             "spouseIds": [
                 21100
             ],
-            "notes": "Zgony 1861 lp 6."
+            "notes": "Zgony 1861 lp 6. Ślub 1850 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21100,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 21102,
@@ -19524,12 +21026,16 @@
             "birthDate": {
                 "year": 1854
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1857,
+                "month": 3,
+                "day": 30
+            },
             "protokolKey": null,
             "fatherId": 20590,
             "motherId": 20591,
             "spouseIds": [],
-            "notes": "Urodzenia 1854 lp 15."
+            "notes": "Urodzenia 1854 lp 15. Zgony 1857 lp 3."
         },
         {
             "id": 21150,
@@ -19595,7 +21101,15 @@
             "spouseIds": [
                 21181
             ],
-            "notes": "W aktach jako Jadwiga lub Katarzyna. Córka Stanisława i Magdaleny Pluta."
+            "notes": "W aktach jako Jadwiga lub Katarzyna. Córka Stanisława i Magdaleny Pluta. Ślub 1851 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21181,
+                    "date": {
+                        "year": 1851
+                    }
+                }
+            ]
         },
         {
             "id": 21180,
@@ -19764,7 +21278,15 @@
             "spouseIds": [
                 20542
             ],
-            "notes": "Syn Jana i Marianny Majka."
+            "notes": "Syn Jana i Marianny Majka. Ślub 1860 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20542,
+                    "date": {
+                        "year": 1860
+                    }
+                }
+            ]
         },
         {
             "id": 21472,
@@ -19860,7 +21382,15 @@
             "spouseIds": [
                 21481
             ],
-            "notes": "Córka Kazimierza i Marii Miczek. Zgony 1876 lp 2."
+            "notes": "Córka Kazimierza i Marii Miczek. Zgony 1876 lp 2. Ślub 1856 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21481,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 21483,
@@ -20011,7 +21541,15 @@
             "spouseIds": [
                 21512
             ],
-            "notes": "Syn Piotra i Agaty Barnaś. Zgony 1878 lp 34."
+            "notes": "Syn Piotra i Agaty Barnaś. Zgony 1878 lp 34. Ślub 1853 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 20412,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 21512,
@@ -20139,7 +21677,15 @@
             "spouseIds": [
                 21193
             ],
-            "notes": "Syn Marcina i Marianny Knapik. Zgony 1858 lp 27."
+            "notes": "Syn Marcina i Marianny Knapik. Zgony 1858 lp 27. Ślub 1843 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 21193,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 21193,
@@ -20157,7 +21703,15 @@
                 21190,
                 21884
             ],
-            "notes": "Córka Tomasza Pycha i Zofii Kliszcz."
+            "notes": "Córka Tomasza Pycha i Zofii Kliszcz. Ślub 1843 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 21190,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 21194,
@@ -20301,7 +21855,15 @@
                 21210,
                 21221
             ],
-            "notes": "Syn Pawła i Agaty Socha. Dwukrotny wdowiec przed 1855."
+            "notes": "Syn Pawła i Agaty Socha. Dwukrotny wdowiec przed 1855. Ślub 1848 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21221,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 21230,
@@ -20382,7 +21944,15 @@
             "spouseIds": [
                 21268
             ],
-            "notes": "Urodzenia 1857 lp 9."
+            "notes": "Urodzenia 1857 lp 9. Ślub 1879 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21268,
+                    "date": {
+                        "year": 1879
+                    }
+                }
+            ]
         },
         {
             "id": 21263,
@@ -20632,7 +22202,15 @@
                 21311,
                 21768
             ],
-            "notes": "Syn Wawrzyńca i Barbary Sochy (lub Urban)."
+            "notes": "Syn Wawrzyńca i Barbary Sochy (lub Urban). Ślub 1849 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21311,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 21311,
@@ -20649,7 +22227,15 @@
             "spouseIds": [
                 21310
             ],
-            "notes": "Córka Bartłomieja i Reginy Cygan."
+            "notes": "Córka Bartłomieja i Reginy Cygan. Ślub 1849 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21310,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 21316,
@@ -20764,7 +22350,15 @@
             "spouseIds": [
                 21337
             ],
-            "notes": "Urodzenia 1859 lp 1."
+            "notes": "Urodzenia 1859 lp 1. Ślub 1878 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21337,
+                    "date": {
+                        "year": 1878
+                    }
+                }
+            ]
         },
         {
             "id": 21338,
@@ -21407,7 +23001,15 @@
             "spouseIds": [
                 21431
             ],
-            "notes": "Syn Macieja i Marianny Sak. Ślub 1862 lp 8."
+            "notes": "Syn Macieja i Marianny Sak. Ślub 1862 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 21431,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21440,
@@ -21659,7 +23261,15 @@
             "spouseIds": [
                 20670
             ],
-            "notes": "Zgony 1857 lp 9."
+            "notes": "Zgony 1857 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 20670,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 21540,
@@ -21959,7 +23569,15 @@
             "spouseIds": [
                 21563
             ],
-            "notes": "Syn Mariana."
+            "notes": "Syn Mariana. Ślub 1862 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21563,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21563,
@@ -21976,7 +23594,15 @@
             "spouseIds": [
                 21562
             ],
-            "notes": "Córka Stanisława Saka (Babiarza) i Anny Para."
+            "notes": "Córka Stanisława Saka (Babiarza) i Anny Para. Ślub 1862 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21562,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21565,
@@ -22067,7 +23693,15 @@
                 21571,
                 21887
             ],
-            "notes": "Syn Jana i Marianny Majka."
+            "notes": "Syn Jana i Marianny Majka. Ślub 1862 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21571,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21571,
@@ -22084,7 +23718,15 @@
             "spouseIds": [
                 21570
             ],
-            "notes": "Córka Jana i Marianny Pluty."
+            "notes": "Córka Jana i Marianny Pluty. Ślub 1862 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21570,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21572,
@@ -22174,7 +23816,15 @@
             "spouseIds": [
                 21596
             ],
-            "notes": "Syn Jana i Marianny Augustyn."
+            "notes": "Syn Jana i Marianny Augustyn. Ślub 1862 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21596,
+                    "date": {
+                        "year": 1862
+                    }
+                }
+            ]
         },
         {
             "id": 21597,
@@ -22302,7 +23952,7 @@
             "fatherId": 21063,
             "motherId": 21062,
             "spouseIds": [],
-            "notes": "Urodzenia 1863 lp 31."
+            "notes": "Urodzenia 1863 lp 31. Urodzenia 1863 lp 29."
         },
         {
             "id": 21610,
@@ -23125,7 +24775,15 @@
             "spouseIds": [
                 21702
             ],
-            "notes": "Syn Michała i Katarzyny Pyż."
+            "notes": "Syn Michała i Katarzyny Pyż. Ślub 1863 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21702,
+                    "date": {
+                        "year": 1863
+                    }
+                }
+            ]
         },
         {
             "id": 21703,
@@ -23150,12 +24808,16 @@
             "birthDate": {
                 "year": 1867
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1867,
+                "month": 3,
+                "day": 4
+            },
             "protokolKey": null,
             "fatherId": 21595,
             "motherId": 21596,
             "spouseIds": [],
-            "notes": "Urodzenia 1867 lp 3."
+            "notes": "Urodzenia 1867 lp 3. Zgony 1867 lp 1."
         },
         {
             "id": 21705,
@@ -23770,7 +25432,15 @@
             "spouseIds": [
                 21761
             ],
-            "notes": "Syn Andrzeja i Jadwigi Łapy."
+            "notes": "Syn Andrzeja i Jadwigi Łapy. Ślub 1840 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21761,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 21761,
@@ -23787,7 +25457,15 @@
             "spouseIds": [
                 21760
             ],
-            "notes": "Córka Andrzeja i Marianny Jopek."
+            "notes": "Córka Andrzeja i Marianny Jopek. Ślub 1840 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21760,
+                    "date": {
+                        "year": 1840
+                    }
+                }
+            ]
         },
         {
             "id": 21764,
@@ -23804,7 +25482,15 @@
             "spouseIds": [
                 21765
             ],
-            "notes": "Syn Andrzeja i Reginy Kleszcz."
+            "notes": "Syn Andrzeja i Reginy Kleszcz. Ślub 1841 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21765,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21765,
@@ -23821,7 +25507,15 @@
             "spouseIds": [
                 21764
             ],
-            "notes": "Córka Wojciecha i Reginy Labak."
+            "notes": "Córka Wojciecha i Reginy Labak. Ślub 1841 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21764,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21769,
@@ -23836,7 +25530,22 @@
             "fatherId": 21771,
             "motherId": 20163,
             "spouseIds": [
-                21770
+                21770,
+                22331
+            ],
+            "marriages": [
+                {
+                    "spouseId": 21770,
+                    "date": {
+                        "year": 1841
+                    }
+                },
+                {
+                    "spouseId": 22331,
+                    "date": {
+                        "year": 1853
+                    }
+                }
             ],
             "notes": "Syn Jana i Marianny Augustyn."
         },
@@ -23857,7 +25566,15 @@
                 21775,
                 22350
             ],
-            "notes": "Córka Franciszka i Labak. Wdowa po Szymonie Majka."
+            "notes": "Córka Franciszka i Labak. Wdowa po Szymonie Majka.",
+            "marriages": [
+                {
+                    "spouseId": 21769,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21774,
@@ -23874,7 +25591,15 @@
             "spouseIds": [
                 21775
             ],
-            "notes": "Syn Jana i Reginy Tatarczany."
+            "notes": "Syn Jana i Reginy Tatarczany. Ślub 1841 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 21775,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21775,
@@ -23892,7 +25617,15 @@
                 21770,
                 21774
             ],
-            "notes": "Córka Józefa i Reginy Kramarczyk."
+            "notes": "Córka Józefa i Reginy Kramarczyk. Ślub 1841 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 21774,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21780,
@@ -23909,7 +25642,15 @@
             "spouseIds": [
                 21781
             ],
-            "notes": "Syn Franciszka i Agaty Kalęba."
+            "notes": "Syn Franciszka i Agaty Kalęba. Ślub 1841 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 21781,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21781,
@@ -23926,7 +25667,15 @@
             "spouseIds": [
                 21780
             ],
-            "notes": "Córka Franciszka i Heleny."
+            "notes": "Córka Franciszka i Heleny. Ślub 1841 lp 8.",
+            "marriages": [
+                {
+                    "spouseId": 21780,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21786,
@@ -23943,7 +25692,15 @@
             "spouseIds": [
                 21787
             ],
-            "notes": "Syn Jana i Magdaleny Zanszyn."
+            "notes": "Syn Jana i Magdaleny Zanszyn. Ślub 1841 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 21787,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21787,
@@ -23960,7 +25717,15 @@
             "spouseIds": [
                 21786
             ],
-            "notes": "Córka Jana i Tekli Bielawa."
+            "notes": "Córka Jana i Tekli Bielawa. Ślub 1841 lp 9.",
+            "marriages": [
+                {
+                    "spouseId": 21786,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21792,
@@ -23977,7 +25742,15 @@
             "spouseIds": [
                 21793
             ],
-            "notes": "Syn Stanisława i Ewy."
+            "notes": "Syn Stanisława i Ewy. Ślub 1841 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 21793,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21793,
@@ -23994,7 +25767,15 @@
             "spouseIds": [
                 21792
             ],
-            "notes": "Córka Wojciecha i Katarzyny Zawiślak."
+            "notes": "Córka Wojciecha i Katarzyny Zawiślak. Ślub 1841 lp 10.",
+            "marriages": [
+                {
+                    "spouseId": 21792,
+                    "date": {
+                        "year": 1841
+                    }
+                }
+            ]
         },
         {
             "id": 21798,
@@ -24052,7 +25833,15 @@
             "spouseIds": [
                 21803
             ],
-            "notes": "Córka Bartłomieja i Agaty Czajki."
+            "notes": "Córka Bartłomieja i Agaty Czajki. Ślub 1856 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 20699,
+                    "date": {
+                        "year": 1856
+                    }
+                }
+            ]
         },
         {
             "id": 21805,
@@ -24433,7 +26222,15 @@
             "spouseIds": [
                 21864
             ],
-            "notes": "Syn Bartłomieja i Zofii Borowiec."
+            "notes": "Syn Bartłomieja i Zofii Borowiec. Ślub 1869 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 21864,
+                    "date": {
+                        "year": 1869
+                    }
+                }
+            ]
         },
         {
             "id": 21865,
@@ -24497,7 +26294,15 @@
             "spouseIds": [
                 21870
             ],
-            "notes": "Syn Mikołaja i Marianny Para."
+            "notes": "Syn Mikołaja i Marianny Para. Ślub 1868 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21870,
+                    "date": {
+                        "year": 1868
+                    }
+                }
+            ]
         },
         {
             "id": 21871,
@@ -24915,7 +26720,15 @@
             "spouseIds": [
                 21899
             ],
-            "notes": "Córka Macieja i Zofii Kleszcz."
+            "notes": "Córka Macieja i Zofii Kleszcz. Ślub 1877 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21899,
+                    "date": {
+                        "year": 1877
+                    }
+                }
+            ]
         },
         {
             "id": 21901,
@@ -25210,7 +27023,15 @@
             "fatherId": 20448,
             "motherId": 20449,
             "spouseIds": [],
-            "notes": "Córka Tomasza i Zofii Kliszcz."
+            "notes": "Córka Tomasza i Zofii Kliszcz. Ślub 1849 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 20974,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 21879,
@@ -25319,7 +27140,7 @@
             "fatherId": 21863,
             "motherId": 21864,
             "spouseIds": [],
-            "notes": "Urodzenia 1874 lp 9, Zgony 1878 lp 7 (wiek 3,5 lat)."
+            "notes": "Urodzenia 1874 lp 9, Zgony 1878 lp 7 (wiek 3,5 lat). Zgony 1878 lp 6."
         },
         {
             "id": 21923,
@@ -25367,7 +27188,15 @@
                 21926,
                 22015
             ],
-            "notes": "Syn Wojciecha i Marianny Murtaś. Mąż Reginy Sak."
+            "notes": "Syn Wojciecha i Marianny Murtaś. Mąż Reginy Sak. Ślub 1861 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 21926,
+                    "date": {
+                        "year": 1861
+                    }
+                }
+            ]
         },
         {
             "id": 21927,
@@ -25617,7 +27446,15 @@
             "spouseIds": [
                 21992
             ],
-            "notes": "Córka Jana i Agaty Kiełbasy."
+            "notes": "Córka Jana i Agaty Kiełbasy. Ślub 1882 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 21992,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 21994,
@@ -25649,7 +27486,15 @@
             "spouseIds": [
                 21996
             ],
-            "notes": "Syn Wojciecha i Agaty Pych."
+            "notes": "Syn Wojciecha i Agaty Pych. Ślub 1873 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21996,
+                    "date": {
+                        "year": 1873
+                    }
+                }
+            ]
         },
         {
             "id": 21996,
@@ -25666,7 +27511,15 @@
             "spouseIds": [
                 21995
             ],
-            "notes": "Córka Stanisława i Reginy Cygan."
+            "notes": "Córka Stanisława i Reginy Cygan. Ślub 1873 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 21995,
+                    "date": {
+                        "year": 1873
+                    }
+                }
+            ]
         },
         {
             "id": 21998,
@@ -25683,7 +27536,15 @@
             "spouseIds": [
                 21997
             ],
-            "notes": "Córka Józefa i Marianny Pych."
+            "notes": "Córka Józefa i Marianny Pych. Ślub 1873 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 21997,
+                    "date": {
+                        "year": 1873
+                    }
+                }
+            ]
         },
         {
             "id": 22000,
@@ -25905,7 +27766,15 @@
             "spouseIds": [
                 22017
             ],
-            "notes": "Córka Wojciecha i Reginy Sochy."
+            "notes": "Córka Wojciecha i Reginy Sochy. Ślub 1874 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22017,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 22019,
@@ -25953,7 +27822,15 @@
                 22021,
                 22364
             ],
-            "notes": "Córka Michała i Reginy Tryby."
+            "notes": "Córka Michała i Reginy Tryby. Ślub 1882 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22364,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22024,
@@ -25970,7 +27847,15 @@
             "spouseIds": [
                 22023
             ],
-            "notes": "Córka Jakuba i Agaty Jagustyn."
+            "notes": "Córka Jakuba i Agaty Jagustyn. Ślub 1874 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 22023,
+                    "date": {
+                        "year": 1874
+                    }
+                }
+            ]
         },
         {
             "id": 22025,
@@ -25980,12 +27865,16 @@
             "birthDate": {
                 "year": 1874
             },
-            "deathDate": null,
+            "deathDate": {
+                "year": 1874,
+                "month": 11,
+                "day": 26
+            },
             "protokolKey": null,
             "fatherId": 21481,
             "motherId": 21482,
             "spouseIds": [],
-            "notes": "Urodzenia 1874 lp 16 (duplikat lp)."
+            "notes": "Urodzenia 1874 lp 16 (duplikat lp). Zgony 1874 lp 13."
         },
         {
             "id": 22026,
@@ -26663,7 +28552,15 @@
             "spouseIds": [
                 20291
             ],
-            "notes": "Żona Andrzeja Sochy."
+            "notes": "Żona Andrzeja Sochy. Ślub 1876 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 20291,
+                    "date": {
+                        "year": 1876
+                    }
+                }
+            ]
         },
         {
             "id": 22082,
@@ -26680,7 +28577,15 @@
             "spouseIds": [
                 22081
             ],
-            "notes": "Żona Jana Piękosia."
+            "notes": "Żona Jana Piękosia. Ślub 1876 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22081,
+                    "date": {
+                        "year": 1876
+                    }
+                }
+            ]
         },
         {
             "id": 22101,
@@ -27370,7 +29275,15 @@
             "spouseIds": [
                 22199
             ],
-            "notes": "Mąż Anny Cyza."
+            "notes": "Mąż Anny Cyza. Ślub 1882 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22199,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22199,
@@ -27385,7 +29298,15 @@
             "spouseIds": [
                 22198
             ],
-            "notes": "Córka Adama i Anny."
+            "notes": "Córka Adama i Anny. Ślub 1882 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22198,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22204,
@@ -27417,7 +29338,15 @@
             "spouseIds": [
                 22206
             ],
-            "notes": "Syn Adama i Marianny Szacik."
+            "notes": "Syn Adama i Marianny Szacik. Ślub 1843 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22206,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 22206,
@@ -27434,7 +29363,15 @@
             "spouseIds": [
                 22205
             ],
-            "notes": "Córka Jakuba i Reginy Pluty."
+            "notes": "Córka Jakuba i Reginy Pluty. Ślub 1843 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22205,
+                    "date": {
+                        "year": 1843
+                    }
+                }
+            ]
         },
         {
             "id": 22211,
@@ -27511,7 +29448,15 @@
             "spouseIds": [
                 21640
             ],
-            "notes": "Córka Macieja i Marianny Sak."
+            "notes": "Córka Macieja i Marianny Sak. Ślub 1844 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 21640,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 22219,
@@ -27528,7 +29473,15 @@
             "spouseIds": [
                 20310
             ],
-            "notes": "Córka Jakuba i Agaty Kubickiej."
+            "notes": "Córka Jakuba i Agaty Kubickiej. Ślub 1844 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 20310,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 22220,
@@ -27579,7 +29532,15 @@
             "spouseIds": [
                 22224
             ],
-            "notes": "Wdowa po Macieju Krupie."
+            "notes": "Wdowa po Macieju Krupie. Ślub 1845 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22224,
+                    "date": {
+                        "year": 1845
+                    }
+                }
+            ]
         },
         {
             "id": 22226,
@@ -27630,7 +29591,15 @@
             "spouseIds": [
                 22229
             ],
-            "notes": "Ślub 1850 lp 1."
+            "notes": "Ślub 1850 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22229,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22229,
@@ -27647,7 +29616,15 @@
             "spouseIds": [
                 22228
             ],
-            "notes": "Córka Macieja i Marii Sobek. Ślub 1850 lp 1."
+            "notes": "Córka Macieja i Marii Sobek. Ślub 1850 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22228,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22234,
@@ -27665,7 +29642,21 @@
                 22237,
                 22339
             ],
-            "notes": "Syn Błażeja i Reginy Sochy."
+            "notes": "Syn Błażeja i Reginy Sochy. Ślub 1846 lp 1. Ślub 1850 lp 2.",
+            "marriages": [
+                {
+                    "spouseId": 22339,
+                    "date": {
+                        "year": 1846
+                    }
+                },
+                {
+                    "spouseId": 22237,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22238,
@@ -27682,7 +29673,15 @@
             "spouseIds": [
                 22239
             ],
-            "notes": "Syn Wawrzyńca i Reginy Kuty. Wdowic po Tekli Pluta."
+            "notes": "Syn Wawrzyńca i Reginy Kuty. Wdowic po Tekli Pluta. Ślub 1850 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22239,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22239,
@@ -27699,7 +29698,15 @@
             "spouseIds": [
                 22238
             ],
-            "notes": "Córka Wojciecha i Agaty Sroki. Ślub 1850 lp 3."
+            "notes": "Córka Wojciecha i Agaty Sroki. Ślub 1850 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22238,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22240,
@@ -27716,7 +29723,15 @@
             "spouseIds": [
                 22243
             ],
-            "notes": "Syn Macieja i Elżbiety Kusek."
+            "notes": "Syn Macieja i Elżbiety Kusek. Ślub 1850 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 22243,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22243,
@@ -27733,7 +29748,15 @@
             "spouseIds": [
                 22240
             ],
-            "notes": "Córka Jana i Marianny Majka. Ślub 1850 lp 7."
+            "notes": "Córka Jana i Marianny Majka. Ślub 1850 lp 7.",
+            "marriages": [
+                {
+                    "spouseId": 22240,
+                    "date": {
+                        "year": 1850
+                    }
+                }
+            ]
         },
         {
             "id": 22244,
@@ -27750,7 +29773,15 @@
             "spouseIds": [
                 22245
             ],
-            "notes": "Syn Macieja i Katarzyny Knapik."
+            "notes": "Syn Macieja i Katarzyny Knapik. Ślub 1848 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22245,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 22245,
@@ -27767,7 +29798,15 @@
             "spouseIds": [
                 22244
             ],
-            "notes": "Córka Jakuba i Marii Brat. Ślub 1848 lp 3."
+            "notes": "Córka Jakuba i Marii Brat. Ślub 1848 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 22244,
+                    "date": {
+                        "year": 1848
+                    }
+                }
+            ]
         },
         {
             "id": 22330,
@@ -27786,7 +29825,15 @@
             "spouseIds": [
                 22222
             ],
-            "notes": "Córka Macieja i Marii Majka. Ślub 1849 lp 4. Zgony 1850 lp 11."
+            "notes": "Córka Macieja i Marii Majka. Ślub 1849 lp 4. Zgony 1850 lp 11.",
+            "marriages": [
+                {
+                    "spouseId": 22222,
+                    "date": {
+                        "year": 1849
+                    }
+                }
+            ]
         },
         {
             "id": 22331,
@@ -27803,7 +29850,21 @@
             "spouseIds": [
                 22222
             ],
-            "notes": "Córka Franciszka i Reginy Banach. Ślub 1851 lp 2."
+            "notes": "Córka Franciszka i Reginy Banach. Ślub 1851 lp 2. Ślub 1853 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22222,
+                    "date": {
+                        "year": 1851
+                    }
+                },
+                {
+                    "spouseId": 21769,
+                    "date": {
+                        "year": 1853
+                    }
+                }
+            ]
         },
         {
             "id": 22337,
@@ -27820,7 +29881,15 @@
             "spouseIds": [
                 20452
             ],
-            "notes": "Córka Wawrzyńca i Reginy Łapy."
+            "notes": "Córka Wawrzyńca i Reginy Łapy. Ślub 1844 lp 3.",
+            "marriages": [
+                {
+                    "spouseId": 20452,
+                    "date": {
+                        "year": 1844
+                    }
+                }
+            ]
         },
         {
             "id": 22339,
@@ -27837,7 +29906,15 @@
             "spouseIds": [
                 22234
             ],
-            "notes": "Córka Wojciecha (Andrzeja) i Agaty Sak. Pierwsza żona Ignacego Lisa."
+            "notes": "Córka Wojciecha (Andrzeja) i Agaty Sak. Pierwsza żona Ignacego Lisa. Ślub 1846 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22234,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 22340,
@@ -27854,7 +29931,15 @@
             "spouseIds": [
                 20730
             ],
-            "notes": "Syn Marii Kiełbasy. Mąż Jadwigi Sak."
+            "notes": "Syn Marii Kiełbasy. Mąż Jadwigi Sak. Ślub 1846 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 20730,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 22341,
@@ -27871,7 +29956,15 @@
             "spouseIds": [
                 22342
             ],
-            "notes": "Syn Antoniego i Anny Tryby. Brat Tomasza (#21521)."
+            "notes": "Syn Antoniego i Anny Tryby. Brat Tomasza (#21521). Ślub 1846 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22342,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 22342,
@@ -27888,7 +29981,15 @@
             "spouseIds": [
                 22341
             ],
-            "notes": "Córka Reginy Kleszcz."
+            "notes": "Córka Reginy Kleszcz. Ślub 1846 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22341,
+                    "date": {
+                        "year": 1846
+                    }
+                }
+            ]
         },
         {
             "id": 22344,
@@ -27905,7 +30006,15 @@
             "spouseIds": [
                 22343
             ],
-            "notes": "Córka Pawła i Agnieszki Kowal."
+            "notes": "Córka Pawła i Agnieszki Kowal. Ślub 1847 lp 4.",
+            "marriages": [
+                {
+                    "spouseId": 22343,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 22345,
@@ -27922,7 +30031,15 @@
             "spouseIds": [
                 22346
             ],
-            "notes": "Syn Sebastiana i Marii Para."
+            "notes": "Syn Sebastiana i Marii Para. Ślub 1847 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22346,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 22346,
@@ -27939,7 +30056,15 @@
             "spouseIds": [
                 22345
             ],
-            "notes": "Córka Piotra i Reginy Miczek."
+            "notes": "Córka Piotra i Reginy Miczek. Ślub 1847 lp 6.",
+            "marriages": [
+                {
+                    "spouseId": 22345,
+                    "date": {
+                        "year": 1847
+                    }
+                }
+            ]
         },
         {
             "id": 22357,
@@ -28296,7 +30421,15 @@
             "spouseIds": [
                 22383
             ],
-            "notes": "c. Władysław & Anna Świderska. Ślub 1881 lp 5."
+            "notes": "c. Władysław & Anna Świderska. Ślub 1881 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22383,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22388,
@@ -28313,7 +30446,15 @@
             "spouseIds": [
                 22387
             ],
-            "notes": "c. Maciej & Marianna Para. Ślub 1882 lp 5."
+            "notes": "c. Maciej & Marianna Para. Ślub 1882 lp 5.",
+            "marriages": [
+                {
+                    "spouseId": 22387,
+                    "date": {
+                        "year": 1882
+                    }
+                }
+            ]
         },
         {
             "id": 22392,
@@ -28330,7 +30471,15 @@
             "spouseIds": [
                 22391
             ],
-            "notes": "c. Jan & Franciszka Jagustyn. Ślub 1881 lp 1."
+            "notes": "c. Jan & Franciszka Jagustyn. Ślub 1881 lp 1.",
+            "marriages": [
+                {
+                    "spouseId": 22391,
+                    "date": {
+                        "year": 1881
+                    }
+                }
+            ]
         },
         {
             "id": 22403,
