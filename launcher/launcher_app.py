@@ -2498,7 +2498,7 @@ def _auto_sync_site_icon():
             print("ℹ️ Brak aktywnej miejscowości dla favicon")
             return
 
-        backup_location_folder = os.path.join(BACKUP_FOLDER, location_name)
+        backup_location_folder = os.path.normpath(os.path.join(BACKUP_FOLDER, location_name))
 
         # Sprawdź czy istnieje favicon w różnych formatach
         favicon_extensions = ['.ico', '.png', '.jpg', '.jpeg']
@@ -2507,12 +2507,24 @@ def _auto_sync_site_icon():
         for ext in favicon_extensions:
             favicon_path = os.path.join(backup_location_folder, f"favicon{ext}")
             if os.path.exists(favicon_path):
-                print(f"✅ Favicon znaleziony w backup/{location_name}/favicon{ext}")
+                print(f"✅ Favicon znaleziony: {favicon_path}")
                 favicon_found = True
                 break
 
         if not favicon_found:
-            print(f"ℹ️ Brak favicon w backup/{location_name}/ - favicon będzie używał domyślnej ikony")
+            # Wyświetl istniejące pliki w folderze dla diagnostyki
+            if os.path.exists(backup_location_folder):
+                existing_files = [f for f in os.listdir(backup_location_folder) if 'favicon' in f.lower() or f.endswith(('.ico', '.png', '.jpg', '.jpeg'))]
+                if existing_files:
+                    print(f"ℹ️ Znaleziono potencjalne pliki ikon: {existing_files}")
+                    # Auto-fix: jeśli istnieje plik z "favicon" w nazwie, użyj go
+                    for f in existing_files:
+                        if 'favicon' in f.lower():
+                            print(f"✅ Używam znalezionego faviconu: {f}")
+                            favicon_found = True
+                            break
+            if not favicon_found:
+                print(f"ℹ️ Brak niestandardowego faviconu w {backup_location_folder}")
 
     except Exception as e:
         print(f"⚠️ Błąd podczas sprawdzania favicon: {e}")
@@ -2733,6 +2745,8 @@ class AppLauncher(tk.Tk):
         self.after(30, self.refresh_quick_links)  # Konfiguruj przyciski szybkiego dostępu
         self.after(40, self.start_env_watcher)  # Uruchom watcher pliku .env
         self.after(20, lambda: setattr(self, '_last_port', self.load_flask_config().get("port")))
+        self.after(100, self.run_proactive_health_check) # Pierwsza kontrola Strażnika
+        
 
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -3032,6 +3046,11 @@ class AppLauncher(tk.Tk):
         editors_container = ttk.Frame(tools_frame)
         editors_container.pack(fill=tk.X)
         
+        # Inicjalizacja konfiguracji Strażnika
+        self.guardian_enabled = tk.BooleanVar(value=self.load_guardian_config())
+        self.guardian_status_text = tk.StringVar(value="⏳ Inicjalizacja...")
+        
+        
         editor_buttons = [
             ("👥 Edytor Właścicieli", "owner_editor"),
             ("🗺️ Edytor Działek", "parcel_editor"),
@@ -3042,9 +3061,18 @@ class AppLauncher(tk.Tk):
             ttk.Button(editors_container, text=text,
                       command=lambda k=key, n=text: self.start_managed_process(k, n),
                       style="Primary.TButton").pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        # Nowy rząd przycisków testowych (TYLKO EDRYTORY - testy przeniesione do Centrum Testów)
+        test_container = ttk.Frame(tools_frame)
+        test_container.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Button(test_container, text=f"🛡️ Centrum Testów",
+                   command=self.open_test_center_window, style="Primary.TButton").pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
         
-        ttk.Button(editors_container, text="🧪 Uruchom Testy Jednostkowe",
-                  command=self.run_pytest, style="Info.TButton").pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        self.guardian_status_label = ttk.Label(test_container, textvariable=self.guardian_status_text, 
+                                               font=("Segoe UI", 9, "bold"), foreground=COLORS['info'])
+        self.guardian_status_label.pack(side=tk.LEFT, padx=10)
+        
         
         # Sekcja szybkiego dostępu
         links_frame = ttk.LabelFrame(main_frame, text="🌐 Szybki Dostęp (wymaga uruchomionego serwera)", padding="10")
@@ -3084,6 +3112,8 @@ class AppLauncher(tk.Tk):
         self.main_console_frame = ttk.Frame(self.notebook)
         self.main_console = self.create_console_widget(self.main_console_frame)
         self.notebook.add(self.main_console_frame, text="🏠 Launcher")
+
+        # self.create_test_center_tab() - Usunięto na rzecz dedykowanego okna
         
         # Wiadomość powitalna
         self.log("=" * 60 + "\n")
@@ -3564,32 +3594,304 @@ class AppLauncher(tk.Tk):
         
         threading.Thread(target=target, daemon=True).start()
 
-    def run_pytest(self):
-        """Uruchamia testy jednostkowe."""
+    def open_test_center_window(self):
+        """Otwiera dedykowane okno Centrum Testów."""
+        test_window = tk.Toplevel(self)
+        test_window.title("🛡️ Centrum Testów i Weryfikacji")
+        test_window.geometry("900x750")
+        set_dialog_icon(test_window)
+        # Próba osadzenia okna na środku
+        test_window.transient(self)
+        
+        main_frame = ttk.Frame(test_window, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        header = ttk.Label(main_frame, text="🛡️ Centrum Zarządzania Jakością Danych", font=("Segoe UI", 16, "bold"))
+        header.pack(pady=(0, 20))
+
+        # Opcje
+        options_frame = ttk.LabelFrame(main_frame, text="⚙️ Wybierz zakres weryfikacji", padding="15")
+        options_frame.pack(fill=tk.X, pady=(0, 15))
+
+        # Opcja konfiguracji Strażnika
+        guardian_cfg_frame = ttk.Frame(main_frame)
+        guardian_cfg_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Checkbutton(guardian_cfg_frame, text="🛡️ Uruchamiaj Strażnika w tle (automatyczna kontrola danych)", 
+                        variable=self.guardian_enabled, command=self.save_guardian_config).pack(side=tk.LEFT)
+        
+
+        # Zachowujemy stan checkboxów jeśli okno było już otwierane
+        if not hasattr(self, 'test_vars'):
+            self.test_vars = {
+                "unit": tk.BooleanVar(value=True),
+                "e2e": tk.BooleanVar(value=False),
+                "logic": tk.BooleanVar(value=True),
+                "sql": tk.BooleanVar(value=True),
+                "duplicates": tk.BooleanVar(value=True),
+                "spatial": tk.BooleanVar(value=False),
+                "resources": tk.BooleanVar(value=False),
+                "gaps": tk.BooleanVar(value=False),
+                "backups": tk.BooleanVar(value=True),
+                "encoding": tk.BooleanVar(value=True),
+                "wcag": tk.BooleanVar(value=False),
+                "perf": tk.BooleanVar(value=False),
+                "security": tk.BooleanVar(value=False)
+            }
+
+        cb_grid = ttk.Frame(options_frame)
+        cb_grid.pack(fill=tk.X)
+
+        tests_info = [
+            ("unit", "🧪 Jednostkowe", "Struktura backendu"),
+            ("e2e", "🤖 Robot (E2E)", "Klikanie w przeglądarce"),
+            ("logic", "🌳 Rodowód", "Paradoksy i pętle"),
+            ("sql", "🔍 Spójność SQL", "Integracja bazy danych"),
+            ("duplicates", "👥 Anty-Duplikat", "Szuka powtórzeń osób"),
+            ("spatial", "📐 Geodezja", "spatial overlaps/errors"),
+            ("resources", "🖼️ Zasoby", "Zdjęcia/Ikony/Pliki"),
+            ("gaps", "📅 Chronologia", "Wykrywa luki w latach"),
+            ("backups", "🏰 Twierdza", "Weryfikacja BACKUPÓW"),
+            ("encoding", "🔤 Krzaki", "Kodowanie polskich liter"),
+            ("wcag", "♿ Dostępność", "WCAG/Czytelność strony"),
+            ("perf", "⚡ Wydajność", "Szybkość API"),
+            ("security", "🔒 Bezpieczeństwo", "Ochrona danych")
+        ]
+
+        for i, (key, label, hint) in enumerate(tests_info):
+            row = i // 5
+            col = i % 5
+            cb = ttk.Checkbutton(cb_grid, text=label, variable=self.test_vars[key])
+            cb.grid(row=row, column=col, padx=10, pady=5, sticky="w")
+
+        # Przyciski akcji (Górne)
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(0, 10))
+
+        run_btn = ttk.Button(btn_frame, text="▶️ URUCHOM WYBRANE TESTY", 
+                           command=self.run_selected_tests, style="Success.TButton")
+        run_btn.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+
+        # Konsola
+        console_label = ttk.Label(main_frame, text="📋 Konsola wyjściowa:", font=("Segoe UI", 10, "bold"))
+        console_label.pack(anchor="w", pady=(5, 2))
+        
+        self.test_console = self.create_console_widget(main_frame)
+        
+        # Przyciski akcji (Dolne)
+        bottom_frame = ttk.Frame(main_frame)
+        bottom_frame.pack(fill=tk.X, pady=(15, 0))
+
+        ttk.Button(bottom_frame, text="📋 Kopiuj do schowka", 
+                   command=self.copy_test_logs_to_clipboard).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(bottom_frame, text="💾 Zapisz jako plik .log", 
+                   command=self.save_test_logs_to_file).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(bottom_frame, text="🚪 Zamknij", 
+                   command=test_window.destroy).pack(side=tk.RIGHT, padx=5)
+
+    def copy_test_logs_to_clipboard(self):
+        """Kopiuje zawartość konsoli testów do schowka."""
+        try:
+            content = self.test_console.get(1.0, tk.END)
+            self.clipboard_clear()
+            self.clipboard_append(content)
+            messagebox.showinfo("📋 Sukces", "Skopiowano logi do schowka!")
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Nie udało się skopiować: {e}")
+
+    def save_test_logs_to_file(self):
+        """Zapisuje zawartość konsoli testów do pliku."""
+        try:
+            from tkinter import filedialog
+            filename = filedialog.asksaveasfilename(
+                title="Zapisz logi testów",
+                defaultextension=".log",
+                filetypes=[("Pliki logów", "*.log"), ("Pliki tekstowe", "*.txt"), ("Wszystkie pliki", "*.*")],
+                initialfile=f"test_report_{int(time.time())}.log"
+            )
+            if filename:
+                content = self.test_console.get(1.0, tk.END)
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(content)
+                messagebox.showinfo("💾 Sukces", f"Zapisano raport w:\n{filename}")
+        except Exception as e:
+            messagebox.showerror("❌ Błąd", f"Nie udało się zapisać pliku: {e}")
+
+    def run_selected_tests(self):
+        """Uruchamia sekwencję wybranych testów."""
+        selected = [k for k, v in self.test_vars.items() if v.get()]
+        if not selected:
+            messagebox.showwarning("⚠️ Brak wyboru", "Zaznacz przynajmniej jeden zestaw testów do uruchomienia.")
+            return
+
         def target():
-            self.log("🧪 Start testów jednostkowych (pytest)...\n")
+            self.after(0, lambda: self.test_console.configure(state="normal"))
+            self.after(0, lambda: self.test_console.delete(1.0, tk.END))
+            self.after(0, lambda: self.test_console.configure(state="disabled"))
+            
+            self.log_to_test_console("🚀 ROZPOCZYNAM PROCEDURĘ WERYFIKACJI SYSTEMU...\n")
+            self.log_to_test_console("="*70 + "\n")
+            self.log_to_test_console(f"📅 Czas: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+            env = self._prepare_process_env()
             try:
-                env = self._prepare_process_env()
-                cmd = [sys.executable, "-m", "pytest", "tests", "-q"]
+                active_loc_name = get_active_location_name()
+                if active_loc_name:
+                    env["TEST_LOCATION"] = active_loc_name
+                    self.log_to_test_console(f"📍 Aktywna lokacja testowa: {active_loc_name}\n\n")
+            except: pass
+
+            for test_key in selected:
+                self.log_to_test_console(f"⏳ TRWA: {test_key.upper()}...\n")
+                
+                if test_key == "sql":
+                    # Specjalna obsługa dla weryfikacji SQL (nie pytest)
+                    script_path = os.path.join(BACKEND_DIR, "tests", "unit", "test_data_integrity.py")
+                    cmd = [sys.executable, script_path]
+                else:
+                    path_map = {
+                        "unit": "backend/tests/unit",
+                        "e2e": "backend/tests/e2e",
+                        "logic": "backend/tests/logic",
+                        "duplicates": "backend/tests/logic/test_duplicates.py",
+                        "spatial": "backend/tests/unit/test_spatial.py",
+                        "resources": "backend/tests/health/test_resources.py",
+                        "gaps": "backend/tests/logic/test_data_gaps.py",
+                        "backups": "backend/tests/health/test_backups.py",
+                        "encoding": "backend/tests/health/test_encoding.py",
+                        "wcag": "backend/tests/health/test_accessibility.py",
+                        "perf": "backend/tests/performance",
+                        "security": "backend/tests/security"
+                    }
+                    test_rel_path = path_map[test_key]
+                    test_path = os.path.join(BASE_DIR, test_rel_path)
+                    
+                    if not os.path.exists(test_path):
+                        self.log_to_test_console(f"⚠️ Katalog {test_rel_path} nie istnieje, pomijam.\n")
+                        continue
+                    cmd = [sys.executable, "-m", "pytest", test_rel_path, "-q"]
+
                 creation_flags = subprocess.CREATE_NO_WINDOW if platform.system() == "nt" else 0
                 
-                proc = subprocess.Popen(cmd, cwd=BACKEND_DIR, stdout=subprocess.PIPE,
-                                      stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-                                      errors="replace", creationflags=creation_flags, env=env)
-                
-                for line in iter(proc.stdout.readline, ""):
-                    self.log(line)
-                proc.stdout.close()
-                
-                rc = proc.wait()
-                status = "✅ Testy zakończone pomyślnie." if rc == 0 else f"❌ Testy zakończone błędem (kod: {rc})."
-                self.log(f"{status}\n")
-            except FileNotFoundError:
-                self.log("❌ Nie znaleziono pytest. Zainstaluj: pip install pytest\n")
-            except Exception as e:
-                self.log(f"❌ Błąd uruchamiania testów: {e}\n")
-        
+                try:
+                    proc = subprocess.Popen(cmd, cwd=BASE_DIR, stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                                          errors="replace", creationflags=creation_flags, env=env)
+                    
+                    for line in iter(proc.stdout.readline, ""):
+                        self.log_to_test_console(line)
+                    proc.stdout.close()
+                    rc = proc.wait()
+                    
+                    status = "✅ SUKCES" if rc == 0 else "❌ BŁĄD/OSTRZEŻENIA"
+                    self.log_to_test_console(f"\n[KONIEC] {test_key.upper()}: {status}\n")
+                    self.log_to_test_console("-" * 70 + "\n")
+                except Exception as e:
+                    self.log_to_test_console(f"❌ Wyjątek podczas testu {test_key}: {e}\n")
+
+            self.log_to_test_console("\n🏁 PROCEDURA WERYFIKACJI ZAKOŃCZONA.\n")
+            self.log_to_test_console("="*70 + "\n")
+            self.after(0, self.run_proactive_health_check) # Aktualizuj status strażnika po testach
+
         threading.Thread(target=target, daemon=True).start()
+
+    def load_guardian_config(self):
+        """Ładuje ustawienie Strażnika z pliku .guardian.env."""
+        path = os.path.join(BASE_DIR, ".guardian.env")
+        if not os.path.exists(path):
+            return True # Domyślnie włączony
+        try:
+            with open(path, "r") as f:
+                return f.read().strip() == "1"
+        except: return True
+
+    def save_guardian_config(self):
+        """Zapisuje ustawienie Strażnika do pliku .guardian.env."""
+        path = os.path.join(BASE_DIR, ".guardian.env")
+        try:
+            with open(path, "w") as f:
+                f.write("1" if self.guardian_enabled.get() else "0")
+            status = "aktywny" if self.guardian_enabled.get() else "wyłączony"
+            self.log(f"🛡️ Status Strażnika: {status}\n")
+            if self.guardian_enabled.get():
+                self.run_proactive_health_check()
+            else:
+                self.guardian_status_text.set("⚪ Strażnik wyłączony")
+                self.guardian_status_label.configure(foreground="gray")
+        except: pass
+
+    def run_proactive_health_check(self):
+        """Uruchamia cichą weryfikację w tle dla kluczowych modułów."""
+        if not self.guardian_enabled.get():
+            return
+
+        def check_task():
+            self.after(0, lambda: self.guardian_status_text.set("🔍 Sprawdzanie..."))
+            self.after(0, lambda: self.guardian_status_label.configure(foreground=COLORS['info']))
+            
+            # Kluczowe sytemy do szybkiej weryfikacji
+            critical_modules = ["sql", "logic", "backups", "encoding"]
+            env = self._prepare_process_env()
+            try:
+                active_loc = get_active_location_name()
+                if active_loc: env["TEST_LOCATION"] = active_loc
+            except: pass
+
+            issues_found = 0
+            for mod in critical_modules:
+                if mod == "sql":
+                    script = os.path.join(BACKEND_DIR, "tests", "unit", "test_data_integrity.py")
+                    cmd = [sys.executable, script]
+                else:
+                    path_map = {
+                        "logic": "backend/tests/logic",
+                        "backups": "backend/tests/health/test_backups.py",
+                        "encoding": "backend/tests/health/test_encoding.py"
+                    }
+                    cmd = [sys.executable, "-m", "pytest", path_map[mod], "-q"]
+
+                try:
+                    res = subprocess.run(cmd, cwd=BASE_DIR, capture_output=True, text=True, env=env,
+                                         creationflags=subprocess.CREATE_NO_WINDOW if platform.system() == "nt" else 0)
+                    if res.returncode != 0:
+                        issues_found += 1
+                except: pass
+
+            if issues_found > 0:
+                self.after(0, lambda: self.guardian_status_text.set(f"⚠️ Uwagi ({issues_found})"))
+                self.after(0, lambda: self.guardian_status_label.configure(foreground=COLORS['warning']))
+            else:
+                self.after(0, lambda: self.guardian_status_text.set("✅ System OK"))
+                self.after(0, lambda: self.guardian_status_label.configure(foreground=COLORS['success']))
+
+            # Harmonogram: Następne sprawdzenie za godzinę
+            self.after(3600000, self.run_proactive_health_check)
+
+        threading.Thread(target=check_task, daemon=True).start()
+
+
+    def log_to_test_console(self, message):
+        """Wypisuje wiadomość do konsoli testów w sposób bezpieczny dla wątków."""
+        def append():
+            if hasattr(self, 'test_console') and self.test_console.winfo_exists():
+                self.test_console.configure(state="normal")
+                self.test_console.insert(tk.END, message)
+                self.test_console.see(tk.END)
+                self.test_console.configure(state="disabled")
+        self.after(0, append)
+
+    def run_pytest(self):
+        """Fallback dla starych przycisków - otwiera okno z wybranymi unit testami."""
+        self.open_test_center_window()
+        self.test_vars["unit"].set(True)
+        # Opcjonalnie: self.run_selected_tests()
+
+    def run_playwright_tests(self):
+        """Fallback dla starych przycisków - otwiera okno z wybranymi e2e."""
+        self.open_test_center_window()
+        self.test_vars["e2e"].set(True)
+        # Opcjonalnie: self.run_selected_tests()
 
     def toggle_server(self, network_mode=False):
         """Przełącza stan serwera backend."""
@@ -3833,9 +4135,24 @@ if __name__ == '__main__':
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUTF8"] = "1"
+        env["LAUNCHED_BY_GUI"] = "1"  # Flaga dla backendu aby wyłączyć reloader
+
+        # Przekaż aktywną lokalizację do backendu
+        try:
+            active_loc = get_active_location_name()
+            if active_loc:
+                env["ACTIVE_LOCATION"] = active_loc
+                # env["TEST_LOCATION"] = active_loc # Uncomment if needed for backward compatibility
+        except Exception as e:
+            print(f"⚠️ Nie udało się pobrać aktywnej lokalizacji do env: {e}")
         
-        env_config = read_env_config()
-        env.update(env_config)
+        try:
+            env_config = read_env_config()
+            env.update(env_config)
+        except NameError:
+            pass # Ignoruj jeśli funkcja nie istnieje
+        except Exception:
+            pass
         
         return env
 

@@ -20,11 +20,15 @@ document.addEventListener('DOMContentLoaded', () => {
    ZMIENNE GLOBALNE
    ========================================================================== */
 
-/** Dane statystyczne pobrane z API */
-let statsData = null;
+// Zmienne globalne dla danych
+let allOwners = [];
+let statsData = null; // Cały obiekt danych ze statystykami
+let demografiaOfficial = null; // Dane oficjalne
+let demografiaMetrical = null; // Dane metrykalne (wyliczone)
+let charts = {}; // Rejestr instancji Chart.js
 
-/** Rejestr instancji Chart.js */
-let charts = {};
+// Konfiguracja wykresów
+Chart.defaults.font.family = "'Inter', sans-serif";
 
 /* ==========================================================================
    MOTYW / THEME
@@ -451,9 +455,21 @@ async function loadStatistics() {
     loadRankings(statsData);
     loadParcelsRanking(statsData.parcels_ranking);
     loadRiversRanking(statsData.rivers_ranking);
+    loadRiversRanking(statsData.rivers_ranking);
     loadRoadsRanking(statsData.roads_ranking);
-    loadDemographics(statsData.demografia);
+
+    // Inicjalizacja demografii (zapisanie obu zestawów danych)
+    demografiaOfficial = statsData.demografia_official || [];
+    demografiaMetrical = statsData.demografia || []; // 'demografia' to domyślnie metrykalne (z app.py)
+
+    // Domyślne ładowanie (metrykalne)
+    loadDemographics(demografiaMetrical);
+    initDemographyToggle(); // <--- Inicjalizacja przełącznika
+
     renderActivityCalendar(statsData.protocols_per_day);
+    loadGenealogyStats(statsData);
+    loadInsights(statsData);
+
     loadGenealogyStats(statsData);
     loadInsights(statsData);
 
@@ -1006,7 +1022,7 @@ function loadRoadsRanking(roadsData) {
       <div class="ranking-item" style="cursor: default;">
         <div class="ranking-position ${cls}">${pos}</div>
         <div class="ranking-info">
-          <div class="ranking-name">${road.road_name || 'Bez nazwy'}</div>
+          <div class="ranking-name">${road.road_number || 'Bez nazwy'}</div>
           <div class="ranking-meta">Droga</div>
         </div>
         <div class="ranking-value">
@@ -1153,6 +1169,15 @@ function createDemographicsChart(data) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      onClick: (event, elements) => {
+        if (elements && elements.length > 0) {
+          const index = elements[0].index;
+          const year = years[index];
+          if (typeof scrollToYear === 'function') {
+            scrollToYear(year);
+          }
+        }
+      },
       plugins: {
         legend: { position: 'top', labels: { usePointStyle: true, padding: 15 } },
         tooltip: {
@@ -1231,84 +1256,116 @@ function createDemographicsTimeline(data) {
  * Karty demograficzne per rok (udziały % + prosta dynamika).
  * @param {Array} data
  */
+/**
+ * Karty demograficzne pogrupowane DEKADAMI (akordeon).
+ * @param {Array} data
+ */
 function createDemographicsCards(data) {
   const container = document.getElementById('demo-cards');
   if (!container) return;
 
-  container.innerHTML = data.map((entry, idx) => {
-    let changePercent = 0;
-    if (idx > 0 && entry.populacja_ogolem && data[idx - 1].populacja_ogolem) {
-      changePercent = ((entry.populacja_ogolem - data[idx - 1].populacja_ogolem) / data[idx - 1].populacja_ogolem * 100).toFixed(1);
-    }
-    const changeType = changePercent > 0 ? 'positive' : (changePercent < 0 ? 'negative' : '');
+  // Mapa do szybkiego wyszukiwania starych lat (do obliczeń % zmiany)
+  const dataMap = new Map(data.map(e => [e.rok, e]));
 
-    const total = entry.populacja_ogolem || 1;
-    const catholicPercent = entry.katolicy ? (entry.katolicy / total * 100).toFixed(1) : 0;
-    const jewishPercent = entry.zydzi ? (entry.zydzi / total * 100).toFixed(1) : 0;
-    const otherPercent = entry.inni ? (entry.inni / total * 100).toFixed(1) : 0;
+  // Grupowanie dekadami
+  const decades = {};
+  data.forEach(entry => {
+    const decadeStart = Math.floor(entry.rok / 10) * 10;
+    if (!decades[decadeStart]) decades[decadeStart] = [];
+    decades[decadeStart].push(entry);
+  });
 
-    let eventIcon = '📅';
-    const eventText = entry.opis || '';
-    if (eventText.toLowerCase().includes('kolei')) eventIcon = '🚂';
-    else if (eventText.toLowerCase().includes('budow')) eventIcon = '🏗️';
+  const sortedDecades = Object.keys(decades).map(Number).sort((a, b) => a - b);
+  const lastDecade = sortedDecades[sortedDecades.length - 1];
 
-    return `
-      <div class="demo-year-card">
+  let html = '';
+
+  sortedDecades.forEach(decadeStart => {
+    const decadeData = decades[decadeStart];
+    // Sortuj lata wewnątrz dekady rosnąco
+    decadeData.sort((a, b) => a.rok - b.rok);
+
+    // Wszystkie dekady domyślnie zwinięte
+    const isOpen = '';
+    const decadeEnd = decadeStart + 9;
+
+    // Generowanie kart dla tej dekady
+    const cardsHtml = decadeData.map(entry => {
+      // Oblicz zmianę r/r (szukamy w mapie roku poprzedniego)
+      let changePercent = 0;
+      const prevYearData = dataMap.get(entry.rok - 1);
+
+      if (prevYearData && prevYearData.populacja_ogolem > 0) {
+        changePercent = ((entry.populacja_ogolem - prevYearData.populacja_ogolem) / prevYearData.populacja_ogolem * 100).toFixed(1);
+      }
+
+      const changeClass = changePercent > 0 ? 'text-green-500' : (changePercent < 0 ? 'text-red-500' : 'text-gray-400');
+      const changeIcon = changePercent > 0 ? '↗' : (changePercent < 0 ? '↘' : '—');
+      const changeDisplay = prevYearData ? `${changeIcon} ${Math.abs(changePercent)}% vs ${entry.rok - 1}` : `${changeIcon} —`;
+
+      const total = entry.populacja_ogolem || 0;
+      const catholicPercent = total > 0 && entry.katolicy ? (entry.katolicy / total * 100).toFixed(1) : 0;
+      const jewishPercent = total > 0 && entry.zydzi ? (entry.zydzi / total * 100).toFixed(1) : 0;
+      const otherPercent = total > 0 && entry.inni ? (entry.inni / total * 100).toFixed(1) : 0;
+
+      // Wyznania HTML
+      const cathHtml = entry.katolicy ? `
+        <div class="religion-item">
+           <div class="religion-header"><span class="religion-name"><span class="religion-icon catholic">✝</span>Katolicy</span><span class="religion-value">${entry.katolicy}</span></div>
+           <div class="religion-bar"><div class="religion-fill catholic" style="width:${catholicPercent}%"></div></div>
+        </div>` : '';
+      const jewHtml = entry.zydzi ? `
+        <div class="religion-item">
+           <div class="religion-header"><span class="religion-name"><span class="religion-icon jewish">✡</span>Żydzi</span><span class="religion-value">${entry.zydzi}</span></div>
+           <div class="religion-bar"><div class="religion-fill jewish" style="width:${jewishPercent}%"></div></div>
+        </div>` : '';
+      const otherHtml = entry.inni ? `
+        <div class="religion-item">
+           <div class="religion-header"><span class="religion-name"><span class="religion-icon other">?</span>Inni</span><span class="religion-value">${entry.inni}</span></div>
+           <div class="religion-bar"><div class="religion-fill other" style="width:${otherPercent}%"></div></div>
+        </div>` : '';
+
+      const religionsHtml = (entry.katolicy || entry.zydzi || entry.inni)
+        ? `<div class="demo-religions">${cathHtml}${jewHtml}${otherHtml}</div>`
+        : '<div class="demo-no-religions"><i class="fas fa-inbox"></i> Brak szczegółu wyznaniowego</div>';
+
+      // Wydarzenie
+      let eventHtml = '';
+      if (entry.opis) {
+        let icon = '📅';
+        if (entry.opis.toLowerCase().includes('kolei')) icon = '🚂';
+        else if (entry.opis.toLowerCase().includes('budow')) icon = '🏗️';
+        else if (entry.opis.toLowerCase().includes('wojn')) icon = '⚔️';
+        eventHtml = `<div class="demo-event-badge" title="${entry.opis}"><span>${icon}</span> ${entry.opis}</div>`;
+      }
+
+      return `
+      <div class="demo-year-card" id="card-${entry.rok}">
         <div class="demo-card-header">
-          <div class="demo-year">${entry.rok}</div>
-          <div class="demo-total-population"><i class="fas fa-users"></i>
-            <span>${entry.populacja_ogolem || 'Brak danych'} mieszkańców</span>
-          </div>
+           <div class="demo-year">${entry.rok}</div>
+           <div class="demo-total-population"><i class="fas fa-users"></i> <span>${total} mieszkańców</span></div>
         </div>
-
         <div class="demo-card-body">
-          ${(entry.katolicy || entry.zydzi || entry.inni) ? `
-            <div class="demo-religions">
-              ${entry.katolicy ? `
-                <div class="religion-item">
-                  <div class="religion-header">
-                    <span class="religion-name"><span class="religion-icon catholic">✝</span>Katolicy</span>
-                    <span class="religion-value">${entry.katolicy}</span>
-                  </div>
-                  <div class="religion-bar"><div class="religion-fill catholic" style="width:${catholicPercent}%"></div></div>
-                </div>` : ''}
-
-              ${entry.zydzi ? `
-                <div class="religion-item">
-                  <div class="religion-header">
-                    <span class="religion-name"><span class="religion-icon jewish">✡</span>Żydzi</span>
-                    <span class="religion-value">${entry.zydzi}</span>
-                  </div>
-                  <div class="religion-bar"><div class="religion-fill jewish" style="width:${jewishPercent}%"></div></div>
-                </div>` : ''}
-
-              ${entry.inni ? `
-                <div class="religion-item">
-                  <div class="religion-header">
-                    <span class="religion-name"><span class="religion-icon other">◎</span>Inni</span>
-                    <span class="religion-value">${entry.inni}</span>
-                  </div>
-                  <div class="religion-bar"><div class="religion-fill other" style="width:${otherPercent}%"></div></div>
-                </div>` : ''}
-            </div>` : `
-            <div class="no-data-message small">
-              <i class="fas fa-inbox"></i> Brak szczegółu wyznaniowego
-            </div>`}
-        </div>
-
-        <div class="demo-card-footer">
-          <div class="demo-change ${changeType}">
-            <i class="fas fa-chart-line"></i>
-            <span>${idx > 0 ? (changePercent > 0 ? `+${changePercent}% vs ${data[idx - 1].rok}` : `${changePercent}% vs ${data[idx - 1].rok}`) : '—'}</span>
-          </div>
-          ${eventText ? `
-            <div class="demo-event">
-              <span class="event-icon">${eventIcon}</span>
-              <span class="event-text">${eventText}</span>
-            </div>` : ''}
+           ${religionsHtml}
+           ${eventHtml}
+           <div class="demo-change-badge ${changeClass}">${changeDisplay}</div>
         </div>
       </div>`;
-  }).join('');
+    }).join('');
+
+    html += `
+    <details class="decade-group" ${isOpen}>
+      <summary class="decade-summary">
+         <div class="decade-label">Lata ${decadeStart}-${decadeEnd}</div>
+         <div class="decade-count">${decadeData.length} ${decadeData.length === 1 ? 'rok' : (decadeData.length >= 2 && decadeData.length <= 4 ? 'lata' : 'lat')}</div>
+      </summary>
+      <div class="decade-content">
+         ${cardsHtml}
+      </div>
+    </details>`;
+  });
+
+  container.innerHTML = html;
 }
 
 /**
@@ -1329,7 +1386,7 @@ function createComparisonAnalysis(data) {
   const minPopulation = Math.min(...data.filter(d => d.populacja_ogolem).map(d => d.populacja_ogolem));
 
   const html = `
-    <div class="comparison-cards">
+  <div class="comparison-cards">
       <div class="comparison-card">
         <div class="comparison-icon"><i class="fas fa-chart-line"></i></div>
         <div class="comparison-value">${totalGrowth > 0 ? '+' : ''}${totalGrowth}</div>
@@ -1395,7 +1452,7 @@ function renderActivityCalendar(protocolsData) {
   html += '</div>';
 
   const legend = `
-    <div class="activity-legend">
+  <div class="activity-legend">
       <span>Mniej</span>
       <div class="legend-item">
         <div class="day-cell" data-level="1"></div>
@@ -2719,52 +2776,107 @@ function createComparisonModal() {
   modal.className = 'modal active';
   modal.id = 'comparison-modal';
 
-  const availableYears = statsData.demografia.map(d => d.rok).sort((a, b) => a - b);
-
   modal.innerHTML = `
-    < div class="modal-content" >
-      <div class="modal-header">
-        <h2><i class="fas fa-balance-scale"></i> Porównaj okresy demograficzne</h2>
+    <div class="modal-content" style="max-width: 950px; border: 1px solid rgba(255,255,255,0.15);">
+      <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px;">
+        <h2><i class="fas fa-balance-scale-left"></i> Porównaj okresy demograficzne</h2>
         <button class="modal-close" onclick="closeComparisonModal()">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding-top: 25px;">
         <div class="comparison-setup">
-          <div class="period-selector">
-            <label for="period1">Pierwszy okres:</label>
-            <select id="period1" class="period-select">
-              <option value="">Wybierz rok...</option>
-              ${availableYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-            </select>
+          <div class="comparison-grid">
+            <!-- Pierwszy okres -->
+            <div class="period-setup-card">
+              <div class="setup-title"><i class="fas fa-layer-group"></i> Pierwszy okres</div>
+              <div class="setup-controls">
+                <div class="control-item">
+                  <label><i class="fas fa-server"></i> Baza danych</label>
+                  <select id="source1" class="period-select">
+                    <option value="metrical">📜 Metrykalne</option>
+                    <option value="official">🏛️ Oficjalne</option>
+                  </select>
+                </div>
+                <div class="control-item">
+                  <label><i class="fas fa-clock"></i> Rok spisu</label>
+                  <select id="period1" class="period-select">
+                    <option value="">Wybierz...</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="comparison-vs">VS</div>
+
+            <!-- Drugi okres -->
+            <div class="period-setup-card">
+              <div class="setup-title"><i class="fas fa-layer-group"></i> Drugi okres</div>
+              <div class="setup-controls">
+                <div class="control-item">
+                  <label><i class="fas fa-server"></i> Baza danych</label>
+                  <select id="source2" class="period-select">
+                    <option value="metrical">📜 Metrykalne</option>
+                    <option value="official" selected>🏛️ Oficjalne</option>
+                  </select>
+                </div>
+                <div class="control-item">
+                  <label><i class="fas fa-clock"></i> Rok spisu</label>
+                  <select id="period2" class="period-select">
+                    <option value="">Wybierz...</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="period-selector">
-            <label for="period2">Drugi okres:</label>
-            <select id="period2" class="period-select">
-              <option value="">Wybierz rok...</option>
-              ${availableYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-            </select>
+
+          <div class="comparison-action">
+            <button class="btn-primary btn-large" onclick="performComparison()" id="compare-execute">
+              <i class="fas fa-sync-alt"></i> Analizuj i porównaj
+            </button>
           </div>
-          <button class="btn-primary" onclick="performComparison()" id="compare-execute">
-            <i class="fas fa-chart-bar"></i> Porównaj
-          </button>
         </div>
-        <div id="comparison-results" style="display: none;">
-          <div class="comparison-charts">
+
+        <div id="comparison-results" style="display: none; margin-top: 3rem; border-top: 2px dashed rgba(255,255,255,0.1); padding-top: 2rem;">
+          <div class="comparison-charts" style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px;">
             <canvas id="comparison-chart" style="max-height: 400px;"></canvas>
           </div>
           <div class="comparison-summary" id="comparison-summary"></div>
         </div>
       </div>
-    </div >
-    `;
+    </div>
+  `;
 
   document.body.appendChild(modal);
+
+  // Inicjalizacja list lat
+  updateYearOptions('source1', 'period1');
+  updateYearOptions('source2', 'period2');
+
+  // Listenery zmiany źródła
+  document.getElementById('source1').addEventListener('change', () => updateYearOptions('source1', 'period1'));
+  document.getElementById('source2').addEventListener('change', () => updateYearOptions('source2', 'period2'));
+}
+
+/**
+ * Aktualizuje listę dostępnych lat w zależności od wybranego źródła.
+ */
+function updateYearOptions(sourceId, selectId) {
+  const source = document.getElementById(sourceId).value;
+  const select = document.getElementById(selectId);
+
+  const data = source === 'metrical' ? statsData.demografia : statsData.demografia_official;
+  const years = (data || []).map(d => d.rok).sort((a, b) => b - a);
+
+  select.innerHTML = '<option value="">Wybierz rok...</option>' +
+    years.map(y => `<option value="${y}">${y}</option>`).join('');
 }
 
 /**
  * Wykonuje porównanie wybranych okresów.
  */
 function performComparison() {
+  const source1 = document.getElementById('source1').value;
   const year1 = parseInt(document.getElementById('period1').value);
+  const source2 = document.getElementById('source2').value;
   const year2 = parseInt(document.getElementById('period2').value);
 
   if (!year1 || !year2) {
@@ -2772,18 +2884,26 @@ function performComparison() {
     return;
   }
 
-  if (year1 === year2) {
-    showToast('error', 'Błąd', 'Wybierz różne okresy do porównania');
+  // Pozwalamy na porównanie tego samego roku jeśli źródła są inne
+  if (year1 === year2 && source1 === source2) {
+    showToast('error', 'Błąd', 'Wybierz różne okresy lub źródła do porównania');
     return;
   }
 
-  const data1 = statsData.demografia.find(d => d.rok === year1);
-  const data2 = statsData.demografia.find(d => d.rok === year2);
+  const dataSet1 = source1 === 'metrical' ? statsData.demografia : statsData.demografia_official;
+  const dataSet2 = source2 === 'metrical' ? statsData.demografia : statsData.demografia_official;
+
+  const data1 = dataSet1.find(d => d.rok === year1);
+  const data2 = dataSet2.find(d => d.rok === year2);
 
   if (!data1 || !data2) {
     showToast('error', 'Błąd', 'Nie znaleziono danych dla wybranych okresów');
     return;
   }
+
+  // Dodaj informację o źródle do obiektów danych, aby użyć w etykietach
+  data1._label = `${year1} (${source1 === 'metrical' ? 'Metrykalne' : 'Oficjalne'})`;
+  data2._label = `${year2} (${source2 === 'metrical' ? 'Metrykalne' : 'Oficjalne'})`;
 
   displayComparisonResults(data1, data2);
 }
@@ -2802,7 +2922,10 @@ function displayComparisonResults(data1, data2) {
   const summary = generateComparisonSummary(data1, data2);
   document.getElementById('comparison-summary').innerHTML = summary;
 
-  showToast('success', 'Porównanie', `Porównano lata ${data1.rok} i ${data2.rok} `);
+  showToast('success', 'Porównanie', `Wygenerowano porównanie okresów`);
+
+  // Przewiń do wyników
+  resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /**
@@ -2836,17 +2959,17 @@ function createComparisonChart(data1, data2) {
       labels: categories,
       datasets: [
         {
-          label: `Rok ${data1.rok} `,
+          label: data1._label,
           data: values1,
           backgroundColor: 'rgba(102, 126, 234, 0.8)',
           borderColor: '#667eea',
           borderWidth: 1
         },
         {
-          label: `Rok ${data2.rok} `,
+          label: data2._label,
           data: values2,
-          backgroundColor: 'rgba(118, 75, 162, 0.8)',
-          borderColor: '#764ba2',
+          backgroundColor: 'rgba(139, 92, 246, 0.8)',
+          borderColor: '#8b5cf6',
           borderWidth: 1
         }
       ]
@@ -2857,7 +2980,7 @@ function createComparisonChart(data1, data2) {
       plugins: {
         title: {
           display: true,
-          text: `Porównanie demograficzne: ${data1.rok} vs ${data2.rok} `
+          text: `Porównanie: ${data1._label} vs ${data2._label}`
         },
         legend: {
           position: 'top'
@@ -2885,37 +3008,22 @@ function generateComparisonSummary(data1, data2) {
   const change = pop2 - pop1;
   const changePercent = pop1 > 0 ? ((change / pop1) * 100).toFixed(1) : 0;
 
-  const yearDiff = data2.rok - data1.rok;
-  const avgPerYear = yearDiff > 0 ? (change / yearDiff).toFixed(1) : 0;
-
   return `
-    < div class="summary-grid" >
+    <div class="summary-grid">
       <div class="summary-card">
-        <h4>Zmiana populacji</h4>
-        <div class="summary-value ${change >= 0 ? 'positive' : 'negative'}">
-          ${change >= 0 ? '+' : ''}${change} osób
-        </div>
-        <div class="summary-detail">${changePercent >= 0 ? '+' : ''}${changePercent}% przez ${yearDiff} lat</div>
+        <div class="summary-label">${data1._label}</div>
+        <div class="summary-value">${pop1}</div>
+        <div class="summary-sub">Populacja ogółem</div>
       </div>
       <div class="summary-card">
-        <h4>Średni wzrost roczny</h4>
-        <div class="summary-value">${avgPerYear} osób/rok</div>
+        <div class="summary-label">${data2._label}</div>
+        <div class="summary-value">${pop2}</div>
+        <div class="summary-sub">Populacja ogółem</div>
       </div>
-      <div class="summary-card">
-        <h4>Struktura wyznaniowa ${data1.rok}</h4>
-        <div class="summary-detail">
-          Katolicy: ${data1.katolicy || 0}<br>
-          Żydzi: ${data1.zydzi || 0}<br>
-          Inni: ${data1.inni || 0}
-        </div>
-      </div>
-      <div class="summary-card">
-        <h4>Struktura wyznaniowa ${data2.rok}</h4>
-        <div class="summary-detail">
-          Katolicy: ${data2.katolicy || 0}<br>
-          Żydzi: ${data2.zydzi || 0}<br>
-          Inni: ${data2.inni || 0}
-        </div>
+      <div class="summary-card highlight ${change >= 0 ? 'positive' : 'negative'}">
+        <div class="summary-label">Zmiana netto</div>
+        <div class="summary-value">${change >= 0 ? '+' : ''}${change}</div>
+        <div class="summary-sub">${changePercent}%</div>
       </div>
     </div>
   `;
@@ -2993,3 +3101,75 @@ function initKeyboardShortcuts() {
     }
   });
 }
+
+/**
+ * Inicjalizuje przełącznik źródła danych demograficznych.
+ */
+function initDemographyToggle() {
+  const radios = document.querySelectorAll('input[name="demo-source"]');
+  radios.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const source = e.target.value;
+      if (source === 'metrical') {
+        loadDemographics(demografiaMetrical);
+        updateDemographicsHeader('metrical');
+        showToast('info', 'Zmieniono źródło', 'Wykresy oparte na księgach metrykalnych');
+      } else {
+        loadDemographics(demografiaOfficial);
+        updateDemographicsHeader('official');
+        showToast('info', 'Zmieniono źródło', 'Wykresy oparte na danych oficjalnych');
+      }
+    });
+  });
+}
+
+/**
+ * Aktualizuje nagłówek sekcji demografii w zależności od źródła.
+ * @param {'metrical'|'official'} source 
+ */
+function updateDemographicsHeader(source) {
+  const titleEl = document.querySelector('.demo-summary h3');
+  const subtitleEl = document.querySelector('.demo-summary .demo-subtitle');
+
+  if (source === 'metrical') {
+    titleEl.innerHTML = '<i class="fas fa-chart-line"></i> Dynamika populacji (wg ksiąg metrykalnych)';
+    subtitleEl.textContent = 'Szacunek na podstawie rejestrów urodzeń i zgonów w bazie';
+  } else {
+    titleEl.innerHTML = '<i class="fas fa-book"></i> Dynamika populacji (Dane Oficjalne)';
+    subtitleEl.textContent = 'Dane historyczne z tabel i spisów powszechnych';
+  }
+}
+
+/**
+ * Przewija widok do karty danego roku w sekcji demografii.
+ * @param {number} year
+ */
+function scrollToYear(year) {
+  const cardId = `card-${year}`;
+  const card = document.getElementById(cardId);
+
+  if (card) {
+    // Otwórz odpowiednią dekadę, jeśli jest zamknięta
+    const details = card.closest('details');
+    if (details && !details.open) {
+      details.open = true;
+    }
+
+    // Przewiń do elementu
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Podświetlenie
+    document.querySelectorAll('.demo-year-card.highlight').forEach(el => el.classList.remove('highlight'));
+    card.classList.add('highlight');
+
+    // Usuń podświetlenie po 2 sekundach
+    setTimeout(() => {
+      card.classList.remove('highlight');
+    }, 2000);
+  }
+}
+
+/* ==========================================================================
+   NOWE WYKRESY GENEALOGICZNE
+   ========================================================================== */
+
