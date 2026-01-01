@@ -923,8 +923,26 @@
 
                     <!-- WIDOK: Infrastruktura -->
                     <div class="stats-section ranking-view" id="ranking-view-infrastructure" style="display: none;">
-                        <div class="dashboard-grid">
-                            <!-- Ranking rzek według długości -->
+
+                        <!-- Przełącznik typu infrastruktury -->
+                        <div class="ranking-type-selector">
+                            <div class="ranking-type-buttons">
+                                <input type="radio" name="infra-type" id="infra-rivers" value="rivers" checked>
+                                <label for="infra-rivers">
+                                    <i class="fas fa-water"></i>
+                                    <span>Rzeki</span>
+                                </label>
+
+                                <input type="radio" name="infra-type" id="infra-roads" value="roads">
+                                <label for="infra-roads">
+                                    <i class="fas fa-road"></i>
+                                    <span>Drogi</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Ranking rzek -->
+                        <div id="infra-view-rivers">
                             <div class="dashboard-card">
                                 <div class="card-header">
                                     <h3><i class="fas fa-water"></i> TOP 50 Najdłuższych Rzek</h3>
@@ -937,8 +955,10 @@
                                     <!-- Generowane dynamicznie przez JavaScript -->
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- Ranking dróg według długości -->
+                        <!-- Ranking dróg -->
+                        <div id="infra-view-roads" style="display: none;">
                             <div class="dashboard-card">
                                 <div class="card-header">
                                     <h3><i class="fas fa-road"></i> TOP 50 Najdłuższych Dróg</h3>
@@ -1056,35 +1076,48 @@
                             <p>Analiza danych osobowych i rodzinnych</p>
                         </div>
                         <div class="dashboard-grid">
-                            <!-- Wskaźniki genealogiczne -->
-                            <div class="dashboard-card">
+                            <!-- Połączona karta: Wskaźniki i Ranking Nazwisk -->
+                            <div class="dashboard-card wide">
                                 <div class="card-header">
-                                    <h3><i class="fas fa-users"></i> Kluczowe wskaźniki genealogiczne</h3>
+                                    <h3><i class="fas fa-users"></i> Statystyki Osobiste</h3>
                                 </div>
-                                <div class="stats-grid">
-                                    <div class="mini-stat">
-                                        <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Wszystkie osoby</span>
-                                            <span class="mini-value" id="stat-total-people">0</span>
+                                <div class="card-body"
+                                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; align-items: start;">
+
+                                    <!-- Lewa kolumna: Wskaźniki -->
+                                    <div>
+                                        <h4
+                                            style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase;">
+                                            Wskaźniki Ogólne</h4>
+                                        <div class="stats-grid" style="grid-template-columns: 1fr;">
+                                            <div class="mini-stat">
+                                                <div class="mini-icon blue"><i class="fas fa-user-friends"></i></div>
+                                                <div class="mini-data">
+                                                    <span class="mini-label">Wszystkie osoby</span>
+                                                    <span class="mini-value" id="stat-total-people">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="mini-stat">
+                                                <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
+                                                <div class="mini-data">
+                                                    <span class="mini-label">Mężczyźni / Kobiety</span>
+                                                    <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="mini-stat">
-                                        <div class="mini-icon purple"><i class="fas fa-venus-mars"></i></div>
-                                        <div class="mini-data">
-                                            <span class="mini-label">Mężczyźni / Kobiety</span>
-                                            <span class="mini-value" id="stat-gender-ratio">0 / 0</span>
+
+                                    <!-- Prawa kolumna: Ranking Nazwisk -->
+                                    <div>
+                                        <h4
+                                            style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase;">
+                                            Najpopularniejsze Nazwiska</h4>
+                                        <div class="ranking-list" id="top-surnames-list"
+                                            style="max-height: 300px; padding-right: 5px;">
+                                            <!-- Generowane dynamicznie przez JavaScript -->
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <!-- Ranking nazwisk -->
-                            <div class="dashboard-card">
-                                <div class="card-header">
-                                    <h3><i class="fas fa-signature"></i> Top 10 Nazwisk</h3>
-                                </div>
-                                <div class="ranking-list" id="top-surnames-list">
-                                    <!-- Generowane dynamicznie przez JavaScript -->
+
                                 </div>
                             </div>
                             <!-- Wykres urodzeń -->
