@@ -9186,7 +9186,7 @@
         },
         {
             "id": 22181,
-            "name": "Apolonia Szkul",
+            "name": "Apolonia Kuta",
             "gender": "F",
             "houseNumber": "",
             "birthDate": null,
@@ -9197,11 +9197,11 @@
             "spouseIds": [
                 22180
             ],
-            "notes": "Babka Marii (# 22184)."
+            "notes": "Babka Marii (# 22184). Żona Macieja Piróg."
         },
         {
             "id": 22182,
-            "name": "Józef Karczmarz",
+            "name": "Józef Kramarczyk",
             "gender": "M",
             "houseNumber": "",
             "birthDate": null,
@@ -9212,11 +9212,11 @@
             "spouseIds": [
                 22183
             ],
-            "notes": "Dziadek Marii (# 22184)."
+            "notes": "Dziadek Marii (# 22184). Mąż Apolonii Lis."
         },
         {
             "id": 22183,
-            "name": "Apolonia Cygan",
+            "name": "Apolonia Lis",
             "gender": "F",
             "houseNumber": "",
             "birthDate": null,
@@ -9227,7 +9227,7 @@
             "spouseIds": [
                 22182
             ],
-            "notes": "Babka Marii (# 22184)."
+            "notes": "Babka Marii (# 22184). Żona Józefa Kramarczyka."
         },
         {
             "id": 22187,
@@ -29132,7 +29132,9 @@
             "name": "Jan Piróg",
             "gender": "M",
             "houseNumber": "64",
-            "birthDate": null,
+            "birthDate": {
+                "year": 1847
+            },
             "deathDate": null,
             "protokolKey": "Jan_Pirog",
             "fatherId": 22180,
@@ -29140,11 +29142,19 @@
             "spouseIds": [
                 22179
             ],
-            "notes": "Mąż Reginy Karczmarz."
+            "notes": "Syn Macieja i Apolonii Kuta. Mąż Reginy Kramarczyk. Ślub 1873.",
+            "marriages": [
+                {
+                    "spouseId": 22179,
+                    "date": {
+                        "year": 1873
+                    }
+                }
+            ]
         },
         {
             "id": 22179,
-            "name": "Regina Piróg (Karczmarz)",
+            "name": "Regina Piróg (Kramarczyk)",
             "gender": "F",
             "houseNumber": "64",
             "birthDate": null,
@@ -29155,7 +29165,7 @@
             "spouseIds": [
                 22178
             ],
-            "notes": "Córka Józefa i Apolonii."
+            "notes": "Córka Józefa Kramarczyka i Apolonii Lis. Ślub 1873."
         },
         {
             "id": 22184,
@@ -30510,6 +30520,66 @@
             "motherId": 20959,
             "spouseIds": [],
             "notes": "Bliźniak Onufrego. Urodzenia 1851 lp 13."
+        },
+        {
+            "id": 30001,
+            "name": "Marianna Piróg",
+            "gender": "F",
+            "houseNumber": "64",
+            "birthDate": {
+                "year": 1874
+            },
+            "deathDate": null,
+            "protokolKey": null,
+            "fatherId": 22178,
+            "motherId": 22179,
+            "spouseIds": [],
+            "notes": "Urodzenia 1874 lp 3. c. Jan Piróg & Regina Kramarczyk."
+        },
+        {
+            "id": 30002,
+            "name": "Tekla Piróg",
+            "gender": "F",
+            "houseNumber": "64",
+            "birthDate": {
+                "year": 1875
+            },
+            "deathDate": null,
+            "protokolKey": null,
+            "fatherId": 22178,
+            "motherId": 22179,
+            "spouseIds": [],
+            "notes": "Urodzenia 1875 lp 21. c. Jan Piróg & Regina Kramarczyk."
+        },
+        {
+            "id": 30003,
+            "name": "Apolonia Piróg",
+            "gender": "F",
+            "houseNumber": "64",
+            "birthDate": {
+                "year": 1877
+            },
+            "deathDate": null,
+            "protokolKey": null,
+            "fatherId": 22178,
+            "motherId": 22179,
+            "spouseIds": [],
+            "notes": "Urodzenia 1877 lp 15. c. Jan Piróg & Regina Kramarczyk."
+        },
+        {
+            "id": 30004,
+            "name": "Maciej Piróg",
+            "gender": "M",
+            "houseNumber": "64",
+            "birthDate": {
+                "year": 1879
+            },
+            "deathDate": null,
+            "protokolKey": null,
+            "fatherId": 22178,
+            "motherId": 22179,
+            "spouseIds": [],
+            "notes": "Urodzenia 1879 lp 8. s. Jan Piróg & Regina Kramarczyk."
         }
     ]
 }
