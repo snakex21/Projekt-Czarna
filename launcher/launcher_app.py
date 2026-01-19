@@ -249,6 +249,10 @@ CREATE TABLE osoby_genealogia (
 CREATE TABLE malzenstwa (
     malzonek1_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
     malzonek2_id INTEGER NOT NULL REFERENCES osoby_genealogia(id) ON DELETE CASCADE,
+    rok_slubu INTEGER,
+    miesiac_slubu INTEGER,
+    dzien_slubu INTEGER,
+    data_slubu TEXT,
     PRIMARY KEY (malzonek1_id, malzonek2_id),
     CONSTRAINT rozne_osoby CHECK (malzonek1_id <> malzonek2_id)
 );
