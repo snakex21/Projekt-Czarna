@@ -2045,9 +2045,21 @@ def get_genealogy_persons_format():
     """)
     wszystkie_osoby = cur.fetchall()
 
-    # Pobierz wszystkie małżeństwa z rokiem
-    cur.execute("SELECT malzonek1_id, malzonek2_id, rok_slubu FROM malzenstwa;")
+    # Sprawdź dostępne kolumny w tabeli malzenstwa (dla kompatybilności wstecznej)
+    cur.execute("""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'malzenstwa';
+    """)
+    cols_malz = {r['column_name'] for r in cur.fetchall()}
+
+    # Dynamiczne budowanie zapytania - bezpieczne dla pierwszego uruchomienia
+    select_m = ["malzonek1_id", "malzonek2_id"]
+    if "rok_slubu" in cols_malz:
+        select_m.append("rok_slubu")
+    
+    cur.execute("SELECT " + ", ".join(select_m) + " FROM malzenstwa;")
     wszystkie_malzenstwa = cur.fetchall()
+
 
     cur.close()
     conn.close()
