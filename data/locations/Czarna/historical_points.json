@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "points": [
+    {
+      "object_name": "dworzec kolejowy",
+      "display_name": "Dworzec kolejowy w Czarnej",
+      "description": "Budynek dworca kolejowego wzniesiony w 1905 roku przy linii kolejowej łączącej Dębicę z Jasłem. Obsługiwał ruch pasażerski i towarowy miejscowości aż do lat 90. XX wieku. Archiwalna fotografia przedstawia stację w okresie międzywojennym, widoczne są perony oraz drewniana wiata magazynowa.",
+      "source_note": "Archiwum Państwowe w Rzeszowie, sygn. 123/45; zbiory prywatne rodziny Kowalskich z Czarnej.",
+      "photos": [
+        {
+          "filename": "dworzec_czarna.png",
+          "caption": "Dworzec kolejowy w Czarnej, ok. 1935 r."
+        },
+        {
+          "filename": "protokol.jpg",
+          "caption": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="pl">
+
+<head>
+  <!-- ==========================================================================
+         Plik: index.html
+         Opis: Interaktywna dokumentacja systemu mapy katastralnej.
+               Wersja 2026-06 — zweryfikowana z faktycznym stanem kodu.
+         Architektura: docs/technical/ARCHITECTURE.md
+         Baza danych:  docs/technical/DATABASE.md
+         Launcher:      docs/technical/LAUNCHER.md
+         Poprzednia wersja archiwalna: archive/docs-stary/index.html
+         ========================================================================== -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <title>Dokumentacja — System Mapy Katastralnej Czarna</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>System Mapy Katastralnej Czarna</h1>
+      <p class="subtitle">Dokumentacja techniczna i przewodnik wdrożeniowy<br>
+        <small>Wersja 2026-06 · FastAPI · MapLibre · SQLite / PostgreSQL</small></p>
+    </header>
+
+    <nav id="navbar">
+      <div class="nav-links">
+        <a href="#architektura"><span>Architektura</span></a>
+        <a href="#frontend"><span>Frontend</span></a>
+        <a href="#backend"><span>Backend</span></a>
+        <a href="#baza"><span>Baza danych</span></a>
+        <a href="#launcher"><span>Launcher</span></a>
+        <a href="#wielomiejscowosc"><span>Miejscowości</span></a>
+        <a href="#narzedzia"><span>Narzędzia</span></a>
+        <a href="#instalacja"><span>Instalacja</span></a>
+        <a href="#materiały"><span>Materiały</span></a>
+      </div>
+      <div class="nav-actions">
+        <button class="icon-btn" id="theme-toggle" title="Zmień motyw">
+          <i class="fas fa-sun"></i>
+        </button>
+        <button class="icon-btn" id="fullscreen-toggle" title="Pełny ekran">
+          <i class="fas fa-expand"></i>
+        </button>
+      </div>
+    </nav>
+
+    <main>
+
+      <!-- =====================================================================
+           WPROWADZENIE
+           ===================================================================== -->
+      <section>
+        <div class="chapter-intro">
+          <p>
+            System wizualizacji historycznej mapy katastralnej gminy Czarna z XIX wieku.
+            Składa się z trzech aplikacji webowych (mapa publiczna, panel admina,
+            protokoły właścicieli), backendu FastAPI oraz launchera Tkinter,
+            który jest jedynym zalecanym sposobem obsługi projektu.
+          </p>
+          <p>
+            Dane historyczne (działki, właściciele, demografia, genealogia,
+            punkty historyczne) są przechowywane w SQLite lub PostgreSQL z PostGIS
+            i eksponowane jako REST API. Frontend komunikuje się z backendem
+            przez JSON HTTP, panel admina dodatkowo przez cookie session.
+          </p>
+          <div class="important-note">
+            <strong>Stan testów (2026-06-05):</strong> 1126 testów automatycznych
+            przechodzi, 9 pominiętych, 0 błędów. Testy obejmują backend,
+            launcher i helpery instalacyjne PostgreSQL.
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           ARCHITEKTURA
+           ===================================================================== -->
+      <section>
+        <h2 id="architektura">Architektura — Cztery Warstwy</h2>
+        <p>
+          System ma cztery logiczne warstwy, komunikujące się przez jasne
+          interfejsy. Pełen opis w
+          <a href="technical/ARCHITECTURE.md">docs/technical/ARCHITECTURE.md</a>.
+        </p>
+
+        <div class="folder-structure">
+          <ol>
+            <li><strong>Frontend (przeglądarka)</strong> — <code>static/mapa/</code> · <code>static/admin/</code> · <code>static/wlasciciele/</code><br>
+              Komunikuje się z backendem przez JSON REST (HTTP). Panel admina dodatkowo przez cookie session.</li>
+            <li><strong>Backend (FastAPI + uvicorn)</strong> — <code>backend/main.py</code> + <code>lifespan</code> + <code>routers/</code> + <code>services/</code> + <code>auth/</code><br>
+              Cienkie I/O w routerach, logika biznesowa w services, bezpieczeństwo admina w auth/.</li>
+            <li><strong>Baza danych</strong> — SQLite (<code>data/czarna.db</code>) lub PostgreSQL + PostGIS<br>
+              SQLAlchemy 2.0 async: <code>asyncpg</code> dla PG, <code>aiosqlite</code> dla SQLite.</li>
+            <li><strong>Launcher (Tkinter GUI)</strong> — <code>launcher/launcher_app.py</code> + <code>services/</code> + <code>ui/</code> + <code>config/</code> + <code>utils/</code><br>
+              Uruchamia backend jako <code>subprocess.Popen</code> z env vars. Zarządza <code>.env</code>, miejscowościami, logami.</li>
+          </ol>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Kierunki importów (zależności)</h3>
+          <pre>
+launcher/  →  backend/    (launcher używa config i security z backendu)
+backend/   ✕  launcher/   (ZAKAZ — cykliczność)
+routers/   →  services/   ✓
+services/  →  models/     ✓
+ui/        →  services/   ✓
+          </pre>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           FRONTEND
+           ===================================================================== -->
+      <section>
+        <h2 id="frontend">Frontend — Trzy Niezależne Aplikacje</h2>
+
+        <div class="tech-subsection">
+          <h3>1. <code>static/mapa/</code> — mapa publiczna</h3>
+          <p>
+            Interaktywna mapa katastralna renderowana przez <strong>MapLibre GL</strong>
+            (WebGL, wektorowe kafle). Warstwy: działki, obiekty specjalne,
+            infrastruktura, punkty historyczne (markery z galerią zdjęć).
+          </p>
+          <ul>
+            <li>Pliki: <code>mapa.html</code> + <code>style.css</code> + <code>js/</code></li>
+            <li>Bez bundlerów — czysty ES6+ ładowany w kolejności zależności</li>
+            <li>API: <code>window.MapV2 = Object.freeze({...})</code></li>
+          </ul>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>2. <code>static/admin/</code> — panel administracyjny</h3>
+          <p>
+            Wymaga logowania (cookie session przez <code>backend/auth/</code>).
+            Sekcje: dashboard, właściciele, obiekty, demografia, genealogia,
+            diagnostyka.
+          </p>
+          <ul>
+            <li>Pliki: <code>admin.html</code> + <code>admin.css</code> + <code>admin.js</code> + <code>js/</code></li>
+            <li>Moduły: <code>api.js</code>, <code>auth.js</code>, <code>dashboard.js</code>,
+                <code>demography.js</code>, <code>diagnostics.js</code>, <code>genealogy-*.js</code></li>
+            <li>Kolejność ładowania skryptów w HTML: api → utils → notifications → moduły specyficzne → admin.js</li>
+          </ul>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>3. <code>static/wlasciciele/</code> — protokoły właścicieli</h3>
+          <p>
+            Publiczny widok protokołów hipotecznych. Read-only.
+          </p>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Konwencje JavaScript</h3>
+          <ul>
+            <li>Moduły rejestrują się w <code>window</code> jako <code>Object.freeze({...})</code></li>
+            <li>Brak frameworków, bundlerów, npm. Czysty ES6+.</li>
+            <li>Polskie komentarze i etykiety UI, angielskie identyfikatory.</li>
+            <li>Fetch API do komunikacji z backendem.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           BACKEND
+           ===================================================================== -->
+      <section>
+        <h2 id="backend">Backend — FastAPI</h2>
+
+        <div class="tech-subsection">
+          <h3>Stack technologiczny</h3>
+          <div class="folder-structure">
+            <ul>
+              <li><strong>FastAPI</strong> &gt;=0.109 + <strong>Uvicorn</strong> &gt;=0.25</li>
+              <li><strong>SQLAlchemy</strong> 2.0 async + <strong>Pydantic</strong> 2.0</li>
+              <li><strong>asyncpg</strong> (PostgreSQL) + <strong>aiosqlite</strong></li>
+              <li><strong>psycopg2-binary</strong> (sync PG dla skryptów)</li>
+              <li><strong>pytest</strong> &gt;=8.0 + <strong>httpx</strong></li>
+              <li><strong>Pillow</strong>, <strong>requests</strong>, <strong>matplotlib</strong></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3><code>main.py</code> — punkt wejścia</h3>
+          <ul>
+            <li><code>app = FastAPI(lifespan=lifespan)</code> z własnym <code>lifespan</code></li>
+            <li>Na starcie: <code>assert_safe_secret_key()</code> + <code>init_db()</code></li>
+            <li>CORS z env <code>CORS_ALLOWED_ORIGINS</code> (w produkcji wymagane, w dev <code>["*"]</code>)</li>
+            <li>Kolejność rejestracji routerów: specyficzne → <code>static_files</code> (catch-all <code>/{filename:path}</code>)</li>
+            <li>Tytuł API: <em>"Mapa Katastralna Czarna API"</em></li>
+          </ul>
+        </div>
+
+        <div class="tech-subsection">
+          <h3><code>routers/</code> — 10 modułów, 53 endpointy</h3>
+          <p>Cienkie I/O. Każdy router: schematy Pydantic + <code>Depends(admin_required)</code> + delegacja do <code>services/</code>.</p>
+          <div class="folder-structure">
+            <ul>
+              <li><code>admin.py</code> (23) — CRUD właścicieli, obiektów, genealogii, demografii + dashboard + export-backup</li>
+              <li><code>static_files.py</code> (13) — serwowanie plików statycznych, favicon, location-config.js, panel admina HTML</li>
+              <li><code>admin_auth.py</code> (5) — auth-status, check-auth, login, logout, change-password</li>
+              <li><code>genealogy.py</code> (4) — list, persons-format, pdf/{person_id}, /{klucz}</li>
+              <li><code>owners.py</code> (3) — wlasciciele, wlasciciel/{klucz}, graph-data</li>
+              <li><code>map.py</code> (2) — dzialki, map-config</li>
+              <li><code>stats.py</code> (2) — stats, stats/rankings</li>
+              <li><code>diagnostics.py</code> (1) — diagnostics</li>
+              <li><code>historical_points.py</code> (1) — historical-points</li>
+              <li><code>editor.py</code> (1) — save (zapis edycji)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3><code>services/</code> + <code>auth/</code> + <code>utils/</code></h3>
+          <ul>
+            <li><strong>services/</strong> — logika biznesowa. Czyste funkcje, bez <code>Depends</code>, DB przekazywany z routera.</li>
+            <li><strong>auth/</strong> — bezpieczeństwo admina. <code>routes.py</code> (login/logout/change-password) + <code>security.py</code> (walidacja SECRET_KEY, CORS hardening, network warnings).</li>
+            <li><strong>utils/</strong> — <code>pdf_generator.py</code> (eksport drzewa genealogicznego do PDF) + helpery.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           BAZA DANYCH
+           ===================================================================== -->
+      <section>
+        <h2 id="baza">Baza Danych — SQLite / PostgreSQL</h2>
+        <p>Pełen opis: <a href="technical/DATABASE.md">docs/technical/DATABASE.md</a>.</p>
+
+        <div class="tech-subsection">
+          <h3>Dwa tryby</h3>
+          <div class="folder-structure">
+            <ul>
+              <li><strong>SQLite</strong> (default): plik <code>data/czarna.db</code>. Zero konfiguracji.</li>
+              <li><strong>PostgreSQL + PostGIS</strong>: dla środowisk produkcyjnych z dużą liczbą rekordów i zapytaniami przestrzennymi.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Pliki bazy w <code>data/</code></h3>
+          <div class="folder-structure">
+            <ul>
+              <li><code>czarna.db</code> + <code>czarna.db-shm</code> + <code>czarna.db-wal</code> — baza główna (SQLite WAL)</li>
+              <li><code>locations.db</code> — baza lokacji (lista miejscowości)</li>
+              <li><code>launcher_ui_settings.json</code> — ustawienia UI launchera</li>
+              <li><code>locations/&lt;miejscowosc&gt;/</code> — folder per miejscowość z JSONami
+                  (genealogia, demografia, historical_points) + zdjęcia (history_photos/, point_photos/, protokoly/) + .env</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Konfiguracja — <code>backend/.env</code></h3>
+          <pre>
+# Tryb SQLite
+DB_ENGINE=sqlite
+DB_PATH=C:\...\Projekt Mapa Czarna\data\czarna.db
+ACTIVE_LOCATION=Czarna
+
+# Tryb PostgreSQL
+DB_ENGINE=postgresql
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=mapa_czarna
+DB_USER=mapa_user
+DB_PASSWORD=...
+          </pre>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Konwencja schematu</h3>
+          <p>
+            Tabele w kodzie mają krótkie nazwy bez prefixów (<code>parcels</code>,
+            <code>owners</code>, <code>demografia</code>). Projekt nie planuje
+            dzielenia bazy z innym systemem.
+          </p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           LAUNCHER
+           ===================================================================== -->
+      <section>
+        <h2 id="launcher">Launcher (Tkinter GUI)</h2>
+        <p>Pełen opis: <a href="technical/LAUNCHER.md">docs/technical/LAUNCHER.md</a>.</p>
+
+        <div class="tech-subsection">
+          <h3>Filozofia</h3>
+          <div class="important-note">
+            Cały program opiera się na GUI — bez ręcznej edycji JSON / .env / SQL.
+            Wszystkie akcje administracyjne mają odpowiednik w launcherze.
+            Pliki <code>.env</code> i JSON edytowane są tylko przez launcher
+            (z wyjątkiem <code>tests/</code>).
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Sześć zakładek głównego okna</h3>
+          <div class="folder-structure">
+            <ul>
+              <li><strong>Aktywna miejscowość</strong> — wybór miejscowości + aktywacja (zapis do <code>locations.db</code>)</li>
+              <li><strong>Serwer</strong> — start/stop backendu + logi</li>
+              <li><strong>Centrum Zarządzania</strong> — kreator PostgreSQL, bazy danych, kalibracja mapy</li>
+              <li><strong>Ustawienia Administratora</strong> — hasło admina, logi, konfiguracja sieci</li>
+              <li><strong>Zaawansowane</strong> — kreator baz, edytor właścicieli/działek/genealogii</li>
+              <li><strong>Diagnostyka</strong> — szybka diagnostyka + jakość danych + bezpieczeństwo admina</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Struktura kodu <code>launcher/</code></h3>
+          <div class="folder-structure">
+            <ul>
+              <li><code>launcher_app.py</code> — główne okno + klasy dialogów</li>
+              <li><code>services/</code> — logika (BEZ I/O w UI):
+                <ul>
+                  <li><code>process_manager.py</code> — subprocess + zarządzanie procesami</li>
+                  <li><code>env_runtime.py</code> — odczyt/zapis .env</li>
+                  <li><code>network_runtime.py</code> — tryb sieciowy (LAN)</li>
+                  <li><code>firewall_runtime.py</code> — reguły Windows Firewall</li>
+                  <li><code>admin_config_service.py</code> — hasło admina</li>
+                  <li><code>location_migration_service.py</code> — tworzenie miejscowości</li>
+                  <li><code>historical_points_service.py</code> — markery</li>
+                  <li><code>shutdown_runtime.py</code> — housekeeping przy zamykaniu</li>
+                </ul>
+              </li>
+              <li><code>ui/</code> — dialogi (wyłącznie delegacja do services, brak I/O):
+                <ul>
+                  <li><code>add_edit_location_dialog.py</code> — edycja miejscowości</li>
+                  <li><code>location_manager.py</code></li>
+                  <li><code>program_settings.py</code> — okno ustawień (6 zakładek)</li>
+                  <li><code>env_editor.py</code></li>
+                  <li><code>network_dialogs.py</code></li>
+                </ul>
+              </li>
+              <li><code>config/</code> — ścieżki, stałe, ustawienia:
+                <ul>
+                  <li><code>paths.py</code> — BASE_DIR, BACKEND_DIR, DATA_DIR</li>
+                  <li><code>settings.py</code> — SCRIPTS, URLS</li>
+                  <li><code>ui_settings.py</code> — motyw, kolory, fonty</li>
+                </ul>
+              </li>
+              <li><code>utils/</code> — <code>process_env.py</code>, <code>process_command.py</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Uruchomienie</h3>
+          <pre>python launcher/launcher_app.py</pre>
+          <p>Wymagania: Python 3.11+ (testowane na 3.13), Tkinter (wbudowany, na Windows OK).</p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           WIELOMIEJSCOWOŚĆ
+           ===================================================================== -->
+      <section>
+        <h2 id="wielomiejscowosc">System Wielomiejscowości</h2>
+        <p>Pełen opis: <a href="technical/LOCATIONS.md">docs/technical/LOCATIONS.md</a>.</p>
+
+        <div class="tech-subsection">
+          <h3>Folder miejscowości</h3>
+          <p>Każda miejscowość ma swój folder w <code>data/locations/&lt;nazwa&gt;/</code>:</p>
+          <div class="folder-structure">
+            <ul>
+              <li><code>.env</code> — konfiguracja lokacji</li>
+              <li><code>demografia.json</code>, <code>genealogia.json</code>, <code>historical_points.json</code> — dane</li>
+              <li><code>custom_icon.ico/.png</code>, <code>favicon.jpeg</code> — branding</li>
+              <li><code>history_photos/</code>, <code>point_photos/</code>, <code>protokoly/</code> — foldery ze zdjęciami</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Przełączanie miejscowości</h3>
+          <p>
+            Launcher ma zakładkę "Aktywna miejscowość" z listą.
+            Wybór innej lokacji zapisuje wybór do <code>data/locations.db</code>
+            i aktualizuje <code>ACTIVE_LOCATION</code> w <code>backend/.env</code>.
+            Backend przeładowuje konfigurację przy kolejnym starcie.
+          </p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           NARZĘDZIA
+           ===================================================================== -->
+      <section>
+        <h2 id="narzedzia">Narzędzia</h2>
+
+        <div class="tech-subsection">
+          <h3>Edytory standalone <code>tools/</code></h3>
+          <p>Dedykowane aplikacje do masowej edycji danych historycznych.</p>
+          <div class="folder-structure">
+            <ul>
+              <li><code>tools/parcel_editor/</code> — edycja geometrii działek (folder)</li>
+              <li><code>tools/owner_editor.py</code> — łączenie właścicieli, deduplikacja, genealogia (plik)</li>
+              <li><code>tools/genealogy_editor/</code> — drzewo genealogiczne + eksport PDF (folder)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Skrypty <code>scripts/</code></h3>
+          <div class="folder-structure">
+            <ul>
+              <li><code>install_pg_unattended.py</code> — cicha instalacja PG 16 + PostGIS 3.6 (z UAC, z cleanup cache)</li>
+              <li><code>install_pg_gui.py</code> — instalacja PG z paskiem postępu (7 kroków)</li>
+              <li><code>install_portable_pg.py</code> — wersja portable PG (bez instalatora systemowego)</li>
+              <li><code>start_portable_pg.py</code> / <code>stop_portable_pg.py</code> — start/stop portable PG</li>
+              <li><code>test_pg_portable_real_install.py</code> — test realnej instalacji portable</li>
+              <li><code>uninstall_pg_system.py</code> — deinstalacja z UAC + cleanup folderów <code>16_old_*</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Auto-instalacja PostgreSQL (w launcherze)</h3>
+          <ol>
+            <li>Pobiera instalatory z EDB/PostgreSQL.org jeśli brak w <code>cache/</code></li>
+            <li>Sprawdza poprzednią instalację (<code>is_pg_install_healthy()</code>);
+                jeśli jest <code>16_old_*</code>, przenosi i czyści</li>
+            <li>Uruchamia instalator w trybie unattended z UAC</li>
+            <li>Włącza PostGIS 3.6 z installer bundle</li>
+            <li>Tworzy bazę <code>mapa_czarna</code> + włącza <code>postgis</code></li>
+            <li>Usuwa instalatory z cache (~457 MB zwolnione)</li>
+          </ol>
+          <p>Czas: 2-5 min na świeżym Windows 10/11 z SSD.</p>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Deinstalacja PostgreSQL</h3>
+          <p>W "Centrum Zarządzania → Odinstaluj PostgreSQL":</p>
+          <ol>
+            <li>UAC prompt do deinstalatora Windows</li>
+            <li>Po deinstalacji: <code>_cleanup_pg_dirs()</code> usuwa <code>C:\Program Files\PostgreSQL\16</code> + wszelkie <code>16_old_*</code></li>
+            <li>Reset konfiguracji PG w launcherze (przełącza na SQLite)</li>
+            <li>Usuwa <code>.postgres.env</code></li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           INSTALACJA
+           ===================================================================== -->
+      <section id="instalacja">
+        <h2 id="instalacja">Instalacja — Pierwsze Uruchomienie</h2>
+
+        <div class="tech-subsection">
+          <h3>Wymagania</h3>
+          <ul>
+            <li>Windows 10/11 (64-bit)</li>
+            <li>Python 3.11+ z python.org</li>
+            <li>Uprawnienia administratora (jeden raz, do instalacji PostgreSQL)</li>
+            <li>~2 GB wolnego miejsca (z cache instalatorów + PostGIS bundle)</li>
+          </ul>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Pierwsze uruchomienie launchera</h3>
+          <ol>
+            <li>Zainstaluj zależności: <code>pip install -r requirements.txt</code></li>
+            <li>Uruchom: <code>python launcher/launcher_app.py</code></li>
+            <li>Launcher tworzy <code>backend/.env</code> + <code>data/czarna.db</code></li>
+            <li>Uruchamia migrację schematu (idempotentna)</li>
+            <li>Startuje backend (port 8000) i frontend w domyślnej przeglądarce</li>
+          </ol>
+          <p>Wszystko automatycznie — zero ręcznej konfiguracji.</p>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Przełączenie na PostgreSQL (opcjonalne)</h3>
+          <p>
+            Domyślnie SQLite wystarcza do pracy urzędnika z jedną miejscowością.
+            Przełączenie na PG daje zapytania przestrzenne (PostGIS) i lepsze
+            wsparcie dla wielu użytkowników. Wybór w launcherze →
+            "Centrum Zarządzania" → kreator PG.
+          </p>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Test suite</h3>
+          <p>Przed commitem / releasem:</p>
+          <pre>cd backend
+python -m pytest tests/</pre>
+          <p>Oczekiwany wynik: <code>1126 passed, 9 skipped, 0 failed</code>.</p>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           MATERIAŁY
+           ===================================================================== -->
+      <section>
+        <h2 id="materiały">Materiały</h2>
+        <p>Pełna dokumentacja techniczna w <code>docs/technical/</code>:</p>
+        <div class="folder-structure">
+          <ul>
+            <li><a href="technical/ARCHITECTURE.md">ARCHITECTURE.md</a> — architektura czterech warstw + konwencje</li>
+            <li><a href="technical/DATABASE.md">DATABASE.md</a> — tryby DB, schemat, konfiguracja, migracja</li>
+            <li><a href="technical/LAUNCHER.md">LAUNCHER.md</a> — GUI, zakładki, serwisy, flow</li>
+            <li><a href="technical/LOCATIONS.md">LOCATIONS.md</a> — system wielomiejscowości</li>
+            <li><a href="technical/SECURITY.md">SECURITY.md</a> — bezpieczeństwo admina, SECRET_KEY, sieć</li>
+            <li><a href="technical/TESTING.md">TESTING.md</a> — strategia testowania, 1126 testów</li>
+            <li><a href="technical/ROADMAP.md">ROADMAP.md</a> — priorytety, planowane funkcje</li>
+          </ul>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Archiwum</h3>
+          <p>
+            Poprzednia wersja tej dokumentacji (sprzed przebudowy launchera
+            i migracji z Flask na FastAPI) jest w
+            <code>archive/docs-stary/</code>. Materiały z obrony pracy
+            inżynierskiej w <code>archive/z-obrony/</code>.
+          </p>
+        </div>
+
+        <div class="tech-subsection">
+          <h3>Konwencje projektu</h3>
+          <ul>
+            <li>Ścieżki w kodzie przez helper <code>get_project_root()</code> — nigdy relative <code>../</code></li>
+            <li>Polskie komunikaty użytkownika, angielskie komentarze w kodzie</li>
+            <li>Testy w <code>backend/tests/unit/</code> i <code>backend/tests/integration/</code></li>
+            <li>Brak <code>print()</code> w produkcyjnym kodzie — logi przez moduł <code>logging</code></li>
+            <li>Launcher uruchamiany przez <code>pythonw.exe</code> z <code>CREATE_NO_WINDOW</code> (bez konsoli)</li>
+            <li>Zasada: reaktywne zmiany na realne zgłoszenia, nie prewencyjne</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    /* === Theme toggle === */
+    const THEME_KEY = 'doc-theme';
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIcon = themeToggle.querySelector('i');
+    function applyTheme(theme) {
+      document.body.classList.toggle('light-mode', theme === 'light');
+      themeIcon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+    }
+    themeToggle.addEventListener('click', () => {
+      const next = document.body.classList.contains('light-mode') ? 'dark' : 'light';
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+    applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+    /* === Fullscreen toggle === */
+    const fullscreenToggle = document.getElementById('fullscreen-toggle');
+    const fullscreenIcon = fullscreenToggle.querySelector('i');
+    function updateFullscreenIcon() {
+      fullscreenIcon.className = document.fullscreenElement ? 'fas fa-compress' : 'fas fa-expand';
+    }
+    fullscreenToggle.addEventListener('click', () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+      else document.exitFullscreen();
+    });
+    document.addEventListener('fullscreenchange', updateFullscreenIcon);
+  </script>
+</body>
+
+</html>

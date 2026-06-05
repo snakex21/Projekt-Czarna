@@ -1,0 +1,77 @@
+# ==========================================================================
+# .gitignore — Projekt Mapa Czarna
+# Wyklucza pliki wrażliwe, lokalne dane, cache i backupy.
+# ==========================================================================
+
+# === Wrażliwe dane (hasła, klucze) ===
+.env
+.postgres.env
+*.env.local
+*.env.*.local
+
+# === Lokalna baza danych i backupy ===
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/*.bak
+data/*.bak_*
+data/*.backup
+backups/
+data/launcher_ui_settings.json
+
+# === Dane per miejscowości ===
+# Foldery per miejscowość (np. Czarna) commitowane — JSONy z danymi historycznymi
+# są przydatne dla developerów. Nowe instancje tworzy launcher.
+
+# Wrażliwe pliki wewnątrz lokacji (nawet jeśli folder lokacji jest commitowany)
+data/locations/**/.env
+data/locations/**/launcher_db_config.json
+data/locations/**/mapa.jpg
+data/locations/**/parcels_data_backup_*.json
+data/locations/**/owner_data_to_import.json
+
+# Foldery ze zdjęciami (duże, specyficzne dla instancji)
+data/locations/**/protokoly/
+data/locations/**/history_photos/
+data/locations/**/point_photos/
+
+# Baza SQLite z lokacjami (binarna, generowana)
+data/locations.db
+
+# === Cache i logi instalacyjne ===
+cache/
+.runtime/
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# === IDE i edytory ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Pliki tymczasowe ===
+*.tmp
+*.temp
+*.bak
+*.log
+*.pid
+
+# === Archiwum prywatne (materiały z obrony itp.) ===
+archive/z-obrony/
