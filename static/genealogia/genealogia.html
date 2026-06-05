@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indeks Osób - Genealogia</title>
+    <!-- Favicon -->
+    <link rel="icon" href="/location_favicon" type="image/x-icon">
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="genealogia.css">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="gradient-sphere sphere-1"></div>
+        <div class="gradient-sphere sphere-2"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <a href="../strona_glowna/index.html" class="brand">
+                <div class="logo-animated">
+                    <i class="fas fa-tree"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Genealogia</h1>
+                </div>
+            </a>
+            <nav class="header-nav">
+                <a href="../mapa/mapa.html" class="nav-pill">
+                    <i class="fas fa-map"></i>
+                    <span>Mapa</span>
+                </a>
+                <a href="../strona_glowna/index.html" class="nav-pill">
+                    <i class="fas fa-home"></i>
+                    <span>Start</span>
+                </a>
+                <a href="../wlasciciele/stats.html" class="nav-pill">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Statystyki</span>
+                </a>
+                <a href="../graf/graf.html" class="nav-pill">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>Graf</span>
+                </a>
+
+                <div style="width: 1px; height: 24px; background: var(--border); margin: 0 0.5rem;"></div>
+                <a href="mapa_rodzin.html" class="icon-btn" title="Mapa Rodzin - wizualizacja powiązań">
+                    <i class="fas fa-sitemap"></i>
+                </a>
+                <button id="themeToggle" class="icon-btn" title="Zmień motyw">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="search-container" style="display: flex; gap: 10px; align-items: center;">
+                    <div style="position: relative; flex: 2;">
+                        <i class="fas fa-search search-icon"
+                            style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-tertiary);"></i>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Szukaj osoby, rocznika..."
+                            style="width: 100%; padding-left: 2.5rem;">
+                    </div>
+                    <div style="position: relative; flex: 1; max-width: 100px;">
+                        <input type="text" id="houseInput" class="search-input" placeholder="Dom"
+                            style="width: 100%; text-align: center;">
+                    </div>
+                </div>
+                <div class="filter-tags">
+                    <div class="filter-tag active" data-filter="all">Wszyscy</div>
+                    <div class="filter-tag" data-filter="men">Mężczyźni</div>
+                    <div class="filter-tag" data-filter="women">Kobiety</div>
+                    <div class="filter-tag" data-filter="infants">Niemowlęta</div>
+                </div>
+                <div
+                    style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-tertiary); display: flex; justify-content: space-between; font-weight: 600;">
+                    <span>ZNALEZIONO: <strong id="countDisplay" style="color: var(--text-primary)">0</strong></span>
+                    <span id="loadingIndicator" style="display: none;"><i class="fas fa-spinner fa-spin"></i>
+                        POBIERANIE...</span>
+                </div>
+            </div>
+            <div id="peopleList" class="people-list">
+                <!-- Lista generowana przez JS -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div id="profileContainer" class="profile-card" style="display: none;">
+                <!-- Profil generowany przez JS -->
+            </div>
+            <div id="emptyState" class="empty-state">
+                <i class="fas fa-user-circle"></i>
+                <h2>Wybierz osobę z listy</h2>
+                <p>Kliknij na osobę po lewej stronie, aby zobaczyć szczegóły.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="genealogia.js"></script>
+</body>
+
+</html>

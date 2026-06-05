@@ -1,0 +1,22 @@
+# Backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.25.0
+sqlalchemy[asyncio]>=2.0
+pydantic>=2.0
+python-dotenv>=1.0
+
+# PostgreSQL (główna baza)
+asyncpg>=0.29.0
+psycopg2-binary>=2.9
+
+# SQLite (opcjonalna)
+aiosqlite>=0.19.0
+
+# Testy
+pytest>=8.0
+httpx>=0.26.0
+
+# Inne
+Pillow>=10.0
+requests>=2.31
+matplotlib>=3.7

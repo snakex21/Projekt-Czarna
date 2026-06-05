@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interaktywny edytor mapy katastralnej">
+    <title>Edytor Mapy Katastralnej</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="https://img.icons8.com/color/48/map.png" type="image/x-icon">
+
+    <!-- MAP CONFIG from Flask -->
+    <script>
+        window.MAP_CONFIG = JSON.parse('{{ map_config_data | tojson | safe }}');
+    </script>
+
+    <!-- Fonts & Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- MapLibre GL -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <!-- Mapbox GL Draw compatibility shim -->
+    <script>window.mapboxgl = maplibregl;</script>
+
+    <!-- Mapbox GL Draw (kompatybilny z MapLibre) -->
+    <link rel="stylesheet" href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.css">
+    <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js"></script>
+
+    <!-- Turf.js dla narzędzi geoprzestrzennych -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../static/style.css?v=backup-layout-api-fix">
+</head>
+<body>
+    <div class="background-gradient"></div>
+
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="top-bar">
+            <div class="brand">
+                <i class="fas fa-map-marked-alt"></i>
+                <h1>Edytor Mapy Katastralnej</h1>
+            </div>
+            <div class="top-bar-info">
+                <span id="currentDate"></span>
+                <span id="currentTime" style="margin-left: 0.5rem; font-weight: 600;"></span>
+            </div>
+            <div class="controls">
+                <button id="themeToggle" class="theme-btn" title="Przełącz motyw"><i class="fas fa-moon"></i></button>
+                <button id="open-backup-manager" class="btn-secondary"><i class="fas fa-history"></i> Backupy</button>
+                <button id="exitServerBtn" class="btn-danger"><i class="fas fa-power-off"></i> Wyjście</button>
+            </div>
+        </header>
+
+        <!-- CATEGORY TOOLBAR -->
+        <div id="top-toolbar">
+            <div id="create-actions">
+                <span class="toolbar-label"><i class="fas fa-plus-circle"></i> Nowy obiekt:</span>
+                <button data-category="budowlana"><i class="fas fa-home"></i> Budowlana</button>
+                <button data-category="rolna"><i class="fas fa-seedling"></i> Rolna</button>
+                <button data-category="droga"><i class="fas fa-road"></i> Droga</button>
+                <button data-category="rzeka"><i class="fas fa-water"></i> Rzeka</button>
+                <button data-category="las"><i class="fas fa-tree"></i> Las</button>
+                <button data-category="pastwisko"><i class="fas fa-leaf"></i> Pastwisko</button>
+                <button data-category="budynek"><i class="fas fa-building"></i> Budynek</button>
+                <button data-category="kapliczka"><i class="fas fa-church"></i> Kapliczka</button>
+                <button data-category="obiekt_specjalny"><i class="fas fa-star"></i> Obiekt spec.</button>
+                <button data-category="obrys_miejscowosci"><i class="fas fa-border-all"></i> Obrys</button>
+            </div>
+            <div id="dynamic-actions" style="display: none"></div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- MAP -->
+            <div id="map"></div>
+
+            <!-- SIDEBAR -->
+            <aside id="parcel-panel">
+                <div class="sidebar-tabs">
+                    <button class="tab-btn active" data-tab="parcels"><i class="fas fa-th-list"></i> Działki</button>
+                    <button class="tab-btn" data-tab="others"><i class="fas fa-layer-group"></i> Inne</button>
+                </div>
+
+                <div class="search-container">
+                    <input type="search" id="search-filter" placeholder="🔍 Szukaj działki..." autocomplete="off">
+                </div>
+
+                <div class="list-container">
+                    <ul id="parcel-list"></ul>
+                </div>
+
+                <div class="main-controls">
+                    <button id="delete-all-parcels-btn" class="danger">
+                        <i class="fas fa-trash-alt"></i> Usuń Wszystkie Obiekty
+                    </button>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- BACKUP MODAL -->
+    <div id="backupModal" class="modal">
+        <div class="modal-content" style="position: relative;">
+            <button class="close-button" aria-label="Zamknij">&times;</button>
+            <h2><i class="fas fa-history"></i> Kopie Zapasowe</h2>
+
+            <div class="modal-section">
+                <button id="create-backup-btn">
+                    <i class="fas fa-plus-circle"></i> Utwórz Nową Kopię
+                </button>
+            </div>
+
+            <div class="modal-section">
+                <h4 style="margin-bottom: 12px; color: var(--text-secondary);">Dostępne kopie:</h4>
+                <div id="backup-list-container">
+                    <ul id="backup-list">
+                        <li>Wczytywanie...</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXIT MODAL -->
+    <div id="exitModal" class="modal-overlay hidden">
+        <div class="modal-content" style="max-width: 450px;">
+            <h2 style="padding: 20px 24px; border-bottom: 1px solid var(--border-color);">
+                <i class="fas fa-power-off"></i> Zakończ pracę
+            </h2>
+            <div style="padding: 30px 24px; text-align: center;">
+                <p style="font-size: 1.1rem; margin-bottom: 1rem;">Czy na pewno chcesz zamknąć edytor?</p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Serwer zostanie wyłączony.</p>
+            </div>
+            <div style="padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: center; gap: 12px;">
+                <button id="confirmExitBtn" class="btn-danger"><i class="fas fa-power-off"></i> Zamknij serwer</button>
+                <button id="cancelExitBtn" class="btn-cancel">Anuluj</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- SCRIPTS -->
+    <script src="../static/editor.js?v=backup-layout-api-fix"></script>
+</body>
+</html>

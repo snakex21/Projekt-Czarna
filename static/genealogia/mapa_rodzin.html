@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Rodzin - Genealogia</title>
+    <link rel="icon" href="/location_favicon" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="mapa_rodzin.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <a href="../strona_glowna/index.html" class="brand">
+                <div class="logo-animated">
+                    <i class="fas fa-sitemap"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Mapa Rodzin</h1>
+                </div>
+            </a>
+            <nav class="header-nav">
+                <a href="genealogia.html" class="nav-pill" style="background: var(--gradient-primary); color: white;">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Powrót do Genealogii</span>
+                </a>
+                <a href="../mapa/mapa.html" class="nav-pill">
+                    <i class="fas fa-map"></i>
+                    <span>Mapa</span>
+                </a>
+                <a href="../graf/graf.html" class="nav-pill">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>Graf</span>
+                </a>
+                <a href="../wlasciciele/stats.html" class="nav-pill">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Statystyki</span>
+                </a>
+                <div style="width: 1px; height: 24px; background: var(--border); margin: 0 0.5rem;"></div>
+                <button id="themeToggle" class="icon-btn" title="Zmień motyw">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <h1 class="page-title">🌳 Mapa Rodzin</h1>
+        <p class="page-subtitle">Rodziny pogrupowane w linie rodowe (wg protoplasty)</p>
+
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <div class="stat-value" id="familiesCount">-</div>
+                <div class="stat-label">Linii Rodowych</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="personsCount">-</div>
+                <div class="stat-label">Osób</div>
+            </div>
+        </div>
+
+        <!-- Dwie wyszukiwarki -->
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+            <div class="search-container" style="margin-bottom: 0;">
+                <i class="fas fa-users search-icon"></i>
+                <input type="text" id="familySearchInput" class="search-input" placeholder="Szukaj rodziny...">
+            </div>
+            <div class="search-container" style="margin-bottom: 0;">
+                <i class="fas fa-user search-icon"></i>
+                <input type="text" id="personSearchInput" class="search-input" placeholder="Szukaj osoby...">
+            </div>
+        </div>
+
+        <!-- Wyniki wyszukiwania osoby -->
+        <div id="personSearchResults" style="display: none; margin-bottom: 1.5rem;">
+            <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-secondary);">Znalezione osoby:</h3>
+            <div id="personResultsList" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+        </div>
+
+        <div id="loadingState" class="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Analizowanie powiązań rodzinnych...</p>
+        </div>
+
+        <div id="familiesGrid" class="families-grid" style="display: none;">
+        </div>
+    </div>
+
+    <!-- Tree Modal -->
+    <div class="tree-modal" id="treeModal">
+        <div class="tree-modal-content">
+            <div class="tree-modal-header">
+                <h2 class="tree-modal-title" id="modalTitle">Drzewo rodziny</h2>
+                <button class="close-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tree-modal-body" id="treeContainer">
+            </div>
+        </div>
+    </div>
+
+    <script src="mapa_rodzin.js"></script>
+</body>
+</html>

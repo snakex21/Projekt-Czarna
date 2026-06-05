@@ -75,3 +75,8 @@ Thumbs.db
 
 # === Archiwum prywatne (materiały z obrony itp.) ===
 archive/z-obrony/
+dokumentacja/
+
+# === Wrażliwe backupy konfiguracji ===
+backend/.env.pg_installed_backup_*
+backend/.postgres.env.pg_installed_backup_*
