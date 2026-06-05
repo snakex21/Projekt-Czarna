@@ -30,10 +30,8 @@ data/locations/**/mapa.jpg
 data/locations/**/parcels_data_backup_*.json
 data/locations/**/owner_data_to_import.json
 
-# Foldery ze zdjęciami (duże, specyficzne dla instancji)
-data/locations/**/protokoly/
-data/locations/**/history_photos/
-data/locations/**/point_photos/
+# Foldery ze zdjęciami (protokoły właścicieli, historyczne fotografie) COMMITOWANE
+# Są specyficzne dla instancji ale stanowią integralną część danych projektu.
 
 # Baza SQLite z lokacjami (binarna, generowana)
 data/locations.db
