@@ -22,6 +22,10 @@ backend/tests/e2e/          ~70 testów   (Playwright - przeglądarka)
 ### Cały pakiet
 
 ```bash
+# Instalacja zależności całego zestawu i przeglądarki
+python -m pip install -r requirements-test.txt
+python -m playwright install chromium
+
 # Stabilny zestaw CI
 python -m pytest backend/tests/ \
   --ignore=backend/tests/integration/test_add_edit_location_dialog_photos.py \

@@ -4,6 +4,7 @@ uvicorn[standard]>=0.25.0
 sqlalchemy[asyncio]>=2.0
 pydantic>=2.0
 python-dotenv>=1.0
+Werkzeug>=3.0
 
 # PostgreSQL (główna baza)
 asyncpg>=0.29.0

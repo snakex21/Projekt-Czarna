@@ -206,6 +206,10 @@ Dokumentacja akademicka (praca inżynierska):
 ### Uruchomienie testów
 
 ```bash
+# Instalacja zależności całego zestawu i przeglądarki
+python -m pip install -r requirements-test.txt
+python -m playwright install chromium
+
 # Stabilny pakiet CI (pomija znane flaky/środowiskowe testy)
 python -m pytest backend/tests/ \
   --ignore=backend/tests/integration/test_add_edit_location_dialog_photos.py \

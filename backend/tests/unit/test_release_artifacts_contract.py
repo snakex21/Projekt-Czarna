@@ -73,3 +73,14 @@ def test_readme_mentions_release_artifacts():
     assert "LICENSE" in text
     assert "CHANGELOG.md" in text
     assert "CONTRIBUTING.md" in text
+
+
+def test_ci_installs_browser_test_dependencies():
+    requirements = _read("requirements-test.txt")
+    assert "-r requirements.txt" in requirements
+    assert "pytest-playwright>=" in requirements
+    assert "playwright>=" in requirements
+    assert "Werkzeug>=" in _read("requirements.txt")
+    workflow = _read(".github/workflows/ci.yml")
+    assert "-r requirements-test.txt" in workflow
+    assert "python -m playwright install chromium" in workflow

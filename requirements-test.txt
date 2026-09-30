@@ -1,0 +1,4 @@
+# Pełny zestaw testów, w tym istniejące testy przeglądarkowe.
+-r requirements.txt
+playwright>=1.40
+pytest-playwright>=0.4.4
