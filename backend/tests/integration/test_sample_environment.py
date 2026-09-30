@@ -7,8 +7,8 @@ from backend import config
 
 
 def test_app_database_matches_shared_test_environment():
-    assert Path(config.DB_PATH) == Path(os.environ["DB_PATH"])
-    assert config.BACKUP_DIR == Path(os.environ["BACKUP_DIR"])
+    assert Path(config.DB_PATH).samefile(os.environ["DB_PATH"])
+    assert config.BACKUP_DIR.samefile(os.environ["BACKUP_DIR"])
     assert config.BACKUP_DIR != config.BASE_DIR / "data" / "locations"
 
 
