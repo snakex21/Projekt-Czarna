@@ -64,7 +64,7 @@ EXPECTED_REQUIRED_WIDGETS = (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def hidden_root():
     """Tworzy ukryty root Tk i sprząta po teście."""
     root = tk.Tk()
@@ -90,7 +90,11 @@ def db_dialog(hidden_root):
         on_error=lambda level, msg: refs["on_errors"].append((level, msg)),
     )
     dlg.update_idletasks()
-    return dlg, refs
+    try:
+        yield dlg, refs
+    finally:
+        dlg.destroy()
+        hidden_root.update_idletasks()
 
 
 # === Testy geometrii okna ===

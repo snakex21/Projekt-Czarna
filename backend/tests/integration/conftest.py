@@ -2,17 +2,14 @@
 Wspoldzielone fixtures dla testow integracyjnych.
 
 Integracja = prawdziwe flow HTTP przez FastAPI TestClient, z testowa baza
-(kopia data/czarna.db do tmp). Auth jest WYMUSZONY (ADMIN_AUTH_ENABLED=true)
+(fikcyjne rekordy w tymczasowej SQLite). Auth jest WYMUSZONY (ADMIN_AUTH_ENABLED=true)
 zeby testowac sciezke logowania.
 
-NIE koliduje z unit suite - ma wlasny TestClient i wlasna baze w tmp.
+Ma własny TestClient i współdzieli syntetyczną bazę procesu pytest z unit suite.
 Uruchamiane przez: python -m pytest backend/tests/integration -v
 """
 import os
 import sys
-import shutil
-import tempfile
-import atexit
 import uuid
 import pytest
 
@@ -28,26 +25,7 @@ if project_root not in sys.path:
 os.environ["ADMIN_AUTH_ENABLED"] = "1"
 os.environ["ADMIN_USERNAME"] = "admin"
 
-# Kopia bazy do tmp
-_test_tmp_dir = tempfile.mkdtemp(prefix="mapa_int_db_")
-_source_db = os.path.join(project_root, "data", "czarna.db")
-_test_db = os.path.join(_test_tmp_dir, "czarna-integration.db")
-if os.path.exists(_source_db):
-    shutil.copy2(_source_db, _test_db)
-else:
-    open(_test_db, "a", encoding="utf-8").close()
-
-os.environ["DB_ENGINE"] = "sqlite"
-os.environ["DB_PATH"] = _test_db
-os.environ.setdefault("TEST_LOCATION", "Czarna")
-
-
-def _cleanup_test_db():
-    shutil.rmtree(_test_tmp_dir, ignore_errors=True)
-
-
-atexit.register(_cleanup_test_db)
-
+# Syntetyczna baza i konfiguracja powstają w backend/tests/conftest.py.
 
 # 2. Import aplikacji (po env setup)
 from backend.main import app

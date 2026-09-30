@@ -170,8 +170,9 @@ Pełna weryfikacja: E2E z Playwright.
 
 ### Root (`backend/tests/conftest.py`)
 
-- **DB testowa:** `tempfile.mkdtemp(prefix="mapa_unit_db_")` + kopia `data/czarna.db`
-  → env `DB_ENGINE=sqlite`, `DB_PATH=...`.
+- **DB testowa:** nowy plik SQLite w katalogu tymczasowym, schemat produkcyjny i małe fikcyjne rekordy z `backend/tests/sample_data.py`. Baza użytkownika nie jest kopiowana.
+- **Pliki miejscowości:** tymczasowe `.env`, genealogia oraz wygenerowane obrazy mapy i ikony; wybierane przez `BACKUP_DIR`.
+- **E2E:** osobna syntetyczna baza i katalog miejscowości dla podprocesu serwera.
 - **Czyszczenie:** `atexit.register(shutil.rmtree)`.
 
 ### Unit (`backend/tests/unit/conftest.py`)

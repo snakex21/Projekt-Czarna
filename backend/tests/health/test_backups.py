@@ -1,16 +1,19 @@
-﻿import os
+import os
 import json
 import pytest
 import time
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from backend.config import BACKUP_DIR
+
+# Ten sam tymczasowy katalog z fikcyjnymi danymi co pozostałe testy.
+# Pliki .env użytkownika nie są częścią kontraktu czystego checkoutu.
 
 def get_active_location():
     return os.environ.get('TEST_LOCATION', 'Czarna')
 
 def test_backup_folder_exists():
     """Sprawdza czy katalog backup w ogóle istnieje."""
-    backup_path = os.path.join(BASE_DIR, "data", "locations")
+    backup_path = str(BACKUP_DIR)
     if not os.path.exists(backup_path):
         pytest.fail(f"❌ Katalog BACKUP nie istnieje w lokalizacji: {backup_path}")
     print(f"\n🏰 Katalog backup znaleziony: {backup_path}")
@@ -18,7 +21,7 @@ def test_backup_folder_exists():
 def test_location_data_files_present():
     """Sprawdza czy kluczowe pliki dla aktywnej lokacji są obecne."""
     location = get_active_location()
-    loc_path = os.path.join(BASE_DIR, "data", "locations", location)
+    loc_path = os.path.join(BACKUP_DIR, location)
     
     if not os.path.exists(loc_path):
         pytest.fail(f"❌ Brak folderu danych dla miejscowości: {location}")
@@ -37,7 +40,7 @@ def test_location_data_files_present():
 def test_backup_file_integrity():
     """Weryfikuje czy pliki danych nie są uszkodzone (czy można je sparsować)."""
     location = get_active_location()
-    path = os.path.join(BASE_DIR, "data", "locations", location, "genealogia.json")
+    path = os.path.join(BACKUP_DIR, location, "genealogia.json")
     
     # 1. Sprawdzenie rozmiaru
     size = os.path.getsize(path)
@@ -59,7 +62,7 @@ def test_backup_file_integrity():
 def test_recent_modification():
     """Sprawdza czy dane były ostatnio modyfikowane (czy backup jest 'żywy')."""
     location = get_active_location()
-    path = os.path.join(BASE_DIR, "data", "locations", location, "genealogia.json")
+    path = os.path.join(BACKUP_DIR, location, "genealogia.json")
     
     mtime = os.path.getmtime(path)
     diff_days = (time.time() - mtime) / (24 * 3600)

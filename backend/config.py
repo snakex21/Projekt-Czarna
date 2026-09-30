@@ -93,7 +93,7 @@ ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "")
 # albo PRODUCTION=1.
 PRODUCTION = os.getenv("PRODUCTION", "0") == "1" or os.getenv("ENVIRONMENT", "").lower() == "production"
 ACTIVE_LOCATION = os.getenv("ACTIVE_LOCATION") or os.getenv("TEST_LOCATION", "Czarna")
-BACKUP_DIR = BASE_DIR / "data" / "locations"
+BACKUP_DIR = Path(os.getenv("BACKUP_DIR", str(BASE_DIR / "data" / "locations"))).resolve()
 DATA_DIR = BASE_DIR / "data"
 
 # Ścieżki
