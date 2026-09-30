@@ -78,7 +78,6 @@ app.include_router(admin.router)
 app.include_router(admin_auth.router)
 app.include_router(historical_points.router)
 app.include_router(diagnostics.router)
-app.include_router(static_files.router)
 
 
 @app.get("/api/health")
@@ -89,3 +88,7 @@ async def health():
         "db_engine": DB_ENGINE,
         "location": ACTIVE_LOCATION,
     }
+
+
+# Catch-all musi być ostatni, również po endpointach aplikacji.
+app.include_router(static_files.router)

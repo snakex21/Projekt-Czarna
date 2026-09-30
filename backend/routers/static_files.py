@@ -4,8 +4,17 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from ..config import BASE_DIR, ACTIVE_LOCATION, BACKUP_DIR
+from ..services.static_paths import resolve_public_path
 
 router = APIRouter(tags=["static"])
+
+
+def _public_path(root: Path, filename: str) -> Path:
+    """Zamienia niedozwolone ścieżki na zwykłą odpowiedź 404."""
+    try:
+        return resolve_public_path(root, filename)
+    except (ValueError, OSError, RuntimeError):
+        raise HTTPException(status_code=404, detail="Not found")
 
 
 @router.get("/location_map")
@@ -56,7 +65,7 @@ async def legacy_map_image():
 @router.get("/history_photos/{filename:path}")
 async def history_photo(filename: str):
     """Serwuje zdjecia historyczne z folderu backup/aktywnej_miejscowosci/history_photos."""
-    photo_path = BACKUP_DIR / ACTIVE_LOCATION / "history_photos" / filename
+    photo_path = _public_path(BACKUP_DIR / ACTIVE_LOCATION / "history_photos", filename)
     if photo_path.exists() and photo_path.is_file():
         return FileResponse(photo_path)
     raise HTTPException(status_code=404, detail="Photo not found")
@@ -69,7 +78,7 @@ async def point_photo(filename: str):
     Osobny folder od galerii (``/history_photos/``) - tu są pliki przypisane
     do markerów na mapie (dworzec, kapliczka, …). UI: ``static/mapa/historical_points.js``.
     """
-    photo_path = BACKUP_DIR / ACTIVE_LOCATION / "point_photos" / filename
+    photo_path = _public_path(BACKUP_DIR / ACTIVE_LOCATION / "point_photos", filename)
     if photo_path.exists() and photo_path.is_file():
         return FileResponse(photo_path)
     raise HTTPException(status_code=404, detail="Point photo not found")
@@ -86,7 +95,7 @@ async def protocol_scan(owner_key: str, filename: str):
     if not filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
-    scan_path = BACKUP_DIR / ACTIVE_LOCATION / "protokoly" / owner_key / filename
+    scan_path = _public_path(BACKUP_DIR / ACTIVE_LOCATION / "protokoly", f"{owner_key}/{filename}")
     if scan_path.exists() and scan_path.is_file():
         return FileResponse(scan_path, media_type=_scan_media_type(scan_path))
     raise HTTPException(status_code=404, detail="Protocol scan not found")
@@ -107,7 +116,7 @@ def _scan_media_type(path: Path) -> str:
 @router.get("/dokumentacja/{filename:path}")
 async def serve_dokumentacja(filename: str):
     """Serwuje pliki dokumentacji papierowej (PDF, DOCX)."""
-    doc_path = BASE_DIR / "dokumentacja" / filename
+    doc_path = _public_path(BASE_DIR / "dokumentacja", filename)
     if doc_path.exists() and doc_path.is_file():
         return FileResponse(doc_path)
     raise HTTPException(status_code=404, detail="Document not found")
@@ -213,7 +222,7 @@ async def serve_static(filename: str):
         elif pattern in filename:
             raise HTTPException(status_code=404, detail="Not found")
 
-    file_path = FRONTEND_DIR / filename
+    file_path = _public_path(FRONTEND_DIR, filename)
     if file_path.exists() and file_path.is_file():
         return FileResponse(file_path, headers={"Cache-Control": "no-store"})
     index_path = BASE_DIR / "static" / "strona_glowna" / "index.html"
