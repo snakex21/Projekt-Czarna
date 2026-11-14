@@ -4,9 +4,10 @@
 
 ## 1. Statystyki
 
-**Stan na czerwiec 2026:** stabilna regresja CI: **833 testów przechodzi + 8 skipped**
-(PostgreSQL E2E auto-skip bez konfiguracji PG). Kilka pre-existing testów
-środowiskowych/flaky jest pomijanych w CI do czasu osobnej naprawy.
+**Stan na listopad 2026 (v2.0.0):** pełny zestaw `backend/tests/` (unit + integration +
+e2e Playwright) daje **1290 passed, 10 skipped** (Windows, Python 3.13). Pominięte są testy
+PostgreSQL E2E bez skonfigurowanego PG. CI uruchamia cały zestaw **bez `--ignore`**:
+dawne niestabilne testy (pętla zdarzeń, kolejność testów Tk, ścieżki `%TEMP%`) są naprawione.
 
 Po P2.8 Etap 16 szybki kontrakt centrum analitycznego ma **63 passed**, a pakiet
 kontraktów publicznych modułów właścicieli + admin frontend ma **149 passed**.
@@ -22,18 +23,14 @@ backend/tests/e2e/          ~70 testów   (Playwright - przeglądarka)
 ### Cały pakiet
 
 ```bash
-# Instalacja zależności całego zestawu i przeglądarki
-python -m pip install -r requirements-test.txt
+# Instalacja zależności całego zestawu (wersje przypięte jak w CI) i przeglądarki
+python -m pip install -r requirements.txt -r requirements-test.txt -c requirements-test-lock.txt
 python -m playwright install chromium
 
-# Stabilny zestaw CI
-python -m pytest backend/tests/ \
-  --ignore=backend/tests/integration/test_add_edit_location_dialog_photos.py \
-  --ignore=backend/tests/unit/test_add_edit_location_dialog_photos.py \
-  --ignore=backend/tests/unit/test_db_helpers.py \
-  --ignore=backend/tests/unit/test_diagnostics_service.py
+# Pełny zestaw - to samo co CI (bez --ignore)
+python -m pytest backend/tests/
 
-# Szybko (unit + integration; może ujawnić znane flaky opisane wyżej)
+# Szybko (unit + integration, bez przeglądarki)
 python -m pytest backend/tests/unit/ backend/tests/integration/
 
 # Verbose z listą wszystkich testów
@@ -171,6 +168,7 @@ Pełna weryfikacja: E2E z Playwright.
 ### Root (`backend/tests/conftest.py`)
 
 - **DB testowa:** nowy plik SQLite w katalogu tymczasowym, schemat produkcyjny i małe fikcyjne rekordy z `backend/tests/sample_data.py`. Baza użytkownika nie jest kopiowana.
+- **Autoryzacja:** `ADMIN_AUTH_ENABLED=1` jest wymuszone, a `ADMIN_AUTH_INSECURE_DISABLE` usunięte z env. Na każdą sesję pytest losowane jest hasło admina (prawdziwy hash Werkzeug) i losowy `SECRET_KEY`. Backend nie ma żadnej furtki testowej: testy logują się przez `POST /api/admin/login` (`backend/tests/auth_helpers.py`).
 - **Pliki miejscowości:** tymczasowe `.env`, genealogia oraz wygenerowane obrazy mapy i ikony; wybierane przez `BACKUP_DIR`.
 - **E2E:** osobna syntetyczna baza i katalog miejscowości dla podprocesu serwera.
 - **Czyszczenie:** `atexit.register(shutil.rmtree)`.
@@ -183,7 +181,8 @@ Pełna weryfikacja: E2E z Playwright.
 
 ### Integration (`backend/tests/integration/conftest.py`)
 
-- **`admin_client`** fixture: klient FastAPI zalogowany jako admin (cookie session).
+- **`admin_client`** fixture: klient FastAPI zalogowany prawdziwym logowaniem
+  (`POST /api/admin/login`, token w ciasteczku `admin_token`).
 - **`client`** fixture: klient bez logowania (do testów publicznych endpointów).
 - **`monkeypatch`** dla `config.ADMIN_AUTH_ENABLED`, `config.SECRET_KEY`, itd.
 
@@ -275,8 +274,8 @@ def get_network_security_warnings() -> list:
 ### Krok 3: Regresja (cały pakiet)
 
 ```bash
-python -m pytest backend/tests/unit/ backend/tests/integration/
-# 468 passed in 8.24s
+python -m pytest backend/tests/
+# 1290 passed, 10 skipped (listopad 2026)
 ```
 
 ### Krok 4: Refactor (opcjonalnie)

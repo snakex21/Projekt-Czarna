@@ -2,7 +2,7 @@
 
 Historia istotnych zmian w projekcie **Mapa Katastralna Czarna**.
 
-## 2.0.0 — niewydane (gałąź `fix/security-v2`)
+## 2.0.0 — 2026-11-14
 
 ### Bezpieczeństwo (zmiany łamiące zgodność)
 
@@ -23,8 +23,29 @@ Historia istotnych zmian w projekcie **Mapa Katastralna Czarna**.
   żądania (413), nagłówki bezpieczeństwa, kontrola `Origin`, CORS domyślnie wyłączony,
   404 dla nieznanych `/api/*`, błędy 500 bez treści wyjątków.
 
+### Migracja z 1.x
+
+1. Ustaw hasło administratora: `python -m backend.scripts.set_admin_password`
+   (albo w launcherze: **🔐 Ustawienia Administratora**). Bez hasła akcje admina zwracają 403.
+2. `ADMIN_AUTH_ENABLED=0` w starych `.env` nie wyłącza już logowania. Jeśli naprawdę
+   potrzebujesz serwera bez logowania (tylko lokalnie, do testów), dopisz
+   `ADMIN_AUTH_INSECURE_DISABLE=1`; przy `PRODUCTION=1` serwer się wtedy nie uruchomi.
+3. Usuń z `.env` stare `SECRET_KEY` typu `dev-secret-change-me` (są ignorowane; klucz
+   generuje się sam w `SECRET_KEY_FILE`). Wszyscy admini muszą zalogować się ponownie.
+4. Zainstaluj zależności z przypiętymi wersjami:
+   `pip install -r requirements.txt -c requirements-lock.txt`.
+
+### Launcher
+
+- Usunięto niedziałający przełącznik „Włącz wymaganie logowania” (okno ustawień admina
+  i edytor `.env`). Launcher pokazuje teraz, że logowanie jest zawsze włączone, i jak je
+  wyłączyć do testów (`ADMIN_AUTH_INSECURE_DISABLE=1`). Ręcznie ustawiona flaga jest
+  zachowywana przy zapisie `.env`, a zmiana loginu lub hasła restartuje działający backend.
+
 ### Dodano
 
+- Przypięte wersje zależności: `requirements-lock.txt` i `requirements-test-lock.txt`
+  (uv `--universal`). CI instaluje je jako constraints i audytuje lock przez `pip-audit`.
 - Seed danych demo: `python -m backend.scripts.seed_demo` lub `SEED_DEMO_DATA=1`.
 - Domyślny `DB_ENGINE=sqlite` - świeży klon działa bez PostgreSQL.
 - CI: lint (ruff), `pip-audit`, pełny zestaw testów bez `--ignore`.

@@ -39,7 +39,7 @@ cd Projekt-Czarna
 # 2. Środowisko i zależności
 python -m venv .venv
 # Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -c requirements-lock.txt
 
 # 3. Konfiguracja (opcjonalna - domyślnie SQLite w data/czarna.db)
 cp backend/.env.example backend/.env
@@ -278,7 +278,7 @@ Dokumentacja akademicka (praca inżynierska) nie jest częścią repozytorium
 
 ```bash
 # Instalacja zależności całego zestawu i przeglądarki
-python -m pip install -r requirements-test.txt
+python -m pip install -r requirements.txt -r requirements-test.txt -c requirements-test-lock.txt
 python -m playwright install chromium
 
 # Pełny zestaw (to samo co CI). Testy tworzą własną bazę i losowe hasło admina
@@ -290,7 +290,7 @@ python -m pytest backend/tests/ --ignore=backend/tests/e2e
 
 # Lint i audyt zależności (jak w CI)
 ruff check .
-pip-audit -r requirements.txt -r requirements-test.txt
+pip-audit -r requirements-test-lock.txt --no-deps --disable-pip
 
 # Konkretny moduł
 python -m pytest backend/tests/unit/test_diagnostics_service.py
@@ -322,9 +322,19 @@ python launcher/launcher_app.py
 ### Zależności
 
 `requirements.txt` podaje minimalne wersje bez znanych podatności (pip-audit).
-Zestaw przetestowany (listopad 2026, Python 3.13): fastapi 0.162.7, starlette 1.10.0,
-pydantic 2.14.3, uvicorn 0.54.0, SQLAlchemy 2.1.8, Werkzeug 3.1.9, Pillow 13.0.0,
-requests 2.34.2. CI uruchamia `pip-audit` przy każdym pushu.
+Dokładnie przetestowane wersje (z zależnościami pośrednimi) są przypięte w
+`requirements-lock.txt` (aplikacja) i `requirements-test-lock.txt` (aplikacja + testy);
+instaluj je jako constraints (`-c`), jak w CI. Zestaw z listopada 2026 (Python 3.13):
+fastapi 0.162.7, starlette 1.10.0, pydantic 2.14.3, uvicorn 0.54.0, SQLAlchemy 2.1.8,
+Werkzeug 3.1.9, Pillow 13.0.0, requests 2.34.2. CI uruchamia `pip-audit` na pliku lock
+przy każdym pushu.
+
+Odświeżenie locków po zmianie `requirements*.txt`:
+
+```bash
+uv pip compile --universal --python-version 3.13 --no-header --annotation-style line requirements.txt -o requirements-lock.txt
+uv pip compile --universal --python-version 3.13 --no-header --annotation-style line requirements-test.txt -o requirements-test-lock.txt
+```
 
 ### Konwencje kodu
 

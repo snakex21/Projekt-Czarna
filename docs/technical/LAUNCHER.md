@@ -41,7 +41,7 @@ Launcher to `Toplevel` z `ttk.Notebook` (zakładki):
 | **Aktywna miejscowość** | Wybór miejscowości + aktywacja (zapis do `data/locations.db`) |
 | **Serwer** | Start/Stop backendu (lokalny lub sieciowy) + logi |
 | **Centrum Zarządzania** | Kreator PostgreSQL, bazy danych, kalibracja mapy (planowane) |
-| **Ustawienia Administratora** | Hasło admina, logi, konfiguracja sieci |
+| **Ustawienia Administratora** | Login i hasło admina (logowanie jest zawsze włączone), logi, konfiguracja sieci |
 | **Zaawansowane** | Kreator baz, edytor właścicieli/działek/genealogii |
 | **Diagnostyka** | Szybka diagnostyka + jakość danych + bezpieczeństwo admina |
 
@@ -127,7 +127,8 @@ Kluczowe cechy:
   (przez `firewall_runtime`).
 - Binduje na `0.0.0.0` zamiast `127.0.0.1`.
 - Wyświetla dialog z adresami IP do połączenia z innych urządzeń.
-- **Priorytet 6.7:** loguje ostrzeżenie gdy `ADMIN_AUTH_ENABLED=False`.
+- **Priorytet 6.7:** loguje ostrzeżenie, gdy logowanie admina jest wyłączone
+  (`ADMIN_AUTH_ENABLED=0` **i** `ADMIN_AUTH_INSECURE_DISABLE=1`).
 
 ## 5. Konfiguracja per-miejscowość
 
@@ -142,6 +143,8 @@ ADMIN_AUTH_ENABLED=1
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=scrypt:32768:8:1$...$...
 ```
+
+`ADMIN_AUTH_ENABLED=1` jest wartością domyślną i launcher jej nie zmienia (patrz 7.3).
 
 Launcher czyta `.env` przez `env_runtime.read_env_config()` i przygotowuje
 środowisko dla procesu backendu (`prepare_process_env()`).
@@ -181,8 +184,26 @@ Każda zakładka deleguje do serwisu. UI nie pisze bezpośrednio do plików.
 ### 7.2 Tryb sieciowy (P6.7)
 
 Launcher wyświetla ostrzeżenie w konsoli serwera gdy:
-- `ADMIN_AUTH_ENABLED=False` (każdy w LAN może modyfikować dane).
-- `SECRET_KEY` to fallback (dev-secret-change-me).
+- logowanie admina jest wyłączone (`ADMIN_AUTH_ENABLED=0` i `ADMIN_AUTH_INSECURE_DISABLE=1`;
+  każdy w LAN może wtedy modyfikować dane),
+- brakuje hasła admina (`ADMIN_PASSWORD_HASH`).
+
+`SECRET_KEY` nie ma już wartości zastępczej: backend generuje losowy klucz przy pierwszym
+starcie i zapisuje go poza repozytorium (`SECRET_KEY_FILE`).
+
+### 7.3 Logowanie admina jest zawsze włączone (od 2.0.0)
+
+- W oknie **🔐 Ustawienia Administratora** i w edytorze `.env` nie ma już przełącznika
+  „Włącz logowanie”. Wcześniej zapisywał tylko `ADMIN_AUTH_ENABLED=0`, czego backend 2.0.0
+  już nie honoruje, więc przełącznik nic nie robił. Teraz okno pokazuje stan i instrukcję.
+- Hasło ustawisz w tym oknie (zapisywany jest tylko hash Werkzeug) albo z konsoli:
+  `python -m backend.scripts.set_admin_password`. Zmiana loginu lub hasła przy działającym
+  serwerze restartuje backend.
+- Wyłączenie logowania jest możliwe **tylko ręcznie**, do testów na własnym komputerze.
+  W `backend/.env` trzeba ustawić **obie** zmienne: `ADMIN_AUTH_ENABLED=0` oraz
+  `ADMIN_AUTH_INSECURE_DISABLE=1`. Przy `PRODUCTION=1` serwer z taką konfiguracją się nie
+  uruchomi. Launcher zachowuje ręcznie ustawioną flagę `ADMIN_AUTH_INSECURE_DISABLE`
+  przy zapisie `.env` i pokazuje ostrzeżenie w oknie ustawień.
 
 ## 8. Diagnostyka (Priorytet 4 + 6.5)
 
