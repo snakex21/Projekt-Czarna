@@ -9,20 +9,50 @@ def hash_admin_password(password: str) -> str:
     return generate_password_hash(password)
 
 
-def apply_admin_settings(env: dict, enabled: bool, username: str, password: str | None = None) -> tuple[str, str]:
-    """Aktualizuje słownik env ustawieniami admina.
+INSECURE_DISABLE_HINT = (
+    "Logowanie do Panelu Admina jest zawsze włączone. Wyłączyć je można tylko "
+    "ręcznie, do testów na własnym komputerze: w backend/.env ustaw "
+    "ADMIN_AUTH_ENABLED=0 oraz ADMIN_AUTH_INSECURE_DISABLE=1. Serwer z wyłączonym "
+    "logowaniem nie uruchomi się w trybie produkcyjnym."
+)
 
-    Zwraca (old_auth, new_auth).
+
+def auth_insecurely_disabled(env: dict) -> bool:
+    """True, gdy .env jawnie wyłącza logowanie (obie flagi, jak w backend/config.py)."""
+    return (
+        str(env.get('ADMIN_AUTH_ENABLED', '1')).strip() == '0'
+        and str(env.get('ADMIN_AUTH_INSECURE_DISABLE', '0')).strip() == '1'
+    )
+
+
+def auth_status_text(env: dict) -> str:
+    """Krótki opis stanu logowania admina dla launchera."""
+    if auth_insecurely_disabled(env):
+        return "⚠️ Logowanie WYŁĄCZONE w .env (ADMIN_AUTH_INSECURE_DISABLE=1) - tylko do testów lokalnych"
+    return "✅ Logowanie do Panelu Admina: zawsze włączone"
+
+
+def apply_admin_settings(env: dict, username: str, password: str | None = None) -> bool:
+    """Aktualizuje login i (opcjonalnie) hasło admina w słowniku env.
+
+    Launcher nie zmienia już ADMIN_AUTH_ENABLED: logowanie jest zawsze
+    włączone, a wyłączenie wymaga ręcznej edycji .env (patrz
+    ``INSECURE_DISABLE_HINT``). Zwraca True, gdy zmienił się login lub hasło.
     """
-    old_auth = env.get('ADMIN_AUTH_ENABLED', '1')
-    env['ADMIN_AUTH_ENABLED'] = '1' if enabled else '0'
+    changed = env.get('ADMIN_USERNAME', 'admin') != username.strip() or bool(password)
     env['ADMIN_USERNAME'] = username.strip()
     if password:
         env['ADMIN_PASSWORD_HASH'] = hash_admin_password(password)
     env.setdefault('FLASK_SECRET_KEY', '')  # pusty = backend generuje klucz poza repo
     env.setdefault('GENEALOGY_EDITOR_PORT', '5001')
     env.setdefault('PARCEL_EDITOR_PORT', '5003')
-    return old_auth, env['ADMIN_AUTH_ENABLED']
+    return changed
+
+
+def _insecure_line(env: dict) -> str:
+    """Zachowuje ręcznie ustawioną flagę ADMIN_AUTH_INSECURE_DISABLE przy zapisie."""
+    value = str(env.get('ADMIN_AUTH_INSECURE_DISABLE', '')).strip()
+    return f"ADMIN_AUTH_INSECURE_DISABLE={value}\n" if value else ""
 
 
 def format_env_content(env: dict, *, sqlite_backend_env: bool, sqlite_mode: bool) -> str:
@@ -62,10 +92,10 @@ DB_USER={env.get('DB_USER', 'postgres')}
 DB_PASSWORD={env.get('DB_PASSWORD', '')}
 DB_NAME={db_name}
 
-# Bezpieczeństwo
+# Bezpieczeństwo (logowanie admina zawsze włączone; patrz docs/technical/LAUNCHER.md)
 FLASK_SECRET_KEY={flask_secret}
 ADMIN_AUTH_ENABLED={admin_enabled}
-ADMIN_USERNAME={admin_user}
+{_insecure_line(env)}ADMIN_USERNAME={admin_user}
 ADMIN_PASSWORD_HASH={admin_hash}
 """
 
@@ -95,10 +125,10 @@ GENEALOGY_EDITOR_PORT={genealogy_editor_port}
 PARCEL_EDITOR_PORT={parcel_editor_port}
 
 # =============================================================================
-# AUTENTYKACJA ADMINISTRATORA
+# AUTENTYKACJA ADMINISTRATORA (zawsze włączona; patrz docs/technical/LAUNCHER.md)
 # =============================================================================
 ADMIN_AUTH_ENABLED={admin_enabled}
-ADMIN_USERNAME={admin_user}
+{_insecure_line(env)}ADMIN_USERNAME={admin_user}
 ADMIN_PASSWORD_HASH={admin_hash}
 """
 
