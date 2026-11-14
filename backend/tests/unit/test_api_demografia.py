@@ -7,6 +7,7 @@ Opis: Testy operacji CRUD dla API danych demograficznych.
 
 import pytest
 from backend import config as backend_config
+from backend.tests.auth_helpers import login_admin
 
 # ================================================================================
 # TESTY CRUD DLA DEMOGRAFII
@@ -15,7 +16,7 @@ from backend import config as backend_config
 def test_demografia_crud(client, monkeypatch):
     """Test pelnego cyklu CRUD dla danych demograficznych."""
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     # --- READ: Poczatkowy stan ---
     resp = client.get("/api/admin/demografia")

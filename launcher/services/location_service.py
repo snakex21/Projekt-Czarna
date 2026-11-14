@@ -430,7 +430,7 @@ DB_NAME={db_name_for_env}
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
-FLASK_SECRET_KEY=change-me-{name.lower()}-secret
+FLASK_SECRET_KEY=
 
 # =============================================================================
 # PORTY EDYTORÓW
@@ -442,7 +442,7 @@ PARCEL_EDITOR_PORT=5003
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
 # =============================================================================
-ADMIN_AUTH_ENABLED=0
+ADMIN_AUTH_ENABLED=1
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=
 

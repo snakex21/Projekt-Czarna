@@ -13,6 +13,7 @@ Wymagaja dzialajacego serwera backend (fixture 'server' z conftest.py).
 Uruchamiane przez: python -m pytest backend/tests/e2e/test_no_errors.py -v
 """
 import json
+import os
 
 from playwright.sync_api import sync_playwright
 
@@ -213,7 +214,7 @@ def test_admin_genealogy_loads_without_undefined_or_errors(server, page):
 
         if page.locator("#loginScreen").is_visible():
             page.fill("#login", "admin")
-            page.fill("#password", "admin123")
+            page.fill("#password", os.environ["MAPA_TEST_ADMIN_PASSWORD"])
             page.click("#loginForm button[type='submit']")
         page.wait_for_selector("#adminPanel:not(.hidden)", timeout=10000)
 

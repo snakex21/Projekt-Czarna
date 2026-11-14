@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_db, fetch_one, fetch_all, execute
 from ..auth import admin_required
 from ..services import admin_objects_service
+from ..core.schemas import DemographyIn, GenealogyIn, ObjectUpdateIn, OwnerIn
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -44,42 +45,35 @@ async def list_wlasciciele(db: AsyncSession = Depends(get_db)):
 
 @router.post("/wlasciciele", status_code=201)
 async def create_wlasciciel(
-    payload: dict,
+    body: OwnerIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
     """Tworzy nowego wlasciciela (wymaga auth)."""
     try:
-        fields = []
-        values = []
-        params = {}
-        for key in ["unikalny_klucz", "nazwa_wlasciciela", "numer_protokolu",
-                     "numer_domu", "genealogia", "historia_wlasnosci", "uwagi",
-                     "wspolwlasnosc", "powiazania_i_transakcje",
-                     "interpretacja_i_wnioski", "data_protokolu", "miejsce_protokolu"]:
-            if key in payload:
-                fields.append(key)
-                values.append(f":{key}")
-                params[key] = payload[key]
-        
+        # Nazwy kolumn pochodzą z białej listy w OwnerIn, wartości są parametryzowane.
+        params = body.owner_columns()
+        fields = list(params)
+        values = [f":{key}" for key in fields]
+
         if not fields:
             raise HTTPException(status_code=400, detail="Brak danych")
-        
+
         query = f"INSERT INTO wlasciciele ({', '.join(fields)}) VALUES ({', '.join(values)})"
         new_id = await execute(db, query, params)
-        
-        for typ, lista in [("rzeczywiste", payload.get("dzialki_rzeczywiste_ids", [])),
-                            ("protokol", payload.get("dzialki_protokol_ids", []))]:
+
+        for typ, lista in [("rzeczywiste", body.dzialki_rzeczywiste_ids),
+                            ("protokol", body.dzialki_protokol_ids)]:
             for obiekt_id in lista:
                 await execute(db,
                     "INSERT INTO dzialki_wlasciciele (obiekt_id, wlasciciel_id, typ_posiadania) VALUES (:oid, :wid, :typ)",
                     {"oid": obiekt_id, "wid": new_id, "typ": typ})
-        
+
         return {"id": new_id, "status": "created"}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Błąd zapisu: {type(e).__name__}") from e
 
 
 @router.get("/wlasciciele/{wlasciciel_id}")
@@ -88,7 +82,7 @@ async def get_wlasciciel(wlasciciel_id: int, db: AsyncSession = Depends(get_db))
     row = await fetch_one(db, "SELECT * FROM wlasciciele WHERE id = :id", {"id": wlasciciel_id})
     if not row:
         raise HTTPException(status_code=404, detail="Nie znaleziono")
-    
+
     links = await fetch_all(db,
         "SELECT obiekt_id, typ_posiadania FROM dzialki_wlasciciele WHERE wlasciciel_id = :wid",
         {"wid": wlasciciel_id})
@@ -99,7 +93,7 @@ async def get_wlasciciel(wlasciciel_id: int, db: AsyncSession = Depends(get_db))
 @router.put("/wlasciciele/{wlasciciel_id}")
 async def update_wlasciciel(
     wlasciciel_id: int,
-    payload: dict,
+    body: OwnerIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
@@ -107,27 +101,21 @@ async def update_wlasciciel(
     row = await fetch_one(db, "SELECT id FROM wlasciciele WHERE id = :id", {"id": wlasciciel_id})
     if not row:
         raise HTTPException(status_code=404, detail="Nie znaleziono")
-    
-    fields = []
-    params = {"id": wlasciciel_id}
-    for key in ["unikalny_klucz", "nazwa_wlasciciela", "numer_protokolu",
-                 "numer_domu", "genealogia", "historia_wlasnosci", "uwagi",
-                 "wspolwlasnosc", "powiazania_i_transakcje",
-                 "interpretacja_i_wnioski", "data_protokolu", "miejsce_protokolu"]:
-        if key in payload:
-            fields.append(f"{key} = :{key}")
-            params[key] = payload[key]
-    
+
+    columns = body.owner_columns()
+    fields = [f"{key} = :{key}" for key in columns]
+    params = {"id": wlasciciel_id, **columns}
+
     if fields:
         await execute(db, f"UPDATE wlasciciele SET {', '.join(fields)} WHERE id = :id", params)
-    
-    if "dzialki_protokol_ids" in payload:
+
+    if "dzialki_protokol_ids" in body.model_fields_set:
         await execute(db, "DELETE FROM dzialki_wlasciciele WHERE wlasciciel_id = :wid", {"wid": wlasciciel_id})
-        for obiekt_id in payload["dzialki_protokol_ids"]:
+        for obiekt_id in body.dzialki_protokol_ids:
             await execute(db,
                 "INSERT INTO dzialki_wlasciciele (obiekt_id, wlasciciel_id, typ_posiadania) VALUES (:oid, :wid, :typ)",
                 {"oid": obiekt_id, "wid": wlasciciel_id, "typ": "protokol"})
-    
+
     return {"status": "success"}
 
 
@@ -210,7 +198,7 @@ async def export_backup(db: AsyncSession = Depends(get_db), _auth=Depends(admin_
 @router.put("/obiekty/{obiekt_id}")
 async def update_obiekt(
     obiekt_id: int,
-    payload: dict,
+    body: ObjectUpdateIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
@@ -218,17 +206,14 @@ async def update_obiekt(
     row = await fetch_one(db, "SELECT id FROM obiekty_geograficzne WHERE id = :id", {"id": obiekt_id})
     if not row:
         raise HTTPException(status_code=404, detail="Nie znaleziono")
-    
-    fields = []
-    params = {"id": obiekt_id}
-    for key in ["nazwa_lub_numer", "kategoria", "geometria"]:
-        if key in payload:
-            fields.append(f"{key} = :{key}")
-            params[key] = payload[key]
-    
+
+    columns = body.columns()
+    fields = [f"{key} = :{key}" for key in columns]
+    params = {"id": obiekt_id, **columns}
+
     if fields:
         await execute(db, f"UPDATE obiekty_geograficzne SET {', '.join(fields)} WHERE id = :id", params)
-    
+
     return {"status": "success"}
 
 
@@ -271,45 +256,43 @@ async def list_genealogia(db: AsyncSession = Depends(get_db)):
 
 @router.post("/genealogia", status_code=201)
 async def create_genealogia(
-    payload: dict,
+    body: GenealogyIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
     """Tworzy nowa osobe w genealogii (wymaga auth)."""
     try:
-        imie = payload.get("imie", "")
-        nazwisko = payload.get("nazwisko", "")
-        imie_nazwisko = f"{imie} {nazwisko}".strip()
-        
+        imie_nazwisko = f"{body.imie or ''} {body.nazwisko or ''}".strip()
+
         params = {
-            "json_id": str(payload.get("id_osoby", "")),
+            "json_id": body.id_osoby or "",
             "imie_nazwisko": imie_nazwisko,
-            "plec": payload.get("plec", ""),
-            "rok_urodzenia": payload.get("rok_urodzenia"),
-            "rok_smierci": payload.get("rok_smierci"),
-            "uwagi": payload.get("uwagi", ""),
-            "numer_domu": payload.get("numer_domu", ""),
-            "id_ojca": payload.get("id_ojca"),
-            "id_matki": payload.get("id_matki"),
+            "plec": body.plec or "",
+            "rok_urodzenia": body.rok_urodzenia,
+            "rok_smierci": body.rok_smierci,
+            "uwagi": body.uwagi or "",
+            "numer_domu": body.numer_domu or "",
+            "id_ojca": body.id_ojca,
+            "id_matki": body.id_matki,
             "id_protokolu": None,
         }
-        
+
         new_id = await execute(db, """
             INSERT INTO osoby_genealogia (json_id, imie_nazwisko, plec, rok_urodzenia,
             rok_smierci, uwagi, numer_domu, id_ojca, id_matki, id_protokolu)
             VALUES (:json_id, :imie_nazwisko, :plec, :rok_urodzenia,
             :rok_smierci, :uwagi, :numer_domu, :id_ojca, :id_matki, :id_protokolu)
         """, params)
-        
+
         return {"id": new_id, "id_osoby": params["json_id"], "status": "created"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Błąd zapisu: {type(e).__name__}") from e
 
 
 @router.put("/genealogia/{person_id}")
 async def update_genealogia(
     person_id: int,
-    payload: dict,
+    body: GenealogyIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
@@ -317,11 +300,9 @@ async def update_genealogia(
     row = await fetch_one(db, "SELECT id FROM osoby_genealogia WHERE id = :id", {"id": person_id})
     if not row:
         raise HTTPException(status_code=404, detail="Nie znaleziono")
-    
-    imie = payload.get("imie", "")
-    nazwisko = payload.get("nazwisko", "")
-    imie_nazwisko = f"{imie} {nazwisko}".strip()
-    
+
+    imie_nazwisko = f"{body.imie or ''} {body.nazwisko or ''}".strip()
+
     await execute(db, """
         UPDATE osoby_genealogia SET
             imie_nazwisko = :imie_nazwisko,
@@ -336,16 +317,16 @@ async def update_genealogia(
     """, {
         "id": person_id,
         "imie_nazwisko": imie_nazwisko,
-        "plec": payload.get("plec", ""),
-        "rok_urodzenia": payload.get("rok_urodzenia"),
-        "rok_smierci": payload.get("rok_smierci"),
-        "uwagi": payload.get("uwagi", ""),
-        "numer_domu": payload.get("numer_domu", ""),
-        "id_ojca": payload.get("id_ojca"),
-        "id_matki": payload.get("id_matki"),
+        "plec": body.plec or "",
+        "rok_urodzenia": body.rok_urodzenia,
+        "rok_smierci": body.rok_smierci,
+        "uwagi": body.uwagi or "",
+        "numer_domu": body.numer_domu or "",
+        "id_ojca": body.id_ojca,
+        "id_matki": body.id_matki,
     })
-    
-    return {"status": "success", "id": person_id, "id_osoby": payload.get("id_osoby")}
+
+    return {"status": "success", "id": person_id, "id_osoby": body.id_osoby}
 
 
 @router.delete("/genealogia/{person_id}")
@@ -360,6 +341,18 @@ async def delete_genealogia(
 
 
 # === Demografia CRUD ===
+def _demography_params(body: DemographyIn) -> dict:
+    return {
+        "rok": body.rok,
+        "populacja_ogolem": body.populacja_ogolem or 0,
+        "katolicy": body.katolicy or 0,
+        "zydzi": body.zydzi or 0,
+        "inni": body.inni or 0,
+        "opis": body.opis or "",
+    }
+
+
+
 @router.get("/demografia")
 async def list_demografia(db: AsyncSession = Depends(get_db)):
     """Lista wszystkich wpisow demograficznych (publiczne)."""
@@ -368,33 +361,26 @@ async def list_demografia(db: AsyncSession = Depends(get_db)):
 
 @router.post("/demografia", status_code=201)
 async def create_demografia(
-    payload: dict,
+    body: DemographyIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
     """Tworzy nowy wpis demograficzny (wymaga auth)."""
     try:
-        params = {
-            "rok": payload.get("rok"),
-            "populacja_ogolem": payload.get("populacja_ogolem", 0),
-            "katolicy": payload.get("katolicy", 0),
-            "zydzi": payload.get("zydzi", 0),
-            "inni": payload.get("inni", 0),
-            "opis": payload.get("opis", ""),
-        }
+        params = _demography_params(body)
         new_id = await execute(db, """
             INSERT INTO demografia (rok, populacja_ogolem, katolicy, zydzi, inni, opis)
             VALUES (:rok, :populacja_ogolem, :katolicy, :zydzi, :inni, :opis)
         """, params)
         return {"id": new_id, "status": "created"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Błąd zapisu: {type(e).__name__}") from e
 
 
 @router.put("/demografia/{entry_id}")
 async def update_demografia(
     entry_id: int,
-    payload: dict,
+    body: DemographyIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
@@ -408,15 +394,7 @@ async def update_demografia(
             inni = :inni,
             opis = :opis
         WHERE id = :id
-    """, {
-        "id": entry_id,
-        "rok": payload.get("rok"),
-        "populacja_ogolem": payload.get("populacja_ogolem", 0),
-        "katolicy": payload.get("katolicy", 0),
-        "zydzi": payload.get("zydzi", 0),
-        "inni": payload.get("inni", 0),
-        "opis": payload.get("opis", ""),
-    })
+    """, {"id": entry_id, **_demography_params(body)})
     return {"status": "success"}
 
 

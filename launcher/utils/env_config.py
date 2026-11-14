@@ -94,7 +94,7 @@ FLASK_PORT=5000
 
 FLASK_DEBUG=True
 
-FLASK_SECRET_KEY=change-me-once
+FLASK_SECRET_KEY=
 
 # =============================================================================
 
@@ -114,7 +114,7 @@ PARCEL_EDITOR_PORT=5003
 
 # =============================================================================
 
-ADMIN_AUTH_ENABLED=0
+ADMIN_AUTH_ENABLED=1
 
 ADMIN_USERNAME=admin
 
@@ -225,7 +225,7 @@ def get_db_config_from_env():
 
         "user": env_config.get('DB_USER', 'postgres'),
 
-        "password": env_config.get('DB_PASSWORD', '1234'),
+        "password": env_config.get('DB_PASSWORD', ''),
 
         "port": env_config.get('DB_PORT', '5432')
 

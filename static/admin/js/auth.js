@@ -45,11 +45,30 @@
 
             // Autoryzacja jest WŁĄCZONA.
             if (elements.logoutBtn) elements.logoutBtn.classList.remove('hidden');
-            const isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
-            if (isLoggedIn) {
+
+            if (authConfig.setup_required) {
+                // Brak skonfigurowanego hasła admina - logowanie niemożliwe.
+                callbacks.showLoginScreen();
+                if (elements.loginError) {
+                    elements.loginError.textContent = authConfig.setup_instructions
+                        || 'Hasło administratora nie jest skonfigurowane.';
+                    elements.loginError.classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Stan sesji sprawdzamy na serwerze (token może wygasnąć);
+            // localStorage służy tylko jako podpowiedź UI.
+            const sessionResponse = await fetch(API.checkAuth, { credentials: 'same-origin' });
+            const session = sessionResponse.ok ? await sessionResponse.json() : { authenticated: false };
+            if (session.authenticated) {
+                localStorage.setItem('adminLoggedIn', 'true');
                 callbacks.showAdminPanel();
             } else {
+                const hadSession = localStorage.getItem('adminLoggedIn') === 'true';
+                localStorage.removeItem('adminLoggedIn');
                 callbacks.showLoginScreen();
+                if (hadSession) showToast('info', 'Sesja wygasła - zaloguj się ponownie');
             }
         } catch (error) {
             // W przypadku błędu sieci bezpieczniej jest pokazać ekran logowania.

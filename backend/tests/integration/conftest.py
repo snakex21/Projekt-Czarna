@@ -58,18 +58,12 @@ def admin_client(client):
     """Klient z zalogowanym adminem (token w cookies).
 
     Realny flow: POST /api/admin/login -> token -> cookies.
-    Dla TestClient znamy default: 'admin' / 'admin123'.
+    Haslo testowe jest losowane w backend/tests/conftest.py.
     """
-    resp = client.post(
-        "/api/admin/login",
-        json={"username": "admin", "password": "admin123"}
-    )
-    assert resp.status_code == 200, (
-        f"Logowanie nie powiodlo sie: {resp.status_code} {resp.text}"
-    )
-    assert resp.json()["status"] == "ok"
+    from backend.tests.auth_helpers import login_admin
+
     # Cookies sa automatycznie przechowywane w `client` miedzy requestami
-    return client
+    return login_admin(client)
 
 
 # Wzorzec wlasciciela do testow CRUD

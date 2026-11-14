@@ -880,8 +880,8 @@ class ProgramSettingsWindow(tk.Toplevel):
             f"Czas pobrania: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "",
         f"{auth_mark} Autoryzacja: {'WŁĄCZONA' if auth_enabled else 'WYŁĄCZONA'}",
-        f"{pw_mark} Hasło: {'własne' if (auth_enabled and not using_default_pw) else 'domyślne (admin123)' if auth_enabled else '—'}",
-        f"{key_mark} SECRET_KEY: {'własny' if not using_default_key else 'domyślny (dev-secret-change-me)'}",
+        f"{pw_mark} Hasło: {'własne' if (auth_enabled and not using_default_pw) else 'NIE USTAWIONE (edycja zablokowana)' if auth_enabled else '—'}",
+        f"{key_mark} SECRET_KEY: {'własny' if not using_default_key else 'zaślepka - usuń z .env'}",
         f"Produkcja: {prod_mark}",
         ]
         if warnings:

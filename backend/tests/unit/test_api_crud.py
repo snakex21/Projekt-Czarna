@@ -7,6 +7,7 @@ Opis: Testy operacji CRUD dla API wlascicieli.
 
 import pytest
 from backend import config as backend_config
+from backend.tests.auth_helpers import login_admin
 
 # ================================================================================
 # FUNKCJE POMOCNICZE
@@ -53,7 +54,7 @@ def _full_owner_payload(
 def test_owner_crud_and_parcel_linking_roundtrip(client, monkeypatch):
     """Test kompleksowy: CREATE -> READ -> UPDATE -> DELETE wlasciciela."""
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     # --- CREATE ---
     payload = _full_owner_payload()
@@ -106,7 +107,7 @@ def test_owner_create_missing_required_field_returns_error(client, monkeypatch):
     wiec rekord powstaje z NULL w brakujacym polu (status 201).
     """
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     bad_payload = _full_owner_payload()
     bad_payload.pop("nazwa_wlasciciela")

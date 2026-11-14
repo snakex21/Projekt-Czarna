@@ -19,11 +19,11 @@ FORM_DEFAULTS = {
     "DB_HOST": "localhost",
     "DB_PORT": "5432",
     "DB_USER": "postgres",
-    "DB_PASSWORD": "1234",
+    "DB_PASSWORD": "",
     "DB_NAME": "mapa_czarna_db",
     "ADMIN_USERNAME": "admin",
     "ADMIN_PASSWORD_HASH": "",
-    "FLASK_SECRET_KEY": "dev-secret-change-me",
+    "FLASK_SECRET_KEY": "",
 }
 
 
@@ -129,12 +129,12 @@ DB_PATH=data/czarna.db
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=postgres
-DB_PASSWORD=1234
+DB_PASSWORD=
 DB_NAME=mapa_czarna_db
 
 # Bezpieczeństwo
-FLASK_SECRET_KEY=dev-secret-change-me
-ADMIN_AUTH_ENABLED=0
+FLASK_SECRET_KEY=
+ADMIN_AUTH_ENABLED=1
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=
 """
@@ -154,7 +154,7 @@ DB_NAME=mapa_czarna_db
 FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=True
-FLASK_SECRET_KEY=change-me-once
+FLASK_SECRET_KEY=
 
 # =============================================================================
 # PORTY EDYTORÓW
@@ -166,7 +166,7 @@ PARCEL_EDITOR_PORT=5003
 # =============================================================================
 # AUTENTYKACJA ADMINISTRATORA
 # =============================================================================
-ADMIN_AUTH_ENABLED=0
+ADMIN_AUTH_ENABLED=1
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=
 """

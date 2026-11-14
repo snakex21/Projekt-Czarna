@@ -6,6 +6,7 @@ Opis: Modul testowy dla API obiektow geograficznych.
 
 import pytest
 from backend import config as backend_config
+from backend.tests.auth_helpers import login_admin
 
 # ==========================================================================
 # TESTY CRUD OBIEKTOW
@@ -14,7 +15,7 @@ from backend import config as backend_config
 def test_obiekty_list_and_update_and_delete(client, monkeypatch):
     """Test kompleksowy operacji na obiektach geograficznych."""
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     # === READ ===
     resp = client.get("/api/admin/obiekty")

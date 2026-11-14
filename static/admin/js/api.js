@@ -46,6 +46,7 @@
         protocols: '/api/admin/protocols',
         diagnostics: '/api/admin/diagnostics',
         backup: '/api/admin/export-backup',
-        authStatus: '/api/admin/auth-status'
+        authStatus: '/api/admin/auth-status',
+        checkAuth: '/api/admin/check-auth'
     });
 })();

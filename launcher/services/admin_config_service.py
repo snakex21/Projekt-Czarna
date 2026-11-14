@@ -14,12 +14,12 @@ def apply_admin_settings(env: dict, enabled: bool, username: str, password: str 
 
     Zwraca (old_auth, new_auth).
     """
-    old_auth = env.get('ADMIN_AUTH_ENABLED', '0')
+    old_auth = env.get('ADMIN_AUTH_ENABLED', '1')
     env['ADMIN_AUTH_ENABLED'] = '1' if enabled else '0'
     env['ADMIN_USERNAME'] = username.strip()
     if password:
         env['ADMIN_PASSWORD_HASH'] = hash_admin_password(password)
-    env.setdefault('FLASK_SECRET_KEY', 'change-me-once')
+    env.setdefault('FLASK_SECRET_KEY', '')  # pusty = backend generuje klucz poza repo
     env.setdefault('GENEALOGY_EDITOR_PORT', '5001')
     env.setdefault('PARCEL_EDITOR_PORT', '5003')
     return old_auth, env['ADMIN_AUTH_ENABLED']
@@ -33,10 +33,10 @@ def format_env_content(env: dict, *, sqlite_backend_env: bool, sqlite_mode: bool
     flask_host = env.get('FLASK_HOST', '127.0.0.1')
     flask_port = env.get('FLASK_PORT', '5000')
     flask_debug = env.get('FLASK_DEBUG', 'True')
-    flask_secret = env.get('FLASK_SECRET_KEY', 'change-me-once')
+    flask_secret = env.get('FLASK_SECRET_KEY', '')
     genealogy_editor_port = env.get('GENEALOGY_EDITOR_PORT', '5001')
     parcel_editor_port = env.get('PARCEL_EDITOR_PORT', '5003')
-    admin_enabled = env.get('ADMIN_AUTH_ENABLED', '0')
+    admin_enabled = env.get('ADMIN_AUTH_ENABLED', '1')
     admin_user = env.get('ADMIN_USERNAME', 'admin')
     admin_hash = env.get('ADMIN_PASSWORD_HASH', '')
     location_name = env.get('LOCATION_NAME', '')
@@ -59,7 +59,7 @@ DB_PATH={db_path}
 DB_HOST={env.get('DB_HOST', 'localhost')}
 DB_PORT={env.get('DB_PORT', '5432')}
 DB_USER={env.get('DB_USER', 'postgres')}
-DB_PASSWORD={env.get('DB_PASSWORD', '1234')}
+DB_PASSWORD={env.get('DB_PASSWORD', '')}
 DB_NAME={db_name}
 
 # Bezpieczeństwo
@@ -124,7 +124,7 @@ def save_admin_password_hash(env_path: str, new_hash: str) -> None:
     """Aktualizuje linię ``ADMIN_PASSWORD_HASH`` w pliku .env (Priorytet 6.4).
 
     Inne linie pozostają nienaruszone. Gdy linia nie istnieje - dodaje ją na końcu.
-    Gdy nowy hash jest pusty - usuwa linię (przywraca fallback ``admin123``).
+    Gdy nowy hash jest pusty - usuwa linię (akcje admina zostają zablokowane do czasu ustawienia hasła).
     """
     import os
     if not os.path.exists(env_path):

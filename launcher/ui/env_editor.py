@@ -155,14 +155,14 @@ class EnvEditor(tk.Toplevel):
         entry(db, 2, "Host PostgreSQL", "DB_HOST", "localhost")
         entry(db, 3, "Port PostgreSQL", "DB_PORT", "5432")
         entry(db, 4, "Użytkownik PostgreSQL", "DB_USER", "postgres")
-        entry(db, 5, "Hasło PostgreSQL", "DB_PASSWORD", "1234")
+        entry(db, 5, "Hasło PostgreSQL", "DB_PASSWORD", "")
         entry(db, 6, "Nazwa bazy", "DB_NAME", "mapa_czarna_db")
 
         sec = section("🔐 Bezpieczeństwo")
         ttk.Checkbutton(sec, text="Włącz logowanie administratora", variable=self.admin_enabled_var).grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
         entry(sec, 1, "Login admina", "ADMIN_USERNAME", "admin")
         entry(sec, 2, "Hash hasła admina", "ADMIN_PASSWORD_HASH", "")
-        entry(sec, 3, "Sekretny klucz", "FLASK_SECRET_KEY", "dev-secret-change-me")
+        entry(sec, 3, "Sekretny klucz (pusty = generowany automatycznie)", "FLASK_SECRET_KEY", "")
 
     def parse_env_content(self, content):
         return env_config_service.parse_env_content(content)
@@ -180,7 +180,7 @@ class EnvEditor(tk.Toplevel):
         defaults = env_config_service.form_defaults(SQLITE_MODE)
         for key, var in self.form_vars.items():
             var.set(config.get(key, defaults.get(key, "")))
-        self.admin_enabled_var.set(config.get("ADMIN_AUTH_ENABLED", "0") == "1")
+        self.admin_enabled_var.set(config.get("ADMIN_AUTH_ENABLED", "1") == "1")
 
     def sync_form_to_raw(self):
         """Przenosi wartości z formularza do surowego .env, zachowując nieznane klucze i komentarze."""

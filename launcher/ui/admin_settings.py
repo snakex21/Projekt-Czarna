@@ -39,7 +39,7 @@ class AdminSettings(tk.Toplevel):
         """Wczytuje obecne ustawienia z .env."""
         env_config = read_env_config()
 
-        self.enabled = tk.BooleanVar(value=(env_config.get('ADMIN_AUTH_ENABLED', '0') == '1'))
+        self.enabled = tk.BooleanVar(value=(env_config.get('ADMIN_AUTH_ENABLED', '1') == '1'))
         self.username = tk.StringVar(value=env_config.get('ADMIN_USERNAME', 'admin'))
         self.password = tk.StringVar(value='')
         self.env = env_config

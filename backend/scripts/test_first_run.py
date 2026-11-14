@@ -49,7 +49,7 @@ DEFAULT_PG = {
     "host": "localhost",
     "port": 5432,
     "user": "postgres",
-    "password": "12345",  # fallback
+    "password": "",  # brak domyślnego hasła - wymagane DB_PASSWORD w backend/.env
     "super_db": "postgres",  # baza do CREATE/DROP DATABASE
     "launcher_db": "mapa_launcher_db",
     "location_db": "mapa_czarna_db",
