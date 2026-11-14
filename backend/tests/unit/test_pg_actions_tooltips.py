@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT))
 try:
     import tkinter as tk
     from tkinter import ttk
+
+    from backend.tests.tk_support import new_toplevel
 except Exception as e:  # pragma: no cover
     pytest.skip(f"tkinter niedostępny: {e}", allow_module_level=True)
 
@@ -54,8 +56,7 @@ def _build_pg_actions_frame_with_tooltips(diagnostics: dict):
     """Tworzy mini panel 'PostgreSQL — operacje' z tooltips i woła update."""
     from launcher.ui.program_settings import _Tooltip, create_card, SPACING_MD, SPACING_XS
 
-    root = tk.Tk()
-    root.withdraw()
+    root = new_toplevel()  # wspólny root Tk, patrz backend/tests/tk_support.py
     parent = ttk.Frame(root)
     parent.pack()
 
@@ -219,8 +220,7 @@ def test_tooltip_for_postgis_says_action_when_available():
 def test_tooltip_set_text_updates_text():
     """Tooltip.set_text() aktualizuje tekst dynamicznie."""
     from launcher.ui.program_settings import _Tooltip
-    root = tk.Tk()
-    root.withdraw()
+    root = new_toplevel()  # wspólny root Tk, patrz backend/tests/tk_support.py
     try:
         btn = ttk.Button(root, text="X")
         btn.pack()

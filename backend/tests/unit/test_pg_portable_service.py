@@ -144,16 +144,29 @@ def test_get_pg_install_dir_returns_project_root_postgres(monkeypatch):
 
     Weryfikacja: katalog musi być względny wobec ``_find_project_root()``
     i znajdować się pod ukrytym katalogiem ``.runtime/postgres`` (bez
-    ``MapaCzarna`` w ścieżce, bo to NIE jest w AppData).
+    ``MapaCzarna`` w ścieżce, bo to NIE jest w AppData). Asercje dotyczą
+    ścieżki względnej - repozytorium może leżeć np. w ``%TEMP%``.
     """
     result = get_pg_install_dir()
     root = service._find_project_root()
     assert result == root / ".runtime" / "postgres"
-    assert "postgres" in str(result)
-    assert ".runtime" in str(result)
-    assert "MapaCzarna" not in str(result)  # nie w AppData
-    assert "AppData" not in str(result)  # nie w AppData
-    assert "Library" not in str(result)  # nie w macOS app support
+    # Sprawdzamy tylko część ścieżki POD katalogiem projektu. Sam katalog
+    # projektu może leżeć gdziekolwiek (np. klon w %TEMP% = ...\AppData\Local\Temp),
+    # więc asercje na całej ścieżce dawały fałszywe alarmy.
+    relative = result.relative_to(root)
+    assert relative.parts == (".runtime", "postgres")
+    for forbidden in ("MapaCzarna", "AppData", "Library"):
+        assert forbidden not in relative.parts  # nie w AppData / macOS app support
+
+
+def test_get_pg_install_dir_when_repo_lives_under_appdata_temp(monkeypatch):
+    """Regresja: klon w %TEMP% (C:/Users/<u>/AppData/Local/Temp/...) nie może
+    powodować fałszywego alarmu - liczy się tylko ścieżka pod katalogiem projektu."""
+    fake_root = Path("C:/Users/Test/AppData/Local/Temp/klon/Projekt-Czarna")
+    monkeypatch.setattr(service, "_find_project_root", lambda: fake_root)
+    result = get_pg_install_dir()
+    assert result == fake_root / ".runtime" / "postgres"
+    assert result.relative_to(fake_root).parts == (".runtime", "postgres")
 
 
 def test_get_pg_install_dir_is_consistent_across_platforms(monkeypatch):

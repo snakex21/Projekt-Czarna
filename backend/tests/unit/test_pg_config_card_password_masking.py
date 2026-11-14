@@ -19,6 +19,8 @@ sys.path.insert(0, str(ROOT))
 try:
     import tkinter as tk
     from tkinter import ttk
+
+    from backend.tests.tk_support import new_toplevel
 except Exception as e:  # pragma: no cover
     pytest.skip(f"tkinter niedostępny: {e}", allow_module_level=True)
 
@@ -48,8 +50,7 @@ def _build_pg_config_card_mocked():
         _change_pg_password_dialog=lambda: None,
     )
 
-    root = tk.Tk()
-    root.withdraw()
+    root = new_toplevel()  # wspólny root Tk, patrz backend/tests/tk_support.py
     parent = ttk.Frame(root)
     parent.pack()
     try:

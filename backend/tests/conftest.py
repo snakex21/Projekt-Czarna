@@ -158,3 +158,14 @@ def _reset_auth_state():
 
         clear_revoked_sessions()
         get_login_limiter().clear()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _destroy_shared_tk_root():
+    """Po każdym module niszczy wspólny root Tk (backend/tests/tk_support.py).
+
+    Inne testy sprawdzają, że import modułów launchera nie tworzy okien Tk,
+    więc root nie może przetrwać poza modułem, który go użył."""
+    yield
+    if "backend.tests.tk_support" in sys.modules:
+        sys.modules["backend.tests.tk_support"].destroy_shared_root()
