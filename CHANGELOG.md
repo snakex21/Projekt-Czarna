@@ -2,102 +2,38 @@
 
 Historia istotnych zmian w projekcie **Mapa Katastralna Czarna**.
 
-## 1.1.2 — 2026-06-04
+## 2.0.0 — niewydane (gałąź `fix/security-v2`)
 
-### Zmieniono
+### Bezpieczeństwo (zmiany łamiące zgodność)
 
-- **Lokalizacja instalacji portable PG**: z `<project_root>/postgres/`
-  (z 1.1.1) na **`<project_root>/.runtime/postgres/`**. Katalog `.runtime/`
-  jest ukryty (kropka z przodu), semantyczny (przeznaczony na lokalne
-  runtime artifacts) i rozszerzalny (w przyszłości może hostować inne
-  pliki runtime, np. cache SQLite, logi sesji). Utrzymano politykę
-  "zero AppData" — binaria i dane PG leżą WYŁĄCZNIE w katalogu projektu.
-
-### Usunięto
-
-- **`portable_pg_installed_legacy()`** — w 1.1.2 nie ma już czego
-  migrować (wymuszamy świeżą instalację w nowej lokalizacji).
-- **`_get_legacy_install_dirs()`** — wewnętrzny helper, który
-  zwracał ścieżki AppData. Teraz cała logika AppData jest martwa.
-- **Cała logika fallbacku do AppData w `uninstall_portable_pg()`** —
-  uninstall celuje WYŁĄCZNIE w `<root>/.runtime/postgres/`. Jeśli
-  katalog nie istnieje → `success=True, removed_files=0`.
-- **Stan "⚠️ Legacy" w wizardzie** — w sekcji "Portable PostgreSQL"
-  zostały tylko dwa stany: ✅ zainstalowany / 📦 niezainstalowany.
-  Kreator nie oferuje już "czyszczenia starej instalacji AppData",
-  bo nie ma czego czyścić.
-- **Sekcja fallbacku w `get_pg_install_dir()`** — funkcja zawsze
-  zwraca `<root>/.runtime/postgres/` (z `RuntimeError` gdy brak
-  project root). Brak fallbacku na `%LOCALAPPDATA%` / `~/.local/share`
-  / `~/Library/Application Support`.
+- **Usunięto furtkę autoryzacji**: ciasteczko `admin_logged_in=true` z nagłówkiem
+  `User-Agent: testclient` dawało uprawnienia admina każdemu klientowi.
+- **Autoryzacja admina domyślnie włączona.** Stare `ADMIN_AUTH_ENABLED=0` z plików
+  `.env` launchera nie wyłącza już autoryzacji; wymagane dodatkowo
+  `ADMIN_AUTH_INSECURE_DISABLE=1` (niedozwolone przy `PRODUCTION=1`).
+- **Brak hasła domyślnego `admin123`.** Bez `ADMIN_PASSWORD_HASH` akcje admina zwracają
+  403 z instrukcją; hasło ustawia `python -m backend.scripts.set_admin_password`.
+- Sesje admina: podpisane, wygasające tokeny (HMAC-SHA256), unieważniane przy
+  wylogowaniu i zmianie hasła; ciasteczko `SameSite=Strict`.
+- `SECRET_KEY` generowany przy pierwszym starcie poza repozytorium (`SECRET_KEY_FILE`);
+  zaślepki typu `dev-secret-change-me` są ignorowane.
+- Usunięto zaszyte hasła PostgreSQL (`1234`) z konfiguracji, launchera, narzędzi
+  i instalatora PG (losowe hasło albo `PG_INSTALL_PASSWORD`).
+- Rate limit logowania (429), walidacja Pydantic wszystkich zapisów, limit rozmiaru
+  żądania (413), nagłówki bezpieczeństwa, kontrola `Origin`, CORS domyślnie wyłączony,
+  404 dla nieznanych `/api/*`, błędy 500 bez treści wyjątków.
 
 ### Dodano
 
-- **`.runtime/` w `.gitignore`** — katalog jest gitignored, ale
-  tworzony przez `.gitkeep` z komentarzem o przeznaczeniu.
-- **Komentarz `_uninstall_log()`** — wyjaśnia, że w produkcji powinien
-  być zastąpiony przez module-level `logging`.
-- **2 nowe assercje w `test_get_pg_install_dir_returns_project_root_postgres`**:
-  `assert result == root / ".runtime" / "postgres"` i `assert ".runtime" in str(result)`.
-- **Aktualizacja 3 testów ścieżek** — `test_get_pg_install_dir_*` i
-  `test_uninstall_portable_pg_uses_default_install_dir` używają teraz
-  nowej ścieżki `.runtime/postgres`.
+- Seed danych demo: `python -m backend.scripts.seed_demo` lub `SEED_DEMO_DATA=1`.
+- Domyślny `DB_ENGINE=sqlite` - świeży klon działa bez PostgreSQL.
+- CI: lint (ruff), `pip-audit`, pełny zestaw testów bez `--ignore`.
+- Testy: automatyczna enumeracja tras zapisu (401/403 bez logowania).
 
-### Zmieniono (testy)
+### Naprawiono
 
-- `test_get_pg_install_dir_returns_project_root_postgres` (1.1.1) →
-  weryfikuje `<root>/.runtime/postgres/` (1.1.2).
-- `test_get_pg_install_dir_is_consistent_across_platforms` →
-  sprawdza nową ścieżkę dla wszystkich platform.
-- `test_uninstall_portable_pg_uses_default_install_dir` →
-  tworzy i usuwa katalog w `<root>/.runtime/postgres/`.
-- **Usunięto 2 testy legacy**:
-  `test_get_legacy_install_dirs_returns_old_paths`,
-  `test_portable_pg_installed_legacy_returns_false_when_no_legacy`.
-- **Usunięto asercję legacy** z
-  `test_pg_portable_service_has_uninstall_function` (sprawdza
-  tylko `uninstall_portable_pg` i `UninstallResult`).
-- **Komentarze 1.1.1 → 1.1.2** w 2 testach wizarda.
-
-### Bezpieczeństwo
-
-- **Brak efektów ubocznych w systemie plików poza projektem** —
-  wszystkie operacje (install/uninstall) ograniczone do
-  `<root>/.runtime/postgres/`. Usunięcie projektu z dysku =
-  kompletne usunięcie portable PG.
-- **Safety check `uninstall_portable_pg()`** nadal aktywny:
-  wymaga podkatalogu `pgsql/` przed `rmtree`.
-
-### Stabilna regresja
-
-`pytest backend/tests/` → **1030 passed, 8 skipped, 0 failed, 0 errors**
-(spadek z 1032 → 1030 testów, **−0.2%** — usunięto 2 testy legacy).
-Wszystkie 8 skipów to legitymowane auto-skipy PG E2E
-(brak instancji PostgreSQL w CI).
-
-### Real-download validation (spike)
-
-Walidacja metodą **partial download** (Range request, bez ściągania
-całego archiwum) dla `get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip`:
-
-- **Do pobrania**: 323.04 MiB
-- **Po rozpakowaniu**: 919.83 MiB (0.9 GiB)
-- **Pliki**: 22,649 (w tym pgAdmin 4 IDE — 172 MB sam w sobie)
-- **Czas @ 2.29 MB/s**: ~2:21 min
-- **EDB jest jedynym źródłem** "binaries" dla Windows (postgresql.org,
-  openscg.com, community builds — niekompatybilne lub porzucone)
-- Sprawdzone alternatywne wersje PG: 15.9 (289 MB), 16.3 (336 MB),
-  16.5 (291 MB) — wszystkie ~300 MB, ~900 MB uncompressed
-
-Wynik zapisany w `docs/technical/DATABASE.md` sekcja 4.6.
-
-### Znane ograniczenia (1.1.2)
-
-- Brak auto-cleanup jeśli użytkownik miał instalację 1.1.1
-  (`<root>/postgres/`) — musi uruchomić `uninstall_portable_pg`
-  ręcznie (przycisk w kreatorze), albo skasować katalog ręcznie.
-  Kreator nie wykrywa już "starych" instalacji 1.1.1, bo to
-  ostatnia wersja z innym katalogiem.
+- Niestabilne testy Tk w pełnej sesji, fałszywy alarm testu ścieżki PG dla klonu w `%TEMP%`.
+- Minimalne wersje zależności podniesione do wydań bez znanych podatności.
 
 ## 1.1.3 — 2026-06-04
 
@@ -242,6 +178,103 @@ z Windows Defender scanning. Standalone skrypt używa krótkiej ścieżki
 `C:\pg_real_install_test` i ma 7/7 sukces. Pełen E2E (7 kroków) lepiej
 odpalać jako skrypt CLI, bo pytest jest za wolny na takie duże flow.
 
+## 1.1.2 — 2026-06-04
+
+### Zmieniono
+
+- **Lokalizacja instalacji portable PG**: z `<project_root>/postgres/`
+  (z 1.1.1) na **`<project_root>/.runtime/postgres/`**. Katalog `.runtime/`
+  jest ukryty (kropka z przodu), semantyczny (przeznaczony na lokalne
+  runtime artifacts) i rozszerzalny (w przyszłości może hostować inne
+  pliki runtime, np. cache SQLite, logi sesji). Utrzymano politykę
+  "zero AppData" — binaria i dane PG leżą WYŁĄCZNIE w katalogu projektu.
+
+### Usunięto
+
+- **`portable_pg_installed_legacy()`** — w 1.1.2 nie ma już czego
+  migrować (wymuszamy świeżą instalację w nowej lokalizacji).
+- **`_get_legacy_install_dirs()`** — wewnętrzny helper, który
+  zwracał ścieżki AppData. Teraz cała logika AppData jest martwa.
+- **Cała logika fallbacku do AppData w `uninstall_portable_pg()`** —
+  uninstall celuje WYŁĄCZNIE w `<root>/.runtime/postgres/`. Jeśli
+  katalog nie istnieje → `success=True, removed_files=0`.
+- **Stan "⚠️ Legacy" w wizardzie** — w sekcji "Portable PostgreSQL"
+  zostały tylko dwa stany: ✅ zainstalowany / 📦 niezainstalowany.
+  Kreator nie oferuje już "czyszczenia starej instalacji AppData",
+  bo nie ma czego czyścić.
+- **Sekcja fallbacku w `get_pg_install_dir()`** — funkcja zawsze
+  zwraca `<root>/.runtime/postgres/` (z `RuntimeError` gdy brak
+  project root). Brak fallbacku na `%LOCALAPPDATA%` / `~/.local/share`
+  / `~/Library/Application Support`.
+
+### Dodano
+
+- **`.runtime/` w `.gitignore`** — katalog jest gitignored, ale
+  tworzony przez `.gitkeep` z komentarzem o przeznaczeniu.
+- **Komentarz `_uninstall_log()`** — wyjaśnia, że w produkcji powinien
+  być zastąpiony przez module-level `logging`.
+- **2 nowe assercje w `test_get_pg_install_dir_returns_project_root_postgres`**:
+  `assert result == root / ".runtime" / "postgres"` i `assert ".runtime" in str(result)`.
+- **Aktualizacja 3 testów ścieżek** — `test_get_pg_install_dir_*` i
+  `test_uninstall_portable_pg_uses_default_install_dir` używają teraz
+  nowej ścieżki `.runtime/postgres`.
+
+### Zmieniono (testy)
+
+- `test_get_pg_install_dir_returns_project_root_postgres` (1.1.1) →
+  weryfikuje `<root>/.runtime/postgres/` (1.1.2).
+- `test_get_pg_install_dir_is_consistent_across_platforms` →
+  sprawdza nową ścieżkę dla wszystkich platform.
+- `test_uninstall_portable_pg_uses_default_install_dir` →
+  tworzy i usuwa katalog w `<root>/.runtime/postgres/`.
+- **Usunięto 2 testy legacy**:
+  `test_get_legacy_install_dirs_returns_old_paths`,
+  `test_portable_pg_installed_legacy_returns_false_when_no_legacy`.
+- **Usunięto asercję legacy** z
+  `test_pg_portable_service_has_uninstall_function` (sprawdza
+  tylko `uninstall_portable_pg` i `UninstallResult`).
+- **Komentarze 1.1.1 → 1.1.2** w 2 testach wizarda.
+
+### Bezpieczeństwo
+
+- **Brak efektów ubocznych w systemie plików poza projektem** —
+  wszystkie operacje (install/uninstall) ograniczone do
+  `<root>/.runtime/postgres/`. Usunięcie projektu z dysku =
+  kompletne usunięcie portable PG.
+- **Safety check `uninstall_portable_pg()`** nadal aktywny:
+  wymaga podkatalogu `pgsql/` przed `rmtree`.
+
+### Stabilna regresja
+
+`pytest backend/tests/` → **1030 passed, 8 skipped, 0 failed, 0 errors**
+(spadek z 1032 → 1030 testów, **−0.2%** — usunięto 2 testy legacy).
+Wszystkie 8 skipów to legitymowane auto-skipy PG E2E
+(brak instancji PostgreSQL w CI).
+
+### Real-download validation (spike)
+
+Walidacja metodą **partial download** (Range request, bez ściągania
+całego archiwum) dla `get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip`:
+
+- **Do pobrania**: 323.04 MiB
+- **Po rozpakowaniu**: 919.83 MiB (0.9 GiB)
+- **Pliki**: 22,649 (w tym pgAdmin 4 IDE — 172 MB sam w sobie)
+- **Czas @ 2.29 MB/s**: ~2:21 min
+- **EDB jest jedynym źródłem** "binaries" dla Windows (postgresql.org,
+  openscg.com, community builds — niekompatybilne lub porzucone)
+- Sprawdzone alternatywne wersje PG: 15.9 (289 MB), 16.3 (336 MB),
+  16.5 (291 MB) — wszystkie ~300 MB, ~900 MB uncompressed
+
+Wynik zapisany w `docs/technical/DATABASE.md` sekcja 4.6.
+
+### Znane ograniczenia (1.1.2)
+
+- Brak auto-cleanup jeśli użytkownik miał instalację 1.1.1
+  (`<root>/postgres/`) — musi uruchomić `uninstall_portable_pg`
+  ręcznie (przycisk w kreatorze), albo skasować katalog ręcznie.
+  Kreator nie wykrywa już "starych" instalacji 1.1.1, bo to
+  ostatnia wersja z innym katalogiem.
+
 ## 1.1.1 — 2026-06-04
 
 ### Zmieniono
@@ -309,8 +342,6 @@ legitymowane auto-skipy PG E2E (brak instancji PostgreSQL w CI).
   "Odinstaluj" ręcznie, a potem zainstalować ponownie (kreator zaproponuje
   instalację w nowej lokalizacji po teście połączenia).
 - Brak opcji "zachowaj dane, przenieś binaria" — uninstall jest totalny.
-
-## 1.1.0 — 2026-06-04
 
 ## 1.1.0 — 2026-06-04
 

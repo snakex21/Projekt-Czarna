@@ -24,32 +24,108 @@ System łączący historię z nowoczesną technologią - umożliwia eksplorację
 
 ### Wymagania
 
-- **Python 3.11+** (testowane na 3.13.7)
+- **Python 3.11+** (CI: 3.13)
 - Przeglądarka (Chrome/Firefox/Edge)
 - **SQLite** - tryb domyślny (zero konfiguracji)
-- **PostgreSQL 12+ z PostGIS** - opcjonalny tryb produkcyjny (planowane: kreator migracji, Priorytet 2)
+- **PostgreSQL 12+ z PostGIS** - opcjonalny tryb produkcyjny
 
-### Instalacja
+### Instalacja i uruchomienie (świeży klon, bez GUI)
 
 ```bash
 # 1. Sklonuj repozytorium
 git clone https://github.com/snakex21/Projekt-Czarna.git
 cd Projekt-Czarna
 
-# 2. Zainstaluj zależności
+# 2. Środowisko i zależności
+python -m venv .venv
+# Windows: .venv\Scripts\activate    Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 
-# 3. Uruchom Centrum Zarządzania (launcher GUI)
+# 3. Konfiguracja (opcjonalna - domyślnie SQLite w data/czarna.db)
+cp backend/.env.example backend/.env
+
+# 4. Hasło administratora (bez tego edycja danych jest zablokowana)
+python -m backend.scripts.set_admin_password
+
+# 5. Dane demo - świeży klon ma pustą bazę, więc mapa byłaby pusta
+python -m backend.scripts.seed_demo
+
+# 6. Serwer
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 5000
+```
+
+Następnie otwórz <http://127.0.0.1:5000/> (mapa: `/mapa/`, panel admina: `/admin/`).
+
+Zamiast kroku 5 można ustawić `SEED_DEMO_DATA=1` - serwer zasili **pustą** bazę
+SQLite przy starcie. `seed_demo --force` nadpisuje istniejące dane. Seed importuje
+commitowane pliki `data/locations/<ACTIVE_LOCATION>/` (obiekty mapy, genealogia,
+demografia, konfiguracja mapy); dane właścicieli (`owner_data_to_import.json`)
+nie są w repozytorium i są importowane tylko, jeśli plik istnieje lokalnie.
+
+### Launcher (GUI)
+
+```bash
 python launcher/launcher_app.py
 ```
 
-Launcher poprowadzi Cię przez konfigurację graficzną. Wszystko w jednym miejscu:
+Launcher poprowadzi Cię przez konfigurację graficzną:
 
 - ✅ Konfiguracja połączenia z bazą (SQLite/PostgreSQL)
 - ✅ Wybór aktywnej miejscowości
 - ✅ Uruchomienie serwera backendu (lokalnie lub w sieci LAN)
 - ✅ Otwarcie aplikacji w przeglądarce
 - ✅ Diagnostyka systemu i panel bezpieczeństwa admina
+
+### Konfiguracja (zmienne środowiskowe)
+
+Wszystkie ustawienia czytane są ze zmiennych środowiskowych albo z `backend/.env`
+(w `.gitignore`; wzór z opisami: [`backend/.env.example`](backend/.env.example)).
+**W kodzie nie ma domyślnych haseł ani kluczy.**
+
+| Zmienna | Domyślnie | Opis |
+|---|---|---|
+| `DB_ENGINE` | `sqlite` | `sqlite` albo `postgresql` |
+| `DB_PATH` | `data/czarna.db` | plik bazy SQLite |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_NAME` | `localhost` / `5432` / `postgres` / `mapa_czarna_db` | PostgreSQL |
+| `DB_PASSWORD` | *(brak)* | hasło PostgreSQL - wymagane w trybie `postgresql` |
+| `ACTIVE_LOCATION` | `Czarna` | folder w `data/locations/` |
+| `ADMIN_USERNAME` | `admin` | login administratora |
+| `ADMIN_PASSWORD_HASH` | *(brak)* | hash Werkzeug; ustaw przez `python -m backend.scripts.set_admin_password` |
+| `ADMIN_SESSION_TTL_SECONDS` | `28800` | czas życia sesji admina |
+| `FLASK_SECRET_KEY` / `SECRET_KEY` | *(generowany)* | klucz podpisujący sesje; pusty = losowy, zapisany poza repo |
+| `SECRET_KEY_FILE` | `%LOCALAPPDATA%\MapaCzarna\secret_key` / `~/.config/mapa-czarna/secret_key` | gdzie trzymać wygenerowany klucz (nie w repozytorium) |
+| `PRODUCTION` / `ENVIRONMENT=production` | `0` | tryb produkcyjny (twarde walidacje, ciasteczko `Secure`) |
+| `CORS_ALLOWED_ORIGINS` | *(puste)* | originy CORS po przecinku; puste = tylko ten sam origin |
+| `LOGIN_MAX_ATTEMPTS` / `LOGIN_WINDOW_SECONDS` | `5` / `300` | limit nieudanych logowań na IP |
+| `MAX_REQUEST_BODY_BYTES` | `16777216` | maks. rozmiar ciała żądania (413 powyżej) |
+| `COOKIE_SECURE` | `1` w produkcji | flaga `Secure` ciasteczka sesji |
+| `SEED_DEMO_DATA` | `0` | `1` = zasil pustą bazę SQLite danymi demo przy starcie |
+| `ADMIN_AUTH_ENABLED` + `ADMIN_AUTH_INSECURE_DISABLE` | `1` + `0` | wyłączenie autoryzacji wymaga **obu** flag (`0` i `1`); ignorowane w produkcji |
+
+### Bezpieczeństwo
+
+- **Autoryzacja admina jest zawsze włączona.** Każdy endpoint zmieniający dane
+  (POST/PUT/PATCH/DELETE) oraz eksport/diagnostyka wymaga zalogowania. Test
+  `backend/tests/integration/test_mutating_routes_require_auth.py` sam wylicza
+  wszystkie takie trasy i sprawdza 401/403 bez logowania.
+- **Brak hasła domyślnego.** Dopóki nie ustawisz `ADMIN_PASSWORD_HASH`, akcje admina
+  zwracają 403 z instrukcją, a serwer wypisuje ją przy starcie. Hashe znanych
+  haseł (np. dawnego hasła domyślnego) nie są akceptowane.
+- **Sesje**: podpisany HMAC-SHA256 token z czasem wygaśnięcia i losowym ID,
+  ciasteczko `HttpOnly`, `SameSite=Strict` (`Secure` w produkcji). Wylogowanie
+  unieważnia token na serwerze, zmiana hasła - wszystkie sesje.
+- **Logowanie**: limit nieudanych prób per IP (429 + `Retry-After`).
+- **Wejście**: modele Pydantic (typy, długości, zakresy) dla wszystkich
+  endpointów zapisu; limit rozmiaru żądania (413); błędy 500 nie ujawniają treści wyjątków.
+- **HTTP**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, CSP `frame-ancestors/object-src/base-uri`; żądania
+  zmieniające dane z obcym `Origin` → 403; CORS domyślnie wyłączony.
+- **Pliki**: serwowanie plików blokuje wyjście poza katalog (path traversal);
+  nieznane `/api/*` → 404 JSON. Serwer nie przyjmuje uploadu plików
+  (multipart) - zdjęcia dodaje się przez launcher.
+- **Tryb LAN** (launcher, `0.0.0.0`): używaj tylko z ustawionym hasłem admina;
+  w sieci niezaufanej postaw serwer za reverse proxy z HTTPS i `PRODUCTION=1`.
+- Szczegóły: [docs/technical/SECURITY.md](docs/technical/SECURITY.md).
 
 ## 🏗️ Architektura
 
@@ -137,7 +213,6 @@ Projekt-Czarna/
 ├── CONTRIBUTING.md
 ├── pytest.ini
 ├── README.md                # ten plik
-├── TODO.md                  # plan rozwoju
 └── PROJECT_SKILL.md         # konwencje kodu dla AI agentów
 ```
 
@@ -145,11 +220,10 @@ Projekt-Czarna/
 
 **Stan na czerwiec 2026:**
 
-- ✅ **833 testów** przechodzi w stabilnym zestawie regresji (+8 skip PostgreSQL E2E)
+- ✅ **1283 testy** (unit, integracja, E2E Playwright) przechodzą w pełnym zestawie CI, bez wyłączeń (10 skip: PostgreSQL / instalacja PG)
 - ✅ Priorytety 1, 2, 2.5 Etap 1-13, 2.7 Etap 1-5E, 2.8 Etap 1-16, 3, 3.1, 4, 4.1, 5, 5.1, 6 - ukończone
-- ⚠️ Znane flaky/środowiskowe testy są opisane w `CHANGELOG.md`/CI i naprawiane osobno
 
-Ukończone priorytety (szczegóły w [TODO.md](TODO.md)):
+Ukończone priorytety:
 
 - **P1** - status obiektów (`Wolny` → `Nieprzypisany` + linki do protokołów)
 - **P2** - kreator PostgreSQL / migracja SQLite → PostgreSQL
@@ -190,16 +264,13 @@ Szczegółowa dokumentacja techniczna:
 - **[docs/technical/SECURITY.md](docs/technical/SECURITY.md)** - bezpieczeństwo admina, tryb LAN, produkcja
 - **[docs/technical/LOCATIONS.md](docs/technical/LOCATIONS.md)** - model danych per-miejscowość
 - **[docs/technical/ROADMAP.md](docs/technical/ROADMAP.md)** - planowane kierunki rozwoju
-- **[TODO.md](TODO.md)** - szczegółowy plan prac
 - **[PROJECT_SKILL.md](PROJECT_SKILL.md)** - konwencje kodu dla agentów AI
 - **[CHANGELOG.md](CHANGELOG.md)** - historia zmian i wersji
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - zasady współpracy i konwencje PR
 - **[LICENSE](LICENSE)** - licencja MIT
 
-Dokumentacja akademicka (praca inżynierska):
-
-- `dokumentacja/dokumentacja.pdf` - wersja finalna
-- `dokumentacja/dokumentacja.md` - wersja tekstowa
+Dokumentacja akademicka (praca inżynierska) nie jest częścią repozytorium
+(katalog `dokumentacja/` jest w `.gitignore`).
 
 ## 🛠️ Dla Deweloperów
 
@@ -210,12 +281,16 @@ Dokumentacja akademicka (praca inżynierska):
 python -m pip install -r requirements-test.txt
 python -m playwright install chromium
 
-# Stabilny pakiet CI (pomija znane flaky/środowiskowe testy)
-python -m pytest backend/tests/ \
-  --ignore=backend/tests/integration/test_add_edit_location_dialog_photos.py \
-  --ignore=backend/tests/unit/test_add_edit_location_dialog_photos.py \
-  --ignore=backend/tests/unit/test_db_helpers.py \
-  --ignore=backend/tests/unit/test_diagnostics_service.py
+# Pełny zestaw (to samo co CI). Testy tworzą własną bazę i losowe hasło admina
+# w katalogu tymczasowym - nie dotykają data/czarna.db ani backend/.env.
+python -m pytest backend/tests/
+
+# Bez testów przeglądarkowych (szybciej, bez Chromium)
+python -m pytest backend/tests/ --ignore=backend/tests/e2e
+
+# Lint i audyt zależności (jak w CI)
+ruff check .
+pip-audit -r requirements.txt -r requirements-test.txt
 
 # Konkretny moduł
 python -m pytest backend/tests/unit/test_diagnostics_service.py
@@ -240,9 +315,16 @@ python launcher/launcher_app.py
 # Przeglądarka
 # http://127.0.0.1:5000/              - strona główna
 # http://127.0.0.1:5000/mapa/         - mapa katastralna
-# http://127.0.0.1:5000/admin/        - panel admina (domyślnie: admin / admin123)
+# http://127.0.0.1:5000/admin/        - panel admina (hasło: python -m backend.scripts.set_admin_password)
 # http://127.0.0.1:5000/wlasciciele/  - protokoły
 ```
+
+### Zależności
+
+`requirements.txt` podaje minimalne wersje bez znanych podatności (pip-audit).
+Zestaw przetestowany (listopad 2026, Python 3.13): fastapi 0.162.7, starlette 1.10.0,
+pydantic 2.14.3, uvicorn 0.54.0, SQLAlchemy 2.1.8, Werkzeug 3.1.9, Pillow 13.0.0,
+requests 2.34.2. CI uruchamia `pip-audit` przy każdym pushu.
 
 ### Konwencje kodu
 

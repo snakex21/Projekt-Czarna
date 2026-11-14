@@ -62,10 +62,12 @@ def test_github_actions_ci_workflow_exists():
     assert "python-version" in text
     assert "pip install -r requirements.txt" in text
     assert "python -m pytest" in text
-    # CI ma pomijać tylko znane flaky/środowiskowe testy opisane w docs.
-    assert "test_add_edit_location_dialog_photos.py" in text
-    assert "test_db_helpers.py" in text
-    assert "test_diagnostics_service.py" in text
+    # Pełny zestaw bez wyjątków - dawne flaky testy zostały naprawione.
+    assert "--ignore" not in text
+    # Lint i audyt zależności.
+    assert "ruff check" in text
+    assert "pip-audit" in text
+    assert (PROJECT_ROOT / "ruff.toml").exists()
 
 
 def test_readme_mentions_release_artifacts():
@@ -84,3 +86,29 @@ def test_ci_installs_browser_test_dependencies():
     workflow = _read(".github/workflows/ci.yml")
     assert "-r requirements-test.txt" in workflow
     assert "python -m playwright install chromium" in workflow
+
+
+def test_readme_documents_setup_security_and_seed():
+    text = _read("README.md")
+    for phrase in (
+        "backend/.env.example",
+        "python -m backend.scripts.set_admin_password",
+        "python -m backend.scripts.seed_demo",
+        "python -m uvicorn backend.main:app",
+        "ADMIN_PASSWORD_HASH",
+        "SECRET_KEY_FILE",
+        "### Bezpieczeństwo",
+    ):
+        assert phrase in text, f"README.md nie zawiera: {phrase}"
+    assert "admin123" not in text
+    assert "TODO.md" not in text
+
+
+def test_env_example_has_no_secrets():
+    text = _read("backend/.env.example")
+    values = dict(
+        line.split("=", 1) for line in text.splitlines()
+        if line and not line.startswith("#") and "=" in line
+    )
+    for key in ("DB_PASSWORD", "FLASK_SECRET_KEY", "ADMIN_PASSWORD_HASH"):
+        assert key in values and values[key].strip() == "", key
