@@ -6,6 +6,7 @@ Opis: Modul testowy dla API genealogii w panelu administracyjnym.
 
 import pytest
 from backend import config as backend_config
+from backend.tests.auth_helpers import login_admin
 
 # ==========================================================================
 # FUNKCJE POMOCNICZE
@@ -49,7 +50,7 @@ def _osoba_payload(
 def test_genealogia_crud(client, monkeypatch):
     """Test pelnego cyklu CRUD dla modulu genealogii."""
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     # === CREATE ===
     payload = _osoba_payload()
@@ -102,7 +103,7 @@ def test_genealogia_crud(client, monkeypatch):
 def test_genealogia_validation_missing_required_field(client, monkeypatch):
     """Test walidacji danych - brak wymaganego pola."""
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
-    client.cookies.set("admin_logged_in", "true")
+    login_admin(client)
 
     bad = _osoba_payload()
     bad.pop("nazwisko")

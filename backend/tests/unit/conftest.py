@@ -19,3 +19,11 @@ def client():
     """Fixture udostępniająca testowego klienta FastAPI."""
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture
+def admin_client(client):
+    """Klient zalogowany jako admin przez prawdziwy endpoint /api/admin/login."""
+    from backend.tests.auth_helpers import login_admin
+
+    return login_admin(client)

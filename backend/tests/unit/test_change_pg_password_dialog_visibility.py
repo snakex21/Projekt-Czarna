@@ -22,6 +22,8 @@ sys.path.insert(0, str(ROOT))
 try:
     import tkinter as tk
     from tkinter import ttk
+
+    from backend.tests.tk_support import new_toplevel
 except Exception as e:  # pragma: no cover
     pytest.skip(f"tkinter niedostępny: {e}", allow_module_level=True)
 
@@ -67,8 +69,7 @@ EXPECTED_REQUIRED_WIDGETS = (
 @pytest.fixture(scope="module")
 def hidden_root():
     """Tworzy ukryty root Tk i sprząta po teście."""
-    root = tk.Tk()
-    root.withdraw()
+    root = new_toplevel()  # wspólny root Tk, patrz backend/tests/tk_support.py
     yield root
     try:
         root.destroy()

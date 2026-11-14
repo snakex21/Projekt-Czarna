@@ -104,7 +104,7 @@ def get_active_location():
         try:
             import psycopg2
             conn = psycopg2.connect(host=os.getenv("DB_HOST", "localhost"), dbname="mapa_launcher_db",
-                                    user=os.getenv("DB_USER", "postgres"), password=os.getenv("DB_PASSWORD", "1234"),
+                                    user=os.getenv("DB_USER", "postgres"), password=os.getenv("DB_PASSWORD", ""),
                                     port=os.getenv("DB_PORT", "5432"), connect_timeout=2)
             cur = conn.cursor(); cur.execute("SELECT name FROM locations WHERE active = TRUE LIMIT 1"); row = cur.fetchone(); conn.close()
             if row: return PROJECT_DIR / "data" / "locations" / row[0]

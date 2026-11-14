@@ -29,7 +29,7 @@ class AdminSettings(tk.Toplevel):
         self.grab_set()
         self.parent_app = parent
 
-        scale_window(self, parent, 500, 300)
+        scale_window(self, parent, 520, 360)
         self.center_window()
 
         self.load_current_settings()
@@ -39,7 +39,6 @@ class AdminSettings(tk.Toplevel):
         """Wczytuje obecne ustawienia z .env."""
         env_config = read_env_config()
 
-        self.enabled = tk.BooleanVar(value=(env_config.get('ADMIN_AUTH_ENABLED', '0') == '1'))
         self.username = tk.StringVar(value=env_config.get('ADMIN_USERNAME', 'admin'))
         self.password = tk.StringVar(value='')
         self.env = env_config
@@ -49,8 +48,15 @@ class AdminSettings(tk.Toplevel):
         frm = ttk.Frame(self, padding=12)
         frm.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Checkbutton(frm, text="Włącz wymaganie logowania do Panelu Admina",
-                       variable=self.enabled).pack(anchor=tk.W, pady=(0, 8))
+        # Logowanie jest zawsze włączone (v2.0.0). Bez przełącznika: pokazujemy
+        # stan i jedyny sposób wyłączenia (ręcznie w .env, tylko do testów).
+        insecure = admin_config_service.auth_insecurely_disabled(self.env)
+        ttk.Label(frm, text=admin_config_service.auth_status_text(self.env),
+                  foreground="#b02a37" if insecure else "#198754",
+                  font=("Segoe UI", 9, "bold")).pack(anchor=tk.W)
+        ttk.Label(frm, foreground="#6c757d",
+                  text=admin_config_service.INSECURE_DISABLE_HINT,
+                  wraplength=scale_wrap(self, 480)).pack(anchor=tk.W, pady=(2, 8), fill=tk.X)
 
         row1 = ttk.Frame(frm)
         row1.pack(fill=tk.X, pady=4)
@@ -79,9 +85,8 @@ class AdminSettings(tk.Toplevel):
             return
 
         try:
-            old_auth, new_auth = admin_config_service.apply_admin_settings(
+            changed = admin_config_service.apply_admin_settings(
                 self.env,
-                self.enabled.get(),
                 self.username.get().strip(),
                 self.password.get(),
             )
@@ -106,21 +111,19 @@ class AdminSettings(tk.Toplevel):
 
         self.parent_app.on_env_changed()
 
-        # Auto-restart przy zmianie autoryzacji
-        if old_auth != new_auth and "backend" in self.parent_app.process_mgr.managed_processes:
+        # Auto-restart, żeby backend wczytał nowy login/hash hasła.
+        if changed and "backend" in self.parent_app.process_mgr.managed_processes:
             was_network = self.parent_app.process_mgr.managed_processes["backend"].get("network_mode", False)
 
             messagebox.showinfo("🔄  Restart serwera",
-                              f"{'Włączono' if new_auth == '1' else 'Wyłączono'} autoryzację admina.\n\n"
+                              "Zmieniono dane logowania administratora.\n\n"
                               "Serwer backend zostanie automatycznie zrestartowany.",
                               parent=self)
             self.destroy()
 
             self.parent_app.log(f"\n{'='*60}\n")
-            self.parent_app.log(f"🔄  Restartowanie serwera - zmiana ustawień autoryzacji...\n")
-            self.parent_app.log(f"   • Autoryzacja: {'WŁĄCZONA ✅' if new_auth == '1' else 'WYŁĄCZONA ❌'}\n")
-            if new_auth == '1':
-                self.parent_app.log(f"   • Login: {self.env['ADMIN_USERNAME']}\n")
+            self.parent_app.log("🔄  Restartowanie serwera - zmiana danych logowania admina...\n")
+            self.parent_app.log(f"   • Login: {self.env['ADMIN_USERNAME']}\n")
             self.parent_app.log(f"{'='*60}\n\n")
 
             self.parent_app.stop_managed_process("backend")
@@ -155,6 +158,6 @@ class AdminSettings(tk.Toplevel):
         py = self.parent_app.winfo_rooty()
         pw = self.parent_app.winfo_width()
         ph = self.parent_app.winfo_height()
-        x = px + (pw - 500) // 2
-        y = py + (ph - 300) // 2
+        x = px + (pw - 520) // 2
+        y = py + (ph - 360) // 2
         self.geometry(f"+{x}+{y}")

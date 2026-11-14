@@ -1,4 +1,4 @@
-﻿"""
+"""
 Import danych z backup/{miejscowosc} do lokalnej bazy SQLite.
 
 Ten importer jest niezależny od starej migracji PostgreSQL i zapisuje geometrię
@@ -12,8 +12,11 @@ import sqlite3
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.shared import extract_year, parse_polish_date, fix_windows_console_encoding
+try:
+    from backend.utils.shared import extract_year, parse_polish_date, fix_windows_console_encoding
+except ImportError:  # uruchomienie jako skrypt: python backend/scripts/import_sqlite_backup.py
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from utils.shared import extract_year, parse_polish_date, fix_windows_console_encoding
 
 fix_windows_console_encoding()
 
@@ -115,21 +118,31 @@ def ensure_object(conn: sqlite3.Connection, object_id_map: dict, plot_number: st
     return object_id
 
 
-def import_location(location_name: str = "Czarna", db_path: Path = DEFAULT_DB_PATH) -> None:
-    backup_dir = BASE_DIR / "data" / "locations" / location_name
+def import_location(
+    location_name: str = "Czarna",
+    db_path: Path = DEFAULT_DB_PATH,
+    locations_dir: Path | None = None,
+) -> dict:
+    """Importuje dane miejscowości z JSON do SQLite (zastępuje istniejące dane).
+
+    ``owner_data_to_import.json`` jest opcjonalny (nie ma go w repozytorium -
+    jest w .gitignore); bez niego importowane są obiekty mapy, genealogia,
+    demografia i konfiguracja mapy. Zwraca liczniki zaimportowanych rekordów.
+    """
+    locations_dir = Path(locations_dir) if locations_dir else BASE_DIR / "data" / "locations"
+    backup_dir = locations_dir / location_name
     owner_file = backup_dir / "owner_data_to_import.json"
     parcel_file = backup_dir / "parcels_data.json"
     map_config_file = backup_dir / "map_config.json"
     demografia_file = backup_dir / "demografia.json"
     genealogia_file = backup_dir / "genealogia.json"
 
-    if not owner_file.exists() or not parcel_file.exists():
-        locations_dir = BASE_DIR / "data" / "locations"
+    if not parcel_file.exists():
         available = []
         if locations_dir.is_dir():
             available = [
                 d.name for d in locations_dir.iterdir()
-                if d.is_dir() and (d / "owner_data_to_import.json").exists()
+                if d.is_dir() and (d / "parcels_data.json").exists()
             ]
         hint = ""
         if available:
@@ -139,7 +152,7 @@ def import_location(location_name: str = "Czarna", db_path: Path = DEFAULT_DB_PA
             f"Sprawdź czy podałeś poprawną nazwę miejscowości.{hint}"
         )
 
-    owner_data = json.loads(owner_file.read_text(encoding="utf-8"))
+    owner_data = json.loads(owner_file.read_text(encoding="utf-8")) if owner_file.exists() else {}
     parcel_data = json.loads(parcel_file.read_text(encoding="utf-8"))
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -312,8 +325,11 @@ def import_location(location_name: str = "Czarna", db_path: Path = DEFAULT_DB_PA
             "owners": conn.execute("SELECT COUNT(*) FROM wlasciciele").fetchone()[0],
             "objects": conn.execute("SELECT COUNT(*) FROM obiekty_geograficzne").fetchone()[0],
             "links": conn.execute("SELECT COUNT(*) FROM dzialki_wlasciciele").fetchone()[0],
+            "people": conn.execute("SELECT COUNT(*) FROM osoby_genealogia").fetchone()[0],
+            "demography": conn.execute("SELECT COUNT(*) FROM demografia").fetchone()[0],
         }
         print(f"✅ Import SQLite zakończony: {counts['owners']} właścicieli, {counts['objects']} obiektów, {counts['links']} powiązań")
+        return counts
     except Exception:
         conn.rollback()
         raise

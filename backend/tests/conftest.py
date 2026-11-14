@@ -27,6 +27,23 @@ os.environ["ACTIVE_LOCATION"] = "Czarna"
 os.environ["TEST_LOCATION"] = "Czarna"
 create_sample_location(_test_root / "locations")
 
+# Uwierzytelnianie w testach: losowe hasło admina na sesję pytest, prawdziwy
+# hash Werkzeug i losowy SECRET_KEY. Testy logują się przez /api/admin/login
+# (backend/tests/auth_helpers.py) - backend nie ma żadnej furtki testowej.
+import secrets as _secrets
+from werkzeug.security import generate_password_hash as _generate_password_hash
+
+_test_admin_password = _secrets.token_urlsafe(18)
+os.environ["MAPA_TEST_ADMIN_PASSWORD"] = _test_admin_password
+os.environ["ADMIN_USERNAME"] = "admin"
+# Szybki pbkdf2 (1000 iteracji) wystarcza w testach i nie spowalnia logowań.
+os.environ["ADMIN_PASSWORD_HASH"] = _generate_password_hash(_test_admin_password, method="pbkdf2:sha256:1000")
+os.environ["ADMIN_AUTH_ENABLED"] = "1"
+os.environ.pop("ADMIN_AUTH_INSECURE_DISABLE", None)
+os.environ["SECRET_KEY"] = _secrets.token_urlsafe(48)
+os.environ["SECRET_KEY_FILE"] = str(_test_root / "secret_key")
+os.environ.pop("SEED_DEMO_DATA", None)
+
 BASE_URL = "http://127.0.0.1:5000"
 
 
@@ -129,3 +146,26 @@ def server(tmp_path_factory):
     except:
         process.kill()
     print("[TEST] Serwer testowy zatrzymany.")
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_state():
+    """Izolacja testów: czyści limiter logowań i listę odwołanych sesji."""
+    yield
+    if "backend.auth.routes" in sys.modules:
+        from backend.auth import clear_revoked_sessions
+        from backend.auth.rate_limit import get_login_limiter
+
+        clear_revoked_sessions()
+        get_login_limiter().clear()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _destroy_shared_tk_root():
+    """Po każdym module niszczy wspólny root Tk (backend/tests/tk_support.py).
+
+    Inne testy sprawdzają, że import modułów launchera nie tworzy okien Tk,
+    więc root nie może przetrwać poza modułem, który go użył."""
+    yield
+    if "backend.tests.tk_support" in sys.modules:
+        sys.modules["backend.tests.tk_support"].destroy_shared_root()

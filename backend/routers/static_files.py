@@ -214,6 +214,9 @@ FRONTEND_DIR = BASE_DIR / "static"
 @router.get("/{filename:path}")
 async def serve_static(filename: str):
     """Serwuje pliki statyczne z katalogu projektu."""
+    # Nieznane endpointy API to 404 (JSON), a nie strona HTML z fallbacku.
+    if filename == "api" or filename.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
     blocked_patterns = [".env", ".git", "__pycache__", "*.py", "*.sql", "*.db"]
     for pattern in blocked_patterns:
         if pattern.startswith("*"):

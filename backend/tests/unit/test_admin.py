@@ -8,6 +8,7 @@ Opis: Testy jednostkowe panelu administracyjnego
 
 import pytest
 from backend import config as backend_config
+from backend.tests.auth_helpers import login_admin
 
 # ================================================================================
 # TESTY PRZEKIEROWAN I ROUTINGU
@@ -67,10 +68,19 @@ def test_check_auth_when_enabled_and_logged_in(client, monkeypatch):
     """
     monkeypatch.setattr(backend_config, "ADMIN_AUTH_ENABLED", True)
     
-    # FastAPI: ustawiamy ciasteczko zamiast sesji Flask
-    client.cookies.set("admin_logged_in", "true")
+    # Prawdziwe logowanie (brak furtek testowych w backendzie)
+    login_admin(client)
     
     resp = client.get("/api/admin/check-auth")
     assert resp.status_code == 200
     data = resp.json()
     assert data == {"authenticated": True, "auth_required": True}
+
+
+def test_legacy_admin_logged_in_cookie_is_rejected(client):
+    """Stare ciasteczko admin_logged_in=true + User-Agent testclient NIE daje dostępu."""
+    client.cookies.set("admin_logged_in", "true")
+    resp = client.get("/api/admin/check-auth", headers={"User-Agent": "testclient"})
+    assert resp.json() == {"authenticated": False, "auth_required": True}
+    resp = client.delete("/api/admin/demografia/999999", headers={"User-Agent": "testclient"})
+    assert resp.status_code == 401

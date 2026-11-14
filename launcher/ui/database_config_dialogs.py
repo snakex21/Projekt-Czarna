@@ -690,7 +690,7 @@ _PG_DEFAULTS = {
     "host": "localhost",
     "port": "5432",
     "user": "postgres",
-    "password": "1234",
+    "password": "",
     "db_name": "mapa_czarna_db",
 }
 
@@ -700,7 +700,7 @@ def configure_postgres_connection(parent=None) -> bool:
 
     Ścieżka A: "Połącz z istniejącą instancją"
         Formularz host/port/user/hasło/baza. Przycisk "🎯 Domyślne" wypełnia
-        wartościami dla lokalnej instalacji EDB (localhost/5432/postgres/1234
+        wartościami dla lokalnej instalacji EDB (localhost/5432/postgres/<hasło>
         /mapa_czarna_db). "🔌 Test połączenia" sprawdza czy serwer żyje.
         "💾 Zapisz i skonfiguruj" zapisuje .postgres.env i wywołuje
         ``ensure_postgres_database_with_postgis`` — tworzy bazę jeśli nie ma,

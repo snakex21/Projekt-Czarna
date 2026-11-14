@@ -60,7 +60,7 @@ def test_postgis_extension_creates_successfully(pg_session):
     from launcher.db import postgres as postgres_db
 
     result_ok, message = postgres_db.enable_postgis(
-        pg_test_config(), pg_session["db_name"]
+        pg_session["config"], pg_session["db_name"]
     )
 
     # Niektore serwery PG nie maja PostGIS - akceptujemy to
@@ -83,7 +83,7 @@ def test_location_schema_creates_all_tables(pg_session, pg_test_config):
     from launcher.db import postgres as postgres_db
 
     result_ok, message = postgres_db.execute_schema(
-        pg_test_config(), pg_session["db_name"], LOCATION_DB_SCHEMA
+        pg_session["config"], pg_session["db_name"], LOCATION_DB_SCHEMA
     )
 
     assert result_ok is True, f"execute_schema zwrocilo blad: {message}"
@@ -115,7 +115,7 @@ def test_count_target_data_queries_real_pg(pg_session, pg_test_config):
 
     # Najpierw utworz schemat (count_target_data wymaga istniejacych tabel)
     ok, _ = postgres_db.execute_schema(
-        pg_test_config(), pg_session["db_name"], LOCATION_DB_SCHEMA
+        pg_session["config"], pg_session["db_name"], LOCATION_DB_SCHEMA
     )
     assert ok is True
 
@@ -142,7 +142,7 @@ def test_count_target_data_after_manual_insert(pg_session, pg_test_config):
     from launcher.db import postgres as postgres_db
 
     ok, _ = postgres_db.execute_schema(
-        pg_test_config(), pg_session["db_name"], LOCATION_DB_SCHEMA
+        pg_session["config"], pg_session["db_name"], LOCATION_DB_SCHEMA
     )
     assert ok is True
 
@@ -216,7 +216,7 @@ def test_postgres_full_wizard_flow_real_pg(pg_session, pg_test_config, tmp_path,
 
     # Upewnij sie ze baza istnieje (ensure_location_database)
     ok, msg = postgres_db.create_database(
-        pg_test_config(), pg_session["db_name"]
+        pg_session["config"], pg_session["db_name"]
     )
     if not ok and "already exists" in msg.lower():
         pass  # OK - juz istnieje z fixture setup

@@ -50,20 +50,49 @@ def test_auth_status_returns_json_content_type(admin_client):
     assert "application/json" in ct, f"Oczekiwano JSON, mamy: {ct}"
 
 
-def test_auth_status_warns_when_default_password(admin_client, monkeypatch):
-    """Gdy domyślne hasło → ostrzeżenie na liście."""
+def test_auth_status_reports_setup_required_without_password(admin_client, monkeypatch):
+    """Brak hasła admina → setup_required + instrukcja konfiguracji (bez hasła domyślnego)."""
     from backend import config
     monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
     monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
     resp = admin_client.get("/api/admin/auth-status")
     data = resp.json()
     assert data["using_default_password"] is True
-    assert any("admin123" in w for w in data["warnings"])
+    assert data["setup_required"] is True
+    assert "set_admin_password" in data["setup_instructions"]
+    assert any("set_admin_password" in w for w in data["warnings"])
+
+
+def test_auth_status_treats_admin123_hash_as_not_configured(admin_client, monkeypatch):
+    """Hash hasła 'admin123' nie liczy się jako konfiguracja."""
+    from backend import config
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", generate_password_hash("admin123", method="pbkdf2:sha256:1000"))
+    data = admin_client.get("/api/admin/auth-status").json()
+    assert data["setup_required"] is True
+
+
+def test_auth_status_ok_with_configured_password(admin_client):
+    data = admin_client.get("/api/admin/auth-status").json()
+    assert data["setup_required"] is False
+    assert data["setup_instructions"] is None
+    assert data["warnings"] == []
 
 
 # ============================================================================
-# POST /api/admin/change-password (Priorytet 6.4)
+# POST /api/admin/change-password
 # ============================================================================
+
+
+def _use_password(client, monkeypatch, password):
+    """Ustawia hash hasła admina i loguje klienta tym hasłem."""
+    from backend import config
+    from werkzeug.security import generate_password_hash
+    monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
+    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", generate_password_hash(password, method="pbkdf2:sha256:1000"))
+    client.cookies.clear()
+    resp = client.post("/api/admin/login", json={"username": "admin", "password": password})
+    assert resp.status_code == 200, resp.text
 
 
 def test_change_password_requires_auth(admin_client, monkeypatch):
@@ -82,9 +111,7 @@ def test_change_password_requires_auth(admin_client, monkeypatch):
 
 def test_change_password_rejects_wrong_current(admin_client, monkeypatch):
     """Błędne obecne hasło → 401."""
-    from backend import config
-    monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
-    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
+    _use_password(admin_client, monkeypatch, "StareHaslo123")
     resp = admin_client.post(
         "/api/admin/change-password",
         json={"current_password": "WRONG", "new_password": "NoweSilne123"},
@@ -92,38 +119,28 @@ def test_change_password_rejects_wrong_current(admin_client, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_change_password_rejects_short_new_password(admin_client, monkeypatch, tmp_path):
+def test_change_password_rejects_short_new_password(admin_client, monkeypatch):
     """Nowe hasło < 8 znaków → 400."""
-    from backend import config
-    monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
-    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
-    # Zapisz .env do tmpdir, żeby nie nadpisać prawdziwego
-    env_file = tmp_path / ".env"
-    env_file.write_text("ADMIN_PASSWORD_HASH=\n", encoding="utf-8")
-    monkeypatch.setattr(config, "BASE_DIR", tmp_path.parent)
-    # Nadpisujemy env_path w endpoint - tu używamy monkeypatch na env path
+    _use_password(admin_client, monkeypatch, "StareHaslo123")
     resp = admin_client.post(
         "/api/admin/change-password",
-        json={"current_password": "admin123", "new_password": "krot"},
+        json={"current_password": "StareHaslo123", "new_password": "krot"},
     )
-    # 400 bo za krótkie
     assert resp.status_code == 400, resp.text
 
 
-def test_change_password_rejects_same_as_current(admin_client, monkeypatch, tmp_path):
+def test_change_password_rejects_same_as_current(admin_client, monkeypatch):
     """Nowe hasło == stare → 400."""
-    from backend import config
-    monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
-    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
+    _use_password(admin_client, monkeypatch, "StareHaslo123")
     resp = admin_client.post(
         "/api/admin/change-password",
-        json={"current_password": "admin123", "new_password": "admin123"},
+        json={"current_password": "StareHaslo123", "new_password": "StareHaslo123"},
     )
     assert resp.status_code == 400
 
 
 def test_change_password_rejected_when_auth_disabled(admin_client, monkeypatch):
-    """Gdy ``ADMIN_AUTH_ENABLED=False`` → 400 (nie ma sensu zmieniać hasła)."""
+    """Gdy autoryzacja jawnie wyłączona → 400 (nie ma sensu zmieniać hasła)."""
     from backend import config
     monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", False)
     resp = admin_client.post(
@@ -133,51 +150,32 @@ def test_change_password_rejected_when_auth_disabled(admin_client, monkeypatch):
     assert resp.status_code == 400
 
 
-def test_change_password_succeeds_and_writes_env(admin_client, monkeypatch, tmp_path):
-    """Sukces: nowe hasło zapisane do .env i skrót widoczny w statusie."""
+def test_change_password_succeeds_writes_env_and_invalidates_other_sessions(admin_client, monkeypatch, tmp_path):
+    """Sukces: hash zapisany do .env (w tmp), stare sesje unieważnione, bieżąca dostaje nowy token."""
     from backend import config
-    # Skonfiguruj auth z Werkzeug hasłem
-    from werkzeug.security import generate_password_hash
-    werkzeug_hash = generate_password_hash("StareHaslo123")
-    monkeypatch.setattr(config, "ADMIN_AUTH_ENABLED", True)
-    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", werkzeug_hash)
+    from backend.auth import create_session_token
+    _use_password(admin_client, monkeypatch, "StareHaslo123")
+    other_session = create_session_token()
 
-    # Stwórz tymczasowy .env w tmp_path i podmień BASE_DIR
     env_file = tmp_path / ".env"
-    env_file.write_text(
-        "ADMIN_AUTH_ENABLED=1\nADMIN_USERNAME=admin\nADMIN_PASSWORD_HASH=scrypt:abc$def\n",
-        encoding="utf-8",
-    )
-
-    # Monkeypatch funkcji save_admin_password_hash żeby pisała do naszego pliku
+    env_file.write_text("ADMIN_USERNAME=admin\nADMIN_PASSWORD_HASH=old\n", encoding="utf-8")
     import launcher.services.admin_config_service as acs_mod
     original = acs_mod.save_admin_password_hash
-    def fake_save(path, new_hash):
-        original(str(env_file), new_hash)
-    monkeypatch.setattr(acs_mod, "save_admin_password_hash", fake_save)
-    # Podmień ścieżkę w endpoint - robimy to przez monkeypatch wywołania
-    from backend.routers import admin_auth as auth_router
-    orig_change = auth_router.change_password
-    # ... ale lepiej: zamiast kombinować ze ścieżkami, sprawdź tylko że status
-    # zwraca using_default_password=False po zmianie hasła w pamięci.
-    # (env_path jest hardcoded w endpoint, więc pełny test jest trudny.
-    # Zamiast tego testujemy że config.ADMIN_PASSWORD_HASH zostaje zaktualizowany
-    # w pamięci i że Werkzeug hash zostaje zapisany w env.)
+    monkeypatch.setattr(acs_mod, "save_admin_password_hash", lambda _path, new_hash: original(str(env_file), new_hash))
 
-    # Uproszczony wariant: wysyłamy nowe hasło, ignorujemy error zapisu (bo env_path
-    # może nie istnieć), ale weryfikujemy że config został zaktualizowany.
-    # Endpoint powinien zwrócić {"status": "ok"} albo błąd zapisu (nie auth/validation).
     resp = admin_client.post(
         "/api/admin/change-password",
         json={"current_password": "StareHaslo123", "new_password": "NoweSilneHaslo2026"},
     )
-    # Sukces (200) lub błąd zapisu pliku (500) - ważne że NIE 401/400
-    assert resp.status_code in (200, 500), (
-        f"Oczekiwano 200 lub 500 (błąd zapisu), mamy {resp.status_code}: {resp.text}"
-    )
-    if resp.status_code == 200:
-        data = resp.json()
-        assert data["status"] == "ok"
-        # Sprawdź że in-memory config został zaktualizowany
-        assert config.ADMIN_PASSWORD_HASH != werkzeug_hash
-        assert "scrypt:" in config.ADMIN_PASSWORD_HASH or "pbkdf2:" in config.ADMIN_PASSWORD_HASH
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "ok"
+    assert config.ADMIN_PASSWORD_HASH.split(":", 1)[0] in ("scrypt", "pbkdf2")
+    assert config.ADMIN_PASSWORD_HASH in env_file.read_text(encoding="utf-8")
+
+    # bieżący klient nadal zalogowany (nowy token), inna sesja - nie
+    assert admin_client.get("/api/admin/check-auth").json()["authenticated"] is True
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    with TestClient(app) as other:
+        other.cookies.set("admin_token", other_session)
+        assert other.get("/api/admin/check-auth").json()["authenticated"] is False

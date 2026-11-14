@@ -20,10 +20,10 @@ from backend.auth.routes import verify_password
 # ============================================================================
 
 
-def test_verify_password_with_sha256_default(monkeypatch):
-    """Hash ``sha256('admin123')`` akceptuje hasło ``admin123`` (stary fallback)."""
+def test_verify_password_has_no_default_password(monkeypatch):
+    """Brak hasha → 'admin123' NIE działa (nie ma hasła domyślnego)."""
     monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
-    assert verify_password("admin123") is True
+    assert verify_password("admin123") is False
 
 
 def test_verify_password_rejects_wrong_password(monkeypatch):
@@ -74,7 +74,7 @@ def test_verify_password_werkzeug_priority_over_sha256(monkeypatch):
 
 
 def test_verify_password_handles_none_hash(monkeypatch):
-    """Gdyby ``ADMIN_PASSWORD_HASH`` to ``None`` → traktuj jak pusty."""
+    """Gdyby ``ADMIN_PASSWORD_HASH`` to ``None`` → traktuj jak brak konfiguracji."""
     monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", None)
-    assert verify_password("admin123") is True
+    assert verify_password("admin123") is False
     assert verify_password("wrong") is False

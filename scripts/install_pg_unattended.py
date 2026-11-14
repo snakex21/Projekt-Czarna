@@ -4,7 +4,7 @@ Co robi (wszystko bez klikania):
   1. Sprawdza uprawnienia admina (Windows: Security.Principal)
   2. Jeśli nie admin → UAC prompt (ShellExecuteW "runas") i re-run
   3. Download PostgreSQL installer EDB (357 MB) do <root>/cache/
-  4. Uruchamia w trybie unattended (port 5432, hasło 1234, --enable-components)
+  4. Uruchamia w trybie unattended (port 5432, losowe hasło lub PG_INSTALL_PASSWORD)
   5. Czeka na Windows Service "postgresql-x64-16" (max 5 min)
   6. Download PostGIS bundle z OSGeo (100 MB)
   7. Install PostGIS (NSIS /S flag, instaluje się do wykrytego PG 16)
@@ -12,7 +12,7 @@ Co robi (wszystko bez klikania):
   9. CREATE EXTENSION postgis
   10. Wykonuje LOCATION_DB_SCHEMA (tworzy 10 tabel + PostGIS geometry type)
   11. Aktualizuje backend/.env (DB_ENGINE=postgresql, DB_PORT=5432)
-  12. Aktualizuje backend/.postgres.env (LAUNCHER_DB_PASSWORD=1234)
+  12. Aktualizuje backend/.postgres.env (LAUNCHER_DB_PASSWORD=<hasło>, plik w .gitignore)
 
 Użycie::
 
@@ -45,7 +45,29 @@ POSTGIS_INSTALLER_URL = (
 )
 PG_INSTALLER_SIZE_MB = 357
 POSTGIS_INSTALLER_SIZE_MB = 100
-PG_PASSWORD = "1234"
+def _resolve_pg_password() -> str:
+    """Hasło superusera PostgreSQL - bez wartości wpisanej w kod.
+
+    Kolejność: zmienna ``PG_INSTALL_PASSWORD``, hasło zapisane wcześniej w
+    ``backend/.postgres.env`` (ponowne uruchomienie skryptu), a w ostateczności
+    nowe losowe hasło (zapisywane potem w ``backend/.postgres.env``).
+    """
+    import secrets
+
+    explicit = os.environ.get("PG_INSTALL_PASSWORD", "").strip()
+    if explicit:
+        return explicit
+    pg_env = Path(__file__).resolve().parent.parent / "backend" / ".postgres.env"
+    if pg_env.exists():
+        for line in pg_env.read_text(encoding="utf-8").splitlines():
+            if line.startswith("LAUNCHER_DB_PASSWORD="):
+                value = line.split("=", 1)[1].strip()
+                if value:
+                    return value
+    return secrets.token_urlsafe(18)
+
+
+PG_PASSWORD = _resolve_pg_password()
 PG_PORT = 5432
 PG_DB_NAME = "mapa_czarna_db"
 PG_SERVICE_NAME = "postgresql-x64-16"

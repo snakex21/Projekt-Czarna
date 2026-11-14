@@ -242,7 +242,7 @@ def get_location_info_for_migration(location_name=None):
                 "host": os.getenv("DB_HOST", "localhost"),
                 "dbname": "mapa_launcher_db",
                 "user": os.getenv("DB_USER", "postgres"),
-                "password": os.getenv("DB_PASSWORD", "1234"),
+                "password": os.getenv("DB_PASSWORD", ""),
                 "port": os.getenv("DB_PORT", "5432"),
                 "client_encoding": "UTF8"
             }
@@ -404,7 +404,7 @@ DB_CONFIG = {
     "host": get_env_variable("DB_HOST", "localhost"),
     "dbname": get_env_variable("DB_NAME", "mapa_czarna_db"),
     "user": get_env_variable("DB_USER", "postgres"),
-    "password": get_env_variable("DB_PASSWORD", "1234"),
+    "password": get_env_variable("DB_PASSWORD", ""),
     "port": get_env_variable("DB_PORT", "5432"),
     "client_encoding": "UTF8"  # Wymuszenie kodowania UTF-8
 }

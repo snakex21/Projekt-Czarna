@@ -1,33 +1,31 @@
 """Router do zapisu/edycji danych (edytor mapy, CRUD)."""
 import json
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from ..db import get_db
 from ..config import DB_ENGINE
 from ..auth import admin_required
+from ..core.schemas import FeatureCollectionIn
 
 router = APIRouter(prefix="/api/dzialki", tags=["editor"])
 
 
 @router.post("/save")
 async def save_parcels(
-    request: Request,
+    body: FeatureCollectionIn,
     db: AsyncSession = Depends(get_db),
     _auth=Depends(admin_required),
 ):
     """Zapisuje wszystkie dzialki (GeoJSON FeatureCollection). Wymaga autoryzacji."""
-    data = await request.json()
-    features = data.get("features", [])
-
     saved = 0
-    for feature in features:
-        props = feature.get("properties", {})
-        geometry = feature.get("geometry", {})
-        feature_id = feature.get("id")
+    for feature in body.features:
+        props = feature.properties
+        geometry = feature.geometry or {}
+        feature_id = feature.id
 
-        numer = props.get("numer_obiektu", "")
-        kategoria = props.get("kategoria", "default")
+        numer = str(props.get("numer_obiektu", "") or "")[:255]
+        kategoria = str(props.get("kategoria", "default") or "default")[:64]
 
         geom_json = json.dumps(geometry)
 

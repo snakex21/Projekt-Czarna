@@ -1,0 +1,74 @@
+aiosqlite==0.22.1         # via -r requirements.txt
+annotated-doc==0.0.6      # via fastapi
+annotated-types==0.8.0    # via pydantic
+anyio==4.16.0             # via fastapi, httpx, starlette, watchfiles
+asyncpg==0.32.0           # via -r requirements.txt
+boolean-py==5.0           # via license-expression
+cachecontrol==0.14.4      # via pip-audit
+certifi==2026.10.23       # via httpcore, httpx, requests
+charset-normalizer==3.5.2  # via requests
+click==8.5.1              # via uvicorn
+colorama==0.4.6 ; sys_platform == 'win32'  # via pytest
+contourpy==1.4.0          # via matplotlib
+cycler==0.12.1            # via matplotlib
+cyclonedx-python-lib==11.12.0  # via pip-audit
+defusedxml==0.7.1         # via py-serializable
+fastapi==0.162.7          # via -r requirements.txt
+filelock==4.2.10          # via cachecontrol
+fonttools==4.68.0         # via matplotlib
+greenlet==3.5.6           # via playwright, sqlalchemy
+h11==0.16.0               # via httpcore, uvicorn, -r requirements.txt
+httpcore==1.0.9           # via httpx
+httptools==0.9.0          # via uvicorn
+httpx==0.28.1             # via -r requirements-test.txt
+idna==3.20                # via anyio, httpx, requests
+iniconfig==2.3.1          # via pytest
+kiwisolver==1.5.1         # via matplotlib
+license-expression==30.4.4  # via cyclonedx-python-lib
+markdown-it-py==4.3.0     # via rich
+markupsafe==3.0.4         # via werkzeug
+matplotlib==3.11.2        # via -r requirements.txt
+mdurl==0.1.2              # via markdown-it-py
+msgpack==1.2.4            # via cachecontrol
+numpy==2.5.4              # via contourpy, matplotlib
+opentelemetry-api==1.45.2  # via fastapi
+packageurl-python==0.17.6  # via cyclonedx-python-lib
+packaging==26.3           # via matplotlib, pip-audit, pip-requirements-parser, pytest
+pillow==13.0.0            # via matplotlib, -r requirements.txt
+pip==26.3                 # via pip-api
+pip-api==0.0.35           # via pip-audit
+pip-audit==2.10.1         # via -r requirements-test.txt
+pip-requirements-parser==32.0.1  # via pip-audit
+platformdirs==4.14.5      # via pip-audit
+playwright==1.65.2        # via pytest-playwright, -r requirements-test.txt
+pluggy==1.7.0             # via pytest
+psycopg2-binary==2.9.13   # via -r requirements.txt
+py-serializable==2.2.0    # via cyclonedx-python-lib
+pydantic==2.14.3          # via fastapi, -r requirements.txt
+pydantic-core==2.50.4     # via pydantic
+pygments==2.21.0          # via pytest, rich
+pyparsing==3.3.3          # via matplotlib, pip-requirements-parser
+pytest==9.2.0             # via pytest-playwright, -r requirements.txt
+pytest-playwright==0.10.0  # via -r requirements-test.txt
+python-dateutil==4.0.0    # via matplotlib
+python-dotenv==1.2.4      # via uvicorn, -r requirements.txt
+python-slugify==9.1.3     # via pytest-playwright
+pyyaml==6.0.3             # via uvicorn
+requests==2.34.2          # via cachecontrol, pip-audit, -r requirements.txt
+rich==15.0.0              # via pip-audit
+ruff==0.17.5              # via -r requirements-test.txt
+sortedcontainers==2.4.0   # via cyclonedx-python-lib
+sqlalchemy==2.1.8         # via -r requirements.txt
+starlette==1.10.0         # via fastapi, -r requirements.txt
+text-unidecode==1.3       # via python-slugify
+tomli==2.5.0              # via pip-audit
+tomli-w==1.2.0            # via pip-audit
+typing-extensions==4.16.0  # via anyio, fastapi, opentelemetry-api, pydantic, pydantic-core, sqlalchemy, typing-inspection
+typing-inspection==0.4.5  # via fastapi, pydantic
+tzdata==2026.6            # via python-dateutil
+urllib3==2.8.0            # via requests
+uvicorn==0.54.0           # via -r requirements.txt
+uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'  # via uvicorn
+watchfiles==1.3.0         # via uvicorn
+websockets==17.4          # via uvicorn
+werkzeug==3.1.9           # via -r requirements.txt

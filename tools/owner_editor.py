@@ -86,7 +86,7 @@ def get_active_location_backup_folder():
                 "host": os.getenv("DB_HOST", "localhost"),
                 "dbname": "mapa_launcher_db",
                 "user": os.getenv("DB_USER", "postgres"),
-                "password": os.getenv("DB_PASSWORD", "1234"),
+                "password": os.getenv("DB_PASSWORD", ""),
                 "port": os.getenv("DB_PORT", "5432"),
                 "client_encoding": "UTF8"
             }
@@ -263,7 +263,7 @@ class OwnerEditorApp(tk.Tk):
                         "host": os.getenv("DB_HOST", "localhost"),
                         "dbname": "mapa_launcher_db",
                         "user": os.getenv("DB_USER", "postgres"),
-                        "password": os.getenv("DB_PASSWORD", "1234"),
+                        "password": os.getenv("DB_PASSWORD", ""),
                         "port": os.getenv("DB_PORT", "5432"),
                         "client_encoding": "UTF8"
                     }

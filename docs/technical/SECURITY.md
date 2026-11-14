@@ -2,6 +2,24 @@
 
 > Polityka bezpieczeństwa admina, tryb sieciowy, hardening, znane ograniczenia.
 
+## 0. Zmiany w 2.0.0 (gałąź `fix/security-v2`)
+
+- Usunięto furtkę testową: ciasteczko `admin_logged_in=true` z nagłówkiem
+  `User-Agent: testclient` dawało uprawnienia admina każdemu klientowi.
+  Testy logują się przez `/api/admin/login` (losowe hasło na sesję pytest).
+- Autoryzacja admina jest **domyślnie włączona**; wyłączenie wymaga
+  `ADMIN_AUTH_ENABLED=0` **i** `ADMIN_AUTH_INSECURE_DISABLE=1` (nie w produkcji).
+- **Brak hasła domyślnego** (`admin123` usunięte). Bez `ADMIN_PASSWORD_HASH`
+  akcje admina → 403 z instrukcją `python -m backend.scripts.set_admin_password`.
+- Token sesji: HMAC-SHA256, wygasa (`ADMIN_SESSION_TTL_SECONDS`), losowy `jti`,
+  unieważniany przy wylogowaniu i zmianie hasła; ciasteczko `SameSite=Strict`.
+- `SECRET_KEY` generowany przy pierwszym starcie i zapisywany poza repozytorium.
+- Rate limit logowania (429), modele Pydantic dla zapisów, limit rozmiaru
+  żądania (413), nagłówki bezpieczeństwa, kontrola `Origin`, CORS domyślnie wyłączony,
+  404 JSON dla nieznanych `/api/*`.
+- Sekcje niżej opisujące fallback `admin123` / `dev-secret-change-me` dotyczą
+  wersji 1.x i zostały zaktualizowane.
+
 ## 1. Kontekst
 
 Projekt obsługuje panel administracyjny z możliwością modyfikacji danych
@@ -17,8 +35,8 @@ urządzeń w sieci. Priorytet 6 zamknął najważniejsze luki.
 |------------|-------|-----------|
 | Dostęp do panelu admina bez hasła | **Krytyczny** - modyfikacja danych | Cookie session + Werkzeug hash hasła (P6.1-6.4) |
 | Backdoor w `verify_password` (SHA-256 vs Werkzeug) | **Krytyczny** - hasła nieaktywne | P6.3 naprawił detekcję formatu |
-| Domyślne hasło `admin123` w produkcji | Wysoki | Ostrzeżenie w `/auth-status` (P6.2) + w launcherze (P6.5) |
-| Domyślny `SECRET_KEY` w produkcji | Wysoki | `assert_safe_secret_key` (P6.6) - blokuje startup |
+| Domyślne hasło admina | Wysoki | Brak hasła domyślnego - bez `ADMIN_PASSWORD_HASH` akcje admina są blokowane (2.0.0) |
+| Domyślny `SECRET_KEY` | Wysoki | Klucz generowany poza repo przy pierwszym starcie; zaślepki ignorowane; `assert_safe_secret_key` w produkcji |
 | Tryb sieciowy bez auth | Wysoki | Ostrzeżenie w `start_network_server` (P6.7) |
 | CORS wildcard z credentials | Średni | `get_cors_allowed_origins` z env (P6.8) |
 
@@ -62,7 +80,8 @@ Hasło jest haszowane w launcherze (Werkzeug `scrypt`) i zapisywane w
 
 Backend `verify_password` akceptuje:
 
-- **Pusty / None** → fallback do `sha256("admin123")` (dev convenience).
+- **Pusty / None** → brak konfiguracji: logowanie i akcje admina odrzucane (403).
+- Hash znanego hasła domyślnego (`admin123`, `admin`, ...) → traktowany jak brak konfiguracji.
 - **64 znaki hex** → SHA-256 (legacy / ustawienie ręczne).
 - **`scrypt:...$...$...`** (≥2 `$` + `:`) → Werkzeug.
 
@@ -130,10 +149,10 @@ publikacją.
 PRODUCTION=1                                    # włącza tryb produkcyjny
 ENVIRONMENT=production                          # alternatywa
 
-FLASK_SECRET_KEY=<losowy ciąg 32+ znaków>       # NIE "dev-secret-change-me"!
-ADMIN_AUTH_ENABLED=1                            # włącz autoryzację
+FLASK_SECRET_KEY=<losowy ciąg 32+ znaków>       # albo puste: klucz w SECRET_KEY_FILE poza repo
+ADMIN_AUTH_ENABLED=1                            # domyślnie i tak włączone
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD_HASH=scrypt:32768:8:1$...$...    # hasło ZMIENIONE z domyślnego
+ADMIN_PASSWORD_HASH=scrypt:32768:8:1$...$...    # python -m backend.scripts.set_admin_password
 
 CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 ```
@@ -142,7 +161,7 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 - [ ] `PRODUCTION=1` w `.env`.
 - [ ] `FLASK_SECRET_KEY` to losowy 32+ znakowy ciąg.
-- [ ] `ADMIN_PASSWORD_HASH` to hash **innego** hasła niż `admin123`.
+- [ ] `ADMIN_PASSWORD_HASH` ustawione (`python -m backend.scripts.set_admin_password`).
 - [ ] `CORS_ALLOWED_ORIGINS` zawiera tylko zaufane domeny.
 - [ ] HTTPS przez reverse proxy (nginx/Caddy).
 - [ ] Firewall zezwala na port backendu tylko z zaufanych IP.
@@ -181,8 +200,8 @@ status tych wymagań.
 
 W `backend/tests/unit/test_auth_security.py` (23 testy):
 
-- `is_default_admin_password` - wykrywa `sha256("admin123")` i pusty hash.
-- `is_default_secret_key` - wykrywa `"dev-secret-change-me"`.
+- `is_default_admin_password` - brak hasha albo hash znanego hasła domyślnego.
+- `is_default_secret_key` - wykrywa zaślepki z dawnych szablonów `.env`.
 - `is_production_mode` - czyta `PRODUCTION=1` i `ENVIRONMENT=production`.
 - `get_admin_security_status` - pełny raport z ostrzeżeniami.
 - `assert_safe_secret_key` - blokuje produkcję z fallbackiem.
@@ -197,12 +216,13 @@ W `backend/tests/integration/test_auth_status_router.py` (11 testów):
 W `backend/tests/unit/test_verify_password.py` (7 testów):
 
 - Detekcja formatu hasła (pusty, SHA-256 hex, Werkzeug).
-- Fallback na `admin123` gdy brak hasha.
+- Brak hasła domyślnego gdy brak hasha.
 
 ## 8. Przyszłe ulepszenia (poza P6)
 
-- [ ] Rate-limit logowania (np. 5 prób / 15 min).
-- [ ] Auto-wygasanie sesji (token refresh).
+- [x] Rate-limit logowania (2.0.0: `LOGIN_MAX_ATTEMPTS` / `LOGIN_WINDOW_SECONDS`).
+- [x] Wygasanie sesji (2.0.0: `ADMIN_SESSION_TTL_SECONDS`).
+- [ ] Lista odwołanych sesji jest w pamięci procesu (restart ją czyści; tokeny i tak wygasają).
 - [ ] Opcjonalne 2FA (TOTP).
 - [ ] Audit log (kto, co, kiedy zmienił).
 - [ ] HTTPS wsparcie bezpośrednio w uvicorn (opcjonalne).
@@ -213,4 +233,3 @@ W `backend/tests/unit/test_verify_password.py` (7 testów):
 - [ARCHITECTURE.md](ARCHITECTURE.md) - architektura
 - [LAUNCHER.md](LAUNCHER.md) - GUI launchera (karta "Bezpieczeństwo admina")
 - [TESTING.md](TESTING.md) - testy bezpieczeństwa
-- [TODO.md](../TODO.md) - status Priorytetu 6

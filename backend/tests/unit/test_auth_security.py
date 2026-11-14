@@ -1,8 +1,8 @@
 """Testy utility ``backend/auth/security.py`` - diagnostyka bezpieczeństwa admina.
 
 Funkcje:
-- ``is_default_admin_password()`` → czy hash to pusty/sha256("admin123")?
-- ``is_default_secret_key()`` → czy SECRET_KEY to fallback?
+- ``is_default_admin_password()`` → czy hasło admina NIE jest skonfigurowane?
+- ``is_default_secret_key()`` → czy SECRET_KEY to znana zaślepka?
 - ``is_production_mode()`` → czy ENVIRONMENT/PRODUCTION=1?
 - ``get_admin_security_status()`` → słownik z całością + lista ostrzeżeń.
 """
@@ -27,8 +27,11 @@ from backend.auth.security import assert_safe_secret_key
 
 # Hash SHA-256("admin123") - referencyjna wartość dla testu fallbacku
 DEFAULT_ADMIN_HASH = hashlib.sha256(b"admin123").hexdigest()
-# Domyślny SECRET_KEY (z backend/config.py)
+# Zaślepka SECRET_KEY z dawnych szablonów .env (config ją odrzuca)
 DEFAULT_SECRET_KEY = "dev-secret-change-me"
+# Hash własnego (niedomyślnego) hasła
+from werkzeug.security import generate_password_hash as _gph
+STRONG_HASH = _gph("Wlasne-Haslo-2026", method="pbkdf2:sha256:1000")
 
 
 # ============================================================================
@@ -98,7 +101,7 @@ class TestGetAdminSecurityStatus:
         """Zwraca dict z ``auth_enabled``, ``using_default_password``,
         ``using_default_secret_key``, ``is_production``, ``warnings``."""
         monkeypatch.setattr(sec.config, "ADMIN_AUTH_ENABLED", True)
-        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", "scrypt:abc$def")
+        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", STRONG_HASH)
         monkeypatch.setattr(sec.config, "SECRET_KEY", "x" * 64)
         monkeypatch.setattr(sec.config, "PRODUCTION", False)
         status = sec.get_admin_security_status()
@@ -116,12 +119,13 @@ class TestGetAdminSecurityStatus:
         monkeypatch.setattr(sec.config, "SECRET_KEY", "x" * 64)
         monkeypatch.setattr(sec.config, "PRODUCTION", False)
         status = sec.get_admin_security_status()
-        assert any("admin123" in w for w in status["warnings"])
+        assert status["setup_required"] is True
+        assert any("set_admin_password" in w for w in status["warnings"])
 
     def test_warnings_for_default_secret_key(self, monkeypatch):
         """Domyślny SECRET_KEY → ostrzeżenie."""
         monkeypatch.setattr(sec.config, "ADMIN_AUTH_ENABLED", True)
-        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", "scrypt:abc$def")
+        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", STRONG_HASH)
         monkeypatch.setattr(sec.config, "SECRET_KEY", DEFAULT_SECRET_KEY)
         monkeypatch.setattr(sec.config, "PRODUCTION", False)
         status = sec.get_admin_security_status()
@@ -139,7 +143,7 @@ class TestGetAdminSecurityStatus:
     def test_no_warnings_when_all_ok(self, monkeypatch):
         """Gdy wszystko OK → pusta lista ostrzeżeń."""
         monkeypatch.setattr(sec.config, "ADMIN_AUTH_ENABLED", True)
-        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", "scrypt:abc$def")
+        monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", STRONG_HASH)
         monkeypatch.setattr(sec.config, "SECRET_KEY", "x" * 64)
         monkeypatch.setattr(sec.config, "PRODUCTION", False)
         status = sec.get_admin_security_status()
@@ -154,7 +158,7 @@ class TestGetAdminSecurityStatus:
 def test_assert_safe_secret_key_passes_in_dev_with_default():
     """W dev (PRODUCTION=False) nawet fallback SECRET_KEY przechodzi."""
     # is_production=False, key=DEFAULT → brak wyjątku
-    assert_safe_secret_key(is_production=False, secret_key=sec.DEFAULT_SECRET_KEY)
+    assert_safe_secret_key(is_production=False, secret_key=DEFAULT_SECRET_KEY)
 
 
 def test_assert_safe_secret_key_passes_in_dev_with_custom():
@@ -167,7 +171,7 @@ def test_assert_safe_secret_key_raises_in_prod_with_default():
     with pytest.raises(ValueError) as exc_info:
         assert_safe_secret_key(
             is_production=True,
-            secret_key=sec.DEFAULT_SECRET_KEY,
+            secret_key=DEFAULT_SECRET_KEY,
         )
     # Komunikat musi wspominać o SECRET_KEY i .env
     msg = str(exc_info.value)
@@ -175,9 +179,21 @@ def test_assert_safe_secret_key_raises_in_prod_with_default():
     assert ".env" in msg or "FLASK_SECRET_KEY" in msg
 
 
+def test_assert_safe_secret_key_raises_in_prod_with_short_key():
+    with pytest.raises(ValueError):
+        assert_safe_secret_key(is_production=True, secret_key="krotki-klucz")
+
+
+def test_assert_safe_auth_config_refuses_disabled_auth_in_prod():
+    with pytest.raises(ValueError):
+        sec.assert_safe_auth_config(is_production=True, auth_enabled=False)
+    sec.assert_safe_auth_config(is_production=False, auth_enabled=False)
+    sec.assert_safe_auth_config(is_production=True, auth_enabled=True)
+
+
 def test_assert_safe_secret_key_passes_in_prod_with_custom():
     """PRODUKCJA + custom SECRET_KEY → brak wyjątku."""
-    assert_safe_secret_key(is_production=True, secret_key="super-bezpieczny-klucz-2026")
+    assert_safe_secret_key(is_production=True, secret_key="super-bezpieczny-klucz-2026-" + "x" * 16)
 
 
 # ============================================================================
@@ -199,9 +215,17 @@ def test_network_warnings_present_when_auth_disabled(monkeypatch):
     assert ".env" in joined or "admin_auth" in joined
 
 
-def test_network_warnings_empty_when_auth_enabled(monkeypatch):
-    """ADMIN_AUTH_ENABLED=True → brak ostrzeżeń (konfiguracja bezpieczna)."""
+def test_network_warnings_when_password_not_configured(monkeypatch):
     monkeypatch.setattr(sec.config, "ADMIN_AUTH_ENABLED", True)
+    monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", "")
+    warnings = sec.get_network_security_warnings()
+    assert any("set_admin_password" in w for w in warnings)
+
+
+def test_network_warnings_empty_when_auth_enabled(monkeypatch):
+    """Auth włączony + skonfigurowane hasło → brak ostrzeżeń."""
+    monkeypatch.setattr(sec.config, "ADMIN_AUTH_ENABLED", True)
+    monkeypatch.setattr(sec.config, "ADMIN_PASSWORD_HASH", STRONG_HASH)
     warnings = sec.get_network_security_warnings()
     assert warnings == []
 
@@ -220,15 +244,15 @@ def test_network_warnings_safe_when_config_missing(monkeypatch):
 # ============================================================================
 # Domyślnie ``allow_origins=["*"]`` z ``allow_credentials=True`` jest niebezpieczne
 # (przeglądarka odrzuca, ale świadczy o braku świadomości). W produkcji
-# CORS_ALLOWED_ORIGINS musi być ustawione. W dev fallback ["*"] z ostrzeżeniem.
+# CORS_ALLOWED_ORIGINS musi być ustawione. W dev domyślnie brak originów (same-origin).
 
 
-def test_cors_origins_wildcard_in_dev_without_env(monkeypatch):
-    """Dev (PRODUCTION=False) + brak CORS_ALLOWED_ORIGINS → ['*']."""
+def test_cors_origins_empty_in_dev_without_env(monkeypatch):
+    """Dev + brak CORS_ALLOWED_ORIGINS → [] (tylko same-origin, bez '*')."""
     monkeypatch.setattr(sec.config, "PRODUCTION", False)
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
     origins = sec.get_cors_allowed_origins()
-    assert origins == ["*"]
+    assert origins == []
 
 
 def test_cors_origins_custom_list_when_env_set(monkeypatch):

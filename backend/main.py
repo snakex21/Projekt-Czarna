@@ -8,18 +8,40 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import DB_ENGINE, ACTIVE_LOCATION, SECRET_KEY
+from . import config
+from .config import DB_ENGINE, ACTIVE_LOCATION
 from .db import init_db, close_db
-from .auth.security import assert_safe_secret_key, is_production_mode, get_cors_allowed_origins
+from .auth import SETUP_INSTRUCTIONS, is_admin_configured
+from .auth.security import (
+    assert_safe_auth_config,
+    assert_safe_secret_key,
+    get_cors_allowed_origins,
+    is_production_mode,
+)
+from .core.middleware import BodySizeLimitMiddleware, OriginCheckMiddleware, SecurityHeadersMiddleware
+
+
+def _print_security_banner() -> None:
+    if not config.ADMIN_AUTH_ENABLED:
+        print("⚠️  UWAGA: autoryzacja admina WYŁĄCZONA (ADMIN_AUTH_INSECURE_DISABLE=1). "
+              "Każdy klient może zmieniać dane.")
+    elif not is_admin_configured():
+        print("🔒 Hasło administratora nie jest skonfigurowane - akcje admina są zablokowane.")
+        print("   " + SETUP_INSTRUCTIONS)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Uruchamianie serwera FastAPI...")
-    # Walidacja bezpieczeństwa SECRET_KEY w trybie produkcyjnym (Priorytet 6.6).
-    # W dev przechodzi bezwarunkowo.
-    assert_safe_secret_key(is_production_mode(), SECRET_KEY)
+    # W produkcji odmawiamy startu z niebezpieczną konfiguracją.
+    assert_safe_secret_key(is_production_mode(), config.SECRET_KEY)
+    assert_safe_auth_config(is_production_mode(), config.ADMIN_AUTH_ENABLED)
+    _print_security_banner()
     await init_db()
+    if config.SEED_DEMO_DATA and DB_ENGINE == "sqlite":
+        from .services.demo_seed import seed_if_empty
+        result = seed_if_empty()
+        print(f"🌱 Dane demo: {result['status']} ({result.get('counts', {})})")
     yield
     await close_db()
     print("🛑 Serwer zatrzymany")
@@ -32,15 +54,20 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_CORS_ORIGINS = get_cors_allowed_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    # CORS hardening (Priorytet 6.8): w produkcji lista originów z CORS_ALLOWED_ORIGINS,
-    # w dev fallback ["*"].
-    allow_origins=get_cors_allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Domyślnie brak originów (frontend jest serwowany z tego samego hosta).
+    # Lista z CORS_ALLOWED_ORIGINS; "*" wyłącza wysyłanie ciasteczek.
+    allow_origins=_CORS_ORIGINS,
+    allow_credentials="*" not in _CORS_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
+app.add_middleware(OriginCheckMiddleware, allowed_origins_getter=lambda: _CORS_ORIGINS)
+app.add_middleware(BodySizeLimitMiddleware, max_bytes_getter=lambda: config.MAX_REQUEST_BODY_BYTES)
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.middleware("http")

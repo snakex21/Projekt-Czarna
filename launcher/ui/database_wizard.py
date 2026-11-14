@@ -994,7 +994,7 @@ class DatabaseWizard(tk.Toplevel):
 
             except Exception as exc:
                 try:
-                    progress_win.after(0, lambda: _finish_in_ui(False, str(exc)))
+                    progress_win.after(0, lambda msg=str(exc): _finish_in_ui(False, msg))
                 except Exception:
                     _finish_in_ui(False, str(exc))
 

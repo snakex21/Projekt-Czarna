@@ -9,6 +9,8 @@ Lapie realne bugi w:
 """
 import pytest
 
+from backend.tests.auth_helpers import admin_password
+
 
 # ================================================================================
 # Auth flow
@@ -23,10 +25,10 @@ def test_auth_status_reports_enabled(client):
 
 
 def test_login_with_correct_credentials_returns_ok(client):
-    """POST /api/admin/login z 'admin'/'admin123' zwraca status=ok + token cookie."""
+    """POST /api/admin/login z poprawnym haslem zwraca status=ok + token cookie."""
     resp = client.post(
         "/api/admin/login",
-        json={"username": "admin", "password": "admin123"}
+        json={"username": "admin", "password": admin_password()}
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -49,27 +51,21 @@ def test_login_with_wrong_username_returns_401(client):
     """Zla nazwa uzytkownika -> 401."""
     resp = client.post(
         "/api/admin/login",
-        json={"username": "hacker", "password": "admin123"}
+        json={"username": "hacker", "password": admin_password()}
     )
     assert resp.status_code == 401
 
 
 def test_login_with_missing_fields_returns_error(client):
-    """Brak username LUB password -> 401 (verify_password("") != hash).
-
-    Konwencja API: payload: dict (nie Pydantic schema) - brak pola traktowany
-    jest jako pusty string, ktory nie matchuje hashu. Stad 401 zamiast 422.
-    """
+    """Brak username LUB password -> 401 (brak pola = pusty string)."""
     resp_missing_user = client.post(
         "/api/admin/login",
-        json={"password": "admin123"}
+        json={"password": admin_password()}
     )
     resp_missing_pass = client.post(
         "/api/admin/login",
         json={"username": "admin"}
     )
-    # verify_password("") / verify_password("admin123") z username mismatch
-    # zwracaja 401 (nie 422 - bo to dict, nie Pydantic schema)
     assert resp_missing_user.status_code == 401
     assert resp_missing_pass.status_code == 401
 
@@ -79,7 +75,7 @@ def test_logout_clears_admin_token_cookie(client):
     # Najpierw zaloguj
     login = client.post(
         "/api/admin/login",
-        json={"username": "admin", "password": "admin123"}
+        json={"username": "admin", "password": admin_password()}
     )
     assert "admin_token" in login.cookies
 
@@ -111,3 +107,67 @@ def test_check_auth_returns_not_authenticated_before_login(client):
     body = resp.json()
     assert body["authenticated"] is False
     assert body["auth_required"] is True
+
+
+def test_logout_revokes_token_server_side(client):
+    """Token skopiowany przed wylogowaniem nie działa po wylogowaniu."""
+    client.cookies.clear()
+    login = client.post("/api/admin/login", json={"username": "admin", "password": admin_password()})
+    token = login.cookies.get("admin_token")
+    assert token
+    client.post("/api/admin/logout")
+    client.cookies.clear()
+    client.cookies.set("admin_token", token)
+    assert client.get("/api/admin/check-auth").json()["authenticated"] is False
+    assert client.delete("/api/admin/demografia/999999").status_code == 401
+    client.cookies.clear()
+
+
+def test_session_cookie_flags(client):
+    """Ciasteczko sesji: HttpOnly, SameSite=Strict, ograniczony czas życia."""
+    client.cookies.clear()
+    resp = client.post("/api/admin/login", json={"username": "admin", "password": admin_password()})
+    set_cookie = resp.headers["set-cookie"].lower()
+    assert "httponly" in set_cookie
+    assert "samesite=strict" in set_cookie
+    assert "max-age=" in set_cookie
+    client.cookies.clear()
+
+
+def test_login_rate_limited_after_repeated_failures(client, monkeypatch):
+    """Po LOGIN_MAX_ATTEMPTS nieudanych próbach → 429 (nawet z poprawnym hasłem)."""
+    from backend import config
+    monkeypatch.setattr(config, "LOGIN_MAX_ATTEMPTS", 3)
+    client.cookies.clear()
+    for _ in range(3):
+        r = client.post("/api/admin/login", json={"username": "admin", "password": "zle-haslo"})
+        assert r.status_code == 401
+    blocked = client.post("/api/admin/login", json={"username": "admin", "password": admin_password()})
+    assert blocked.status_code == 429
+    assert int(blocked.headers["retry-after"]) >= 1
+    assert "admin_token" not in blocked.cookies
+
+
+def test_successful_login_resets_failure_counter(client, monkeypatch):
+    from backend import config
+    monkeypatch.setattr(config, "LOGIN_MAX_ATTEMPTS", 3)
+    client.cookies.clear()
+    for _ in range(2):
+        client.post("/api/admin/login", json={"username": "admin", "password": "zle"})
+    assert client.post("/api/admin/login", json={"username": "admin", "password": admin_password()}).status_code == 200
+    for _ in range(2):
+        assert client.post("/api/admin/login", json={"username": "admin", "password": "zle"}).status_code == 401
+    client.cookies.clear()
+
+
+def test_login_refused_with_setup_instructions_when_not_configured(client, monkeypatch):
+    """Brak skonfigurowanego hasła → 403 z instrukcją, żadne hasło nie działa."""
+    from backend import config
+    monkeypatch.setattr(config, "ADMIN_PASSWORD_HASH", "")
+    client.cookies.clear()
+    for pw in ("admin123", "", admin_password()):
+        r = client.post("/api/admin/login", json={"username": "admin", "password": pw})
+        assert r.status_code == 403
+        assert r.json()["setup_required"] is True
+        assert "set_admin_password" in r.json()["message"]
+        assert "admin_token" not in r.cookies
