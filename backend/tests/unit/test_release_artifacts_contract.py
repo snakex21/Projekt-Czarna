@@ -88,6 +88,25 @@ def test_ci_installs_browser_test_dependencies():
     assert "python -m playwright install chromium" in workflow
 
 
+def test_dependencies_are_pinned_by_lock_files():
+    """Wersje są przypięte (lock) i CI instaluje oraz audytuje dokładnie je."""
+    for name in ("requirements-lock.txt", "requirements-test-lock.txt"):
+        lines = [
+            line.split("#")[0].strip()
+            for line in _read(name).splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        assert lines, f"{name} jest pusty"
+        unpinned = [line for line in lines if "==" not in line]
+        assert not unpinned, f"{name}: nieprzypięte wpisy {unpinned}"
+    lock = _read("requirements-lock.txt").lower()
+    for package in ("fastapi==", "starlette==", "uvicorn==", "werkzeug==", "sqlalchemy=="):
+        assert package in lock
+    workflow = _read(".github/workflows/ci.yml")
+    assert "-c requirements-test-lock.txt" in workflow
+    assert "pip-audit -r requirements-test-lock.txt" in workflow
+
+
 def test_readme_documents_setup_security_and_seed():
     text = _read("README.md")
     for phrase in (
